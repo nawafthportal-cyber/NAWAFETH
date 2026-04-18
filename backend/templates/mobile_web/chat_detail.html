@@ -146,7 +146,7 @@
                 <path d="M16.5 6.5l-7.8 7.79a3 3 0 104.24 4.24l8.49-8.49a5 5 0 10-7.07-7.07L5.5 11.83a7 7 0 109.9 9.9l7.07-7.07-1.41-1.41-7.07 7.07a5 5 0 11-7.07-7.07l8.86-8.86a3 3 0 114.24 4.24l-8.48 8.49a1 1 0 11-1.42-1.42l7.78-7.78-1.4-1.42z"/>
               </svg>
             </button>
-            <textarea id="msg-input" class="chat-msg-input" placeholder="اكتب رسالة..." rows="1" maxlength="2000"></textarea>
+            <textarea id="msg-input" class="chat-msg-input" placeholder="اكتب رسالة..." rows="2" maxlength="2000"></textarea>
             <button class="chat-send-btn" id="btn-send" type="button" aria-label="إرسال الرسالة" title="إرسال الرسالة">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
@@ -220,5 +220,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/chatDetailPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/chatDetailPage.js' %}?v=20260418-direct-return1"></script>
 {% endblock %}

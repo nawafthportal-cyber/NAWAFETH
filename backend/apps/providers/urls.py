@@ -32,6 +32,7 @@ from .views import (
     ProviderListView,
     ProviderPortfolioListView,
     ProviderPublicStatsView,
+    RecordProviderContentShareView,
     RegionCityCatalogView,
     ProviderSpotlightListView,
     ProviderSpotlightFeedView,
@@ -86,6 +87,7 @@ urlpatterns = [
     path("spotlights/<int:item_id>/unlike/", UnlikeSpotlightItemView.as_view(), name="spotlight_unlike"),
     path("spotlights/<int:item_id>/save/", SaveSpotlightItemView.as_view(), name="spotlight_save"),
     path("spotlights/<int:item_id>/unsave/", UnsaveSpotlightItemView.as_view(), name="spotlight_unsave"),
+    path("<int:provider_id>/share/", RecordProviderContentShareView.as_view(), name="share"),
     path("<int:pk>/", ProviderDetailView.as_view(), name="provider_detail"),
     path("register/", ProviderCreateView.as_view(), name="provider_register"),
 

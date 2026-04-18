@@ -11,6 +11,7 @@ import '../models/service_provider_location.dart';
 import '../services/api_client.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
+import '../constants/saudi_cities.dart';
 import '../constants/colors.dart';
 import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/verified_badge_view.dart';
@@ -574,9 +575,15 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen>
         .toList();
 
     if (city.isNotEmpty) {
-      final cityNorm = _norm(city);
+      final cityNorm = _norm(SaudiCities.normalizeScopedCity(city));
       _providers = _providers
-        .where((p) => _norm(p.city) == cityNorm)
+        .where((p) {
+          final providerScoped = SaudiCities.normalizeScopedCity(
+            p.city,
+            region: SaudiCities.splitCityScope(p.cityDisplay)['region'],
+          );
+          return _norm(providerScoped) == cityNorm || _norm(p.cityDisplay) == cityNorm;
+        })
         .toList();
     }
 

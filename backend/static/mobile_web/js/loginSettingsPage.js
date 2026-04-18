@@ -109,22 +109,27 @@ const LoginSettingsPage = (() => {
   }
 
   async function _loadProfile() {
-    const res = await ApiClient.get(_withMode("/api/accounts/me/"));
-    if (res.status === 401) {
-      window.location.href = "/login/?next=" + encodeURIComponent(window.location.pathname);
+    const resolved = await Auth.resolveProfile(true, _mode);
+    if (!resolved.ok) {
+      if (!Auth.isLoggedIn()) {
+        window.location.href = "/login/?next=" + encodeURIComponent(window.location.pathname);
+        return;
+      }
+      _notify("تعذر التحقق من بيانات الجلسة الآن. حاول مرة أخرى بعد لحظة.", "error");
       return;
     }
 
-    if (res.ok && res.data) {
-      _profile = res.data;
-      _mode = _resolveMode(_profile);
-      _saveMode(_mode);
-      _clearCachedProfile();
-      _renderProfile();
-      return;
+    _profile = resolved.profile;
+    _mode = _resolveMode(_profile);
+    if (resolved.mode) {
+      _mode = resolved.mode;
     }
-
-    _notify("تعذر تحميل بيانات الحساب حاليًا.", "error");
+    _saveMode(_mode);
+    _clearCachedProfile();
+    _renderProfile();
+    if (resolved.recovered) {
+      _showInlineAlert("تمت مزامنة نوع الحساب الحالي تلقائيًا للحفاظ على جلستك.", "info", 3600);
+    }
   }
 
   function _openModal(action) {

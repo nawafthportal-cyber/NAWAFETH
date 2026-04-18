@@ -934,7 +934,7 @@ const ChatDetailPage = (() => {
 
     const helperText = _trim(value.replace(rawUrl, '').replace(/\s+/g, ' '));
     return {
-      href: '/service-request/?provider_id=' + encodeURIComponent(String(providerId)),
+      href: '/service-request/?provider_id=' + encodeURIComponent(String(providerId)) + '&return_to=' + encodeURIComponent(window.location.pathname + window.location.search),
       helperText,
     };
   }
@@ -1018,8 +1018,10 @@ const ChatDetailPage = (() => {
 
   function _autoGrowInput() {
     if (!dom.msgInput) return;
+    const computed = window.getComputedStyle(dom.msgInput);
+    const maxHeight = Number.parseFloat(computed.maxHeight) || 180;
     dom.msgInput.style.height = 'auto';
-    dom.msgInput.style.height = Math.min(dom.msgInput.scrollHeight, 120) + 'px';
+    dom.msgInput.style.height = Math.min(dom.msgInput.scrollHeight, maxHeight) + 'px';
   }
 
   function _updateSendButtonState() {

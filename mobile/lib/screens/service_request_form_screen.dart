@@ -40,6 +40,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   final _titleController = TextEditingController();
   final _detailsController = TextEditingController();
   late final AnimationController _entranceController;
+  String? _selectedRegion;
   String? _selectedCity;
 
   // ─── نوع الطلب ───
@@ -114,6 +115,16 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     final subs = cat['subcategories'];
     if (subs == null) return [];
     return (subs as List).cast<Map<String, dynamic>>();
+  }
+
+  SaudiRegionCatalogEntry? get _activeRegion {
+    return SaudiCities.findRegionEntry(_selectedRegion);
+  }
+
+  List<String> get _availableCities => _activeRegion?.cities ?? const [];
+
+  String get _selectedScopedCity {
+    return SaudiCities.normalizeScopedCity(_selectedCity, region: _selectedRegion);
   }
 
   // ─── المرفقات ───
@@ -299,7 +310,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       return;
     }
 
-    final city = _selectedCity ?? '';
+    final city = _selectedScopedCity;
 
     // الطلب العادي يحتاج provider
     int? providerId;
@@ -466,11 +477,34 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                     child: Column(
                       children: [
                         DropdownButtonFormField<String>(
+                          initialValue: _selectedRegion,
+                          decoration: _inputDeco(hint: 'اختر المنطقة الإدارية'),
+                          isExpanded: true,
+                          menuMaxHeight: 300,
+                          items: SaudiCities.regionCatalogFallback
+                              .map((region) => DropdownMenuItem(
+                                    value: region.nameAr,
+                                    child: Text(
+                                      region.displayName,
+                                      style: const TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 12.5,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                          onChanged: (value) => setState(() {
+                            _selectedRegion = value;
+                            _selectedCity = null;
+                          }),
+                        ),
+                        const SizedBox(height: 10),
+                        DropdownButtonFormField<String>(
                           initialValue: _selectedCity,
                           decoration: _inputDeco(hint: 'اختر المدينة (اختياري)'),
                           isExpanded: true,
                           menuMaxHeight: 300,
-                          items: SaudiCities.all
+                          items: _availableCities
                               .map((city) => DropdownMenuItem(
                                     value: city,
                                     child: Text(
@@ -484,12 +518,15 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                               .toList(),
                           onChanged: (value) => setState(() => _selectedCity = value),
                         ),
-                        if (_selectedCity != null) ...[
+                        if (_selectedScopedCity.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton.icon(
-                              onPressed: () => setState(() => _selectedCity = null),
+                              onPressed: () => setState(() {
+                                _selectedRegion = null;
+                                _selectedCity = null;
+                              }),
                               icon: const Icon(Icons.close_rounded, size: 16),
                               label: const Text(
                                 'إلغاء اختيار المدينة',
@@ -1204,8 +1241,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                       icon: Icons.account_tree_outlined,
                       label: _selectedSubcategoryName!,
                     ),
-                  if (_selectedCity != null)
-                    _buildHeroChip(icon: Icons.location_on_outlined, label: _selectedCity!),
+                  if (_selectedScopedCity.isNotEmpty)
+                    _buildHeroChip(icon: Icons.location_on_outlined, label: _selectedScopedCity),
                   if (_attachmentsCount > 0)
                     _buildHeroChip(icon: Icons.attach_file_rounded, label: '$_attachmentsCount مرفقات'),
                 ],

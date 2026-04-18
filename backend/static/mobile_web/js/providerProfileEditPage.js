@@ -3,6 +3,9 @@ var ProviderProfileEditPage = (function () {
   var RAW_API = window.ApiClient;
   var API = window.NwApiClient;
   var CITIES = ["الرياض","جدة","مكة المكرمة","المدينة المنورة","الدمام","الخبر","الظهران","الطائف","تبوك","بريدة","عنيزة","حائل","أبها","خميس مشيط","نجران","جازان","ينبع","الباحة","الجبيل","حفر الباطن","القطيف","الأحساء","سكاكا","عرعر","بيشة","الخرج","الدوادمي","المجمعة","القويعية","وادي الدواسر"];
+  var REGION_CATALOG = UI && typeof UI.getRegionCatalogFallback === "function"
+    ? UI.getRegionCatalogFallback()
+    : [];
   var CITY_COORDINATES = {
     "الرياض": [24.7136, 46.6753],
     "جدة": [21.5433, 39.1728],
@@ -215,7 +218,7 @@ var ProviderProfileEditPage = (function () {
       ] },
       { key: "mobilePhone", label: "رقم الجوال", icon: "phone", hint: "رقم الجوال المرتبط بتسجيل الدخول. لتغييره اذهب إلى إعدادات الحساب.", readOnly: true },
       { key: "about", label: "نبذة عنك", icon: "info", hint: "تعريف مختصر بك أو بجهتك كما يراه العميل.", multiline: true, wide: true },
-      { key: "location", label: "المدينة", icon: "location", hint: "اختر المدينة الأساسية التي تعمل منها.", isCity: true },
+      { key: "location", label: "المنطقة الإدارية - المدينة", icon: "location", hint: "اختر المنطقة الإدارية ثم المدينة الأساسية التي تعمل منها.", isCity: true },
       { key: "accountEmail", label: "البريد الإلكتروني", icon: "email", hint: "البريد الإلكتروني الأساسي المرتبط بحسابك.", inputType: "email", inputMode: "email", placeholder: "name@example.com", dir: "ltr", autocomplete: "email" }
     ],
     general: [
@@ -398,8 +401,67 @@ var ProviderProfileEditPage = (function () {
     return Number.isFinite(Number(profile && profile.latitude)) && Number.isFinite(Number(profile && profile.longitude));
   }
 
+  function splitLocationScope(value, region) {
+    var scope = UI && typeof UI.splitCityScope === "function"
+      ? UI.splitCityScope(value)
+      : { region: "", city: String(value || "").trim() };
+    var city = String((scope && scope.city) || value || "").trim();
+    var resolvedRegion = String(region || (scope && scope.region) || "").trim();
+    if (!resolvedRegion && UI && typeof UI.inferRegionByCity === "function") {
+      var inferred = UI.inferRegionByCity(city);
+      resolvedRegion = inferred && inferred.nameAr ? inferred.nameAr : "";
+    }
+    return { region: resolvedRegion, city: city };
+  }
+
+  function formatLocationDisplay(city, region) {
+    if (UI && typeof UI.formatCityDisplay === "function") {
+      return UI.formatCityDisplay(city, region);
+    }
+    return String(city || "").trim();
+  }
+
+  function buildLocationOptions(options, selectedValue, placeholder) {
+    return ['<option value="">' + escapeHtml(placeholder) + '</option>'].concat(
+      options.map(function (item) {
+        var value = typeof item === "string" ? item : item.nameAr;
+        var label = typeof item === "string" ? item : (item.displayName || item.nameAr);
+        return '<option value="' + escapeHtml(value) + '"' + (String(value) === String(selectedValue || "") ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+      })
+    ).join("");
+  }
+
+  function populateLocationCityOptions(field, nextCityValue) {
+    if (!field) return;
+    var regionSelect = field.querySelector('.pe-location-region');
+    var citySelect = field.querySelector('.pe-location-city');
+    if (!regionSelect || !citySelect) return;
+    var selectedRegion = String(regionSelect.value || "").trim();
+    var regionEntry = UI && typeof UI.findRegionEntry === "function"
+      ? UI.findRegionEntry(selectedRegion)
+      : null;
+    var options = regionEntry && Array.isArray(regionEntry.cities) ? regionEntry.cities : [];
+    citySelect.innerHTML = buildLocationOptions(options, nextCityValue, 'اختر المدينة');
+    citySelect.disabled = !selectedRegion;
+  }
+
+  function buildLocationFieldEditor() {
+    var scope = splitLocationScope(profile && profile.location, profile && profile.locationRegion);
+    var regions = Array.isArray(REGION_CATALOG) ? REGION_CATALOG : [];
+    var regionOptions = buildLocationOptions(regions, scope.region, 'اختر المنطقة الإدارية');
+    var regionEntry = UI && typeof UI.findRegionEntry === "function"
+      ? UI.findRegionEntry(scope.region)
+      : null;
+    var cityOptions = buildLocationOptions(regionEntry && Array.isArray(regionEntry.cities) ? regionEntry.cities : [], scope.city, 'اختر المدينة');
+    return '<div class="pe-location-grid">' +
+      '<select class="form-select pe-location-region" data-key="location-region">' + regionOptions + '</select>' +
+      '<select class="form-select pe-input pe-location-city" data-key="location"' + (scope.region ? '' : ' disabled') + '>' + cityOptions + '</select>' +
+    '</div>';
+  }
+
   function getCityCenter(city) {
-    var center = CITY_COORDINATES[String(city || "").trim()];
+    var scope = splitLocationScope(city);
+    var center = CITY_COORDINATES[String(scope.city || "").trim()];
     return Array.isArray(center) ? center.slice() : DEFAULT_CITY_CENTER.slice();
   }
 
@@ -1107,7 +1169,7 @@ var ProviderProfileEditPage = (function () {
     var contactLines = [];
     if (phone) contactLines.push("الجوال: " + phone);
     if (profile.phone) contactLines.push("واتساب: " + profile.phone);
-    if (profile.location) contactLines.push("المدينة: " + profile.location);
+    if (profile.location) contactLines.push("المنطقة والمدينة: " + profile.location);
     if (email) contactLines.push("البريد: " + email);
 
     return '<div class="pe-summary-grid">' +
@@ -1343,6 +1405,12 @@ var ProviderProfileEditPage = (function () {
 
   function setFieldValue(key, value) {
     profile[key] = value === null || value === undefined ? "" : String(value);
+    if (key === "location") {
+      var scope = splitLocationScope(profile[key], profile && profile.locationRegion);
+      profile.locationRegion = scope.region;
+      profile.locationCity = scope.city;
+      profile.location = formatLocationDisplay(scope.city, scope.region);
+    }
     var field = document.querySelector('.pe-field[data-key="' + key + '"]');
     if (!field) {
       if (isSeoFieldKey(key)) {
@@ -1368,7 +1436,7 @@ var ProviderProfileEditPage = (function () {
 
     if (key === "location") {
       var cityLabel = document.querySelector(".pe-map-city");
-      if (cityLabel) cityLabel.textContent = "المدينة الحالية: " + (profile.location || "غير محددة");
+      if (cityLabel) cityLabel.textContent = "المنطقة الحالية: " + (profile.location || "غير محددة");
       centerServiceMapOnCity(!hasPreciseCoordinates());
     }
 
@@ -1442,6 +1510,7 @@ var ProviderProfileEditPage = (function () {
       var prov = provResp.data || {};
       var languageState = extractLanguageState(prov.languages);
       var socialState = extractSocialState(prov.social_links);
+      var locationScope = splitLocationScope(prov.city_display || prov.city || "", prov.region || "");
       userProfile = user;
       myServices = servicesResp.ok && servicesResp.data ? extractList(servicesResp.data) : [];
       profile = {
@@ -1456,7 +1525,9 @@ var ProviderProfileEditPage = (function () {
         languageEnglish: !!languageState.english,
         languageOther: !!languageState.other,
         languageOtherText: languageState.otherText || "",
-        location: prov.city || "",
+        location: formatLocationDisplay(locationScope.city, locationScope.region),
+        locationRegion: locationScope.region,
+        locationCity: locationScope.city,
         coverageRadius: prov.coverage_radius_km === null || prov.coverage_radius_km === undefined ? "" : String(prov.coverage_radius_km),
         latitude: formatCoord(prov.lat),
         longitude: formatCoord(prov.lng),
@@ -1553,7 +1624,7 @@ var ProviderProfileEditPage = (function () {
       '<div class="pe-map-caption">' + escapeHtml(f.hint || '') + '</div>' +
       '<div class="pe-service-map" id="pe-service-map"></div>' +
       '<div class="pe-map-meta">' +
-        '<span class="pe-map-city">المدينة الحالية: ' + escapeHtml(profile.location || 'غير محددة') + '</span>' +
+        '<span class="pe-map-city">المنطقة الحالية: ' + escapeHtml(profile.location || 'غير محددة') + '</span>' +
         '<span class="pe-map-coords" id="pe-service-map-coords">' + (hasPreciseCoordinates() ? (escapeHtml(String(profile.latitude)) + ' ، ' + escapeHtml(String(profile.longitude))) : 'لم يتم تحديد الموقع بعد') + '</span>' +
       '</div>' +
       '<div class="pe-field-actions has-secondary">' +
@@ -1621,7 +1692,7 @@ var ProviderProfileEditPage = (function () {
       '<div class="pe-field-display">' + displayValue(val, f) + '</div>' +
       (f.key === "mobilePhone" ? '<div class="pe-field-readonly-action"><a href="/login-settings/" class="pe-inline-link">تغيير رقم الجوال ←</a></div>' : '') +
       (!f.readOnly ? '<div class="pe-field-edit" style="display:none">' +
-        (f.isCity ? '<select class="form-select pe-input" data-key="' + f.key + '"><option value="">اختر المدينة</option>' + CITIES.map(function (c) { return '<option' + (c === val ? ' selected' : '') + '>' + c + '</option>'; }).join("") + '</select>'
+        (f.isCity ? buildLocationFieldEditor()
           : f.isChoice ? '<select class="form-select pe-input" data-key="' + f.key + '">' + (Array.isArray(f.options) ? f.options.map(function (option) { return '<option value="' + escapeHtml(option.value) + '"' + (String(option.value) === String(val) ? ' selected' : '') + '>' + escapeHtml(option.label) + '</option>'; }).join("") : "") + '</select>'
           : f.multiline ? '<textarea class="form-input form-textarea pe-input" rows="4"' + attrs + '>' + safeVal + '</textarea>'
           : '<input type="' + (f.inputType || "text") + '" class="form-input pe-input"' + attrs + ' value="' + safeVal + '">') +
@@ -1642,6 +1713,12 @@ var ProviderProfileEditPage = (function () {
     });
     document.querySelectorAll(".pe-save-btn").forEach(function (btn) {
       btn.addEventListener("click", function () { saveField(this.dataset.key, this); });
+    });
+    document.querySelectorAll(".pe-location-region").forEach(function (select) {
+      select.addEventListener("change", function () {
+        var field = select.closest('.pe-field[data-key="location"]');
+        populateLocationCityOptions(field, "");
+      });
     });
     document.querySelectorAll('.pe-input[data-key="phone"], .pe-input[data-key="mobilePhone"]').forEach(function (input) {
       input.addEventListener("input", function () {
@@ -1788,6 +1865,21 @@ var ProviderProfileEditPage = (function () {
     var nextValue = val;
     var payload = {};
 
+    if (key === "location") {
+      var fieldNode = document.querySelector('.pe-field[data-key="location"]');
+      var regionInput = fieldNode ? fieldNode.querySelector('.pe-location-region') : null;
+      var cityInput = fieldNode ? fieldNode.querySelector('.pe-location-city') : null;
+      var regionValue = regionInput ? String(regionInput.value || "").trim() : "";
+      var cityValue = cityInput ? String(cityInput.value || "").trim() : "";
+      if ((regionValue && !cityValue) || (!regionValue && cityValue)) {
+        alert("اختر المنطقة الإدارية والمدينة معًا");
+        return;
+      }
+      payload.region = regionValue || null;
+      payload.city = cityValue || null;
+      nextValue = formatLocationDisplay(cityValue, regionValue);
+    } else {
+
     switch (apiKey) {
       case "years_experience": payload[apiKey] = parseInt(val.replace(/[^\d]/g, "")) || 0; break;
       case "provider_type":
@@ -1924,6 +2016,7 @@ var ProviderProfileEditPage = (function () {
         break;
       default: payload[apiKey] = val;
     }
+    }
 
     btn.disabled = true; btn.textContent = "جاري الحفظ...";
     var saveRequest = (key === "mobilePhone" || key === "accountEmail")
@@ -1956,6 +2049,10 @@ var ProviderProfileEditPage = (function () {
         profile.longitude = formatCoord(payload.lng);
         updateServiceLocationDraft(payload.lat, payload.lng);
         updateServiceRadiusPreview(getServiceRadiusKm());
+      }
+      if (key === "location") {
+        profile.locationRegion = payload.region || "";
+        profile.locationCity = payload.city || "";
       }
       if (key === "coverageRadius") {
         profile.coverageRadius = nextValue;

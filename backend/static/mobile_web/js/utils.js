@@ -38,6 +38,122 @@ const UI = (() => {
     return _cleanText(value).replace(/^(?:منطقة|المنطقة)\s+/, '').trim();
   }
 
+  function splitCityScope(value) {
+    const normalized = _cleanText(value);
+    if (!normalized) {
+      return { region: '', city: '' };
+    }
+    const parts = normalized.split(' - ');
+    if (parts.length < 2) {
+      return { region: '', city: normalized };
+    }
+    return {
+      region: _stripRegionPrefix(parts.shift()),
+      city: _cleanText(parts.join(' - ')),
+    };
+  }
+
+  function normalizeRegionCatalog(rows) {
+    if (!Array.isArray(rows)) return [];
+
+    return rows
+      .map((row) => {
+        const rawRegion = _cleanText((row && (row.name_ar || row.name || row.region)) || '');
+        const region = _stripRegionPrefix(rawRegion);
+        const citiesRaw = Array.isArray(row && row.cities) ? row.cities : [];
+        const cities = citiesRaw
+          .map((cityRow) => {
+            if (typeof cityRow === 'string') return _cleanText(cityRow);
+            return _cleanText(cityRow && (cityRow.name_ar || cityRow.name || cityRow.city));
+          })
+          .filter(Boolean);
+        if (!region || !cities.length) return null;
+        return {
+          value: rawRegion || region,
+          region,
+          cities: Array.from(new Set(cities)),
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => left.region.localeCompare(right.region, 'ar'));
+  }
+
+  function getRegionCatalogFallback() {
+    return normalizeRegionCatalog(REGION_CITY_FALLBACK);
+  }
+
+  function findRegionEntry(catalog, regionValue) {
+    const normalized = _cleanText(regionValue);
+    if (!normalized || !Array.isArray(catalog)) return null;
+    return catalog.find((entry) => (
+      entry && (
+        _cleanText(entry.value) === normalized ||
+        _cleanText(entry.region) === _stripRegionPrefix(normalized)
+      )
+    )) || null;
+  }
+
+  function inferRegionByCity(city) {
+    const cityText = _cleanText(city);
+    if (!cityText) return '';
+    const scope = splitCityScope(cityText);
+    if (scope.region) return scope.region;
+    return CITY_TO_REGION[scope.city || cityText] || '';
+  }
+
+  function populateRegionOptions(selectEl, catalog, options) {
+    if (!selectEl) return;
+    const opts = options || {};
+    const currentValue = _cleanText(opts.currentValue);
+    const placeholderLabel = String(opts.placeholder || 'اختر المنطقة الإدارية');
+    selectEl.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = placeholderLabel;
+    selectEl.appendChild(placeholder);
+
+    (Array.isArray(catalog) ? catalog : []).forEach((entry) => {
+      const option = document.createElement('option');
+      option.value = entry.value || entry.region;
+      option.textContent = entry.region;
+      selectEl.appendChild(option);
+    });
+
+    const matched = findRegionEntry(catalog, currentValue);
+    if (matched) {
+      selectEl.value = matched.value || matched.region;
+    }
+  }
+
+  function populateCityOptions(selectEl, catalog, regionValue, options) {
+    if (!selectEl) return;
+    const opts = options || {};
+    const regionEntry = findRegionEntry(catalog, regionValue);
+    const selectedCity = _cleanText(opts.currentValue);
+    selectEl.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = regionEntry
+      ? String(opts.placeholder || 'اختر المدينة')
+      : String(opts.emptyPlaceholder || 'اختر المنطقة أولًا');
+    selectEl.appendChild(placeholder);
+    selectEl.disabled = !regionEntry;
+
+    if (!regionEntry) return;
+    regionEntry.cities.forEach((cityName) => {
+      const option = document.createElement('option');
+      option.value = cityName;
+      option.textContent = cityName;
+      selectEl.appendChild(option);
+    });
+
+    if (selectedCity && regionEntry.cities.indexOf(selectedCity) >= 0) {
+      selectEl.value = selectedCity;
+    }
+  }
+
   function formatCityDisplay(city, region) {
     const cityText = _cleanText(city);
     const regionText = _stripRegionPrefix(region);
@@ -258,5 +374,87 @@ const UI = (() => {
     return wrap;
   }
 
-  return { el, text, icon, categoryIconKey, lazyImg, normalizeExcellenceBadges, buildExcellenceBadges, formatCityDisplay };
+  function createSubmitOverlay(options) {
+    const opts = options || {};
+    let overlay = null;
+    let titleEl = null;
+    let messageEl = null;
+
+    function ensure() {
+      if (overlay) return;
+
+      titleEl = el('strong', {
+        className: 'nw-submit-overlay-title',
+        textContent: String(opts.title || 'جاري إرسال الطلب'),
+      });
+      messageEl = el('p', {
+        className: 'nw-submit-overlay-message',
+        textContent: String(opts.message || 'يرجى الانتظار حتى تكتمل العملية.'),
+      });
+
+      const spinnerWrap = el('div', { className: 'nw-submit-overlay-spinner-wrap', 'aria-hidden': 'true' }, [
+        el('span', { className: 'spinner-inline nw-submit-overlay-spinner' }),
+      ]);
+      const copy = el('div', { className: 'nw-submit-overlay-copy' }, [titleEl, messageEl]);
+      const card = el('div', { className: 'nw-submit-overlay-card', role: 'status' }, [spinnerWrap, copy]);
+      overlay = el('div', {
+        className: 'nw-submit-overlay hidden',
+        'aria-live': 'polite',
+        'aria-atomic': 'true',
+      }, [card]);
+      document.body.appendChild(overlay);
+    }
+
+    function applyState(state) {
+      const next = state || {};
+      if (titleEl) titleEl.textContent = String(next.title || opts.title || 'جاري إرسال الطلب');
+      if (messageEl) messageEl.textContent = String(next.message || opts.message || 'يرجى الانتظار حتى تكتمل العملية.');
+    }
+
+    function show(state) {
+      ensure();
+      applyState(state);
+      overlay.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        if (overlay) overlay.classList.add('visible');
+      });
+      document.body.classList.add('nw-submit-overlay-open');
+    }
+
+    function update(state) {
+      if (!overlay || overlay.classList.contains('hidden')) {
+        show(state);
+        return;
+      }
+      applyState(state);
+    }
+
+    function hide() {
+      if (!overlay) return;
+      overlay.classList.remove('visible');
+      overlay.classList.add('hidden');
+      document.body.classList.remove('nw-submit-overlay-open');
+    }
+
+    return { show, update, hide };
+  }
+
+  return {
+    el,
+    text,
+    icon,
+    categoryIconKey,
+    lazyImg,
+    normalizeExcellenceBadges,
+    buildExcellenceBadges,
+    formatCityDisplay,
+    splitCityScope,
+    normalizeRegionCatalog,
+    getRegionCatalogFallback,
+    findRegionEntry,
+    inferRegionByCity,
+    populateRegionOptions,
+    populateCityOptions,
+    createSubmitOverlay,
+  };
 })();

@@ -62,6 +62,19 @@ const ProviderDetailPage = (() => {
     _loadAll();
   }
 
+  async function _trackProviderShare(channel) {
+    if (!_providerId || !window.ApiClient || typeof ApiClient.request !== 'function') return;
+    try {
+      await ApiClient.request('/api/providers/' + encodeURIComponent(String(_providerId)) + '/share/', {
+        method: 'POST',
+        body: {
+          content_type: 'profile',
+          channel: channel || 'other',
+        },
+      });
+    } catch (_) {}
+  }
+
   /* ── Tabs ── */
   function _bindTabs() {
     const tabsRoot = document.getElementById('pd-tabs');
@@ -623,7 +636,7 @@ const ProviderDetailPage = (() => {
     const providerTypeLabel = _pickFirstText(p.provider_type_label, p.providerTypeLabel);
     const whatsappRaw = _pickFirstText(p.whatsapp, p.phone, p.phone_number, p.phoneNumber);
     const websiteRaw = String(p.website || '').trim();
-    const cityText = _displayOrUnavailable(UI.formatCityDisplay(p.city_display || p.city, p.region || p.region_name), unavailable);
+    const cityText = _displayOrUnavailable(_resolveProviderCityDisplay(p), unavailable);
     const experienceText = p.years_experience ? p.years_experience + ' سنوات' : unavailable;
     const serviceRangeText = _resolveServiceRangeKm(p) + ' كم';
     const socialCard = document.getElementById('pd-social-card');
@@ -686,6 +699,13 @@ const ProviderDetailPage = (() => {
         emptyEl.classList.remove('hidden');
       }
     }
+  }
+
+  function _resolveProviderCityDisplay(provider) {
+    return UI.formatCityDisplay(
+      _pickFirstText(provider && provider.city_display, provider && provider.city),
+      _pickFirstText(provider && (provider.region || provider.region_name))
+    );
   }
 
   async function _openConnectionsSheet(kind) {
@@ -844,6 +864,7 @@ const ProviderDetailPage = (() => {
     });
     copyBtn.addEventListener('click', async () => {
       const copied = await _copyToClipboard(providerLink);
+      if (copied) await _trackProviderShare('copy_link');
       closeSheet();
       _showToast(copied ? 'تم نسخ الرابط' : 'تعذر نسخ الرابط');
     });
@@ -861,6 +882,7 @@ const ProviderDetailPage = (() => {
             text: providerName,
             url: providerLink,
           });
+          await _trackProviderShare('other');
           closeSheet();
           _showToast('تمت مشاركة الرابط');
           return;
@@ -869,6 +891,7 @@ const ProviderDetailPage = (() => {
         }
       }
       const copied = await _copyToClipboard(providerLink);
+      if (copied) await _trackProviderShare('copy_link');
       closeSheet();
       _showToast(copied ? 'تم نسخ الرابط' : 'تعذر مشاركة الرابط');
     });

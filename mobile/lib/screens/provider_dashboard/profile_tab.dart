@@ -33,6 +33,8 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
   final Map<String, String> data = {};
   final Map<String, bool> isEditing = {};
   final Map<String, TextEditingController> controllers = {};
+  String? _locationRegionDraft;
+  String? _locationCityDraft;
 
   // ────── ربط مفاتيح الحقول بحقول الـ API ──────
   static const Map<String, String> _fieldToApiKey = {
@@ -160,6 +162,24 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
       }
       isEditing[entry.key] = false;
     }
+    _syncLocationDraft(profile: p);
+  }
+
+  void _syncLocationDraft({ProviderProfileModel? profile, String? displayValue}) {
+    final sourceProfile = profile ?? _providerProfile;
+    final scope = SaudiCities.splitCityScope(
+      displayValue ?? sourceProfile?.locationDisplay ?? sourceProfile?.city,
+    );
+    final resolvedRegion = SaudiCities.findRegionForCity(
+      sourceProfile?.city ?? scope['city'],
+      region: sourceProfile?.region ?? scope['region'],
+    );
+    _locationRegionDraft = resolvedRegion?.nameAr;
+    _locationCityDraft = (scope['city'] ?? '').trim().isNotEmpty
+        ? scope['city']!.trim()
+        : (sourceProfile?.city ?? '').trim().isNotEmpty
+            ? sourceProfile!.city.trim()
+            : null;
   }
 
   String _providerTypeLabel(String type) {
@@ -183,6 +203,18 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     final value = controllers[key]?.text.trim() ?? '';
 
     Map<String, dynamic> payload = {};
+    if (key == 'location') {
+      final region = _locationRegionDraft?.trim() ?? '';
+      final city = _locationCityDraft?.trim() ?? '';
+      if ((region.isEmpty && city.isNotEmpty) || (region.isNotEmpty && city.isEmpty)) {
+        _showSnack('اختر المنطقة الإدارية والمدينة معًا', isError: true);
+        return;
+      }
+      payload = {
+        'region': region.isEmpty ? null : region,
+        'city': city.isEmpty ? null : city,
+      };
+    } else {
     switch (apiKey) {
       case 'years_experience':
         final parsed = int.tryParse(value.replaceAll(RegExp(r'[^\d]'), ''));
@@ -219,6 +251,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
         break;
       default:
         payload[apiKey] = value;
+    }
     }
 
     setState(() => _isSaving = true);
@@ -466,10 +499,22 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
                           ),
                           onPressed: () {
                             if (editing) {
-                              data[key] = controllers[key]!.text;
+                              if (key == 'location') {
+                                final locationValue = SaudiCities.formatCityDisplay(
+                                  _locationCityDraft,
+                                  region: _locationRegionDraft,
+                                );
+                                controllers[key]!.text = locationValue;
+                                data[key] = locationValue;
+                              } else {
+                                data[key] = controllers[key]!.text;
+                              }
                               _saveField(key);
                             }
                             setState(() {
+                              if (!editing && key == 'location') {
+                                _syncLocationDraft(displayValue: controllers[key]?.text);
+                              }
                               isEditing[key] = !editing;
                             });
                           },
@@ -479,38 +524,70 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
             const SizedBox(height: 12),
             editing
                 ? (key == 'location'
-                    ? DropdownButtonFormField<String>(
-                        initialValue: SaudiCities.all.contains(controllers[key]?.text)
-                            ? controllers[key]!.text
-                            : null,
-                        decoration: InputDecoration(
-                          hintText: 'اختر المدينة',
-                          hintStyle: const TextStyle(fontFamily: 'Cairo'),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: mainColor),
+                    ? Column(
+                        children: [
+                          DropdownButtonFormField<String>(
+                            initialValue: _locationRegionDraft,
+                            decoration: InputDecoration(
+                              hintText: 'اختر المنطقة الإدارية',
+                              hintStyle: const TextStyle(fontFamily: 'Cairo'),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: mainColor),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              isDense: true,
+                              contentPadding: const EdgeInsets.all(12),
+                            ),
+                            isExpanded: true,
+                            menuMaxHeight: 300,
+                            items: SaudiCities.regionCatalogFallback
+                                .map((region) => DropdownMenuItem(
+                                      value: region.nameAr,
+                                      child: Text(region.displayName,
+                                          style: const TextStyle(fontFamily: 'Cairo')),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _locationRegionDraft = value;
+                                _locationCityDraft = null;
+                              });
+                            },
                           ),
-                          filled: true,
-                          fillColor: Colors.grey[100],
-                          isDense: true,
-                          contentPadding: const EdgeInsets.all(12),
-                        ),
-                        isExpanded: true,
-                        menuMaxHeight: 300,
-                        items: SaudiCities.all
-                            .map((city) => DropdownMenuItem(
-                                  value: city,
-                                  child: Text(city,
-                                      style: const TextStyle(fontFamily: 'Cairo')),
-                                ))
-                            .toList(),
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() {
-                              controllers[key]!.text = v;
-                            });
-                          }
-                        },
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<String>(
+                            key: ValueKey(_locationRegionDraft ?? 'location-city'),
+                            initialValue: _locationCityDraft,
+                            decoration: InputDecoration(
+                              hintText: 'اختر المدينة',
+                              hintStyle: const TextStyle(fontFamily: 'Cairo'),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: mainColor),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[100],
+                              isDense: true,
+                              contentPadding: const EdgeInsets.all(12),
+                            ),
+                            isExpanded: true,
+                            menuMaxHeight: 300,
+                            items: (SaudiCities.findRegionEntry(_locationRegionDraft)?.cities ?? const <String>[])
+                                .map((city) => DropdownMenuItem(
+                                      value: city,
+                                      child: Text(city,
+                                          style: const TextStyle(fontFamily: 'Cairo')),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _locationCityDraft = value;
+                              });
+                            },
+                          ),
+                        ],
                       )
                     : TextField(
                         controller: controllers[key],

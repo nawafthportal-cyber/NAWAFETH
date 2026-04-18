@@ -505,7 +505,7 @@
   }
 
   body.mobile-web-parity.page-chat-detail .chat-input-bar {
-    padding: 14px 16px 16px;
+    padding: 16px 18px 18px;
     gap: 12px;
   }
 
@@ -515,10 +515,10 @@
   }
 
   body.mobile-web-parity.page-chat-detail .chat-msg-input {
-    min-height: 52px;
-    max-height: 180px;
-    padding-top: 14px;
-    padding-bottom: 14px;
+    min-height: 68px;
+    max-height: 220px;
+    padding-top: 16px;
+    padding-bottom: 16px;
   }
 }
 

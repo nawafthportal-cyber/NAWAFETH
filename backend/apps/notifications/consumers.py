@@ -18,6 +18,13 @@ def _ws_setting(name: str, default: int) -> int:
 
 
 class NotificationConsumer(AsyncJsonWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # These attributes are referenced in disconnect() even when connect()
+        # exits early (e.g., rejected auth), so initialize defensively.
+        self._heartbeat_task: asyncio.Task | None = None
+        self._last_pong: float = time.monotonic()
+
     async def connect(self):
         user = self.scope.get("user")
         if not user or user.is_anonymous:
@@ -61,8 +68,9 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
 
     async def disconnect(self, close_code):
         # Cancel heartbeat.
-        if self._heartbeat_task and not self._heartbeat_task.done():
-            self._heartbeat_task.cancel()
+        heartbeat_task = getattr(self, "_heartbeat_task", None)
+        if heartbeat_task and not heartbeat_task.done():
+            heartbeat_task.cancel()
 
         # Remove from per-user tracking.
         uid = getattr(getattr(self, "user", None), "id", None)
@@ -99,6 +107,14 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             {
                 "type": "notification.created",
                 "notification": event.get("notification") or {},
+            }
+        )
+
+    async def notification_deleted(self, event):
+        await self.send_json(
+            {
+                "type": "notification.deleted",
+                "notification_ids": event.get("notification_ids") or [],
             }
         )
 

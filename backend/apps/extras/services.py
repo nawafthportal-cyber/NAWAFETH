@@ -503,15 +503,27 @@ def extras_bundle_payload_for_request(request_obj) -> dict:
 def extras_bundle_invoice_for_request(request_obj) -> Invoice | None:
     metadata = _extras_bundle_existing_metadata(request_obj)
     raw_invoice_id = str(metadata.get("invoice_id") or "").strip()
+    metadata_invoice = None
     if raw_invoice_id.isdigit():
-        invoice = Invoice.objects.filter(id=int(raw_invoice_id)).first()
-        if invoice is not None:
-            return invoice
+        metadata_invoice = Invoice.objects.filter(id=int(raw_invoice_id)).first()
 
     reference_code = str(getattr(request_obj, "code", "") or "").strip()
     if reference_code:
-        return Invoice.objects.filter(reference_type=EXTRAS_BUNDLE_INVOICE_REFERENCE_TYPE, reference_id=reference_code).order_by("-id").first()
-    return None
+        reference_invoices = Invoice.objects.filter(
+            reference_type=EXTRAS_BUNDLE_INVOICE_REFERENCE_TYPE,
+            reference_id=reference_code,
+        )
+        payment_effective_invoice = (
+            reference_invoices.filter(Q(payment_confirmed=True) | Q(status=InvoiceStatus.PAID))
+            .order_by("-payment_confirmed_at", "-paid_at", "-id")
+            .first()
+        )
+        if payment_effective_invoice is not None:
+            return payment_effective_invoice
+        if metadata_invoice is not None:
+            return metadata_invoice
+        return reference_invoices.order_by("-id").first()
+    return metadata_invoice
 
 
 def extras_bundle_payment_access_url(*, request_obj, invoice: Invoice | None = None, checkout_url: str = "") -> str:

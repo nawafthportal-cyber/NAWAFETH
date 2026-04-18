@@ -21,6 +21,7 @@ const ProfilePage = (() => {
     _bindModeToggle();
     _bindStaticActions();
     _bindImageUploads();
+    _bindErrorState();
     _loadProfile();
   }
 
@@ -28,14 +29,35 @@ const ProfilePage = (() => {
   function _showGate() {
     const g = document.getElementById('auth-gate');
     const c = document.getElementById('profile-content');
+    const e = document.getElementById('profile-error-state');
     if (g) g.classList.remove('hidden');
     if (c) c.classList.add('hidden');
+    if (e) e.classList.add('hidden');
   }
   function _hideGate() {
     const g = document.getElementById('auth-gate');
     const c = document.getElementById('profile-content');
+    const e = document.getElementById('profile-error-state');
     if (g) g.classList.add('hidden');
     if (c) c.classList.remove('hidden');
+    if (e) e.classList.add('hidden');
+  }
+
+  function _bindErrorState() {
+    const retryBtn = document.getElementById('profile-error-retry');
+    if (!retryBtn) return;
+    retryBtn.addEventListener('click', () => _loadProfile());
+  }
+
+  function _showLoadError(message) {
+    const gate = document.getElementById('auth-gate');
+    const content = document.getElementById('profile-content');
+    const errorWrap = document.getElementById('profile-error-state');
+    const errorText = document.getElementById('profile-error-message');
+    if (gate) gate.classList.add('hidden');
+    if (content) content.classList.add('hidden');
+    if (errorText) errorText.textContent = message || 'حدث تعثر مؤقت أثناء جلب بيانات الحساب. أعد المحاولة بعد لحظة.';
+    if (errorWrap) errorWrap.classList.remove('hidden');
   }
 
   /* ──────── Mode toggle binding ──────── */
@@ -128,11 +150,22 @@ const ProfilePage = (() => {
 
   /* ──────── Load profile data ──────── */
   async function _loadProfile() {
-    const profileRes = await ApiClient.get('/api/accounts/me/?mode=client');
-    const profile = (profileRes && profileRes.ok && profileRes.data) ? profileRes.data : null;
-    if (!profile) { _showGate(); return; }
+    const resolved = await Auth.resolveProfile(true, 'client');
+    if (!resolved.ok) {
+      if (!Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _showLoadError(
+        resolved.status === 503
+          ? 'الخدمة غير متاحة مؤقتًا أثناء تحميل بيانات الحساب. هذا يفسر ظهور الصفحة بدون الاسم والصورة والإحصاءات.'
+          : 'تعذر تحميل بيانات الحساب الآن. أعد المحاولة بعد لحظة.'
+      );
+      return;
+    }
 
-    _profile = profile;
+    _hideGate();
+    _profile = resolved.profile;
 
     const preferred = _getSavedMode();
     if (_canSwitchToProvider() && preferred === 'provider') {

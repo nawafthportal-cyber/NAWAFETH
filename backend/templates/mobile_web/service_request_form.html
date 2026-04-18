@@ -3,604 +3,883 @@
 {% block body_class %}page-service-request{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-  body.page-service-request {
-    background:
-      radial-gradient(1200px 420px at 50% -180px, rgba(103, 58, 183, 0.16), transparent 64%),
-      #f6f7fc;
-  }
+/* ═══════════════════════════════════════════════════════
+   SERVICE REQUEST FORM — Grand Redesign 2026-04-18
+   ═══════════════════════════════════════════════════════ */
 
-  .page-service-request .container {
-    max-width: 980px;
-  }
+body.page-service-request {
+  background:
+    radial-gradient(1100px 420px at 12% -10%, rgba(12,148,136,0.15), transparent 58%),
+    radial-gradient(900px 380px at 88% 0%, rgba(245,158,11,0.08), transparent 58%),
+    linear-gradient(180deg, #fbfaf6 0%, #f3f5f8 52%, #eef2f5 100%);
+}
 
-  .page-service-request .sr-shell {
+.sr-container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px 16px 100px;
+}
+.sr-container.sr-direct-layout {
+  max-width: 1180px;
+}
+.sr-container.sr-direct-layout .sr-form-card {
+  padding: 32px 30px 24px;
+}
+.sr-container.sr-direct-layout .sr-hero-grid {
+  grid-template-columns: minmax(0,1.2fr) minmax(280px,.8fr);
+}
+.sr-container.sr-direct-layout .sr-fixed-target {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 12px 18px;
+  padding: 20px;
+  border-radius: 20px;
+}
+.sr-container.sr-direct-layout .sr-fixed-target > div:first-child,
+.sr-container.sr-direct-layout .sr-fixed-target > div:nth-child(2) {
+  grid-column: 1 / -1;
+}
+.sr-container.sr-direct-layout .sr-fixed-target-row {
+  margin-bottom: 0;
+  min-height: 28px;
+}
+
+/* ── Auth Gate ── */
+.sr-auth-gate {
+  max-width: 440px; margin: 80px auto; text-align: center;
+  padding: 48px 28px; border-radius: 28px;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 20px 50px rgba(15,23,42,0.10);
+  backdrop-filter: blur(16px); border: 1px solid rgba(15,23,42,0.06);
+}
+.sr-auth-gate .sr-auth-icon {
+  width: 56px; height: 56px; margin: 0 auto 16px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #fff;
+}
+.sr-auth-gate h2 { font-size: 18px; font-weight: 800; color: #1e293b; margin: 0 0 8px; }
+.sr-auth-gate p { font-size: 13.5px; color: #64748b; margin: 0 0 24px; line-height: 1.7; }
+.sr-auth-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 36px; border-radius: 14px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff; font-weight: 700; font-size: 14px; text-decoration: none;
+  box-shadow: 0 4px 14px rgba(15,118,110,0.25);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.sr-auth-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(15,118,110,0.35); }
+
+/* ── Form Card ── */
+.sr-form-card {
+  background: rgba(255,255,255,0.92); border-radius: 28px;
+  border: 1px solid rgba(15,23,42,0.06);
+  box-shadow: 0 20px 50px rgba(15,23,42,0.10);
+  backdrop-filter: blur(16px); padding: 28px 22px 22px;
+  position: relative; overflow: hidden;
+}
+.sr-form-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, #0f766e, #14b8a6, #f59e0b);
+  border-radius: 28px 28px 0 0;
+}
+
+/* ── Header ── */
+.sr-hero {
+  position: relative;
+  overflow: hidden;
+  margin: -4px -4px 24px;
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.74);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.96), rgba(255,248,239,0.92)),
+    linear-gradient(180deg, rgba(15,118,110,0.05), rgba(245,158,11,0.05));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.58);
+}
+.sr-hero::before,
+.sr-hero::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+.sr-hero::before {
+  width: 180px;
+  height: 180px;
+  inset: auto -70px -100px auto;
+  background: radial-gradient(circle, rgba(245,158,11,0.24), transparent 72%);
+}
+.sr-hero::after {
+  width: 150px;
+  height: 150px;
+  inset: -60px auto auto -40px;
+  background: radial-gradient(circle, rgba(15,118,110,0.18), transparent 72%);
+}
+.sr-hero-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 16px;
+}
+.sr-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(15,118,110,0.08);
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 900;
+}
+.sr-type-badge[data-tone="urgent"] {
+  background: rgba(180,83,9,0.10);
+  color: #9a5a12;
+}
+.sr-type-badge[data-tone="competitive"] {
+  background: rgba(15,118,110,0.08);
+  color: #0f766e;
+}
+.sr-type-badge[data-tone="normal"] {
+  background: rgba(37,99,235,0.10);
+  color: #1d4ed8;
+}
+.sr-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0,1.15fr) minmax(220px,.85fr);
+  gap: 16px;
+}
+.sr-hero-copy h1 {
+  margin: 14px 0 8px;
+  font-size: clamp(26px, 5vw, 34px);
+  line-height: 1.2;
+  color: #0f172a;
+}
+.sr-hero-copy p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.sr-hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.sr-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.86);
+  border: 1px solid rgba(15,23,42,0.08);
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sr-hero-side {
+  display: grid;
+  gap: 10px;
+}
+.sr-hero-card {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.88);
+  border: 1px solid rgba(15,23,42,0.08);
+  box-shadow: 0 10px 28px rgba(15,23,42,0.06);
+}
+.sr-hero-card strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #0f172a;
+  font-size: 14px;
+}
+.sr-hero-card p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.75;
+}
+.sr-header { text-align: center; margin-bottom: 28px; padding-top: 8px; }
+.sr-header h1 { font-size: 22px; font-weight: 900; color: #0f172a; margin: 0 0 6px; }
+.sr-header p { font-size: 13.5px; color: #64748b; margin: 0; line-height: 1.6; }
+
+/* ── Section ── */
+.sr-section { margin-bottom: 24px; }
+.sr-section-title { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.sr-section-num {
+  width: 28px; height: 28px; border-radius: 10px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff; font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sr-section-label { font-size: 15px; font-weight: 700; color: #1e293b; }
+
+/* ── Form Controls ── */
+.sr-field-group { margin-bottom: 16px; }
+.sr-field-group label {
+  display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px;
+}
+.sr-field-group label .sr-optional { font-weight: 400; color: #94a3b8; font-size: 11.5px; }
+.sr-select, .sr-input, .sr-textarea {
+  width: 100%; padding: 11px 14px; border-radius: 14px;
+  border: 1.5px solid rgba(15,23,42,0.10); background: rgba(255,255,255,0.7);
+  font-size: 14px; font-family: inherit; color: #1e293b;
+  transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+  -webkit-appearance: none; appearance: none;
+}
+.sr-select:focus, .sr-input:focus, .sr-textarea:focus {
+  border-color: #0f766e; box-shadow: 0 0 0 3px rgba(15,118,110,0.12);
+}
+.sr-select.is-invalid, .sr-input.is-invalid, .sr-textarea.is-invalid {
+  border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,0.10);
+}
+.sr-select {
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: left 14px center; padding-left: 36px;
+}
+.sr-textarea { resize: vertical; min-height: 100px; line-height: 1.7; }
+.sr-field-error { font-size: 12px; color: #ef4444; margin-top: 4px; display: none; }
+.sr-field-error.visible { display: block; }
+.sr-char-count { text-align: left; font-size: 11.5px; color: #94a3b8; margin-top: 4px; direction: ltr; }
+.sr-char-count.is-warning { color: #f59e0b; }
+.sr-char-count.is-limit { color: #ef4444; font-weight: 600; }
+
+/* ── Two Column Grid ── */
+.sr-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 480px) { .sr-two-col { grid-template-columns: 1fr; } }
+
+/* ── Chips ── */
+.sr-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.sr-chip {
+  padding: 9px 18px; border-radius: 12px;
+  border: 1.5px solid rgba(15,23,42,0.10); background: rgba(255,255,255,0.7);
+  font-size: 13.5px; font-weight: 600; color: #475569;
+  cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.sr-chip:hover { border-color: rgba(15,118,110,0.3); background: rgba(15,118,110,0.04); }
+.sr-chip.active {
+  border-color: #0f766e;
+  background: linear-gradient(135deg, rgba(15,118,110,0.10), rgba(20,184,166,0.08));
+  color: #0f766e; box-shadow: 0 2px 8px rgba(15,118,110,0.15);
+}
+.sr-chip svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* ── City Clear ── */
+.sr-city-clear-wrap { display: flex; justify-content: flex-end; margin-top: 6px; }
+.sr-city-clear-btn {
+  font-size: 12px; color: #ef4444; background: none; border: none;
+  cursor: pointer; font-family: inherit; font-weight: 600;
+  padding: 2px 6px; border-radius: 6px; transition: background 0.15s;
+}
+.sr-city-clear-btn:hover { background: rgba(239,68,68,0.08); }
+
+/* ── Attachments ── */
+.sr-attach-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.sr-attach-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: 12px;
+  border: 1.5px dashed rgba(15,23,42,0.12); background: rgba(255,255,255,0.6);
+  font-size: 12.5px; font-weight: 600; color: #475569;
+  cursor: pointer; transition: all 0.2s; font-family: inherit;
+}
+.sr-attach-btn:hover { border-color: #0f766e; background: rgba(15,118,110,0.04); color: #0f766e; }
+.sr-attach-btn svg { width: 16px; height: 16px; }
+.sr-attach-btn input { display: none; }
+.sr-attachments-preview { display: flex; flex-wrap: wrap; gap: 8px; }
+.sr-attach-item {
+  position: relative; width: 72px; height: 72px; border-radius: 12px;
+  overflow: hidden; border: 1.5px solid rgba(15,23,42,0.08); background: #f8fafc;
+}
+.sr-attach-item img { width: 100%; height: 100%; object-fit: cover; }
+.sr-attach-item.file-type {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px;
+}
+.sr-attach-item.file-type span {
+  font-size: 9px; color: #64748b; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; max-width: 100%; white-space: nowrap; margin-top: 4px;
+}
+.sr-attach-remove {
+  position: absolute; top: 3px; left: 3px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(239,68,68,0.9); color: #fff; border: none;
+  cursor: pointer; font-size: 12px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Dispatch section ── */
+.sr-dispatch-box {
+  margin-top: 16px; padding: 16px; border-radius: 16px;
+  background: rgba(15,118,110,0.04); border: 1px solid rgba(15,118,110,0.10);
+}
+.sr-dispatch-box .sr-section-label { color: #0f766e; font-size: 14px; }
+
+/* ── Selected Provider Card ── */
+.sr-selected-provider {
+  display: none; margin-top: 14px; padding: 14px; border-radius: 16px;
+  background: rgba(255,255,255,0.9); border: 1.5px solid rgba(15,118,110,0.18);
+  box-shadow: 0 4px 14px rgba(15,118,110,0.08);
+}
+.sr-selected-provider.visible { display: block; }
+.sr-selected-provider-inner { display: flex; align-items: center; gap: 12px; }
+.sr-selected-provider-avatar {
+  width: 48px; height: 48px; border-radius: 14px; object-fit: cover;
+  border: 2px solid rgba(15,118,110,0.15); flex-shrink: 0; background: #e2e8f0;
+}
+.sr-selected-provider-info { flex: 1; min-width: 0; }
+.sr-selected-provider-name { font-size: 14px; font-weight: 700; color: #1e293b; margin: 0 0 2px; }
+.sr-selected-provider-meta { font-size: 12px; color: #64748b; }
+.sr-selected-provider-actions { display: flex; gap: 6px; }
+.sr-selected-provider-actions button {
+  padding: 6px 12px; border-radius: 8px; font-size: 11.5px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  border: 1px solid rgba(15,23,42,0.10); background: #fff; color: #475569;
+  transition: all 0.15s;
+}
+.sr-selected-provider-actions button:hover { border-color: #0f766e; color: #0f766e; }
+.sr-selected-provider-actions .sr-sp-remove { color: #ef4444; border-color: rgba(239,68,68,0.2); }
+.sr-selected-provider-actions .sr-sp-remove:hover { background: rgba(239,68,68,0.06); }
+
+/* ═══ MAP MODAL ═══ */
+.sr-map-modal {
+  position: fixed; inset: 0; z-index: 9000;
+  display: none; align-items: flex-end; justify-content: center;
+}
+.sr-map-modal.open { display: flex; }
+.sr-map-modal-backdrop {
+  position: absolute; inset: 0; background: rgba(15,23,42,0.5);
+  backdrop-filter: blur(6px);
+}
+.sr-map-modal-panel {
+  position: relative; width: 100%; max-width: 680px; max-height: 92vh;
+  background: #fff; border-radius: 24px 24px 0 0;
+  box-shadow: 0 -10px 40px rgba(15,23,42,0.20);
+  overflow: hidden; display: flex; flex-direction: column;
+  transform: translateY(30px); opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.sr-map-modal.open .sr-map-modal-panel { transform: translateY(0); opacity: 1; }
+.sr-map-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid rgba(15,23,42,0.06);
+}
+.sr-map-modal-header h3 { font-size: 16px; font-weight: 800; color: #0f172a; margin: 0; }
+.sr-map-modal-close {
+  width: 32px; height: 32px; border-radius: 10px; border: none;
+  background: rgba(15,23,42,0.06); cursor: pointer; color: #475569;
+  display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+}
+.sr-map-modal-close:hover { background: rgba(15,23,42,0.12); }
+.sr-modal-status {
+  padding: 10px 20px; background: rgba(15,118,110,0.06);
+  font-size: 12.5px; color: #0f766e; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+}
+.sr-modal-status .sr-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(15,118,110,0.2); border-top-color: #0f766e;
+  border-radius: 50%; animation: sr-spin 0.7s linear infinite;
+}
+@keyframes sr-spin { to { transform: rotate(360deg); } }
+.sr-modal-map { height: 42vh; min-height: 240px; position: relative; }
+.sr-modal-providers { flex: 1; overflow-y: auto; padding: 12px 16px 16px; max-height: 34vh; }
+.sr-modal-empty { text-align: center; padding: 28px 16px; color: #94a3b8; font-size: 13.5px; display: none; }
+.sr-modal-empty.visible { display: block; }
+
+/* Provider Card in Modal */
+.sr-prov-card {
+  display: flex; align-items: flex-start; gap: 12px; padding: 12px;
+  border-radius: 14px; border: 1.5px solid rgba(15,23,42,0.06);
+  background: rgba(255,255,255,0.8); margin-bottom: 8px;
+  transition: all 0.2s;
+}
+.sr-prov-card:hover { border-color: rgba(15,118,110,0.2); background: rgba(15,118,110,0.03); }
+.sr-prov-card.selected {
+  border-color: #0f766e; background: rgba(15,118,110,0.06);
+  box-shadow: 0 2px 10px rgba(15,118,110,0.12);
+}
+.sr-prov-card-avatar-wrap { position: relative; flex-shrink: 0; cursor: pointer; }
+.sr-prov-card-avatar {
+  width: 50px; height: 50px; border-radius: 14px; object-fit: cover;
+  border: 2px solid rgba(15,23,42,0.06); background: #e2e8f0;
+}
+.sr-prov-card.selected .sr-prov-card-avatar { border-color: #0f766e; }
+.sr-prov-badge {
+  position: absolute; bottom: -2px; right: -2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #fff;
+}
+.sr-prov-badge.blue { background: #3b82f6; }
+.sr-prov-badge.green { background: #22c55e; }
+.sr-prov-badge svg { width: 10px; height: 10px; color: #fff; }
+.sr-prov-card-info { flex: 1; min-width: 0; }
+.sr-prov-card-name {
+  font-size: 13.5px; font-weight: 700; color: #1e293b;
+  margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sr-prov-card-stats {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11.5px; color: #64748b;
+}
+.sr-prov-card-stats span { display: flex; align-items: center; gap: 3px; }
+.sr-prov-card-stats svg { width: 12px; height: 12px; }
+.sr-prov-card-dist { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+.sr-prov-card-actions { display: flex; gap: 4px; flex-shrink: 0; margin-top: 2px; }
+.sr-prov-action-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 6px 10px; border-radius: 8px; font-size: 10.5px; font-weight: 600;
+  cursor: pointer; font-family: inherit; border: none; text-decoration: none; transition: all 0.15s;
+}
+.sr-prov-action-btn.call { background: rgba(59,130,246,0.1); color: #3b82f6; }
+.sr-prov-action-btn.call:hover { background: rgba(59,130,246,0.18); }
+.sr-prov-action-btn.whatsapp { background: rgba(34,197,94,0.1); color: #16a34a; }
+.sr-prov-action-btn.whatsapp:hover { background: rgba(34,197,94,0.18); }
+.sr-prov-action-btn.send {
+  background: linear-gradient(135deg, #0f766e, #14b8a6); color: #fff;
+  box-shadow: 0 2px 8px rgba(15,118,110,0.20);
+}
+.sr-prov-action-btn.send:hover { box-shadow: 0 4px 12px rgba(15,118,110,0.30); }
+.sr-prov-action-btn svg { width: 12px; height: 12px; }
+
+/* ═══ SUCCESS ═══ */
+.sr-success-overlay {
+  display: none; text-align: center; padding: 60px 28px; max-width: 480px; margin: 40px auto;
+}
+.sr-success-overlay.visible { display: block; }
+.sr-success-icon {
+  width: 72px; height: 72px; border-radius: 22px;
+  background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(22,163,74,0.10));
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px; font-size: 32px;
+}
+.sr-success-overlay h2 { font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 10px; }
+.sr-success-overlay p { font-size: 14px; color: #64748b; line-height: 1.7; margin: 0 0 28px; }
+.sr-success-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 32px; border-radius: 14px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff; font-weight: 700; font-size: 14px; text-decoration: none;
+  box-shadow: 0 4px 14px rgba(15,118,110,0.25); margin-bottom: 12px;
+}
+.sr-success-link { display: block; font-size: 13px; color: #64748b; text-decoration: none; }
+.sr-success-link:hover { color: #0f766e; }
+
+/* ═══ TOAST ═══ */
+.sr-toast {
+  position: fixed; bottom: 90px; left: 50%;
+  transform: translateX(-50%) translateY(20px); opacity: 0;
+  pointer-events: none; z-index: 9500;
+  max-width: min(460px, calc(100vw - 32px)); width: 100%;
+  padding: 14px 18px; border-radius: 18px;
+  background: rgba(255,255,255,0.96);
+  box-shadow: 0 12px 36px rgba(15,23,42,0.16);
+  backdrop-filter: blur(12px); border: 1px solid rgba(15,23,42,0.06);
+  display: flex; align-items: flex-start; gap: 12px;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.sr-toast.show {
+  opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto;
+}
+.sr-toast-icon {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sr-toast.success .sr-toast-icon { background: rgba(34,197,94,0.12); color: #16a34a; }
+.sr-toast.error .sr-toast-icon { background: rgba(239,68,68,0.12); color: #ef4444; }
+.sr-toast.warning .sr-toast-icon { background: rgba(245,158,11,0.12); color: #f59e0b; }
+.sr-toast.info .sr-toast-icon { background: rgba(59,130,246,0.12); color: #3b82f6; }
+.sr-toast-body { flex: 1; min-width: 0; }
+.sr-toast-title { font-size: 12.5px; font-weight: 700; color: #1e293b; margin: 0 0 2px; }
+.sr-toast-message { font-size: 12.5px; color: #64748b; margin: 0; line-height: 1.5; }
+.sr-toast-close {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: #94a3b8; padding: 2px; transition: color 0.15s;
+}
+.sr-toast-close:hover { color: #475569; }
+
+/* ── Audio ── */
+.sr-audio-record-btn {
+  border-color: rgba(239,68,68,0.25) !important;
+  background: rgba(239,68,68,0.04) !important;
+  color: #ef4444 !important;
+}
+.sr-audio-record-btn:hover {
+  border-color: #ef4444 !important; background: rgba(239,68,68,0.08) !important;
+}
+.sr-audio-record-btn.recording {
+  animation: sr-pulse 1.2s ease-in-out infinite; border-color: #ef4444 !important;
+}
+@keyframes sr-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+}
+.sr-audio-preview { margin-top: 8px; display: none; }
+.sr-audio-preview.visible { display: flex; align-items: center; gap: 8px; }
+.sr-audio-preview audio { flex: 1; height: 36px; }
+.sr-audio-remove {
+  background: rgba(239,68,68,0.1); color: #ef4444;
+  border: none; border-radius: 8px; padding: 6px 10px;
+  font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+
+/* ── Submit ── */
+.sr-submit-section { margin-top: 28px; text-align: center; }
+.sr-submit-helper { font-size: 12.5px; color: #64748b; margin-bottom: 14px; }
+.sr-submit-btn {
+  width: 100%; padding: 14px; border-radius: 16px; border: none;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 16px rgba(15,118,110,0.25);
+}
+.sr-submit-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(15,118,110,0.35); }
+.sr-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Fixed Provider Target ── */
+.sr-fixed-target {
+  padding: 16px; border-radius: 16px;
+  background: rgba(15,118,110,0.04); border: 1px solid rgba(15,118,110,0.10);
+}
+.sr-fixed-target-row {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 13px;
+}
+.sr-ft-label { color: #64748b; font-weight: 600; min-width: 80px; }
+.sr-ft-value { color: #1e293b; font-weight: 700; }
+
+/* ── Deadline ── */
+.sr-deadline-group { margin-bottom: 16px; }
+
+/* ── Utility ── */
+.hidden { display: none !important; }
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .sr-container { padding: 12px 10px 100px; }
+  .sr-form-card { padding: 20px 14px 16px; border-radius: 22px; }
+  .sr-prov-card-actions { flex-direction: row; flex-wrap: wrap; }
+  .sr-hero-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .sr-container.sr-direct-layout {
     max-width: 760px;
-    margin-inline: auto;
   }
-
-  .page-service-request .sr-header {
-    border-radius: 16px;
-    padding: 12px;
-    border: 1px solid #e6e5f1;
-    box-shadow: 0 4px 14px rgba(27, 25, 43, 0.06);
-  }
-
-  .page-service-request .sr-header h1 {
-    font-size: 16px;
-  }
-
-  .page-service-request .sr-subtitle {
-    margin-top: 10px;
-    margin-bottom: 12px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .page-service-request .sr-journey-card,
-  .page-service-request .sr-provider-note {
-    border-radius: 18px;
-    padding: 14px;
-    margin-bottom: 12px;
-  }
-
-  .page-service-request .sr-journey-card {
-    border: 1px solid rgba(103, 58, 183, 0.18);
-    background: linear-gradient(135deg, rgba(103, 58, 183, 0.11) 0%, rgba(103, 58, 183, 0.04) 100%);
-  }
-
-  .page-service-request .sr-provider-note {
-    border: 1px solid rgba(241, 165, 89, 0.28);
-    background: linear-gradient(135deg, rgba(241, 165, 89, 0.18) 0%, rgba(241, 165, 89, 0.06) 100%);
-  }
-
-  .page-service-request .sr-provider-note h3,
-  .page-service-request .sr-summary-copy h2 {
-    margin: 0;
-    color: #2a2737;
-    font-size: 15px;
-    font-weight: 900;
-  }
-
-  .page-service-request .sr-provider-note p,
-  .page-service-request .sr-summary-copy p {
-    margin: 6px 0 0;
-    color: #59556b;
-    font-size: 11px;
-    line-height: 1.7;
-    font-weight: 700;
-  }
-
-  .page-service-request .sr-summary-chip,
-  .page-service-request .sr-provider-chip,
-  .page-service-request .sr-overview-item span {
-    display: inline-flex;
-    align-items: center;
-    min-height: 24px;
-    padding: 0 10px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.82);
-    border: 1px solid rgba(103, 58, 183, 0.16);
-    color: var(--color-primary-dark);
-    font-size: 10px;
-    font-weight: 800;
-  }
-
-  .page-service-request .sr-summary {
-    display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-    gap: 12px;
-    align-items: start;
-  }
-
-  .page-service-request .sr-overview {
-    display: grid;
-    gap: 10px;
-  }
-
-  .page-service-request .sr-overview-item {
-    border-radius: 14px;
-    padding: 12px;
-    border: 1px solid rgba(103, 58, 183, 0.12);
-    background: rgba(255, 255, 255, 0.74);
-  }
-
-  .page-service-request .sr-overview-item strong {
-    display: block;
-    margin-top: 8px;
-    color: #2b2740;
-    font-size: 12px;
-    font-weight: 900;
-  }
-
-  .page-service-request .sr-overview-item p {
-    margin: 4px 0 0;
-    color: #66627a;
-    font-size: 10.5px;
-    line-height: 1.65;
-    font-weight: 700;
-  }
-
-  .page-service-request .sr-form {
-    border-radius: 20px;
-    padding: 16px;
-    border: 1px solid #e5e7f0;
-    box-shadow: 0 8px 24px rgba(24, 23, 36, 0.05);
-  }
-
-  .page-service-request .sr-grid {
-    display: grid;
+  .sr-container.sr-direct-layout .sr-fixed-target {
     grid-template-columns: 1fr;
-    gap: 12px;
   }
+}
 
-  .page-service-request .sr-section {
-    border: 1px solid rgba(221, 224, 236, 0.92);
-    border-radius: 18px;
-    padding: 14px;
-    background: #fcfcff;
-  }
-
-  .page-service-request .sr-section-head {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    margin-bottom: 12px;
-  }
-
-  .page-service-request .sr-section-step {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(103, 58, 183, 0.12);
-    color: var(--color-primary-dark);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    font-weight: 900;
-    flex: 0 0 auto;
-  }
-
-  .page-service-request .sr-section-head h2 {
-    margin: 0;
-    color: #2a2737;
-    font-size: 14px;
-    font-weight: 900;
-  }
-
-  .page-service-request .sr-section-head p {
-    margin: 4px 0 0;
-    color: #6b667b;
-    font-size: 10.5px;
-    line-height: 1.7;
-    font-weight: 700;
-  }
-
-  .page-service-request .sr-fields-grid {
-    display: grid;
-    gap: 12px;
-  }
-
-  .page-service-request .sr-fields-grid-two {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .page-service-request .sr-group {
-    margin-bottom: 0;
-  }
-
-  .page-service-request .sr-label {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-bottom: 7px;
-    color: #2a2737;
-    font-size: 12px;
-    font-weight: 800;
-  }
-
-  .page-service-request .sr-required {
-    color: #d92d20;
-  }
-
-  .page-service-request .sr-form .form-input,
-  .page-service-request .sr-form .form-select,
-  .page-service-request .sr-form .form-textarea {
-    width: 100%;
-    border: 1.5px solid #dde0ec;
-    border-radius: 13px;
-    background: #fcfcff;
-    color: #1f1c2c;
-    min-height: 48px;
-    padding: 11px 13px;
-    font-family: 'Cairo', sans-serif;
-    font-size: 12.5px;
-    line-height: 1.5;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-  }
-
-  .page-service-request .sr-form .form-textarea {
-    min-height: 148px;
-    resize: vertical;
-  }
-
-  .page-service-request .sr-form .form-input:focus,
-  .page-service-request .sr-form .form-select:focus,
-  .page-service-request .sr-form .form-textarea:focus {
-    border-color: var(--color-primary);
-    background: #fff;
-    box-shadow: 0 0 0 4px rgba(103, 58, 183, 0.12);
-    outline: none;
-  }
-
-  .page-service-request .sr-type-chips {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .page-service-request .sr-type-chips .chip {
-    min-height: 74px;
-    padding: 12px;
-    border-radius: 16px;
-    border: 1px solid rgba(103, 58, 183, 0.16);
-    background: rgba(255, 255, 255, 0.88);
-    color: #3b3550;
-    text-align: start;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 800;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-  }
-
-  .page-service-request .sr-type-chips .chip span {
-    color: #757089;
-    font-size: 10px;
-    line-height: 1.55;
-    font-weight: 700;
-  }
-
-  .page-service-request .sr-type-chips .chip.active {
-    border-color: rgba(103, 58, 183, 0.42);
-    background: linear-gradient(135deg, rgba(103, 58, 183, 0.18) 0%, rgba(103, 58, 183, 0.08) 100%);
-    box-shadow: 0 8px 20px rgba(103, 58, 183, 0.12);
-    color: var(--color-primary-dark);
-  }
-
-  .page-service-request .sr-type-chips .chip.active span {
-    color: #4c4670;
-  }
-
-  .page-service-request .sr-type-chips .chip:hover {
-    transform: translateY(-1px);
-  }
-
-  .page-service-request .sr-hint,
-  .page-service-request .sr-helper,
-  .page-service-request .char-count {
-    margin-top: 6px;
-    font-size: 10.5px;
-    line-height: 1.6;
-    color: #7a748f;
-    font-weight: 700;
-  }
-
-  .page-service-request .char-count {
-    display: block;
-    text-align: end;
-  }
-
-  .page-service-request .sr-attachments-wrap {
-    border: 1.5px dashed #cfd3e6;
-    border-radius: 16px;
-    background: linear-gradient(180deg, #fafaff 0%, #f4f5ff 100%);
-    padding: 12px;
-  }
-
-  .page-service-request .attachments-preview {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-
-  .page-service-request .attach-btns {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .page-service-request .attach-btns .btn {
-    justify-content: center;
-    width: 100%;
-  }
-
-  .page-service-request .attach-item {
-    position: relative;
-    border-radius: 14px;
-    overflow: hidden;
-    background: rgba(255, 255, 255, 0.94);
-    border: 1px solid rgba(103, 58, 183, 0.12);
-    box-shadow: 0 4px 14px rgba(103, 58, 183, 0.06);
-  }
-
-  .page-service-request .attach-item img {
-    width: 100%;
-    max-height: 180px;
-    object-fit: cover;
-  }
-
-  .page-service-request .attach-item.file-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 11px 12px;
-  }
-
-  .page-service-request .attach-item.file-item span {
-    min-width: 0;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #3d3754;
-    font-size: 11px;
-    font-weight: 800;
-  }
-
-  .page-service-request .attach-remove {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: rgba(15, 23, 42, 0.72);
-    color: #fff;
-    border: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    font-weight: 900;
-  }
-
-  .page-service-request .attach-item.file-item .attach-remove {
-    position: static;
-    flex: 0 0 auto;
-    background: rgba(220, 38, 38, 0.1);
-    color: #dc2626;
-  }
-
-  .page-service-request .sr-actions {
-    margin-top: 14px;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .page-service-request .sr-actions .btn,
-  .page-service-request .sr-actions .btn-primary-lg {
-    min-height: 48px;
-    flex: 1 1 220px;
-  }
-
-  .page-service-request .sr-submit-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .page-service-request .sr-success-card {
-    max-width: 460px;
-    margin: 0 auto;
-  }
-
-  .page-service-request .sr-success-card p {
-    margin-bottom: 0;
-  }
-
-  @media (max-width: 768px) {
-    .page-service-request .sr-summary,
-    .page-service-request .sr-fields-grid-two,
-    .page-service-request .attach-btns,
-    .page-service-request .sr-type-chips {
-      grid-template-columns: 1fr;
-    }
-
-    .page-service-request .sr-actions {
-      flex-direction: column;
-    }
-  }
+/* ── Leaflet popup override ── */
+.sr-map-popup .leaflet-popup-content-wrapper { border-radius: 14px; padding: 0; overflow: hidden; }
+.sr-map-popup .leaflet-popup-content { margin: 0; min-width: 200px; }
+.sr-popup-inner { padding: 12px; text-align: center; }
+.sr-popup-inner img {
+  width: 44px; height: 44px; border-radius: 12px; object-fit: cover;
+  margin-bottom: 6px; border: 2px solid rgba(15,118,110,0.12);
+}
+.sr-popup-name { font-size: 13px; font-weight: 700; color: #1e293b; margin: 0 0 4px; }
+.sr-popup-stats { font-size: 11px; color: #64748b; margin-bottom: 8px; }
+.sr-popup-actions { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+.sr-popup-actions a, .sr-popup-actions button {
+  padding: 5px 10px; border-radius: 6px; font-size: 10.5px; font-weight: 600;
+  cursor: pointer; font-family: inherit; border: none; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 3px;
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <main class="page-content">
-  <div class="container">
-    <div id="auth-gate" class="auth-gate auth-gate-unified hidden">
-      <div class="auth-gate-unified-icon" aria-hidden="true">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="11" width="18" height="11" rx="2"></rect>
-          <path d="M7 11V7a5 5 0 0110 0v4"></path>
-        </svg>
+  <div class="sr-container">
+
+    <!-- Auth Gate -->
+    <div id="auth-gate" class="sr-auth-gate{% if request.user.is_authenticated and provider_mode_blocked %}{% elif request.user.is_authenticated %} hidden{% endif %}">
+      {% if request.user.is_authenticated and provider_mode_blocked %}
+      <p class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
+      <div class="sr-auth-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-2 .9-2 2v11c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
       </div>
-      <h2 class="auth-gate-unified-title">سجّل دخولك لإرسال الطلب</h2>
-      <p class="auth-gate-unified-desc">يتم حفظ الطلب وربطه بحسابك لتتمكن من متابعة حالته، الرسائل، واعتماد تفاصيل التنفيذ لاحقاً.</p>
-      <a href="/login/" id="sr-login-link" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
+      <h2>{{ provider_mode_block.title }}</h2>
+      <p>{{ provider_mode_block.description }}</p>
+      <div class="auth-gate-unified-actions" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px">
+        <button type="button" class="sr-auth-btn" data-provider-request-switch="client" data-provider-request-target="{{ provider_mode_block.target }}">{{ provider_mode_block.switch_label }}</button>
+        <a href="/profile/" class="btn btn-secondary" style="min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">{{ provider_mode_block.profile_label }}</a>
+      </div>
+      <p class="auth-gate-unified-note" style="margin-top:12px">{{ provider_mode_block.note }}</p>
+      {% else %}
+      <div class="sr-auth-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <h2>سجّل دخولك لإرسال الطلب</h2>
+      <p>سيتم حفظ الطلب وربطه بحسابك حتى تتابع حالته وتستقبل العروض والردود.</p>
+      <a href="/login/" id="sr-login-link" class="sr-auth-btn">تسجيل الدخول</a>
+      {% endif %}
     </div>
 
-    <div id="form-content" class="hidden sr-shell">
-      <div class="mw-form-header sr-header">
-        <a href="javascript:history.back()" class="mw-form-back" aria-label="رجوع">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-        </a>
-        <h1 id="sr-title">طلب خدمة جديدة</h1>
-        <span class="mw-form-head-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
-        </span>
-      </div>
-      <p class="mw-form-subtitle sr-subtitle">اختر مسار الطلب المناسب، حدّد التخصص، ثم أرسل وصفاً واضحاً ليبدأ التنفيذ أو استقبال العروض حسب نوع الطلب.</p>
-
-      <section class="sr-journey-card" aria-hidden="true">
-        <div class="sr-summary">
-          <div class="sr-summary-copy">
-            <span id="sr-request-kind-label" class="sr-summary-chip">المسار الحالي</span>
-            <h2 id="sr-request-kind-title">طلب مباشر إلى مزود محدد</h2>
-            <p id="sr-request-kind-text">استخدم هذا المسار عندما تريد إرسال الطلب مباشرة إلى مزود معيّن أو اختيار نوع الطلب الأنسب قبل المتابعة.</p>
-          </div>
-          <div class="sr-overview">
-            <div class="sr-overview-item">
-              <span>اختيار واضح</span>
-              <strong>حسب طبيعة الطلب</strong>
-              <p>حدد إن كان الطلب مباشراً، تنافسياً، أو عاجلاً قبل تعبئة التفاصيل.</p>
-            </div>
-            <div class="sr-overview-item">
-              <span>تفاصيل أدق</span>
-              <strong>رفع فرص الاستجابة</strong>
-              <p>العنوان الواضح والمرفقات المناسبة يساعدان على فهم الطلب بسرعة.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="sr-provider-note" class="sr-provider-note hidden">
-        <span class="sr-provider-chip">إرسال مباشر</span>
-        <h3>سيصل الطلب إلى المزود الذي اخترته فقط</h3>
-        <p>هذا المسار مناسب عندما تكون قد حددت المزود مسبقاً من صفحة البحث أو من ملفه الشخصي، ولن يتم نشر الطلب لبقية المزوّدين.</p>
-      </section>
-
-      <form id="sr-form" class="form-card mw-form-card sr-form" autocomplete="off">
-        <div class="sr-grid">
-          <section class="sr-section sr-section-span-full">
-            <div class="sr-section-head">
-              <span class="sr-section-step">1</span>
-              <div>
-                <h2>نوع الطلب</h2>
-                <p>اختر المسار التشغيلي المناسب. سيؤثر هذا على طريقة توجيه الطلب والحقول الإضافية المعروضة لك.</p>
-              </div>
-            </div>
-
-            <div class="chip-group sr-type-chips" id="sr-type-chips">
-              <button type="button" class="chip active" data-val="normal">طلب مباشر<span>إرسال الطلب إلى مزود محدد أو مسار مباشر دون منافسة.</span></button>
-              <button type="button" class="chip" data-val="competitive">طلب تنافسي<span>استقبال أكثر من عرض سعر خلال مدة تحددها أنت.</span></button>
-              <button type="button" class="chip" data-val="urgent">طلب عاجل<span>إرسال سريع للمزوّدين المؤهلين بحسب التخصص والمدينة.</span></button>
-            </div>
-          </section>
-
-          <section class="sr-section sr-section-span-full">
-            <div class="sr-section-head">
-              <span class="sr-section-step">2</span>
-              <div>
-                <h2>التصنيف والنطاق</h2>
-                <p>اختيار التخصص المناسب يضمن وصول الطلب إلى المسار الصحيح ويقلل وقت المراجعة أو الرد.</p>
-              </div>
-            </div>
-
-            <div class="sr-fields-grid sr-fields-grid-two">
-              <div class="form-group sr-group">
-                <label class="form-label sr-label" for="sr-category">القسم <span class="sr-required">*</span></label>
-                <select id="sr-category" class="form-select" required><option value="">اختر القسم</option></select>
-              </div>
-
-              <div class="form-group sr-group">
-                <label class="form-label sr-label" for="sr-subcategory">التصنيف الفرعي <span class="sr-required">*</span></label>
-                <select id="sr-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
-              </div>
-
-              <div class="form-group sr-group" id="sr-city-group">
-                <label class="form-label sr-label" for="sr-city">المدينة</label>
-                <select id="sr-city" class="form-select">
-                  <option value="">اختر المدينة (اختياري)</option>
-                </select>
-                <button type="button" id="sr-city-clear" class="city-clear-btn hidden">إلغاء اختيار المدينة</button>
-                <p class="sr-helper">أضف المدينة عندما تكون الخدمة مرتبطة بنطاق جغرافي أو تحتاج مزوداً قريباً.</p>
-              </div>
-
-              <div class="form-group sr-group hidden" id="sr-deadline-group">
-                <label class="form-label sr-label" id="sr-deadline-label" for="sr-deadline">آخر موعد لاستلام العروض (اختياري)</label>
-                <input id="sr-deadline" type="date" class="form-input">
-                <p class="sr-helper" id="sr-deadline-hint">يفيد هذا الحقل عندما يكون الطلب تنافسياً وتريد إيقاف استقبال العروض في تاريخ محدد.</p>
-              </div>
-            </div>
-          </section>
-
-          <section class="sr-section sr-section-span-full">
-            <div class="sr-section-head">
-              <span class="sr-section-step">3</span>
-              <div>
-                <h2>محتوى الطلب</h2>
-                <p>كلما كان العنوان والوصف أوضح، أصبحت المراجعة أسرع وقلت الحاجة للرجوع والاستفسار.</p>
-              </div>
-            </div>
-
-            <div class="form-group sr-group">
-              <label class="form-label sr-label" for="sr-req-title">عنوان الطلب <span class="sr-required">*</span></label>
-              <input id="sr-req-title" type="text" class="form-input" maxlength="50" placeholder="اكتب عنوان الطلب..." required>
-              <span class="char-count"><span id="sr-title-count">0</span>/50</span>
-            </div>
-
-            <div class="form-group sr-group">
-              <label class="form-label sr-label" for="sr-desc">تفاصيل الطلب <span class="sr-required">*</span></label>
-              <textarea id="sr-desc" class="form-textarea" rows="5" maxlength="500" placeholder="اكتب تفاصيل الطلب بشكل دقيق..." required></textarea>
-              <span class="char-count"><span id="sr-desc-count">0</span>/500</span>
-              <p class="sr-helper" id="sr-submit-helper">اذكر المتطلبات الرئيسية والنتيجة المتوقعة وأي تفاصيل خاصة بالتنفيذ.</p>
-            </div>
-          </section>
-
-          <section class="sr-section sr-section-span-full">
-            <div class="sr-section-head">
-              <span class="sr-section-step">4</span>
-              <div>
-                <h2>المرفقات الداعمة</h2>
-                <p>يمكنك إضافة صور أو فيديو أو ملفات توضح الاحتياج أو المرجعية المطلوبة قبل الإرسال.</p>
-              </div>
-            </div>
-
-            <div class="form-group sr-group">
-              <label class="form-label sr-label">المرفقات</label>
-              <div class="sr-attachments-wrap">
-                <div id="sr-attachments" class="attachments-preview"></div>
-                <div class="attach-btns">
-                  <label class="btn btn-outline btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> صور<input type="file" id="sr-images" accept="image/*" multiple hidden></label>
-                  <label class="btn btn-outline btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> فيديو<input type="file" id="sr-videos" accept="video/*" multiple hidden></label>
-                  <label class="btn btn-outline btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> ملفات<input type="file" id="sr-files" accept=".pdf,.doc,.docx,.txt,.xlsx,.xls" multiple hidden></label>
+    <!-- Form Content -->
+    <div id="form-content"{% if not request.user.is_authenticated or provider_mode_blocked %} class="hidden"{% endif %}>
+      <form id="sr-form" autocomplete="off" novalidate>
+        <div class="sr-form-card">
+          <section class="sr-hero" aria-live="polite" aria-atomic="true">
+            <div class="sr-hero-inner">
+              <span id="sr-type-badge" class="sr-type-badge" data-tone="competitive">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 3 7l9 5 9-5-9-5zm0 7-9-5v6l9 5 9-5V4l-9 5zm0 7-9-5v6l9 5 9-5v-6l-9 5z"/></svg>
+                <span id="sr-type-badge-text">نوع الطلب: تنافسي</span>
+              </span>
+              <div class="sr-hero-grid">
+                <div class="sr-hero-copy">
+                  <h1 id="sr-title">طلب خدمة</h1>
+                  <p id="sr-subtitle">حدد التصنيف واكتب تفاصيل طلبك، ثم اختر طريقة الإرسال.</p>
+                  <div class="sr-hero-pills">
+                    <span id="sr-pill-1" class="sr-hero-pill">مطابقة ذكية حسب التخصص</span>
+                    <span id="sr-pill-2" class="sr-hero-pill">إرسال يناسب هذا النوع</span>
+                    <span id="sr-pill-3" class="sr-hero-pill">واجهة موحدة مع هوية نوافذ</span>
+                  </div>
+                </div>
+                <div class="sr-hero-side">
+                  <div class="sr-hero-card">
+                    <strong id="sr-type-note-title">هذا النوع مناسب للمقارنة بين العروض</strong>
+                    <p id="sr-type-note-body">يصل طلبك إلى المزودين المطابقين ليقدموا لك عروضهم، ثم تختار الأنسب من حيث السعر والمدة وطريقة التنفيذ.</p>
+                  </div>
                 </div>
               </div>
-              <p class="sr-helper">الملفات الداعمة تقلل التوضيحات اللاحقة وتمنح المزوّد أوضح صورة عن المطلوب.</p>
             </div>
           </section>
-        </div>
 
-        <div class="form-actions sr-actions">
-          <a href="javascript:history.back()" class="btn btn-outline btn-block">إلغاء</a>
-          <button type="submit" class="btn-primary-lg sr-submit-btn" id="sr-submit">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-            <span id="sr-submit-text">إرسال الطلب</span>
-          </button>
+          <div class="sr-header">
+            <h1>بناء الطلب</h1>
+            <p>أكمل الحقول التالية بحسب نوع الطلب الذي اخترته في الأعلى.</p>
+          </div>
+
+          <!-- Section 1: Request Type -->
+          <div id="sr-type-section" class="sr-section">
+            <div class="sr-section-title">
+              <span class="sr-section-num sr-step">1</span>
+              <span class="sr-section-label">نوع الطلب</span>
+            </div>
+            <div id="sr-type-chips" class="sr-chips">
+              <div class="sr-chip active" data-val="competitive">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                تنافسي
+              </div>
+              <div class="sr-chip" data-val="urgent">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                عاجل
+              </div>
+              <div class="sr-chip hidden" data-val="normal">مباشر</div>
+            </div>
+          </div>
+
+          <!-- Section 2: Category -->
+          <div id="sr-scope-section" class="sr-section">
+            <div class="sr-section-title">
+              <span class="sr-section-num sr-step">2</span>
+              <span class="sr-section-label">التصنيف</span>
+            </div>
+            <div id="sr-scope-fields">
+              <div class="sr-two-col">
+                <div class="sr-field-group">
+                  <label for="sr-category">القسم الرئيسي</label>
+                  <select id="sr-category" class="sr-select"><option value="">اختر القسم</option></select>
+                  <div id="sr-category-error" class="sr-field-error"></div>
+                </div>
+                <div class="sr-field-group">
+                  <label for="sr-subcategory">التصنيف الفرعي</label>
+                  <select id="sr-subcategory" class="sr-select"><option value="">اختر التصنيف</option></select>
+                  <div id="sr-subcategory-error" class="sr-field-error"></div>
+                </div>
+              </div>
+            </div>
+            <div id="sr-fixed-target" class="sr-fixed-target hidden">
+              <div id="sr-scope-title" style="font-weight:700;margin-bottom:8px;color:#0f766e;font-size:13.5px;"></div>
+              <div id="sr-scope-text" style="font-size:12.5px;color:#64748b;margin-bottom:10px;"></div>
+              <div class="sr-fixed-target-row"><span class="sr-ft-label">المزود</span><span class="sr-ft-value" id="sr-fixed-provider-name"></span></div>
+              <div class="sr-fixed-target-row" id="sr-fixed-service-row"><span class="sr-ft-label">الخدمة</span><span class="sr-ft-value" id="sr-fixed-service"></span></div>
+              <div class="sr-fixed-target-row"><span class="sr-ft-label">القسم</span><span class="sr-ft-value" id="sr-fixed-category"></span></div>
+              <div class="sr-fixed-target-row"><span class="sr-ft-label">التصنيف</span><span class="sr-ft-value" id="sr-fixed-subcategory"></span></div>
+              <div class="sr-fixed-target-row"><span class="sr-ft-label">المدينة</span><span class="sr-ft-value" id="sr-fixed-city"></span></div>
+            </div>
+          </div>
+
+          <!-- Section 3: Dispatch Scope -->
+          <div id="sr-dispatch-section" class="sr-section">
+            <div class="sr-section-title">
+              <span class="sr-section-num sr-step">3</span>
+              <span class="sr-section-label">نطاق الإرسال</span>
+            </div>
+
+            <div id="sr-city-group" class="sr-field-group">
+              <label>المنطقة والمدينة <span class="sr-optional">(اختياري)</span></label>
+              <div class="sr-two-col">
+                <select id="sr-region" class="sr-select"><option value="">اختر المنطقة</option></select>
+                <select id="sr-city" class="sr-select"><option value="">اختر المدينة</option></select>
+              </div>
+              <div class="sr-city-clear-wrap">
+                <button type="button" id="sr-city-clear" class="sr-city-clear-btn hidden">مسح المدينة</button>
+              </div>
+              <div id="sr-city-error" class="sr-field-error"></div>
+            </div>
+
+            <div class="sr-dispatch-box" id="sr-dispatch-mode-wrap">
+              <div class="sr-section-label" style="margin-bottom:10px;">طريقة التوجيه</div>
+              <div id="sr-dispatch-chips" class="sr-chips">
+                <div class="sr-chip active" data-dispatch="all">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  إرسال للجميع
+                </div>
+                <div class="sr-chip" data-dispatch="nearest">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  إرسال للأقرب
+                </div>
+              </div>
+
+              <div id="sr-selected-provider" class="sr-selected-provider">
+                <div class="sr-selected-provider-inner">
+                  <img id="sr-sp-avatar" class="sr-selected-provider-avatar" src="" alt="" />
+                  <div class="sr-selected-provider-info">
+                    <div id="sr-sp-name" class="sr-selected-provider-name"></div>
+                    <div id="sr-sp-meta" class="sr-selected-provider-meta"></div>
+                  </div>
+                  <div class="sr-selected-provider-actions">
+                    <button type="button" id="sr-sp-change">تغيير</button>
+                    <button type="button" id="sr-sp-remove" class="sr-sp-remove">إزالة</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 4: Request Details -->
+          <div class="sr-section">
+            <div class="sr-section-title">
+              <span class="sr-section-num sr-step">4</span>
+              <span class="sr-section-label">تفاصيل الطلب</span>
+            </div>
+            <div class="sr-field-group">
+              <label for="sr-req-title">عنوان الطلب</label>
+              <input type="text" id="sr-req-title" class="sr-input" maxlength="50" placeholder="مثال: تصميم موقع إلكتروني" />
+              <div class="sr-char-count" id="sr-title-count-wrap"><span id="sr-title-count">0</span> / 50</div>
+              <div id="sr-req-title-error" class="sr-field-error"></div>
+            </div>
+            <div class="sr-field-group">
+              <label for="sr-desc">وصف الطلب</label>
+              <textarea id="sr-desc" class="sr-textarea" maxlength="300" rows="4" placeholder="اشرح المطلوب بدقة ..."></textarea>
+              <div class="sr-char-count" id="sr-desc-count-wrap"><span id="sr-desc-count">0</span> / 300</div>
+              <div id="sr-desc-error" class="sr-field-error"></div>
+            </div>
+            <div id="sr-deadline-group" class="sr-deadline-group hidden">
+              <div class="sr-field-group">
+                <label for="sr-deadline">آخر موعد لاستلام العروض <span class="sr-optional">(اختياري)</span></label>
+                <input type="date" id="sr-deadline" class="sr-input" />
+                <div id="sr-deadline-error" class="sr-field-error"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 5: Attachments -->
+          <div class="sr-section">
+            <div class="sr-section-title">
+              <span class="sr-section-num sr-step">5</span>
+              <span class="sr-section-label">المرفقات <span class="sr-optional" style="font-size:12px;">(اختياري)</span></span>
+            </div>
+            <div class="sr-attach-buttons">
+              <label class="sr-attach-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                صور
+                <input type="file" id="sr-images" accept="image/*" multiple />
+              </label>
+              <label class="sr-attach-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                فيديو
+                <input type="file" id="sr-videos" accept="video/*" multiple />
+              </label>
+              <label class="sr-attach-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                ملفات
+                <input type="file" id="sr-files" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" multiple />
+              </label>
+              <button type="button" id="sr-audio-btn" class="sr-attach-btn sr-audio-record-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                تسجيل صوتي
+              </button>
+            </div>
+            <div id="sr-audio-preview" class="sr-audio-preview">
+              <audio id="sr-audio-player" controls></audio>
+              <button type="button" id="sr-audio-remove" class="sr-audio-remove">حذف</button>
+            </div>
+            <div id="sr-attachments" class="sr-attachments-preview"></div>
+            <div id="sr-attachment-note" class="hidden" style="margin-top:10px;padding:10px 14px;border-radius:12px;background:rgba(15,118,110,0.04);border:1px solid rgba(15,118,110,0.10);font-size:12.5px;">
+              <div id="sr-attachment-note-title" style="font-weight:700;color:#0f766e;margin-bottom:2px;"></div>
+              <div id="sr-attachment-note-text" style="color:#64748b;"></div>
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <div class="sr-submit-section">
+            <p id="sr-submit-helper" class="sr-submit-helper">اكتب المطلوب بوضوح وأرفق ما يلزم فقط.</p>
+            <button type="submit" id="sr-submit" class="sr-submit-btn">
+              <span id="sr-submit-text">إرسال الطلب</span>
+            </button>
+          </div>
+
         </div>
       </form>
 
-      <div id="sr-success" class="success-overlay hidden">
-        <div class="success-card sr-success-card">
-          <div class="success-icon">✅</div>
-          <h2 id="sr-success-title" class="success-title">تم إرسال الطلب</h2>
-          <p id="sr-success-message" class="success-msg">تم حفظ طلبك بنجاح. ستتمكن من متابعة حالته وجميع التحديثات من صفحة الطلبات.</p>
-          <a href="/orders/" class="btn btn-primary" style="margin-top:16px">عرض طلباتي</a>
-          <a href="/" class="btn-link" style="margin-top:8px">العودة للرئيسية</a>
+      <!-- Map Modal -->
+      <div id="sr-map-modal" class="sr-map-modal">
+        <div class="sr-map-modal-backdrop" id="sr-map-modal-backdrop"></div>
+        <div class="sr-map-modal-panel">
+          <div class="sr-map-modal-header">
+            <h3>اختيار مزود قريب</h3>
+            <button type="button" class="sr-map-modal-close" id="sr-map-modal-close" aria-label="إغلاق">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+          <div class="sr-modal-status" id="sr-modal-status">
+            <div class="sr-spinner"></div>
+            <span id="sr-modal-status-text">جاري تحديد موقعك...</span>
+          </div>
+          <div class="sr-modal-map" id="sr-modal-map"></div>
+          <div class="sr-modal-providers" id="sr-modal-providers">
+            <div id="sr-modal-empty" class="sr-modal-empty">لا يوجد مزودون قريبون في هذا النطاق.</div>
+            <div id="sr-modal-list"></div>
+          </div>
         </div>
       </div>
+
+      <!-- Success -->
+      <div id="sr-success" class="sr-success-overlay">
+        <div class="sr-success-icon">✅</div>
+        <h2 id="sr-success-title">تم إرسال الطلب</h2>
+        <p id="sr-success-message">تم حفظ طلبك بنجاح. ستتمكن من متابعة حالته من صفحة الطلبات.</p>
+        <a href="/orders/" class="sr-success-btn">عرض طلباتي</a>
+        <a href="/" class="sr-success-link">العودة للرئيسية</a>
+      </div>
     </div>
+
+    <!-- Toast -->
+    <div id="sr-toast" class="sr-toast" role="status" aria-live="polite">
+      <div id="sr-toast-icon" class="sr-toast-icon"></div>
+      <div class="sr-toast-body">
+        <div id="sr-toast-title" class="sr-toast-title"></div>
+        <div id="sr-toast-message" class="sr-toast-message"></div>
+      </div>
+      <button type="button" id="sr-toast-close" class="sr-toast-close" aria-label="إغلاق">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+
   </div>
 </main>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/serviceRequestFormPage.js' %}"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'mobile_web/js/serviceRequestFormPage.js' %}?v=20260418-direct-success1"></script>
 {% endblock %}

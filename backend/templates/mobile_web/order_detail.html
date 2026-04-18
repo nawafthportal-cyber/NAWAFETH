@@ -33,6 +33,7 @@
         <span class="spinner-inline"></span>
       </div>
       <div id="order-error" class="form-error hidden"></div>
+      <div id="order-page-feedback" class="order-offers-feedback hidden" aria-live="polite"></div>
 
       <div id="order-detail" class="hidden order-detail-stack">
         <section class="order-detail-card order-summary-card">
@@ -92,6 +93,7 @@
           <h2>قرارك على تفاصيل التنفيذ</h2>
           <div id="order-provider-inputs-grid" class="order-info-grid"></div>
           <div id="order-provider-decision-note" class="order-inline-note hidden"></div>
+          <div id="order-provider-decision-feedback" class="order-offers-feedback hidden" aria-live="polite"></div>
           <div id="order-provider-decision-form" class="order-decision-form">
             <label for="order-provider-reject-note" class="order-form-label">سبب الرفض عند الحاجة</label>
             <textarea id="order-provider-reject-note" class="form-textarea order-inline-textarea" rows="3" placeholder="اكتب سبب رفض التفاصيل ليصل إلى مقدم الخدمة"></textarea>
@@ -110,6 +112,7 @@
         <section id="order-review-section" class="order-detail-card hidden">
           <h2>تقييم الخدمة</h2>
           <div id="order-review-summary" class="order-inline-note hidden"></div>
+          <div id="order-review-feedback" class="order-offers-feedback order-review-feedback hidden" aria-live="polite"></div>
           <form id="order-review-form" class="order-review-form">
             <div class="order-review-grid">
               <label class="order-review-field">
@@ -170,7 +173,10 @@
             </div>
             <label for="review-comment" class="order-form-label">تعليقك</label>
             <textarea id="review-comment" class="form-textarea order-inline-textarea" rows="4" maxlength="300" placeholder="اكتب تعليقًا مختصرًا عن التجربة"></textarea>
-            <button type="submit" class="btn-primary" id="btn-submit-review">إرسال التقييم</button>
+            <button type="submit" class="btn-primary" id="btn-submit-review">
+              <span id="btn-submit-review-text">إرسال التقييم</span>
+              <span class="order-btn-spinner spinner hidden" id="btn-submit-review-spinner" aria-hidden="true"></span>
+            </button>
           </form>
         </section>
 
@@ -208,5 +214,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/orderDetailPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/orderDetailPage.js' %}?v=20260418-provider-inputs-approval1"></script>
 {% endblock %}

@@ -6,8 +6,8 @@ import math
 from django.db import transaction
 from django.utils import timezone
 
-from apps.notifications.models import EventLog, EventType
-from apps.notifications.services import create_notification
+from apps.notifications.models import EventLog, EventType, Notification
+from apps.notifications.services import create_notification, delete_notifications
 from apps.providers.models import ProviderCategory, ProviderProfile
 from apps.subscriptions.capabilities import (
     competitive_request_delay_for_user,
@@ -478,3 +478,34 @@ def provider_can_access_urgent_request(provider: ProviderProfile, service_reques
         dispatch_tier=tier,
         available_at__lte=now,
     ).exists()
+
+
+def clear_urgent_request_provider_notifications(service_request: ServiceRequest) -> int:
+    if getattr(service_request, "request_type", "") != RequestType.URGENT:
+        return 0
+
+    provider_user_ids = list(
+        EventLog.objects.filter(
+            event_type=EventType.REQUEST_CREATED,
+            request_id=service_request.id,
+            target_user__isnull=False,
+        ).values_list("target_user_id", flat=True).distinct()
+    )
+
+    assigned_provider_user_id = getattr(getattr(service_request, "provider", None), "user_id", None)
+    if assigned_provider_user_id:
+        provider_user_ids.append(int(assigned_provider_user_id))
+
+    provider_user_ids = list(dict.fromkeys(int(user_id) for user_id in provider_user_ids if user_id))
+    if not provider_user_ids:
+        return 0
+
+    request_url = f"/requests/{service_request.id}"
+    return delete_notifications(
+        qs=Notification.objects.filter(
+            user_id__in=provider_user_ids,
+            audience_mode="provider",
+            url=request_url,
+            kind__in=["urgent_request", "request_created"],
+        )
+    )

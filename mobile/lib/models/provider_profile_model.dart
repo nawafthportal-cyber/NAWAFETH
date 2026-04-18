@@ -15,6 +15,7 @@ class ProviderProfileModel {
   final String? website;
   final List<dynamic> socialLinks;
   final List<dynamic> languages;
+  final String region;
   final String city;
   final String? cityDisplay;
   final double? lat;
@@ -47,6 +48,7 @@ class ProviderProfileModel {
     this.website,
     required this.socialLinks,
     required this.languages,
+    required this.region,
     required this.city,
     this.cityDisplay,
     this.lat,
@@ -88,6 +90,7 @@ class ProviderProfileModel {
       website: json['website'] as String?,
       socialLinks: json['social_links'] as List<dynamic>? ?? [],
       languages: json['languages'] as List<dynamic>? ?? [],
+      region: json['region'] as String? ?? '',
       city: json['city'] as String? ?? '',
       cityDisplay: json['city_display'] as String?,
       lat: _parseDouble(json['lat']),
@@ -110,7 +113,10 @@ class ProviderProfileModel {
   }
 
   bool get hasExcellenceBadges => excellenceBadges.isNotEmpty;
-  String get locationDisplay => SaudiCities.formatCityDisplay(cityDisplay ?? city);
+  String get locationDisplay => SaudiCities.formatCityDisplay(
+        cityDisplay ?? city,
+        region: region,
+      );
 
   /// ─── حساب نسبة إكمال الملف التعريفي ───
   ///

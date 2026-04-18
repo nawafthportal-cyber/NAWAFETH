@@ -1,121 +1,1101 @@
-{% extends "mobile_web/base.html" %}{% load static %}
+{% extends "mobile_web/base.html" %}
+{% load static %}
 {% block title %}تفاصيل الطلب — نوافــذ{% endblock %}
-{% block body_class %}page-provider-order-detail{% endblock %}
+{% block body_class %}page-provider-order-detail-v2{% endblock %}
+
+{% block extra_css %}
+<style>
+  body.page-provider-order-detail-v2 {
+    --pod-primary: #673AB7;
+    --pod-primary-strong: #512DA8;
+    --pod-primary-soft: rgba(103, 58, 183, 0.1);
+    --pod-accent: #F1A559;
+    --pod-text: #1A1A2E;
+    --pod-muted: #666680;
+    --pod-bg: #F5F5FA;
+    --pod-card: #FFFFFF;
+    --pod-line: rgba(103, 58, 183, 0.14);
+    --pod-danger: #C0392B;
+    --pod-shadow-lg: 0 24px 54px rgba(91, 54, 171, 0.12);
+    --pod-shadow-md: 0 14px 34px rgba(26, 26, 46, 0.09);
+    background:
+      radial-gradient(circle at 12% -8%, rgba(103, 58, 183, 0.17), transparent 33%),
+      radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.12), transparent 27%),
+      linear-gradient(180deg, #f7f4ff 0%, #f4f6ff 48%, var(--pod-bg) 100%);
+  }
+
+  body.page-provider-order-detail-v2 #top-navbar,
+  body.page-provider-order-detail-v2 #site-footer,
+  body.page-provider-order-detail-v2 #bottom-nav {
+    display: none !important;
+  }
+
+  .pod-shell {
+    width: min(1400px, calc(100% - 24px));
+    margin: 0 auto;
+    padding: 14px 0 42px;
+  }
+
+  .pod-auth-gate {
+    min-height: 72vh;
+    display: grid;
+    place-items: center;
+  }
+
+  .pod-auth-card {
+    width: min(520px, 100%);
+    border-radius: 30px;
+    border: 1px solid var(--pod-line);
+    background: linear-gradient(170deg, rgba(255,255,255,0.98), rgba(244,239,255,0.92));
+    box-shadow: var(--pod-shadow-lg);
+    padding: 34px;
+    text-align: center;
+  }
+
+  .pod-auth-icon {
+    width: 76px;
+    height: 76px;
+    border-radius: 24px;
+    margin: 0 auto 16px;
+    display: grid;
+    place-items: center;
+    color: var(--pod-primary-strong);
+    background: linear-gradient(135deg, rgba(103,58,183,0.16), rgba(37,99,235,0.12));
+  }
+
+  .pod-auth-card h2 {
+    margin: 0 0 10px;
+    color: var(--pod-text);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+  }
+
+  .pod-auth-card p {
+    margin: 0 0 24px;
+    color: var(--pod-muted);
+    line-height: 1.85;
+  }
+
+  .pod-topbar {
+    position: sticky;
+    top: 10px;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    border-radius: 22px;
+    border: 1px solid var(--pod-line);
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 14px 34px rgba(91, 54, 171, 0.1);
+  }
+
+  .pod-topbar-main,
+  .pod-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .pod-icon-link,
+  .pod-icon-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    border: 1px solid rgba(26, 26, 46, 0.08);
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--pod-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    box-shadow: 0 8px 18px rgba(17, 24, 39, 0.08);
+  }
+
+  .pod-icon-link:hover,
+  .pod-icon-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(103, 58, 183, 0.24);
+    box-shadow: 0 12px 24px rgba(91, 54, 171, 0.12);
+  }
+
+  .pod-title-stack {
+    display: grid;
+    gap: 1px;
+  }
+
+  .pod-title-stack h1 {
+    margin: 0;
+    color: var(--pod-text);
+    font-size: clamp(1.08rem, 1.9vw, 1.35rem);
+    font-weight: 900;
+  }
+
+  .pod-title-stack span {
+    color: var(--pod-muted);
+    font-size: .84rem;
+    font-weight: 700;
+  }
+
+  .pod-loading-shell,
+  .pod-error {
+    margin: 18px 0;
+    border-radius: 24px;
+    border: 1px solid var(--pod-line);
+    background: rgba(255,255,255,0.94);
+    box-shadow: var(--pod-shadow-md);
+  }
+
+  .pod-loading-shell {
+    padding: 26px;
+  }
+
+  .pod-loading-shell .loading-center {
+    min-height: 150px;
+  }
+
+  .pod-error {
+    padding: 16px 18px;
+    color: var(--pod-danger);
+  }
+
+  .pod-workspace {
+    display: grid;
+    gap: 18px;
+    align-items: start;
+  }
+
+  .pod-main {
+    min-width: 0;
+    display: grid;
+    gap: 18px;
+  }
+
+  .pod-side {
+    min-width: 0;
+    display: grid;
+    gap: 16px;
+    align-self: start;
+  }
+
+  .pod-card {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,245,255,0.9));
+    border: 1px solid var(--pod-line);
+    border-radius: 24px;
+    padding: 22px;
+    box-shadow: var(--pod-shadow-md);
+  }
+
+  .pod-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(255,255,255,0.12), transparent 36%);
+  }
+
+  .pod-head,
+  .pod-subhead,
+  .pod-client-head {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .pod-head h2,
+  .pod-head h3,
+  .pod-subhead h4,
+  .pod-client-head h3 {
+    margin: 0;
+    color: var(--pod-text);
+  }
+
+  .pod-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: .8rem;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .pod-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 30px;
+    padding: 26px;
+    border: 1px solid rgba(255,255,255,0.26);
+    background:
+      radial-gradient(circle at 86% 14%, rgba(241,165,89,0.25), transparent 18%),
+      radial-gradient(circle at 12% 8%, rgba(126,83,196,0.32), transparent 24%),
+      linear-gradient(140deg, #4A148C 0%, #673AB7 52%, #2563EB 100%);
+    box-shadow: 0 30px 62px rgba(91, 54, 171, 0.3);
+    color: #f8f9ff;
+  }
+
+  .pod-hero-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, .6fr);
+    align-items: start;
+  }
+
+  .pod-display-id {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+    font-size: clamp(1.5rem, 3.3vw, 2.3rem);
+    font-weight: 900;
+    letter-spacing: .02em;
+  }
+
+  .pod-hero-facts {
+    margin: 10px 0 0;
+    color: rgba(245, 247, 255, 0.88);
+    line-height: 1.8;
+    font-size: .94rem;
+  }
+
+  .pod-meta-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .pod-meta-chip,
+  .pod-type-badge,
+  .pod-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.2);
+    font-size: .86rem;
+    font-weight: 800;
+  }
+
+  .pod-meta-chip {
+    color: rgba(255,255,255,0.92);
+    background: rgba(255,255,255,0.12);
+  }
+
+  .pod-hero-actions {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+  }
+
+  .pod-status-pill {
+    color: #fff;
+    background: rgba(255,255,255,0.12);
+  }
+
+  .pod-chat-btn {
+    width: 100%;
+    min-height: 50px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.28);
+    background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(236,229,255,0.92));
+    color: var(--pod-primary-strong);
+    font-weight: 900;
+    box-shadow: 0 16px 30px rgba(41, 26, 78, 0.24);
+  }
+
+  .pod-chat-btn-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pod-overview-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(160px, .8fr));
+  }
+
+  .pod-overview-tile {
+    border-radius: 18px;
+    padding: 14px 14px;
+    border: 1px solid rgba(103, 58, 183, 0.1);
+    background: rgba(247, 244, 255, 0.84);
+  }
+
+  .pod-overview-tile span {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--pod-muted);
+    font-size: .82rem;
+    font-weight: 700;
+  }
+
+  .pod-overview-tile strong {
+    display: block;
+    color: var(--pod-text);
+    font-weight: 900;
+    line-height: 1.7;
+    word-break: break-word;
+  }
+
+  .pod-readonly-box {
+    position: relative;
+    z-index: 1;
+    border-radius: 18px;
+    border: 1px solid rgba(103, 58, 183, 0.1);
+    background: rgba(248, 245, 255, 0.82);
+    padding: 16px;
+  }
+
+  .pod-readonly-box label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--pod-muted);
+    font-size: .82rem;
+    font-weight: 700;
+  }
+
+  .pod-readonly-box p {
+    margin: 0;
+    color: var(--pod-text);
+    line-height: 1.9;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .pod-muted {
+    color: var(--pod-muted);
+  }
+
+  .pod-attachment-group + .pod-attachment-group {
+    margin-top: 16px;
+  }
+
+  .pod-count-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 999px;
+    color: var(--pod-text);
+    font-weight: 900;
+    background: rgba(26, 26, 46, 0.06);
+  }
+
+  .pod-attachment-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
+  .pod-attachment-row {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(103, 58, 183, 0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,242,255,0.95));
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 10px 22px rgba(26, 26, 46, 0.08);
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    display: flex;
+    flex-direction: column;
+    min-height: 210px;
+  }
+
+  .pod-attachment-row:hover {
+    transform: translateY(-2px);
+    border-color: rgba(103, 58, 183, 0.24);
+    box-shadow: 0 16px 28px rgba(91, 54, 171, 0.14);
+  }
+
+  .pod-attachment-row.is-final {
+    background: linear-gradient(180deg, rgba(251,247,255,0.98), rgba(238,241,255,0.96));
+  }
+
+  .pod-attachment-preview {
+    height: 140px;
+    background:
+      linear-gradient(160deg, rgba(103,58,183,0.14), rgba(37,99,235,0.06)),
+      linear-gradient(135deg, #f4efff 0%, #edf3ff 100%);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  .pod-attachment-preview img,
+  .pod-attachment-preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .pod-attachment-preview video {
+    pointer-events: none;
+  }
+
+  .pod-attachment-placeholder {
+    display: grid;
+    gap: 6px;
+    justify-items: center;
+    color: var(--pod-primary-strong);
+  }
+
+  .pod-attachment-placeholder strong {
+    font-size: 1.06rem;
+  }
+
+  .pod-attachment-body {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .pod-attachment-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .pod-attachment-name {
+    color: var(--pod-text);
+    font-weight: 800;
+    line-height: 1.65;
+    word-break: break-word;
+  }
+
+  .pod-attachment-open {
+    color: var(--pod-primary-strong);
+    font-size: .8rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .pod-attachment-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pod-attachment-type,
+  .pod-attachment-date,
+  .pod-attachment-owner {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 800;
+  }
+
+  .pod-attachment-type {
+    color: var(--pod-primary-strong);
+    background: rgba(103,58,183,0.1);
+  }
+
+  .pod-attachment-date,
+  .pod-attachment-owner {
+    color: var(--pod-muted);
+    background: rgba(17,24,39,0.06);
+  }
+
+  .pod-timeline {
+    display: grid;
+    gap: 12px;
+  }
+
+  .pod-log-item {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+
+  .pod-log-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    margin-top: 7px;
+    position: relative;
+  }
+
+  .pod-log-item:not(.is-last) .pod-log-dot::after {
+    content: "";
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: calc(100% + 22px);
+    background: rgba(17,24,39,0.14);
+  }
+
+  .pod-log-body {
+    border-radius: 16px;
+    border: 1px solid rgba(103,58,183,0.1);
+    background: rgba(248,245,255,0.86);
+    padding: 14px;
+  }
+
+  .pod-log-title,
+  .pod-log-actor,
+  .pod-log-note,
+  .pod-log-date {
+    margin: 0;
+  }
+
+  .pod-log-title {
+    color: var(--pod-text);
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .pod-log-actor,
+  .pod-log-note,
+  .pod-log-date {
+    color: var(--pod-muted);
+    line-height: 1.75;
+    font-size: .9rem;
+  }
+
+  .pod-log-note,
+  .pod-log-date {
+    margin-top: 2px;
+  }
+
+  .pod-input-label {
+    display: block;
+    margin: 0 0 6px;
+    color: var(--pod-text);
+    font-size: .88rem;
+    font-weight: 800;
+  }
+
+  .pod-input,
+  .pod-textarea {
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid rgba(17,24,39,0.12);
+    background: rgba(255,255,255,0.95);
+    color: var(--pod-text);
+    padding: 12px 14px;
+    font: inherit;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color .18s ease, box-shadow .18s ease;
+  }
+
+  .pod-input:focus,
+  .pod-textarea:focus {
+    border-color: rgba(103,58,183,0.32);
+    box-shadow: 0 0 0 4px rgba(103,58,183,0.08);
+  }
+
+  .pod-textarea {
+    min-height: 96px;
+    resize: vertical;
+    line-height: 1.8;
+  }
+
+  .pod-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .pod-action-title {
+    margin: 0 0 10px;
+    color: var(--pod-text);
+    font-size: 1rem;
+    font-weight: 900;
+  }
+
+  .pod-divider {
+    height: 1px;
+    margin: 20px 0;
+    background: linear-gradient(90deg, transparent, rgba(17,24,39,0.14), transparent);
+  }
+
+  .pod-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 50px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    padding: 0 16px;
+    text-decoration: none;
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+    transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+  }
+
+  .pod-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  .pod-btn:disabled {
+    opacity: .56;
+    transform: none;
+    cursor: not-allowed;
+  }
+
+  .pod-btn-block {
+    width: 100%;
+  }
+
+  .pod-btn-primary {
+    background: linear-gradient(135deg, #6f42c1 0%, #5b36ab 100%);
+    color: #fff;
+    box-shadow: 0 14px 26px rgba(91, 54, 171, 0.24);
+  }
+
+  .pod-btn-success {
+    background: linear-gradient(135deg, #1f8f58 0%, #187047 100%);
+    color: #fff;
+    box-shadow: 0 14px 26px rgba(31, 143, 88, 0.22);
+  }
+
+  .pod-btn-warning {
+    background: linear-gradient(135deg, #C18419 0%, #A56D10 100%);
+    color: #fff;
+    box-shadow: 0 14px 26px rgba(193, 132, 25, 0.2);
+  }
+
+  .pod-btn-danger {
+    background: linear-gradient(135deg, #CB4A4A 0%, #A83232 100%);
+    color: #fff;
+    box-shadow: 0 14px 26px rgba(184, 59, 59, 0.2);
+  }
+
+  .pod-btn-outline,
+  .pod-btn-outline-neutral,
+  .pod-btn-outline-danger {
+    background: rgba(255,255,255,0.96);
+  }
+
+  .pod-btn-outline,
+  .pod-btn-outline-neutral {
+    color: var(--pod-text);
+    border-color: rgba(17,24,39,0.14);
+  }
+
+  .pod-btn-outline-danger {
+    color: var(--pod-danger);
+    border-color: rgba(192,57,43,0.2);
+  }
+
+  .pod-file-picker input {
+    display: none;
+  }
+
+  .pod-file-picker .pod-btn {
+    width: 100%;
+  }
+
+  .pod-file-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .pod-file-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(17,24,39,0.08);
+    background: rgba(248,245,255,0.88);
+    padding: 10px 12px;
+  }
+
+  .pod-file-name {
+    color: var(--pod-text);
+    font-weight: 700;
+    word-break: break-word;
+  }
+
+  .pod-file-remove {
+    border: 0;
+    background: transparent;
+    color: var(--pod-danger);
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .pod-client-hero {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .pod-client-avatar {
+    width: 66px;
+    height: 66px;
+    border-radius: 20px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 66px;
+    color: var(--pod-primary-strong);
+    font-size: 1.35rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, rgba(103,58,183,0.16), rgba(37,99,235,0.12));
+  }
+
+  .pod-client-copy h3 {
+    margin: 0;
+    color: var(--pod-text);
+    font-size: 1.05rem;
+  }
+
+  .pod-client-meta {
+    margin: 4px 0 0;
+    color: var(--pod-muted);
+    font-size: .88rem;
+    line-height: 1.6;
+  }
+
+  .pod-info-stack {
+    display: grid;
+    gap: 10px;
+  }
+
+  .pod-info-line {
+    display: grid;
+    grid-template-columns: 18px 64px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    border-radius: 14px;
+    border: 1px solid rgba(103,58,183,0.1);
+    background: rgba(248,245,255,0.86);
+    padding: 11px 12px;
+  }
+
+  .pod-info-line svg {
+    color: var(--pod-primary-strong);
+  }
+
+  .pod-info-label {
+    color: var(--pod-muted);
+    font-size: .82rem;
+    font-weight: 700;
+  }
+
+  .pod-info-value {
+    color: var(--pod-text);
+    font-weight: 800;
+    word-break: break-word;
+  }
+
+  .pod-back-wrap {
+    display: flex;
+    justify-content: center;
+  }
+
+  .pod-toast {
+    position: fixed;
+    right: 18px;
+    left: 18px;
+    bottom: max(18px, env(safe-area-inset-bottom, 0px));
+    z-index: 140;
+    width: min(520px, calc(100% - 36px));
+    margin: 0 auto;
+    border-radius: 16px;
+    background: rgba(26, 26, 46, 0.95);
+    color: #fff;
+    text-align: center;
+    padding: 14px 16px;
+    box-shadow: 0 20px 36px rgba(17, 24, 39, 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: opacity .2s ease, transform .2s ease;
+  }
+
+  .pod-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .pod-error-retry {
+    margin-inline-start: 10px;
+    border: 0;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+    color: #fff;
+    background: linear-gradient(135deg, #6f42c1, #5b36ab);
+  }
+
+  @media (min-width: 1101px) {
+    .pod-workspace {
+      grid-template-columns: minmax(0, 1.74fr) 340px;
+      gap: 20px;
+    }
+
+    .pod-side {
+      position: sticky;
+      top: 88px;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .pod-shell {
+      width: min(100% - 16px, 100%);
+    }
+
+    .pod-workspace {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pod-side {
+      order: -1;
+      position: static;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .pod-topbar {
+      top: 8px;
+      padding: 8px 10px;
+      border-radius: 18px;
+    }
+
+    .pod-title-stack span {
+      display: none;
+    }
+
+    .pod-hero,
+    .pod-card,
+    .pod-auth-card {
+      padding: 18px;
+      border-radius: 20px;
+    }
+
+    .pod-hero-grid,
+    .pod-overview-grid,
+    .pod-grid-2 {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pod-hero-actions {
+      margin-top: 2px;
+    }
+
+    .pod-info-line {
+      grid-template-columns: 18px minmax(0, 1fr);
+    }
+
+    .pod-info-label {
+      display: none;
+    }
+
+    .pod-chat-btn {
+      min-height: 46px;
+    }
+  }
+</style>
+{% endblock %}
 
 {% block content %}
 <main class="page-shell pod-shell">
-  <div id="auth-gate" class="auth-gate" style="display:none">
-    <div class="auth-gate-inner">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+  <div id="auth-gate" class="pod-auth-gate" style="display:none">
+    <div class="pod-auth-card">
+      <div class="pod-auth-icon" aria-hidden="true">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+          <path d="M7 11V8a5 5 0 0 1 10 0v3"></path>
+        </svg>
+      </div>
       <h2>تسجيل الدخول مطلوب</h2>
-      <a href="/login/" id="pod-login-link" class="btn btn-primary">تسجيل الدخول</a>
+      <p>دخول المزود مطلوب.</p>
+      <a href="/login/" id="pod-login-link" class="pod-btn pod-btn-primary">تسجيل الدخول</a>
     </div>
   </div>
 
   <div id="pod-content" style="display:none">
-    <header class="pod-appbar">
-      <a href="/provider-orders/" class="pod-icon-btn" aria-label="رجوع">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-      </a>
-      <h1 class="pod-appbar-title">تفاصيل الطلب</h1>
-      <button type="button" class="pod-icon-btn" id="pod-chat-btn" aria-label="فتح الرسائل">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
-      </button>
+    <header class="pod-topbar">
+      <div class="pod-topbar-main">
+        <a href="/provider-orders/" class="pod-icon-link" aria-label="رجوع">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </a>
+        <div class="pod-title-stack">
+          <h1>تفاصيل الطلب</h1>
+          <span>Provider Order</span>
+        </div>
+      </div>
+      <div class="pod-topbar-actions">
+        <button type="button" class="pod-icon-btn" id="pod-chat-btn" aria-label="فتح الرسائل">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path></svg>
+        </button>
+      </div>
     </header>
 
-    <div id="pod-loading" class="loading-center"><div class="spinner"></div></div>
-    <div id="pod-error" class="error-banner pod-error" style="display:none"></div>
+    <div id="pod-loading" class="pod-loading-shell">
+      <div class="loading-center"><div class="spinner"></div></div>
+    </div>
 
-    <div id="pod-detail" style="display:none">
-      <div class="pod-screen-chip">تفاصيل الطلب</div>
+    <div id="pod-error" class="pod-error" style="display:none"></div>
 
-      <section id="pod-client-section" class="pod-card pod-client-card">
-        <div class="pod-client-head">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#673AB7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          <h3>بيانات العميل</h3>
-        </div>
-        <div class="pod-info-line">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#673AB7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg>
-          <span class="pod-info-label">الاسم</span>
-          <span class="pod-info-value" id="pod-client-name"></span>
-        </div>
-        <div class="pod-info-line">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#673AB7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7 12.8 12.8 0 0 0 .7 2.8 2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.4-1.4a2 2 0 0 1 2.1-.4 12.8 12.8 0 0 0 2.8.7 2 2 0 0 1 1.6 2z"/></svg>
-          <span class="pod-info-label">الجوال</span>
-          <span class="pod-info-value" id="pod-client-phone"></span>
-        </div>
-        <div class="pod-info-line">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#673AB7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          <span class="pod-info-label">المدينة</span>
-          <span class="pod-info-value" id="pod-client-city"></span>
-        </div>
-      </section>
-
-      <section id="pod-header-section" class="pod-card pod-header-card">
-        <div class="pod-header-main">
-          <div class="pod-header-meta">
-            <div class="pod-id-row">
-              <span class="pod-display-id" id="pod-display-id"></span>
-              <span class="pod-type-badge" id="pod-type-badge" style="display:none"></span>
+    <div id="pod-detail" class="pod-workspace" style="display:none">
+      <div class="pod-main">
+        <section class="pod-hero">
+          <div class="pod-hero-grid">
+            <div>
+              <span class="pod-chip">طلب</span>
+              <div class="pod-display-id" id="pod-display-id"></div>
+              <p id="pod-hero-summary" class="pod-hero-facts"></p>
+              <div class="pod-meta-line">
+                <span class="pod-type-badge" id="pod-type-badge" style="display:none"></span>
+                <span class="pod-meta-chip" id="pod-category" style="display:none"></span>
+                <span class="pod-meta-chip" id="pod-date"></span>
+              </div>
             </div>
-            <p class="pod-meta-line" id="pod-category" style="display:none"></p>
-            <p class="pod-meta-line" id="pod-date"></p>
+            <div class="pod-hero-actions">
+              <span class="pod-status-pill" id="pod-status-pill"></span>
+              <button type="button" class="pod-btn pod-chat-btn" id="pod-chat-launch-btn">
+                <span class="pod-chat-btn-text">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path></svg>
+                  <span>فتح الرسائل</span>
+                </span>
+              </button>
+            </div>
           </div>
-          <span class="pod-status-pill" id="pod-status-pill"></span>
-        </div>
-      </section>
+        </section>
 
-      <section id="pod-order-info-section" class="pod-card">
-        <div class="pod-readonly-box">
-          <label>عنوان الطلب</label>
-          <p id="pod-title"></p>
-        </div>
-        <div class="pod-readonly-box">
-          <label>تفاصيل الطلب</label>
-          <p id="pod-description" class="pod-multiline"></p>
-        </div>
-      </section>
-
-      <section id="pod-attachments-section" class="pod-card">
-        <div class="pod-section-head">
-          <h3 class="pod-section-title">المرفقات</h3>
-          <span class="pod-section-kicker">مرفقات العميل ومزود الخدمة</span>
-        </div>
-        <p id="pod-attachments-empty" class="pod-muted">لا توجد مرفقات لهذا الطلب حتى الآن.</p>
-
-        <div id="pod-final-attachments-wrap" class="pod-attachment-group" style="display:none">
-          <div class="pod-subsection-head">
-            <h4 id="pod-final-heading" class="pod-subsection-title">مرفقات مزود الخدمة</h4>
-            <span class="pod-count-pill" id="pod-final-count">0</span>
+        <section id="pod-header-section" class="pod-card">
+          <div class="pod-head">
+            <h2 id="pod-title"></h2>
           </div>
-          <div id="pod-final-attachments" class="pod-attachment-grid"></div>
-        </div>
-
-        <div id="pod-regular-attachments-wrap" class="pod-attachment-group" style="display:none">
-          <div class="pod-subsection-head">
-            <h4 id="pod-regular-heading" class="pod-subsection-title">مرفقات العميل</h4>
-            <span class="pod-count-pill" id="pod-regular-count">0</span>
+          <div class="pod-overview-grid">
+            <div class="pod-overview-tile">
+              <span>المرفقات</span>
+              <strong id="pod-regular-count-summary">0</strong>
+            </div>
+            <div class="pod-overview-tile">
+              <span>مرفقات التنفيذ</span>
+              <strong id="pod-final-count-summary">0</strong>
+            </div>
+            <div class="pod-overview-tile">
+              <span>الحالة</span>
+              <strong id="pod-status-inline">-</strong>
+            </div>
           </div>
-          <div id="pod-regular-attachments" class="pod-attachment-grid"></div>
+        </section>
+
+        <section id="pod-order-info-section" class="pod-card">
+          <div class="pod-head">
+            <h3>وصف الطلب</h3>
+          </div>
+          <div class="pod-readonly-box">
+            <label>النص</label>
+            <p id="pod-description" class="pod-multiline"></p>
+          </div>
+        </section>
+
+        <section id="pod-attachments-section" class="pod-card">
+          <div class="pod-head">
+            <h3>المرفقات</h3>
+          </div>
+          <p id="pod-attachments-empty" class="pod-muted">لا توجد مرفقات.</p>
+
+          <div id="pod-regular-attachments-wrap" class="pod-attachment-group" style="display:none">
+            <div class="pod-subhead">
+              <h4 id="pod-regular-heading">مرفقات العميل</h4>
+              <span class="pod-count-pill" id="pod-regular-count">0</span>
+            </div>
+            <div id="pod-regular-attachments" class="pod-attachment-grid"></div>
+          </div>
+
+          <div id="pod-final-attachments-wrap" class="pod-attachment-group" style="display:none">
+            <div class="pod-subhead">
+              <h4 id="pod-final-heading">مرفقات مزود الخدمة</h4>
+              <span class="pod-count-pill" id="pod-final-count">0</span>
+            </div>
+            <div id="pod-final-attachments" class="pod-attachment-grid"></div>
+          </div>
+        </section>
+
+        <section id="pod-actions-section" class="pod-card">
+          <div class="pod-head">
+            <h3>الإجراءات</h3>
+          </div>
+          <div id="pod-actions"></div>
+        </section>
+
+        <section class="pod-card" id="pod-logs-section" style="display:none">
+          <div class="pod-head">
+            <h3>السجل</h3>
+          </div>
+          <div id="pod-logs" class="pod-timeline"></div>
+        </section>
+
+        <div class="pod-back-wrap">
+          <a href="/provider-orders/" class="pod-btn pod-btn-outline-neutral pod-btn-block">العودة للطلبات</a>
         </div>
-      </section>
-
-      <section class="pod-card" id="pod-logs-section" style="display:none">
-        <div class="pod-section-head">
-          <h3 class="pod-section-title">سجل التغييرات</h3>
-          <span class="pod-section-kicker">بتوقيت المنصة</span>
-        </div>
-        <div id="pod-logs" class="pod-timeline"></div>
-      </section>
-
-      <section id="pod-actions-section" class="pod-card">
-        <h3 class="pod-section-title">إجراء على الطلب</h3>
-        <div id="pod-actions"></div>
-      </section>
-
-      <div class="pod-back-wrap">
-        <a href="/provider-orders/" class="pod-btn pod-btn-outline-neutral pod-btn-block">رجوع</a>
       </div>
+
+      <aside class="pod-side">
+        <section id="pod-client-section" class="pod-card pod-client-card">
+          <div class="pod-client-head">
+            <h3>العميل</h3>
+          </div>
+          <div class="pod-client-hero">
+            <div class="pod-client-avatar" id="pod-client-initials">--</div>
+            <div class="pod-client-copy">
+              <h3 id="pod-client-name"></h3>
+              <p id="pod-client-summary" class="pod-client-meta"></p>
+            </div>
+          </div>
+          <div class="pod-info-stack">
+            <div class="pod-info-line">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7 12.8 12.8 0 0 0 .7 2.8 2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.4-1.4a2 2 0 0 1 2.1-.4 12.8 12.8 0 0 0 2.8.7 2 2 0 0 1 1.6 2z"></path></svg>
+              <span class="pod-info-label">الجوال</span>
+              <span class="pod-info-value" id="pod-client-phone"></span>
+            </div>
+            <div class="pod-info-line">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              <span class="pod-info-label">المدينة</span>
+              <span class="pod-info-value" id="pod-client-city"></span>
+            </div>
+          </div>
+        </section>
+      </aside>
     </div>
   </div>
 </main>
@@ -123,5 +1103,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260413-hotfix-2"></script>
+<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260418-redesign-v3"></script>
 {% endblock %}

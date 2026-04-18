@@ -6,12 +6,14 @@ const ProviderOrderDetailPage = (() => {
     id: null,
     order: null,
     actionLoading: false,
+    chatOpening: false,
     completionFiles: [],
     toastTimer: null,
     offerAlreadySent: false,
   };
   const TYPE_LABEL = { normal: 'عادي', competitive: 'تنافسي', urgent: 'عاجل' };
   const STATUS_COLOR = { new: '#A56800', in_progress: '#E67E22', completed: '#2E7D32', cancelled: '#C62828' };
+  const STATUS_PILL_TEXT_COLOR = '#F8FAFC';
   const STATUS_LABEL_AR = {
     new: 'جديد',
     provider_accepted: 'تم قبول الطلب',
@@ -29,9 +31,17 @@ const ProviderOrderDetailPage = (() => {
     const m = location.pathname.match(/\/provider-orders\/(\d+)\/?$/);
     if (!m) return showError('رابط غير صحيح');
     state.id = Number(m[1]);
-    const chat = byId('pod-chat-btn');
-    if (chat) chat.addEventListener('click', () => toast('سيتم فتح الرسائل مع العميل قريباً'));
+    bindChatButtons();
     loadDetail();
+  }
+
+  function bindChatButtons() {
+    [byId('pod-chat-btn'), byId('pod-chat-launch-btn')].forEach((button) => {
+      if (!button || button.dataset.bound === '1') return;
+      button.dataset.bound = '1';
+      button.addEventListener('click', openChat);
+    });
+    updateChatButtons();
   }
 
   function showGate() {
@@ -58,9 +68,18 @@ const ProviderOrderDetailPage = (() => {
     hideError();
     byId('pod-detail').style.display = '';
 
-    setText('pod-client-name', val(o.client_name, 'غير متوفر'));
-    setText('pod-client-phone', val(o.client_phone, 'غير متوفر'));
-    setText('pod-client-city', val(UI.formatCityDisplay(o.city_display || o.city, o.region || o.region_name), 'غير متوفر'));
+    const clientName = val(o.client_name, 'غير متوفر');
+    const clientPhone = val(o.client_phone, 'غير متوفر');
+    const requestCity = val(UI.formatCityDisplay(o.city_display || o.city, o.region || o.region_name), '');
+    const clientCity = val(
+      UI.formatCityDisplay(o.client_city_display || o.client_city || requestCity),
+      'غير متوفر'
+    );
+    setText('pod-client-name', clientName);
+    setText('pod-client-phone', clientPhone);
+    setText('pod-client-city', clientCity);
+    setText('pod-client-summary', [clientPhone, clientCity].filter((item) => item && item !== 'غير متوفر').join(' • ') || '-');
+    setText('pod-client-initials', clientInitials(clientName));
 
     const displayId = Number.isFinite(Number(o.id)) ? ('R' + String(o.id).padStart(6, '0')) : val(o.display_id, '-');
     setText('pod-display-id', displayId);
@@ -89,14 +108,17 @@ const ProviderOrderDetailPage = (() => {
       catEl.textContent = '';
     }
     setText('pod-date', fmtDateTime(o.created_at));
+    setText('pod-hero-summary', buildHeroSummary(o, requestCity || clientCity));
 
     const group = statusGroup(o);
     const color = STATUS_COLOR[group] || '#9E9E9E';
     const status = byId('pod-status-pill');
     status.textContent = val(o.status_label, statusLabel(group));
-    status.style.color = color;
-    status.style.backgroundColor = color + '1A';
-    status.style.borderColor = color + '66';
+    status.style.color = STATUS_PILL_TEXT_COLOR;
+    status.style.backgroundColor = color + '33';
+    status.style.borderColor = color + 'A6';
+    status.style.boxShadow = '0 10px 22px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12)';
+    setText('pod-status-inline', status.textContent || '-');
 
     setText('pod-title', val(o.title, '-'));
     setText('pod-description', val(o.description, '-'));
@@ -104,6 +126,7 @@ const ProviderOrderDetailPage = (() => {
     renderAttachments(o);
     renderLogs(o);
     renderActions(o, group);
+    updateChatButtons();
   }
 
   function renderAttachments(o) {
@@ -127,6 +150,8 @@ const ProviderOrderDetailPage = (() => {
       rw.style.display = 'none';
       if (fCount) fCount.textContent = '٠';
       if (rCount) rCount.textContent = '٠';
+      setText('pod-final-count-summary', '٠');
+      setText('pod-regular-count-summary', '٠');
       return;
     }
     empty.style.display = 'none';
@@ -141,6 +166,8 @@ const ProviderOrderDetailPage = (() => {
     regular.sort((a, b) => toMs(b && b.created_at) - toMs(a && a.created_at));
     if (fCount) fCount.textContent = arDigits(finals.length);
     if (rCount) rCount.textContent = arDigits(regular.length);
+    setText('pod-final-count-summary', arDigits(finals.length));
+    setText('pod-regular-count-summary', arDigits(regular.length));
     fw.classList.add('is-provider');
     rw.classList.add('is-client');
     if (finals.length) {
@@ -165,15 +192,28 @@ const ProviderOrderDetailPage = (() => {
       el.target = '_blank';
       el.rel = 'noopener';
     }
-    const code = document.createElement('span');
-    code.className = 'pod-attachment-icon';
-    code.textContent = fileTypeCode(type);
+
+    const preview = document.createElement('div');
+    preview.className = 'pod-attachment-preview';
+    preview.appendChild(buildAttachmentPreview(type, href, name));
+
     const body = document.createElement('span');
     body.className = 'pod-attachment-body';
+
+    const head = document.createElement('span');
+    head.className = 'pod-attachment-head';
+
     const title = document.createElement('span');
     title.className = 'pod-attachment-name';
     title.textContent = name || 'ملف';
-    body.appendChild(title);
+
+    const open = document.createElement('span');
+    open.className = 'pod-attachment-open';
+    open.textContent = href ? 'فتح الملف' : 'غير متاح';
+
+    head.appendChild(title);
+    head.appendChild(open);
+    body.appendChild(head);
 
     const meta = document.createElement('span');
     meta.className = 'pod-attachment-meta';
@@ -181,6 +221,12 @@ const ProviderOrderDetailPage = (() => {
     badge.className = 'pod-attachment-type';
     badge.textContent = fileTypeLabel(type);
     meta.appendChild(badge);
+
+    const owner = document.createElement('span');
+    owner.className = 'pod-attachment-owner';
+    owner.textContent = isProviderFile ? 'من مزود الخدمة' : 'من العميل';
+    meta.appendChild(owner);
+
     const createdAt = asDate(a && a.created_at);
     if (createdAt) {
       const date = document.createElement('span');
@@ -190,14 +236,37 @@ const ProviderOrderDetailPage = (() => {
     }
     body.appendChild(meta);
 
-    const open = document.createElement('span');
-    open.className = 'pod-attachment-open';
-    open.textContent = href ? 'فتح' : 'غير متاح';
-
-    el.appendChild(code);
+    el.appendChild(preview);
     el.appendChild(body);
-    el.appendChild(open);
     return el;
+  }
+
+  function buildAttachmentPreview(type, href, name) {
+    if (type === 'image' && href) {
+      const img = document.createElement('img');
+      img.src = href;
+      img.alt = name || 'مرفق';
+      img.loading = 'lazy';
+      return img;
+    }
+    if (type === 'video' && href) {
+      const video = document.createElement('video');
+      video.src = href;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      return video;
+    }
+
+    const box = document.createElement('div');
+    box.className = 'pod-attachment-placeholder';
+    const strong = document.createElement('strong');
+    strong.textContent = fileTypeCode(type);
+    const label = document.createElement('span');
+    label.textContent = fileTypeLabel(type);
+    box.appendChild(strong);
+    box.appendChild(label);
+    return box;
   }
 
   function renderLogs(o) {
@@ -260,6 +329,9 @@ const ProviderOrderDetailPage = (() => {
   function renderActions(o, group) {
     const root = byId('pod-actions');
     root.innerHTML = '';
+    if (workflowStage(o) === 'awaiting_client' && providerInputsStage(o) === 'progress_update') {
+      return renderAwaitingClientProgressActions(root, o);
+    }
     if (group === 'new') {
       if (isCompetitiveAvailable(o)) return renderCompetitiveOfferActions(root);
       if (isUrgentAvailable(o)) return renderUrgentAvailableActions(root);
@@ -271,6 +343,29 @@ const ProviderOrderDetailPage = (() => {
     if (group === 'in_progress') return renderProgressActions(root, o);
     if (group === 'completed') return renderCompleted(root, o);
     if (group === 'cancelled') return renderCancelled(root, o);
+  }
+
+  function renderAwaitingClientProgressActions(root, o) {
+    root.innerHTML = `
+      <div class="pod-readonly-box">
+        <label>بانتظار قرار العميل على التحديث الأخير</label>
+        <p>أرسلت تحديثًا جديدًا على التنفيذ. يمكنك تعديل البيانات وإعادة إرسالها عند الحاجة، وسيصل التحديث مرة أخرى للعميل لاعتماده أو رفضه.</p>
+      </div>
+      <p class="pod-action-title">تحديث التقدم المرسل</p>
+      <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
+      <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
+      <div class="pod-grid-2">
+        <div><label class="pod-input-label" for="pod-estimated-amount">قيمة الخدمة المقدرة (SR)</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-received-amount">المبلغ المستلم (SR)</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
+      </div>
+      <label class="pod-input-label" for="pod-note">ملاحظة (اختياري)</label>
+      <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="ملاحظة (اختياري)"></textarea>
+      <button type="button" class="pod-btn pod-btn-warning pod-btn-block" id="pod-progress-btn" data-pod-action>إعادة إرسال التحديث للعميل</button>`;
+    byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
+    byId('pod-estimated-amount').value = str(o.estimated_service_amount);
+    byId('pod-received-amount').value = str(o.received_amount);
+    byId('pod-progress-btn').addEventListener('click', () => submitProgress(false));
+    setActionLoading(false);
   }
 
   function renderAssignedNewActions(root, o) {
@@ -634,6 +729,31 @@ const ProviderOrderDetailPage = (() => {
     loadDetail();
   }
 
+  async function openChat(event) {
+    if (event) event.preventDefault();
+    if (state.chatOpening) return;
+    if (!state.order || !state.id) {
+      toast('تعذّر تحديد العميل لفتح المحادثة');
+      return;
+    }
+
+    state.chatOpening = true;
+    updateChatButtons();
+    const res = await ApiClient.request(withMode('/api/messaging/direct/thread/'), {
+      method: 'POST',
+      body: { request_id: state.id },
+    });
+    state.chatOpening = false;
+    updateChatButtons();
+
+    if (!res.ok || !res.data || !res.data.id) {
+      toast(extractError(res, 'تعذّر فتح المحادثة'));
+      return;
+    }
+
+    window.location.href = withMode('/chat/' + res.data.id + '/');
+  }
+
   function setActionLoading(v) {
     state.actionLoading = v;
     document.querySelectorAll('#pod-actions [data-pod-action]').forEach((el) => { el.disabled = v; });
@@ -689,6 +809,64 @@ const ProviderOrderDetailPage = (() => {
       }
     }
     return fallback;
+  }
+
+  function updateChatButtons() {
+    const canChat = !!(state.order && state.id);
+    [byId('pod-chat-btn'), byId('pod-chat-launch-btn')].forEach((button) => {
+      if (!button) return;
+      button.disabled = !canChat || state.chatOpening;
+      button.setAttribute('aria-disabled', (!canChat || state.chatOpening) ? 'true' : 'false');
+    });
+    const launchLabel = byId('pod-chat-launch-btn');
+    if (launchLabel) {
+      const label = launchLabel.querySelector('.pod-chat-btn-text span:last-child');
+      if (label) {
+        label.textContent = state.chatOpening
+          ? 'جاري فتح المحادثة...'
+          : 'بدء المحادثة مع العميل';
+      }
+    }
+  }
+
+  function buildHeroSummary(order, cityLabel) {
+    const parts = [];
+    const type = TYPE_LABEL[str(order && order.request_type).toLowerCase()] || 'طلب خدمة';
+    const status = val(order && order.status_label, statusLabel(statusGroup(order)));
+    const category = [str(order && order.category_name), str(order && order.subcategory_name)].filter(Boolean).join(' / ');
+    parts.push(type + ' بحالة ' + status);
+    if (category) parts.push('ضمن ' + category);
+    if (cityLabel && cityLabel !== 'غير متوفر') parts.push('في ' + cityLabel);
+    return parts.join(' • ');
+  }
+
+  function clientInitials(name) {
+    const parts = str(name).split(/\s+/).filter(Boolean);
+    if (!parts.length) return '--';
+    return parts.slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase();
+  }
+
+  function activeMode() {
+    try {
+      const raw = window.localStorage.getItem('activeMode') || window.localStorage.getItem('account_mode') || '';
+      const mode = String(raw || '').trim().toLowerCase();
+      if (mode === 'provider' || mode === 'client') return mode;
+    } catch (_) {}
+
+    try {
+      const parsed = new URL(window.location.href);
+      const mode = String(parsed.searchParams.get('mode') || '').trim().toLowerCase();
+      if (mode === 'provider' || mode === 'client') return mode;
+    } catch (_) {}
+
+    const role = (Auth.getRoleState() || '').trim().toLowerCase();
+    return role === 'provider' ? 'provider' : 'client';
+  }
+
+  function withMode(path) {
+    const mode = activeMode();
+    const sep = path.includes('?') ? '&' : '?';
+    return path + sep + 'mode=' + encodeURIComponent(mode);
   }
 
   function statusGroup(o) {
@@ -778,6 +956,13 @@ const ProviderOrderDetailPage = (() => {
 
   function workflowStage(o) {
     return str(o && o.status).toLowerCase();
+  }
+
+  function providerInputsStage(o) {
+    const stage = str(o && o.provider_inputs_stage).toLowerCase();
+    if (stage === 'progress_update') return 'progress_update';
+    if (stage === 'pre_execution') return 'pre_execution';
+    return '';
   }
 
   function hasAssignedProvider(o) {

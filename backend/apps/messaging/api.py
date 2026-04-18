@@ -250,34 +250,69 @@ class MarkThreadReadView(APIView):
 # ────────────────────────────────────────────────
 
 class DirectThreadGetOrCreateView(APIView):
-	"""Create or get an existing direct thread between the current user and a provider."""
+	"""Create or get an existing direct thread between the current user and another user."""
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request):
 		provider_id = request.data.get("provider_id")
-		if not provider_id:
-			return Response({"error": "provider_id مطلوب"}, status=status.HTTP_400_BAD_REQUEST)
+		request_id = request.data.get("request_id")
+		if not provider_id and not request_id:
+			return Response({"error": "provider_id أو request_id مطلوب"}, status=status.HTTP_400_BAD_REQUEST)
 
-		provider_profile = ProviderProfile.objects.select_related("user").filter(id=provider_id).first()
-		if not provider_profile:
-			return Response({"error": "المزود غير موجود"}, status=status.HTTP_404_NOT_FOUND)
-
-		provider_user = provider_profile.user
 		me = request.user
+		recipient_user = None
+		analytics_payload = {}
+
+		if provider_id:
+			provider_profile = ProviderProfile.objects.select_related("user").filter(id=provider_id).first()
+			if not provider_profile:
+				return Response({"error": "المزود غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+			recipient_user = provider_profile.user
+			recipient_provider_profile = provider_profile
+			analytics_payload = {
+				"provider_profile_id": provider_profile.id,
+				"provider_user_id": recipient_user.id,
+			}
+		else:
+			try:
+				request_id = int(request_id)
+			except (TypeError, ValueError):
+				return Response({"error": "request_id غير صالح"}, status=status.HTTP_400_BAD_REQUEST)
+			service_request = (
+				ServiceRequest.objects.select_related("client", "provider__user")
+				.filter(id=request_id)
+				.first()
+			)
+			if not service_request:
+				return Response({"error": "الطلب غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+			if not _can_access_request(me, service_request):
+				return Response({"error": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+			recipient_user = service_request.client
+			if not recipient_user or not getattr(recipient_user, "is_active", False):
+				return Response({"error": "العميل غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+			analytics_payload = {
+				"client_user_id": recipient_user.id,
+				"request_id": service_request.id,
+			}
+
 		active_mode = _validated_context_mode_from_request(request)
 		desired_mode = (
 			active_mode
 			if active_mode in {Thread.ContextMode.CLIENT, Thread.ContextMode.PROVIDER}
 			else Thread.ContextMode.SHARED
 		)
-		recipient_mode = Thread.ContextMode.PROVIDER
+		recipient_mode = (
+			Thread.ContextMode.PROVIDER
+			if getattr(recipient_user, "provider_profile", None)
+			else Thread.ContextMode.CLIENT
+		)
 
-		if me.id == provider_user.id:
+		if me.id == recipient_user.id:
 			return Response({"error": "لا يمكنك محادثة نفسك"}, status=status.HTTP_400_BAD_REQUEST)
 
 		thread = _find_direct_thread_for_pair(
 			user_a=me,
-			user_b=provider_user,
+			user_b=recipient_user,
 			user_a_mode=desired_mode,
 			user_b_mode=recipient_mode,
 			legacy_context_mode=desired_mode,
@@ -287,14 +322,15 @@ class DirectThreadGetOrCreateView(APIView):
 			_apply_direct_thread_modes(
 				thread=thread,
 				user_a=me,
-				user_b=provider_user,
+				user_b=recipient_user,
 				user_a_mode=desired_mode,
 				user_b_mode=recipient_mode,
 			)
 		else:
-			provider_users = [provider_user]
-			if getattr(me, "provider_profile", None) and me.id != provider_user.id:
-				provider_users.append(me)
+			provider_users = []
+			for candidate in (me, recipient_user):
+				if getattr(candidate, "provider_profile", None) and candidate not in provider_users:
+					provider_users.append(candidate)
 			for candidate in provider_users:
 				if _provider_direct_chat_limit_exceeded(candidate):
 					return Response(
@@ -305,7 +341,7 @@ class DirectThreadGetOrCreateView(APIView):
 				is_direct=True,
 				context_mode=desired_mode,
 				participant_1=me,
-				participant_2=provider_user,
+				participant_2=recipient_user,
 				participant_1_mode=desired_mode,
 				participant_2_mode=recipient_mode,
 			)
@@ -323,8 +359,7 @@ class DirectThreadGetOrCreateView(APIView):
 					dedupe_key=f"messaging.direct_thread_created:{thread.id}",
 					payload={
 						"context_mode": desired_mode,
-						"provider_profile_id": provider_profile.id,
-						"provider_user_id": provider_user.id,
+						**analytics_payload,
 					},
 				)
 			except Exception:

@@ -5,42 +5,315 @@
 {% block sidebar_add_service %}active{% endblock %}
 {% block body_class %}page-request-quote{% endblock %}
 
+{% block extra_css %}
+<style>
+.page-request-quote{
+  --rq-brand:#0f766e;
+  --rq-brand-2:#d48a35;
+  --rq-ink:#102033;
+  --rq-muted:#5f7084;
+  --rq-line:rgba(148,163,184,.18);
+  --rq-shadow:0 24px 64px rgba(15,23,42,.12);
+}
+.page-request-quote .page-content{
+  background:
+    radial-gradient(circle at top right, rgba(15,118,110,.12), transparent 28%),
+    radial-gradient(circle at top left, rgba(212,138,53,.16), transparent 32%),
+    linear-gradient(180deg, #fbf7ef 0%, #f4efe6 46%, #f6f8fb 100%);
+}
+.page-request-quote .container{ max-width:1120px; }
+.page-request-quote .rq-shell{
+  max-width:none;
+  margin:0;
+  padding:24px 0 40px;
+}
+.page-request-quote .rq-hero{
+  position:relative;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:minmax(0,1.12fr) minmax(280px,.88fr);
+  gap:18px;
+  margin-bottom:18px;
+  padding:24px;
+  border-radius:32px;
+  border:1px solid rgba(255,255,255,.78);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.94), rgba(255,249,241,.92)),
+    linear-gradient(180deg, rgba(15,118,110,.05), rgba(212,138,53,.04));
+  box-shadow:var(--rq-shadow);
+}
+.page-request-quote .rq-hero::before,
+.page-request-quote .rq-hero::after{
+  content:"";
+  position:absolute;
+  border-radius:999px;
+  pointer-events:none;
+}
+.page-request-quote .rq-hero::before{
+  width:220px;
+  height:220px;
+  inset:auto -70px -100px auto;
+  background:radial-gradient(circle, rgba(212,138,53,.24), transparent 72%);
+}
+.page-request-quote .rq-hero::after{
+  width:180px;
+  height:180px;
+  inset:-60px auto auto -30px;
+  background:radial-gradient(circle, rgba(15,118,110,.18), transparent 72%);
+}
+.page-request-quote .rq-hero-copy,
+.page-request-quote .rq-hero-side{ position:relative; z-index:1; }
+.page-request-quote .rq-type-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 14px;
+  border-radius:999px;
+  background:rgba(15,118,110,.08);
+  color:var(--rq-brand);
+  font-size:13px;
+  font-weight:900;
+}
+.page-request-quote .rq-hero-title{
+  margin:16px 0 10px;
+  color:var(--rq-ink);
+  font-size:clamp(28px, 5vw, 40px);
+  line-height:1.18;
+}
+.page-request-quote .rq-hero-desc{
+  margin:0;
+  color:#475569;
+  font-size:16px;
+  line-height:1.9;
+}
+.page-request-quote .rq-feature-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:20px;
+}
+.page-request-quote .rq-feature-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:11px 14px;
+  border-radius:18px;
+  background:rgba(255,255,255,.84);
+  border:1px solid rgba(148,163,184,.16);
+  color:#314155;
+  font-size:13px;
+  font-weight:800;
+}
+.page-request-quote .rq-hero-side{ display:grid; gap:14px; }
+.page-request-quote .rq-hero-card{
+  padding:18px;
+  border-radius:24px;
+  border:1px solid var(--rq-line);
+  background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,249,243,.9));
+  box-shadow:0 18px 36px rgba(15,23,42,.08);
+}
+.page-request-quote .rq-hero-card strong{
+  display:block;
+  margin-bottom:8px;
+  color:var(--rq-ink);
+  font-size:16px;
+}
+.page-request-quote .rq-hero-card p{
+  margin:0;
+  color:var(--rq-muted);
+  font-size:14px;
+  line-height:1.8;
+}
+.page-request-quote .rq-hero-metrics{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:10px;
+}
+.page-request-quote .rq-hero-metric{
+  padding:14px 10px;
+  border-radius:18px;
+  text-align:center;
+  background:#fff;
+  border:1px solid var(--rq-line);
+}
+.page-request-quote .rq-hero-metric strong{
+  display:block;
+  margin-bottom:5px;
+  color:var(--rq-ink);
+  font-size:18px;
+}
+.page-request-quote .rq-hero-metric span{
+  color:var(--rq-muted);
+  font-size:12px;
+  font-weight:800;
+}
+.page-request-quote .rq-form-wrap{
+  background:rgba(255,255,255,.9);
+  border:1px solid rgba(255,255,255,.72);
+  border-radius:32px;
+  box-shadow:var(--rq-shadow);
+  overflow:hidden;
+}
+.page-request-quote .rq-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin:0;
+  padding:24px 24px 10px;
+  background:linear-gradient(180deg, rgba(255,252,247,.95), rgba(255,255,255,.88));
+}
+.page-request-quote .rq-header-main{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+.page-request-quote .rq-header h1{ margin:0; color:var(--rq-ink); }
+.page-request-quote .rq-subtitle{
+  margin:0;
+  padding:0 24px 8px;
+  color:var(--rq-muted);
+}
+.page-request-quote .rq-page-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:42px;
+  padding:0 14px;
+  border-radius:999px;
+  background:rgba(212,138,53,.12);
+  color:#92561c;
+  font-size:13px;
+  font-weight:900;
+}
+.page-request-quote .rq-intro-card{
+  margin:0 24px 10px;
+  border-radius:24px;
+  background:linear-gradient(135deg, rgba(15,118,110,.08), rgba(212,138,53,.08));
+  border:1px solid rgba(15,118,110,.10);
+}
+.page-request-quote .rq-intro-chip{ background:#fff; color:var(--rq-brand); }
+.page-request-quote .rq-form{ padding-top:14px; }
+.page-request-quote .rq-form .form-input,
+.page-request-quote .rq-form .form-select,
+.page-request-quote .rq-form .form-textarea{
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.18);
+  background:linear-gradient(180deg, #fff, #fcfdff);
+}
+.page-request-quote .rq-form .form-input:focus,
+.page-request-quote .rq-form .form-select:focus,
+.page-request-quote .rq-form .form-textarea:focus{
+  border-color:rgba(15,118,110,.44);
+  box-shadow:0 0 0 4px rgba(15,118,110,.10);
+}
+.page-request-quote .rq-upload-area{
+  border-radius:24px;
+  background:linear-gradient(180deg, rgba(250,252,255,.96), rgba(255,249,243,.94));
+}
+.page-request-quote .rq-upload-trigger{ border-radius:18px; }
+.page-request-quote .rq-actions .btn-primary-lg{
+  background:linear-gradient(135deg, var(--rq-brand), #169f92);
+  box-shadow:0 16px 30px rgba(15,118,110,.20);
+}
+.page-request-quote .rq-actions .btn-outlined{ border-radius:16px; }
+@media (max-width: 860px){
+  .page-request-quote .rq-hero{ grid-template-columns:1fr; }
+}
+@media (max-width: 640px){
+  .page-request-quote .rq-shell{ padding-top:16px; }
+  .page-request-quote .rq-hero,
+  .page-request-quote .rq-header,
+  .page-request-quote .rq-subtitle{ padding-inline:18px; }
+  .page-request-quote .rq-intro-card{ margin-inline:18px; }
+  .page-request-quote .rq-hero-metrics{ grid-template-columns:1fr; }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="page-content">
   <div class="container">
     <!-- Auth gate -->
-    <div id="auth-gate" class="auth-gate hidden">
+    <div id="auth-gate" class="auth-gate{% if request.user.is_authenticated and provider_mode_blocked %} auth-gate-unified{% endif %}{% if request.user.is_authenticated and provider_mode_blocked %}{% elif not request.user.is_authenticated %}{% else %} hidden{% endif %}">
+      {% if request.user.is_authenticated and provider_mode_blocked %}
+      <p class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
+      <div class="auth-gate-unified-icon" aria-hidden="true">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-2 .9-2 2v11c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+      </div>
+      <h2 class="auth-gate-unified-title">{{ provider_mode_block.title }}</h2>
+      <p class="auth-gate-unified-desc">{{ provider_mode_block.description }}</p>
+      <div class="auth-gate-unified-actions" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px">
+        <button type="button" class="btn btn-primary auth-gate-unified-btn" data-provider-request-switch="client" data-provider-request-target="{{ provider_mode_block.target }}">{{ provider_mode_block.switch_label }}</button>
+        <a href="/profile/" class="btn btn-secondary" style="min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">{{ provider_mode_block.profile_label }}</a>
+      </div>
+      <p class="auth-gate-unified-note" style="margin-top:12px">{{ provider_mode_block.note }}</p>
+      {% else %}
       <div class="auth-gate-icon">📋</div>
       <h2>سجّل دخولك لطلب عرض سعر</h2>
       <p>يمكنك تلقي عروض الأسعار بعد تسجيل الدخول</p>
       <a href="/login/?next=/request-quote/" class="btn btn-primary">تسجيل الدخول</a>
+      {% endif %}
     </div>
 
-    <div id="form-content" class="hidden rq-shell">
-      <div class="mw-form-header mw-form-header-quote rq-header">
-        <a href="/add-service/" class="mw-form-back" aria-label="رجوع">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-        </a>
-        <h1>طلب عروض أسعار</h1>
-        <span class="mw-form-head-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-        </span>
-      </div>
-      <p class="mw-form-subtitle rq-subtitle">صِف الطلب بدقة لتحصل على عروض مناسبة بشكل أسرع</p>
+    <div id="form-content" class="rq-shell{% if not request.user.is_authenticated or provider_mode_blocked %} hidden{% endif %}">
+      <section class="rq-hero">
+        <div class="rq-hero-copy">
+          <span class="rq-type-badge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17h3v-7H3v7zm5 0h3V7H8v10zm5 0h3V4h-3v13zm5 0h3V11h-3v6z"/></svg>
+            نوع الطلب: عروض أسعار تنافسية
+          </span>
+          <h1 class="rq-hero-title">استقبل عروض أسعار احترافية من المزودين الأنسب</h1>
+          <p class="rq-hero-desc">هذا المسار مخصص للطلبات التي تحتاج مقارنة بين عدة عروض. اكتب طلبك بوضوح، وحدد التصنيف والموقع، ثم دع المزودين المطابقين يتنافسون على تقديم أفضل عرض لك.</p>
+          <div class="rq-feature-row">
+            <span class="rq-feature-pill">إبراز واضح للطابع التنافسي</span>
+            <span class="rq-feature-pill">مطابقة حسب التصنيف والمنطقة</span>
+            <span class="rq-feature-pill">مرفقات داعمة لرفع جودة العروض</span>
+          </div>
+        </div>
+        <div class="rq-hero-side">
+          <div class="rq-hero-card">
+            <strong>متى تستخدم هذا النوع؟</strong>
+            <p>عندما تريد مقارنة الأسعار أو المدد أو أساليب التنفيذ بين أكثر من مزود قبل اتخاذ القرار النهائي.</p>
+          </div>
+          <div class="rq-hero-metrics" aria-hidden="true">
+            <div class="rq-hero-metric"><strong>500</strong><span>حد التفاصيل</span></div>
+            <div class="rq-hero-metric"><strong>عدة</strong><span>عروض متوقعة</span></div>
+            <div class="rq-hero-metric"><strong>مرن</strong><span>موعد استقبال</span></div>
+          </div>
+        </div>
+      </section>
 
-      <div class="rq-intro-card" aria-hidden="true">
-        <div class="rq-intro-chip">خطوات سريعة</div>
-        <p>اكتب العنوان والتفاصيل، اختر التصنيف، ثم أضف المرفقات إذا لزم.</p>
-      </div>
+      <div class="rq-form-wrap">
+        <div class="mw-form-header mw-form-header-quote rq-header">
+          <div class="rq-header-main">
+            <a href="/add-service/" class="mw-form-back" aria-label="رجوع">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            </a>
+            <h1>طلب عروض أسعار</h1>
+          </div>
+          <span class="rq-page-badge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 3 7l9 5 9-5-9-5zm0 7-9-5v6l9 5 9-5V4l-9 5zm0 7-9-5v6l9 5 9-5v-6l-9 5z"/></svg>
+            طلب تنافسي
+          </span>
+        </div>
+        <p class="mw-form-subtitle rq-subtitle">صِف الطلب بدقة لتحصل على عروض مناسبة بشكل أسرع وضمن هوية موحدة مع تجربة المنصة.</p>
 
-      <form id="rq-form" class="form-card mw-form-card rq-form" autocomplete="off">
+        <div class="rq-intro-card" aria-hidden="true">
+          <div class="rq-intro-chip">خطوات سريعة</div>
+          <p>اكتب العنوان والتفاصيل، اختر التصنيف، ثم أضف المرفقات إذا لزم.</p>
+        </div>
+
+        <form id="rq-form" class="form-card mw-form-card rq-form" autocomplete="off">
         <div class="rq-grid">
           <div class="form-group rq-group rq-span-full">
             <label class="form-label rq-label" for="rq-title">
               عنوان الطلب
               <span class="rq-required">*</span>
             </label>
-            <input type="text" class="form-input" id="rq-title" placeholder="مثال: تصميم شعار لمتجر إلكتروني" maxlength="80">
+            <input type="text" class="form-input" id="rq-title" placeholder="مثال: تصميم شعار لمتجر إلكتروني" maxlength="50" aria-describedby="rq-title-error">
+            <small id="rq-title-error" class="rq-field-error hidden" role="alert"></small>
+            <div class="form-char-count" id="rq-title-count-wrap"><span id="rq-title-count">0</span>/50</div>
             <p class="rq-hint">العنوان الواضح يزيد فرص وصول عروض دقيقة.</p>
           </div>
 
@@ -49,9 +322,10 @@
               التصنيف الرئيسي
               <span class="rq-required">*</span>
             </label>
-            <select class="form-select" id="rq-category">
+            <select class="form-select" id="rq-category" aria-describedby="rq-category-error">
               <option value="">اختر التصنيف...</option>
             </select>
+            <small id="rq-category-error" class="rq-field-error hidden" role="alert"></small>
           </div>
 
           <div class="form-group rq-group">
@@ -59,15 +333,23 @@
               التصنيف الفرعي
               <span class="rq-required">*</span>
             </label>
-            <select class="form-select" id="rq-subcategory">
+            <select class="form-select" id="rq-subcategory" aria-describedby="rq-subcategory-error">
               <option value="">-- اختر التخصص --</option>
+            </select>
+            <small id="rq-subcategory-error" class="rq-field-error hidden" role="alert"></small>
+          </div>
+
+          <div class="form-group rq-group">
+            <label class="form-label rq-label" for="rq-region">المنطقة الإدارية</label>
+            <select class="form-select" id="rq-region">
+              <option value="">اختر المنطقة الإدارية</option>
             </select>
           </div>
 
           <div class="form-group rq-group">
             <label class="form-label rq-label" for="rq-city">المدينة</label>
             <select class="form-select" id="rq-city">
-              <option value="">اختر المدينة...</option>
+              <option value="">اختر المنطقة أولًا ثم المدينة...</option>
             </select>
             <button type="button" id="rq-city-clear" class="city-clear-btn hidden">إلغاء المدينة (إرسال لجميع المدن)</button>
           </div>
@@ -82,8 +364,9 @@
               تفاصيل الطلب
               <span class="rq-required">*</span>
             </label>
-            <textarea class="form-textarea" id="rq-details" placeholder="صِف الخدمة المطلوبة بالتفصيل..." rows="6" maxlength="500"></textarea>
-            <div class="form-char-count"><span id="rq-desc-count">0</span>/500</div>
+            <textarea class="form-textarea" id="rq-details" placeholder="صِف الخدمة المطلوبة بالتفصيل..." rows="6" maxlength="500" aria-describedby="rq-details-error"></textarea>
+            <small id="rq-details-error" class="rq-field-error hidden" role="alert"></small>
+            <div class="form-char-count" id="rq-desc-count-wrap"><span id="rq-desc-count">0</span>/500</div>
           </div>
 
           <div class="form-group rq-group rq-span-full">
@@ -96,6 +379,15 @@
               </button>
               <p class="rq-upload-hint">يمكنك رفع أكثر من ملف، وسيتم إرسالها مع الطلب مباشرة.</p>
               <div class="rq-file-summary" id="rq-file-summary">لا توجد مرفقات مضافة</div>
+              <div id="rq-attachment-note" class="rq-attachment-note hidden" role="status" aria-live="polite" aria-atomic="true">
+                <span class="rq-attachment-note-icon" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </span>
+                <div>
+                  <strong id="rq-attachment-note-title">تم تجهيز المرفقات</strong>
+                  <span id="rq-attachment-note-text">المرفقات المضافة ستُرسل مع الطلب مباشرة.</span>
+                </div>
+              </div>
               <div class="file-list" id="rq-file-list"></div>
             </div>
           </div>
@@ -109,6 +401,24 @@
           </button>
         </div>
       </form>
+      </div>
+
+      <div id="rq-submit-state" class="rq-submit-state hidden" aria-live="polite" aria-atomic="true">
+        <div class="rq-submit-state-card" role="status">
+          <span class="rq-submit-state-orb" aria-hidden="true"></span>
+          <div class="rq-submit-state-copy">
+            <strong id="rq-submit-state-title">جاري إرسال الطلب</strong>
+            <p id="rq-submit-state-message">يتم الآن تجهيز بيانات الطلب ورفع المرفقات.</p>
+            <div class="rq-submit-state-meta">
+              <span id="rq-submit-state-count">0 مرفق</span>
+              <span id="rq-submit-state-percent">0%</span>
+            </div>
+            <div class="rq-submit-state-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="نسبة رفع الطلب">
+              <span id="rq-submit-state-bar"></span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Success overlay -->
       <div id="rq-success" class="success-overlay hidden">
@@ -120,11 +430,25 @@
           <a href="/" class="btn-link" style="margin-top:8px">العودة للرئيسية</a>
         </div>
       </div>
+
+      <div id="rq-toast" class="rq-toast" aria-live="polite" aria-atomic="true" role="status">
+        <span class="rq-toast-icon" id="rq-toast-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16v.01"/><path d="M12 8v4"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        </span>
+        <div class="rq-toast-copy">
+          <strong id="rq-toast-title">تنبيه مهم</strong>
+          <p id="rq-toast-message">ستظهر هنا رسائل التحقق والتنبيه أثناء إرسال الطلب.</p>
+        </div>
+        <button type="button" class="rq-toast-close" id="rq-toast-close" aria-label="إغلاق التنبيه">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+        <span class="rq-toast-progress" aria-hidden="true"></span>
+      </div>
     </div>
   </div>
 </main>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/requestQuotePage.js' %}"></script>
+<script src="{% static 'mobile_web/js/requestQuotePage.js' %}?v=20260418-accountmode1"></script>
 {% endblock %}

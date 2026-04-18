@@ -7,17 +7,28 @@ import 'api_client.dart';
 /// Base: /api/notifications/
 class NotificationService {
   static const _base = '/api/notifications';
-  static final StreamController<NotificationModel> _realtimeController =
-      StreamController<NotificationModel>.broadcast();
+  static final StreamController<NotificationRealtimeEvent> _realtimeController =
+      StreamController<NotificationRealtimeEvent>.broadcast();
 
-  static Stream<NotificationModel> get realtimeEvents =>
+  static Stream<NotificationRealtimeEvent> get realtimeEvents =>
       _realtimeController.stream;
 
   static void emitRealtimeNotification(NotificationModel notification) {
     if (_realtimeController.isClosed) {
       return;
     }
-    _realtimeController.add(notification);
+    _realtimeController.add(
+      NotificationCreatedRealtimeEvent(notification),
+    );
+  }
+
+  static void emitRealtimeDeletion(List<int> notificationIds) {
+    if (_realtimeController.isClosed || notificationIds.isEmpty) {
+      return;
+    }
+    _realtimeController.add(
+      NotificationDeletedRealtimeEvent(List<int>.from(notificationIds)),
+    );
   }
 
   static String _withMode(String path, String? mode) {
@@ -244,4 +255,20 @@ class DeleteOldResult {
     required this.deleted,
     required this.retentionDays,
   });
+}
+
+abstract class NotificationRealtimeEvent {
+  const NotificationRealtimeEvent();
+}
+
+class NotificationCreatedRealtimeEvent extends NotificationRealtimeEvent {
+  final NotificationModel notification;
+
+  const NotificationCreatedRealtimeEvent(this.notification);
+}
+
+class NotificationDeletedRealtimeEvent extends NotificationRealtimeEvent {
+  final List<int> notificationIds;
+
+  const NotificationDeletedRealtimeEvent(this.notificationIds);
 }

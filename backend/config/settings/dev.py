@@ -2,6 +2,15 @@ from .base import *  # noqa
 
 DEBUG = True
 
+# In local development we want static assets to reflect file edits immediately.
+# Using the production manifest backend here can hide recent JS/CSS changes
+# behind cached/collected artifacts. Keep dev on finder-based autorefresh mode.
+STATICFILES_BACKEND = "django.contrib.staticfiles.storage.StaticFilesStorage"
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = True
+WHITENOISE_MAX_AGE = 0
+STORAGES["staticfiles"] = {"BACKEND": STATICFILES_BACKEND}
+
 # During development (no SMS integration yet), use explicit dev OTP mode.
 OTP_DEV_BYPASS_ENABLED = True
 OTP_DEV_ACCEPT_ANY_4_DIGITS = True

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // ignore_for_file: unused_field, unused_element
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +17,7 @@ import '../services/auth_service.dart';
 import '../services/analytics_service.dart';
 import '../services/interactive_service.dart';
 import '../services/api_client.dart';
+import '../services/provider_share_tracking_service.dart';
 import '../utils/value_parsing.dart';
 import '../models/media_item_model.dart';
 import '../models/provider_public_model.dart';
@@ -1126,6 +1129,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                               onPressed: () async {
                                 await Clipboard.setData(
                                     ClipboardData(text: providerLink));
+                                final providerId = _resolvedProviderId;
+                                if (providerId != null) {
+                                  unawaited(
+                                    ProviderShareTrackingService.recordProfileShare(
+                                      providerId: providerId,
+                                      channel: 'copy_link',
+                                    ),
+                                  );
+                                }
                                 if (sheetContext.mounted) {
                                   Navigator.pop(sheetContext);
                                 }
@@ -1148,6 +1160,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                                   providerLink,
                                   subject: 'مشاركة نافذة مقدم الخدمة',
                                 );
+                                final providerId = _resolvedProviderId;
+                                if (providerId != null) {
+                                  unawaited(
+                                    ProviderShareTrackingService.recordProfileShare(
+                                      providerId: providerId,
+                                      channel: 'other',
+                                    ),
+                                  );
+                                }
                                 if (sheetContext.mounted) {
                                   Navigator.pop(sheetContext);
                                 }

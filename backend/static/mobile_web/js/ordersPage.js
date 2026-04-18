@@ -110,6 +110,18 @@ const OrdersPage = (() => {
 
   async function _fetchOrders() {
     _setLoadingState(true);
+    const profileState = await Auth.resolveProfile(false, _activeMode());
+    if (!profileState.ok) {
+      _setLoadingState(false);
+      if (!Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _all = [];
+      _emptyMessage = 'جار مزامنة نوع الحساب الحالي. حاول مرة أخرى خلال لحظة.';
+      _renderOrders();
+      return;
+    }
     const res = await ApiClient.get(_buildEndpoint());
     _setLoadingState(false);
 
@@ -118,7 +130,14 @@ const OrdersPage = (() => {
       _emptyMessage = 'لا توجد طلبات';
       _renderOrders();
     } else if (res.status === 401) {
-      _showGate();
+      const recovered = await Auth.resolveProfile(true, _activeMode());
+      if (!recovered.ok && !Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _all = [];
+      _emptyMessage = 'يتم تحديث الجلسة الآن. أعد المحاولة بعد لحظة.';
+      _renderOrders();
     } else {
       _all = [];
       _emptyMessage = 'تعذر تحميل الطلبات حاليًا';

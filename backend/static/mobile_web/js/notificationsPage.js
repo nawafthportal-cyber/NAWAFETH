@@ -138,6 +138,15 @@ const NotificationsPage = (() => {
     }
 
     const requestOffset = reset ? 0 : _offset;
+    const profileState = await Auth.resolveProfile(false, _activeMode());
+    if (!profileState.ok) {
+      if (!Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _setError('تعذر التحقق من نوع الحساب الحالي. أعد المحاولة بعد لحظة.', { retry: true });
+      return;
+    }
     const url = _withMode('/api/notifications/?limit=' + PAGE_LIMIT + '&offset=' + requestOffset);
     const res = await ApiClient.get(url);
 
@@ -170,7 +179,12 @@ const NotificationsPage = (() => {
     }
 
     if (res.status === 401) {
-      _showGate();
+      const recovered = await Auth.resolveProfile(true, _activeMode());
+      if (!recovered.ok && !Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _setError('يتم تحديث الجلسة أو نوع الحساب الآن. أعد المحاولة بعد قليل.', { retry: true });
       return;
     }
 

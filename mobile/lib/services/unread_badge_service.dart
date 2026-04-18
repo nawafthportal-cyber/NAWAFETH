@@ -298,16 +298,26 @@ class _UnreadBadgeManager with WidgetsBindingObserver {
       final decoded = rawPayload is String
           ? Map<String, dynamic>.from(jsonDecode(rawPayload) as Map)
           : Map<String, dynamic>.from(rawPayload as Map);
-      if (decoded['type'] != 'notification.created') {
+      final type = (decoded['type'] ?? '').toString();
+      if (type == 'notification.created') {
+        final notificationPayload = decoded['notification'];
+        if (notificationPayload is Map) {
+          NotificationService.emitRealtimeNotification(
+            NotificationModel.fromJson(
+              Map<String, dynamic>.from(notificationPayload),
+            ),
+          );
+        }
+      } else if (type == 'notification.deleted') {
+        final ids = (decoded['notification_ids'] as List? ?? [])
+            .map((value) => int.tryParse(value.toString()))
+            .whereType<int>()
+            .toList();
+        if (ids.isNotEmpty) {
+          NotificationService.emitRealtimeDeletion(ids);
+        }
+      } else {
         return;
-      }
-      final notificationPayload = decoded['notification'];
-      if (notificationPayload is Map) {
-        NotificationService.emitRealtimeNotification(
-          NotificationModel.fromJson(
-            Map<String, dynamic>.from(notificationPayload),
-          ),
-        );
       }
       unawaited(refresh(force: true));
     } catch (_) {}

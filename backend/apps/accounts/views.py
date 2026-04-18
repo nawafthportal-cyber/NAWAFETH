@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.contrib.auth import login as auth_login, logout as auth_logout, update_session_auth_hash
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError
 from django.utils import timezone
 from django.utils.timezone import timedelta
@@ -10,6 +12,7 @@ from rest_framework.decorators import api_view, permission_classes, throttle_cla
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -43,6 +46,22 @@ from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import IMAGE_EXTENSIONS, IMAGE_MIME_TYPES, validate_secure_upload
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_format_city_display(city: str | None, *, region: str = "") -> str:
+    """Format city labels without letting optional region lookup break /me/.
+
+    ``format_city_display`` may consult the SaudiCity table to infer the region.
+    During brief local SQLite locks or transient DB hiccups, that secondary
+    lookup should not cause the authenticated profile endpoint to fail.
+    """
+    raw_city = str(city or "").strip()
+    if not raw_city:
+        return ""
+    try:
+        return format_city_display(raw_city, region=region)
+    except Exception:
+        return raw_city
 
 def _phone_candidates(phone: str) -> list[str]:
     raw = (phone or "").strip()
@@ -249,7 +268,7 @@ def _me_payload(user: User, *, request=None) -> dict:
         "first_name": getattr(user, "first_name", None),
         "last_name": getattr(user, "last_name", None),
         "city": getattr(user, "city", None),
-        "city_display": format_city_display(getattr(user, "city", None)),
+        "city_display": _safe_format_city_display(getattr(user, "city", None)),
         "profile_image": _safe_media_url(getattr(user, "profile_image", None)),
         "cover_image": _safe_media_url(getattr(user, "cover_image", None)),
         "role_state": role_state,
@@ -263,7 +282,7 @@ def _me_payload(user: User, *, request=None) -> dict:
         "provider_profile_id": provider_profile_id,
         "provider_display_name": provider_display_name,
         "provider_city": provider_city,
-        "provider_city_display": format_city_display(provider_city),
+        "provider_city_display": _safe_format_city_display(provider_city),
         "provider_followers_count": provider_followers_count,
         "provider_likes_received_count": provider_likes_received_count,
         "provider_rating_avg": provider_rating_avg,
@@ -296,6 +315,17 @@ def _otp_test_authorized(request) -> bool:
     return bool(provided) and secrets.compare_digest(provided, test_key)
 
 
+def _auth_backend_path() -> str:
+    backends = getattr(settings, "AUTHENTICATION_BACKENDS", None) or ["django.contrib.auth.backends.ModelBackend"]
+    return str(backends[0])
+
+
+def _start_web_session(request, user: User | None) -> None:
+    if request is None or user is None or not getattr(user, "is_active", False):
+        return
+    auth_login(request, user, backend=_auth_backend_path())
+
+
 def _issue_tokens_for_phone(phone: str):
     normalized_phone = _normalize_phone_local05(phone)
     phone_username = normalized_phone.lstrip("@")
@@ -307,12 +337,12 @@ def _issue_tokens_for_phone(phone: str):
     # removing that legacy inactive user record first.
     if user is not None and not user.is_active:
         if user.is_staff or user.is_superuser:
-            return None, created
+            return None, created, None
         try:
             user.delete()
             user = None
         except Exception:
-            return None, created
+            return None, created, None
 
     if user is None:
         user = User.objects.create(
@@ -353,7 +383,7 @@ def _issue_tokens_for_phone(phone: str):
         "refresh": str(refresh),
         "access": str(refresh.access_token),
     }
-    return payload, created
+    return payload, created, user
 
 
 class ThrottledTokenObtainPairView(TokenObtainPairView):
@@ -368,7 +398,18 @@ class ThrottledTokenRefreshView(TokenRefreshView):
     throttle_scope = "refresh"
 
     def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
+        try:
+            response = super().post(request, *args, **kwargs)
+        except (User.DoesNotExist, ObjectDoesNotExist):
+            # The refresh token subject points to a user that no longer exists.
+            # Return the expected auth failure instead of a server error.
+            logging.getLogger("nawafeth.auth").warning(
+                "token_refresh_failed status=%s reason=%s",
+                status.HTTP_401_UNAUTHORIZED,
+                "user_not_found",
+                extra={"log_category": "auth_failure"},
+            )
+            raise InvalidToken("User not found")
         if response.status_code >= status.HTTP_400_BAD_REQUEST:
             logging.getLogger("nawafeth.auth").warning(
                 "token_refresh_failed status=%s",
@@ -627,9 +668,10 @@ def otp_verify(request):
         if not (len(code) == 4 and code.isdigit()):
             return Response({"detail": "الكود يجب أن يكون 4 أرقام"}, status=status.HTTP_400_BAD_REQUEST)
 
-        payload, created = _issue_tokens_for_phone(phone)
+        payload, created, user = _issue_tokens_for_phone(phone)
         if payload is None:
             return Response({"detail": "الحساب غير نشط"}, status=status.HTTP_400_BAD_REQUEST)
+        _start_web_session(request, user)
 
         # Best-effort cleanup: mark last OTP as used.
         otp = OTP.objects.filter(phone=phone, is_used=False).order_by("-id").first()
@@ -661,9 +703,10 @@ def otp_verify(request):
 
         logger.warning("OTP_APP_BYPASS used phone=%s ip=%s", phone, client_ip)
 
-        payload, created = _issue_tokens_for_phone(phone)
+        payload, created, user = _issue_tokens_for_phone(phone)
         if payload is None:
             return Response({"detail": "الحساب غير نشط"}, status=status.HTTP_400_BAD_REQUEST)
+        _start_web_session(request, user)
 
         return Response(payload, status=status.HTTP_200_OK)
 
@@ -676,9 +719,10 @@ def otp_verify(request):
             otp.is_used = True
             otp.save(update_fields=["is_used"])
 
-        payload, created = _issue_tokens_for_phone(phone)
+        payload, created, user = _issue_tokens_for_phone(phone)
         if payload is None:
             return Response({"detail": "الحساب غير نشط"}, status=status.HTTP_400_BAD_REQUEST)
+        _start_web_session(request, user)
 
         return Response(payload, status=status.HTTP_200_OK)
 
@@ -693,9 +737,10 @@ def otp_verify(request):
             otp.is_used = True
             otp.save(update_fields=["is_used"])
 
-        payload, created = _issue_tokens_for_phone(phone)
+        payload, created, user = _issue_tokens_for_phone(phone)
         if payload is None:
             return Response({"detail": "الحساب غير نشط"}, status=status.HTTP_400_BAD_REQUEST)
+        _start_web_session(request, user)
 
         return Response(payload, status=status.HTTP_200_OK)
 
@@ -732,9 +777,10 @@ def otp_verify(request):
     otp.is_used = True
     otp.save(update_fields=["is_used"])
 
-    payload, created = _issue_tokens_for_phone(phone)
+    payload, created, user = _issue_tokens_for_phone(phone)
     if payload is None:
         return Response({"detail": "الحساب غير نشط"}, status=status.HTTP_400_BAD_REQUEST)
+    _start_web_session(request, user)
 
     # Audit (اختياري)
     try:
@@ -812,6 +858,7 @@ def biometric_login(request):
         )
 
     user = bt.user
+    _start_web_session(request, user)
     refresh = RefreshToken.for_user(user)
     payload = {
         "ok": True,
@@ -891,6 +938,7 @@ def complete_registration(request):
             "role_state",
         ]
     )
+    update_session_auth_hash(request, user)
     return Response(
         {
             "ok": True,
@@ -998,6 +1046,7 @@ def logout_view(request):
             token.blacklist()
         except Exception:
             pass  # token may already be blacklisted or invalid
+    auth_logout(request)
     return Response({"ok": True}, status=status.HTTP_200_OK)
 
 

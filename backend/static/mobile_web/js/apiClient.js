@@ -58,6 +58,17 @@ const ApiClient = (() => {
     return _readStoredValue('nw_refresh_token');
   }
 
+  function _getActiveAccountMode() {
+    try {
+      if (typeof Auth !== 'undefined' && Auth && typeof Auth.getActiveAccountMode === 'function') {
+        const mode = String(Auth.getActiveAccountMode() || '').trim().toLowerCase();
+        return mode === 'provider' ? 'provider' : 'client';
+      }
+    } catch (_) {}
+    const storedMode = String(_readStoredValue('nw_account_mode') || '').trim().toLowerCase();
+    return storedMode === 'provider' ? 'provider' : 'client';
+  }
+
   function _clearStoredTokens() {
     if (typeof Auth !== 'undefined' && Auth && typeof Auth.logout === 'function') {
       try {
@@ -71,6 +82,24 @@ const ApiClient = (() => {
     _removeStoredValue('nw_role_state');
   }
 
+  function _getCsrfToken() {
+    try {
+      const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+      if (match && match[1]) return decodeURIComponent(match[1]);
+    } catch (_) {}
+    try {
+      const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      return input && input.value ? String(input.value) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _isUnsafeMethod(method) {
+    const normalized = String(method || 'GET').trim().toUpperCase();
+    return !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(normalized);
+  }
+
   function _isRefreshPath(path) {
     return String(path || '').indexOf('/api/accounts/token/refresh/') !== -1;
   }
@@ -81,8 +110,13 @@ const ApiClient = (() => {
     try {
       const res = await fetch(BASE + '/api/accounts/token/refresh/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Account-Mode': _getActiveAccountMode(),
+        },
         body: JSON.stringify({ refresh }),
+        credentials: 'same-origin',
       });
       if (res.ok) {
         const d = await res.json();
@@ -131,10 +165,15 @@ const ApiClient = (() => {
     const token = _getToken();
     const shouldAttachAuth = Boolean(token) && !opts.omitAuth && !_isRefreshPath(path);
     if (shouldAttachAuth) headers['Authorization'] = 'Bearer ' + token;
+    headers['X-Account-Mode'] = _getActiveAccountMode();
 
     const isFormData = opts.formData === true || (opts.body instanceof FormData);
     // Only set Content-Type for non-FormData bodies (browser sets multipart boundary automatically)
     if (opts.body && !isFormData) headers['Content-Type'] = 'application/json';
+    if (_isUnsafeMethod(opts.method || 'GET')) {
+      const csrfToken = _getCsrfToken();
+      if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+    }
 
     const controller = new AbortController();
     const timeoutId = opts.timeout
@@ -152,6 +191,7 @@ const ApiClient = (() => {
         headers,
         body,
         signal: controller.signal,
+        credentials: 'same-origin',
       });
       if (timeoutId) clearTimeout(timeoutId);
 

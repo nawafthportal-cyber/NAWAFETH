@@ -13,7 +13,7 @@ from django.utils.dateparse import parse_date, parse_datetime
 
 from apps.accounts.models import OTP, User
 from apps.accounts.otp import accept_any_otp_code, create_otp, verify_otp
-from apps.analytics.models import ProviderDailyStats
+from apps.analytics.models import AnalyticsEvent
 from apps.dashboard.security import is_safe_redirect_url
 from apps.dashboard.exports import pdf_response, xlsx_response
 from apps.extras.option_catalog import (
@@ -23,15 +23,21 @@ from apps.extras.option_catalog import (
     option_label_for,
     section_title_for,
 )
-from apps.extras.services import extras_bundle_invoice_for_request, extras_bundle_payload_for_request
-from apps.marketplace.models import RequestStatus, ServiceRequest
+from apps.extras.services import (
+    _extras_bundle_section_access_deadline,
+    extras_bundle_invoice_for_request,
+    extras_bundle_payload_for_request,
+)
+from apps.marketplace.models import PRE_EXECUTION_REQUEST_STATUSES, RequestStatus, ServiceRequest
 from apps.messaging.models import Message, Thread
 from apps.providers.models import (
     ProviderContentComment,
     ProviderContentShare,
     ProviderFollow,
+    ProviderLike,
     ProviderPortfolioLike,
     ProviderProfile,
+    ProviderSpotlightLike,
 )
 from apps.reviews.models import Review
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
@@ -124,6 +130,8 @@ def _latest_portal_bundle_context(provider: ProviderProfile) -> dict[str, object
         section_option_keys: dict[str, list[str]] = {}
         enabled_sections: list[dict[str, object]] = []
         for section_key in PORTAL_SECTION_ORDER:
+            if not _portal_section_context_is_active(bundle_context, section_key):
+                continue
             section_payload = bundle.get(section_key) if isinstance(bundle.get(section_key), dict) else {}
             option_keys = [
                 str(key or "").strip()
@@ -232,18 +240,54 @@ def _portal_paid_bundle_contexts(provider: ProviderProfile) -> list[dict[str, ob
         if invoice is None or not invoice.is_payment_effective():
             continue
 
+        effective_at = (
+            getattr(invoice, "payment_confirmed_at", None)
+            or getattr(invoice, "paid_at", None)
+            or getattr(request_obj, "closed_at", None)
+            or getattr(request_obj, "updated_at", None)
+            or getattr(request_obj, "created_at", None)
+        )
         contexts.append(
             {
                 "request_obj": request_obj,
                 "bundle": bundle,
                 "invoice": invoice,
+                "effective_at": effective_at,
             }
         )
+    contexts.sort(
+        key=lambda item: (
+            item.get("effective_at") or timezone.make_aware(datetime.min, timezone.get_current_timezone()),
+            getattr(item.get("request_obj"), "id", 0) or 0,
+        ),
+        reverse=True,
+    )
     return contexts
+
+
+def _portal_section_context_is_active(bundle_context: dict[str, object], section_key: str, *, now=None) -> bool:
+    if not isinstance(bundle_context, dict):
+        return False
+    bundle = bundle_context.get("bundle") if isinstance(bundle_context.get("bundle"), dict) else {}
+    section_payload = bundle.get(section_key) if isinstance(bundle.get(section_key), dict) else {}
+    option_keys = [str(key or "").strip() for key in list(section_payload.get("options") or []) if str(key or "").strip()]
+    if not option_keys:
+        return False
+
+    active_until = _extras_bundle_section_access_deadline(
+        section_key,
+        bundle,
+        bundle_context.get("effective_at") or timezone.now(),
+    )
+    if active_until is None:
+        return True
+    return active_until > (now or timezone.now())
 
 
 def _latest_portal_section_context(provider: ProviderProfile, section_key: str) -> dict[str, object]:
     for bundle_context in _portal_paid_bundle_contexts(provider):
+        if not _portal_section_context_is_active(bundle_context, section_key):
+            continue
         request_obj = bundle_context["request_obj"]
         bundle = bundle_context["bundle"]
         section_payload = bundle.get(section_key) if isinstance(bundle.get(section_key), dict) else {}
@@ -663,6 +707,8 @@ def _reports_bundle_context_from_section_context(section_context: dict[str, obje
 def _all_reports_bundle_contexts(provider: ProviderProfile) -> list[dict[str, object]]:
     contexts: list[dict[str, object]] = []
     for bundle_context in _portal_paid_bundle_contexts(provider):
+        if not _portal_section_context_is_active(bundle_context, PORTAL_SECTION_REPORTS):
+            continue
         reports_section = bundle_context["bundle"].get(PORTAL_SECTION_REPORTS)
         if not isinstance(reports_section, dict):
             continue
@@ -714,9 +760,12 @@ def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end
         start_at,
         end_at,
     )
-    analytics_qs = _apply_date_window(
-        ProviderDailyStats.objects.filter(provider=provider),
-        "day",
+    profile_view_events_qs = _apply_datetime_window(
+        AnalyticsEvent.objects.filter(
+            event_name="provider.profile_view",
+            object_id=str(getattr(provider, "pk", "") or ""),
+        ),
+        "occurred_at",
         start_at,
         end_at,
     )
@@ -726,8 +775,20 @@ def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end
         start_at,
         end_at,
     )
-    likes_qs = _apply_datetime_window(
+    portfolio_likes_qs = _apply_datetime_window(
         ProviderPortfolioLike.objects.filter(item__provider=provider).select_related("user").order_by("-created_at"),
+        "created_at",
+        start_at,
+        end_at,
+    )
+    provider_likes_qs = _apply_datetime_window(
+        ProviderLike.objects.filter(provider=provider).select_related("user").order_by("-created_at"),
+        "created_at",
+        start_at,
+        end_at,
+    )
+    spotlight_likes_qs = _apply_datetime_window(
+        ProviderSpotlightLike.objects.filter(item__provider=provider).select_related("user").order_by("-created_at"),
         "created_at",
         start_at,
         end_at,
@@ -743,6 +804,10 @@ def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end
             Q(thread__request__provider=provider)
             | Q(thread__is_direct=True, thread__participant_1=provider.user)
             | Q(thread__is_direct=True, thread__participant_2=provider.user)
+        ).exclude(
+            is_system_generated=True,
+        ).exclude(
+            sender=provider.user,
         ),
         "created_at",
         start_at,
@@ -751,17 +816,23 @@ def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end
 
     totals = {
         "total_requests": requests_qs.count(),
+        "new_requests": requests_qs.filter(status__in=PRE_EXECUTION_REQUEST_STATUSES).count(),
         "completed_requests": requests_qs.filter(status=RequestStatus.COMPLETED).count(),
         "in_progress_requests": requests_qs.filter(status=RequestStatus.IN_PROGRESS).count(),
+        "cancelled_requests": requests_qs.filter(status=RequestStatus.CANCELLED).count(),
         "received_amount": requests_qs.aggregate(v=Sum("received_amount"))["v"] or 0,
     }
-    platform_visits = analytics_qs.aggregate(v=Sum("profile_views"))["v"] or 0
+    platform_visits = profile_view_events_qs.count()
     followers_count = follows_qs.count()
-    likes_count = likes_qs.count()
+    likes_count = portfolio_likes_qs.count() + provider_likes_qs.count() + spotlight_likes_qs.count()
     messages_count = messages_qs.count()
 
     requesters_preview = _make_identity_entries([row.client for row in requests_qs[:20] if getattr(row, "client", None)])
-    likes_preview = _make_identity_entries([row.user for row in likes_qs[:20] if getattr(row, "user", None)])
+    likes_preview = _make_identity_entries(
+        [row.user for row in portfolio_likes_qs[:20] if getattr(row, "user", None)]
+        + [row.user for row in provider_likes_qs[:20] if getattr(row, "user", None)]
+        + [row.user for row in spotlight_likes_qs[:20] if getattr(row, "user", None)]
+    )
     followers_preview = _make_identity_entries([row.user for row in follows_qs[:20] if getattr(row, "user", None)])
     positive_reviews_qs = reviews_qs.filter(rating__gte=4)
     positive_reviewers_preview = _make_identity_entries(
@@ -802,17 +873,29 @@ def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end
     )
     commenters_distinct_count = comments_qs.exclude(user=None).values("user_id").distinct().count()
 
+    favoriters_user_ids = set(
+        portfolio_likes_qs.exclude(user=None).values_list("user_id", flat=True).distinct()
+    ) | set(
+        provider_likes_qs.exclude(user=None).values_list("user_id", flat=True).distinct()
+    ) | set(
+        spotlight_likes_qs.exclude(user=None).values_list("user_id", flat=True).distinct()
+    )
+    favoriters_distinct_count = len(favoriters_user_ids)
+
     option_cards_by_key: dict[str, dict[str, object]] = {
         "platform_metrics": _stats_card(
             key="platform_metrics",
             label=option_label_for("reports", "platform_metrics"),
             wide=True,
-            helper_text="ملخص تشغيلي مباشر للفترة المعتمدة في هذا الطلب.",
+            helper_text="ملخص مؤشرات منصتك الأساسية للفترة المعتمدة في هذا الطلب وفق التنسيق التشغيلي المعتمد.",
             stats=[
-                {"label": "زيارات الملف", "value": str(platform_visits)},
-                {"label": "المتابعات", "value": str(followers_count)},
-                {"label": "إعجابات المحتوى", "value": str(likes_count)},
-                {"label": "الرسائل", "value": str(messages_count)},
+                {"label": "زيارات منصتي", "value": str(platform_visits)},
+                {"label": "عدد التفضيلات لمحتوى منصتي", "value": str(likes_count)},
+                {"label": "عدد مرات مشاركة منصتي", "value": str(shares_count)},
+                {"label": "عدد الطلبات الجديدة", "value": str(totals["new_requests"])},
+                {"label": "عدد الطلبات تحت التنفيذ", "value": str(totals["in_progress_requests"])},
+                {"label": "عدد الطلبات المكتملة", "value": str(totals["completed_requests"])},
+                {"label": "عدد الطلبات الملغية", "value": str(totals["cancelled_requests"])},
             ],
         ),
         "platform_visits": _stats_card(
@@ -833,10 +916,10 @@ def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end
             wide=True,
             helper_text="توزيع طلبات الخدمة في الفترة نفسها حسب الحالة التشغيلية.",
             stats=[
-                {"label": "جديدة", "value": str(requests_qs.filter(status=RequestStatus.NEW).count())},
+                {"label": "جديدة", "value": str(totals["new_requests"])},
                 {"label": "تحت التنفيذ", "value": str(totals["in_progress_requests"])},
                 {"label": "مكتملة", "value": str(totals["completed_requests"])},
-                {"label": "ملغاة", "value": str(requests_qs.filter(status=RequestStatus.CANCELLED).count())},
+                {"label": "ملغاة", "value": str(totals["cancelled_requests"])},
             ],
         ),
         "platform_shares": _stats_card(
@@ -863,7 +946,7 @@ def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end
             key="content_favoriters",
             label=option_label_for("reports", "content_favoriters"),
             entries=likes_preview,
-            total_count=likes_qs.exclude(user=None).values("user_id").distinct().count(),
+            total_count=favoriters_distinct_count,
             helper_text="معرفات المستخدمين الذين أضافوا محتوى المنصة إلى التفضيلات.",
         ),
         "platform_followers": _list_card(
@@ -917,8 +1000,8 @@ def _report_requests_queryset(provider: ProviderProfile, bundle_context: dict[st
 
 
 def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, object]:
-    bundle_context = _latest_reports_bundle_context(provider)
     report_bundle_contexts = _all_reports_bundle_contexts(provider)
+    bundle_context = report_bundle_contexts[0] if report_bundle_contexts else _reports_bundle_context_from_section_context({})
     shell_context = _portal_shell_context(provider, active_section=PORTAL_SECTION_REPORTS)
     start_at = bundle_context.get("start_at")
     end_at = bundle_context.get("end_at")
@@ -936,12 +1019,15 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
     followers_count = latest_option_catalog["followers_count"]
     likes_count = latest_option_catalog["likes_count"]
     messages_count = latest_option_catalog["messages_count"]
+    platform_metrics_stats = latest_option_catalog["option_cards_by_key"]["platform_metrics"]["stats"]
 
     report_request_summaries: list[dict[str, object]] = []
     report_request_groups: list[dict[str, object]] = []
     selected_option_rows: list[dict[str, object]] = []
 
-    for report_context in report_bundle_contexts:
+    visible_report_contexts = report_bundle_contexts[:1]
+
+    for report_context in visible_report_contexts:
         request_obj = report_context.get("request_obj")
         request_id = getattr(request_obj, "id", None)
         request_code = getattr(request_obj, "code", "") or "-"
@@ -1044,11 +1130,22 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
     else:
         provider_identifier = provider.display_name
 
+    overview_tones = [
+        "from-sky-500 to-cyan-500",
+        "from-rose-500 to-pink-500",
+        "from-amber-500 to-orange-500",
+        "from-indigo-500 to-blue-500",
+        "from-violet-500 to-fuchsia-500",
+        "from-emerald-500 to-teal-500",
+        "from-slate-500 to-slate-700",
+    ]
     overview_cards = [
-        {"title": "إجمالي الطلبات", "value": totals["total_requests"], "tone": "from-violet-500 to-fuchsia-500"},
-        {"title": "طلبات مكتملة", "value": totals["completed_requests"], "tone": "from-emerald-500 to-teal-500"},
-        {"title": "زيارات المنصة", "value": platform_visits, "tone": "from-sky-500 to-cyan-500"},
-        {"title": "رسائل وتفاعلات", "value": messages_count, "tone": "from-amber-500 to-orange-500"},
+        {
+            "title": str(stat.get("label") or "-"),
+            "value": str(stat.get("value") or "0"),
+            "tone": overview_tones[index] if index < len(overview_tones) else "from-slate-500 to-slate-700",
+        }
+        for index, stat in enumerate(platform_metrics_stats)
     ]
 
     return {

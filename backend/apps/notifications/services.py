@@ -653,6 +653,34 @@ def create_notification(
     return notif
 
 
+def delete_notifications(*, qs=None, user_ids: list[int] | None = None, kind: str | None = None, url: str | None = None, audience_mode: str | None = None) -> int:
+    notification_qs = qs if qs is not None else Notification.objects.all()
+    if user_ids:
+        notification_qs = notification_qs.filter(user_id__in=list(dict.fromkeys(user_ids)))
+    if kind:
+        notification_qs = notification_qs.filter(kind=kind)
+    if url is not None:
+        notification_qs = notification_qs.filter(url=normalize_notification_url(url))
+    if audience_mode:
+        notification_qs = notification_qs.filter(audience_mode=normalize_preference_mode(audience_mode))
+
+    rows = list(notification_qs.values_list("id", "user_id"))
+    if not rows:
+        return 0
+
+    notification_qs.delete()
+
+    by_user: dict[int, list[int]] = {}
+    for notification_id, user_id in rows:
+        by_user.setdefault(int(user_id), []).append(int(notification_id))
+
+    for user_id, notification_ids in by_user.items():
+        invalidate_unread_badge_cache(user_id=user_id)
+        _broadcast_notification_deleted(user_id=user_id, notification_ids=notification_ids)
+
+    return len(rows)
+
+
 def _broadcast_notification_created(notification: Notification) -> None:
     channel_layer = get_channel_layer()
     if channel_layer is None:
@@ -685,4 +713,28 @@ def _broadcast_notification_created(notification: Notification) -> None:
             "notification websocket broadcast failed notification_id=%s user_id=%s",
             notification.id,
             notification.user_id,
+        )
+
+
+def _broadcast_notification_deleted(*, user_id: int, notification_ids: list[int]) -> None:
+    if not notification_ids:
+        return
+
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+
+    try:
+        async_to_sync(channel_layer.group_send)(
+            f"notifications_user_{user_id}",
+            {
+                "type": "notification_deleted",
+                "notification_ids": notification_ids,
+            },
+        )
+    except Exception:
+        logger.exception(
+            "notification websocket delete broadcast failed user_id=%s notification_ids=%s",
+            user_id,
+            notification_ids,
         )

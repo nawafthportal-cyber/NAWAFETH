@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/provider_profile_model.dart';
 import '../models/user_profile.dart';
 import '../services/api_client.dart';
+import '../services/provider_share_tracking_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/platform_top_bar.dart';
 
@@ -71,6 +74,7 @@ class _MyQrScreenState extends State<MyQrScreen> {
         : '$baseUrl/profile/?user=${me.id}';
 
     return _QrPayload(
+      providerId: providerProfile?.id,
       title: providerProfile != null ? 'QR ملف مقدم الخدمة' : 'رابط نافذتي',
       subtitle: providerProfile?.displayName.isNotEmpty == true
           ? providerProfile!.displayName
@@ -83,6 +87,14 @@ class _MyQrScreenState extends State<MyQrScreen> {
     final payload = _payload;
     if (payload == null) return;
     await Clipboard.setData(ClipboardData(text: payload.targetUrl));
+    if (payload.providerId != null) {
+      unawaited(
+        ProviderShareTrackingService.recordProfileShare(
+          providerId: payload.providerId!,
+          channel: 'copy_link',
+        ),
+      );
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('تم نسخ الرابط')),
@@ -93,6 +105,14 @@ class _MyQrScreenState extends State<MyQrScreen> {
     final payload = _payload;
     if (payload == null) return;
     await Share.share(payload.targetUrl, subject: payload.title);
+    if (payload.providerId != null) {
+      unawaited(
+        ProviderShareTrackingService.recordProfileShare(
+          providerId: payload.providerId!,
+          channel: 'other',
+        ),
+      );
+    }
   }
 
   Future<void> _openLink() async {
@@ -276,11 +296,13 @@ class _MyQrScreenState extends State<MyQrScreen> {
 }
 
 class _QrPayload {
+  final int? providerId;
   final String title;
   final String subtitle;
   final String targetUrl;
 
   const _QrPayload({
+    this.providerId,
     required this.title,
     required this.subtitle,
     required this.targetUrl,

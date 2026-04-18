@@ -1,0 +1,1403 @@
+"use strict";
+var ServiceRequestFormPage = (function () {
+  var RAW_API = window.ApiClient || window.NwApiClient;
+  var API = window.NwApiClient;
+  var categories = [];
+  var requestType = "normal";
+  var providerId = null;
+  var serviceId = null;
+  var fixedTargetContext = null;
+  var regionCatalog = [];
+  var allImages = [];
+  var allVideos = [];
+  var allFiles = [];
+  var isAuthenticated = false;
+  var isSubmitting = false;
+  var submitOverlay = null;
+  var toastTimer = null;
+  var dispatchMode = "all";
+  var requestLat = null;
+  var requestLng = null;
+  var leafletMap = null;
+  var leafletMarker = null;
+  var leafletProviderMarkers = null;
+  var cityScopeMode = "no-city";
+  var nearestSelectedProvider = null;
+  var nearestProvidersList = [];
+  var modalTempSelectedId = null;
+  var TOAST_TONES = {
+    info: {
+      title: "معلومة سريعة",
+      role: "status",
+      live: "polite",
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>'
+    },
+    success: {
+      title: "تم بنجاح",
+      role: "status",
+      live: "polite",
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+    },
+    warning: {
+      title: "انتبه قبل المتابعة",
+      role: "alert",
+      live: "assertive",
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>'
+    },
+    error: {
+      title: "تعذر إكمال الطلب",
+      role: "alert",
+      live: "assertive",
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>'
+    }
+  };
+
+  var REGION_CITY_FALLBACK = [
+    { name_ar: "منطقة الرياض", cities: ["الرياض", "الخرج", "الدلم", "الدرعية", "الدوادمي", "الزلفي", "السليل", "القويعية", "المجمعة", "المزاحمية", "ثادق", "حوطة بني تميم", "شقراء", "ضرما", "عفيف", "الأفلاج"] },
+    { name_ar: "منطقة مكة المكرمة", cities: ["مكة المكرمة", "جدة", "الطائف", "الجموم", "رابغ", "القنفذة", "الليث", "تربة", "رنية", "ظلم"] },
+    { name_ar: "منطقة المدينة المنورة", cities: ["المدينة المنورة", "ينبع", "بدر", "خيبر", "العلا"] },
+    { name_ar: "المنطقة الشرقية", cities: ["الدمام", "الخبر", "الظهران", "الأحساء", "الجبيل", "الخفجي", "القطيف", "حفر الباطن"] },
+    { name_ar: "منطقة القصيم", cities: ["بريدة", "عنيزة", "الرس", "البكيرية", "البدائع", "المذنب"] },
+    { name_ar: "منطقة عسير", cities: ["أبها", "خميس مشيط", "بيشة", "محايل عسير", "النماص", "تنومة", "سراة عبيدة"] },
+    { name_ar: "منطقة تبوك", cities: ["تبوك", "ضباء", "الوجه", "حقل", "أملج"] },
+    { name_ar: "منطقة حائل", cities: ["حائل"] },
+    { name_ar: "منطقة الجوف", cities: ["سكاكا", "القريات", "طبرجل"] },
+    { name_ar: "منطقة الحدود الشمالية", cities: ["عرعر", "رفحاء", "طريف"] },
+    { name_ar: "منطقة نجران", cities: ["نجران", "شرورة"] },
+    { name_ar: "منطقة جازان", cities: ["جازان", "صامطة", "صبيا"] },
+    { name_ar: "منطقة الباحة", cities: ["الباحة", "بلجرشي", "العرضيات"] }
+  ];
+
+  function init() {
+    submitOverlay = UI && typeof UI.createSubmitOverlay === "function"
+      ? UI.createSubmitOverlay({ title: "جاري إرسال الطلب" })
+      : null;
+    var authApi =
+      (typeof Auth !== "undefined" && Auth) ||
+      (typeof window !== "undefined" ? window.Auth : null);
+    isAuthenticated = !!(authApi && typeof authApi.isLoggedIn === "function" && authApi.isLoggedIn());
+    _setAuthState(isAuthenticated);
+    _setLoginHref();
+    if (!isAuthenticated) return;
+
+    var params = new URLSearchParams(location.search);
+    providerId = params.get("provider_id");
+    serviceId = params.get("service_id");
+    if (providerId) {
+      requestType = "normal";
+      document.getElementById("sr-title").textContent = "طلب مباشر إلى مزود الخدمة";
+      applyDirectProviderMode();
+    }
+
+    loadCategories();
+    loadCityCatalog();
+    syncDeadlineBounds();
+    setProviderTypeMode();
+    bindEvents();
+    bindToastControls();
+    bindDispatchEvents();
+    updateCityClearVisibility();
+    updateRequestTypePresentation();
+
+    if (providerId) {
+      loadDirectTargetContext();
+    }
+  }
+
+  function loadDirectTargetContext() {
+    if (!providerId || !RAW_API || typeof RAW_API.get !== "function") return;
+
+    var providerPath = "/api/providers/" + encodeURIComponent(String(providerId)) + "/";
+    var providerPromise = RAW_API.get(providerPath).catch(function () { return null; });
+    var servicePromise = serviceId
+      ? RAW_API.get("/api/providers/services/" + encodeURIComponent(String(serviceId)) + "/").catch(function () { return null; })
+      : Promise.resolve(null);
+    var servicesPromise = RAW_API.get("/api/providers/" + encodeURIComponent(String(providerId)) + "/services/").catch(function () { return null; });
+
+    Promise.all([providerPromise, servicePromise, servicesPromise])
+      .then(function (results) {
+        var providerRes = results[0];
+        var serviceRes = results[1];
+        var servicesRes = results[2];
+        if (!providerRes || !providerRes.ok || !providerRes.data) {
+          throw new Error("provider_scope_unavailable");
+        }
+
+        var providerData = providerRes.data || {};
+        var serviceData = serviceRes && serviceRes.ok ? (serviceRes.data || {}) : null;
+        var servicesData = servicesRes && servicesRes.ok
+          ? (Array.isArray(servicesRes.data) ? servicesRes.data : ((servicesRes.data && servicesRes.data.results) || []))
+          : [];
+        if (serviceData && String(serviceData.provider_id || "") !== String(providerId)) {
+          serviceData = null;
+        }
+
+        fixedTargetContext = buildFixedTargetContext(providerData, serviceData, servicesData);
+        if (fixedTargetContext) {
+          applyFixedTargetContext(fixedTargetContext);
+          return;
+        }
+
+        throw new Error("provider_scope_missing");
+      })
+      .catch(function () {
+        fixedTargetContext = null;
+        showEditableScopeFallback();
+      });
+  }
+
+  function applyDirectProviderMode() {
+    var typeSection = document.getElementById("sr-type-section");
+    var fixedRoot = document.getElementById("sr-fixed-target");
+    var editableRoot = document.getElementById("sr-scope-fields");
+
+    if (typeSection) {
+      typeSection.classList.add("hidden");
+    }
+    if (fixedRoot) {
+      fixedRoot.classList.remove("hidden");
+    }
+    if (editableRoot) {
+      editableRoot.classList.add("hidden");
+    }
+    setText("sr-scope-title", "بيانات المزود المحدد");
+    setText("sr-scope-text", "جاري تحميل القسم والتصنيف والمدينة من حساب المزود.");
+    setText("sr-fixed-provider-name", "جاري التحميل...");
+    setText("sr-fixed-service", "جاري التحميل...");
+    setText("sr-fixed-category", "جاري التحميل...");
+    setText("sr-fixed-subcategory", "جاري التحميل...");
+    setText("sr-fixed-city", "جاري التحميل...");
+    renumberVisibleSteps();
+  }
+
+  function showEditableScopeFallback() {
+    var fixedRoot = document.getElementById("sr-fixed-target");
+    var editableRoot = document.getElementById("sr-scope-fields");
+    if (fixedRoot) fixedRoot.classList.add("hidden");
+    if (editableRoot) editableRoot.classList.remove("hidden");
+    setText("sr-scope-title", "التصنيف والنطاق");
+    setText("sr-scope-text", "تعذر تحميل نطاق المزود تلقائيًا. اختر القسم والتصنيف والمدينة يدويًا ثم أكمل الطلب.");
+    renumberVisibleSteps();
+  }
+
+  function renumberVisibleSteps() {
+    var visibleSections = Array.prototype.slice.call(document.querySelectorAll(".sr-grid .sr-section"))
+      .filter(function (section) {
+        return !section.classList.contains("hidden");
+      });
+    visibleSections.forEach(function (section, index) {
+      var step = section.querySelector(".sr-section-step");
+      if (step) step.textContent = String(index + 1);
+    });
+  }
+
+  function buildFixedTargetContext(providerData, serviceData, servicesData) {
+    var providerCategories = Array.isArray(providerData && providerData.selected_subcategories)
+      ? providerData.selected_subcategories
+      : [];
+    var providerServices = Array.isArray(servicesData) ? servicesData : [];
+    var providerCategoryNames = Array.isArray(providerData && providerData.main_categories)
+      ? providerData.main_categories.filter(Boolean)
+      : [];
+    var providerSubcategoryIds = Array.isArray(providerData && providerData.subcategory_ids)
+      ? providerData.subcategory_ids.map(function (value) { return Number(value) || 0; }).filter(Boolean)
+      : [];
+    var serviceSubcategory = serviceData && serviceData.subcategory && typeof serviceData.subcategory === "object"
+      ? serviceData.subcategory
+      : null;
+    var serviceSubcategoryId = Number(serviceSubcategory && serviceSubcategory.id) || 0;
+    var serviceCategoryName = String(
+      (serviceData && serviceData.category_name) ||
+      (serviceSubcategory && serviceSubcategory.category_name) ||
+      ""
+    ).trim();
+    var serviceSubcategoryName = String(serviceSubcategory && serviceSubcategory.name || "").trim();
+    var serviceDerivedSubcategoryIds = [];
+    var serviceDerivedSubcategoryNames = [];
+    var serviceDerivedCategoryNames = [];
+    providerServices.forEach(function (item) {
+      var subcategory = item && item.subcategory && typeof item.subcategory === "object" ? item.subcategory : null;
+      var subcategoryId = Number(subcategory && subcategory.id) || 0;
+      var subcategoryName = String(subcategory && subcategory.name || "").trim();
+      var categoryName = String((subcategory && subcategory.category_name) || item.category_name || "").trim();
+      if (subcategoryId && serviceDerivedSubcategoryIds.indexOf(subcategoryId) === -1) {
+        serviceDerivedSubcategoryIds.push(subcategoryId);
+      }
+      if (subcategoryName && serviceDerivedSubcategoryNames.indexOf(subcategoryName) === -1) {
+        serviceDerivedSubcategoryNames.push(subcategoryName);
+      }
+      if (categoryName && serviceDerivedCategoryNames.indexOf(categoryName) === -1) {
+        serviceDerivedCategoryNames.push(categoryName);
+      }
+    });
+    var providerSubcategoryNames = providerCategories
+      .map(function (item) { return String(item && item.name || "").trim(); })
+      .filter(Boolean);
+    if (!providerSubcategoryIds.length) {
+      providerSubcategoryIds = serviceDerivedSubcategoryIds.slice();
+    }
+    if (!providerCategoryNames.length) {
+      providerCategoryNames = serviceDerivedCategoryNames.slice();
+    }
+    if (!providerSubcategoryNames.length) {
+      providerSubcategoryNames = serviceDerivedSubcategoryNames.slice();
+    }
+    var providerName = String(
+      (providerData && providerData.display_name) ||
+      (serviceData && serviceData.provider_name) ||
+      ""
+    ).trim();
+    var cityDisplay = String((providerData && (providerData.city_display || providerData.city)) || "").trim();
+    var city = cityDisplay;
+    var selectedSubcategoryIds = serviceSubcategoryId ? [serviceSubcategoryId] : providerSubcategoryIds.slice();
+    var categoryLabel = serviceCategoryName || providerCategoryNames.join("، ") || String(providerData && providerData.primary_category_name || "").trim();
+    var subcategoryLabel = serviceSubcategoryName || providerSubcategoryNames.join("، ") || String(providerData && providerData.primary_subcategory_name || "").trim();
+    var serviceTitle = String((serviceData && (serviceData.title || serviceData.name)) || "").trim();
+
+    if (!selectedSubcategoryIds.length) {
+      return null;
+    }
+
+    return {
+      providerName: providerName || "مزود الخدمة المحدد",
+      serviceTitle: serviceTitle,
+      categoryLabel: categoryLabel || "غير محدد",
+      subcategoryLabel: subcategoryLabel || "غير محدد",
+      city: cityDisplay,
+      cityDisplay: cityDisplay || "غير محددة",
+      subcategoryIds: selectedSubcategoryIds,
+    };
+  }
+
+  function applyFixedTargetContext(context) {
+    var fixedRoot = document.getElementById("sr-fixed-target");
+    var editableRoot = document.getElementById("sr-scope-fields");
+    var serviceRow = document.getElementById("sr-fixed-service-row");
+    if (fixedRoot) fixedRoot.classList.remove("hidden");
+    if (editableRoot) editableRoot.classList.add("hidden");
+    if (serviceRow) serviceRow.classList.toggle("hidden", !context.serviceTitle);
+
+    setText("sr-scope-title", "بيانات المزود المحدد");
+    setText("sr-scope-text", "تم تحميل القسم والتصنيف والمدينة من حساب المزود.");
+    setText("sr-fixed-provider-name", context.providerName);
+    setText("sr-fixed-service", context.serviceTitle || "-");
+    setText("sr-fixed-category", context.categoryLabel);
+    setText("sr-fixed-subcategory", context.subcategoryLabel);
+    setText("sr-fixed-city", context.cityDisplay);
+  }
+
+  function bindToastControls() {
+    var closeBtn = document.getElementById("sr-toast-close");
+    if (!closeBtn) return;
+    closeBtn.addEventListener("click", hideToast);
+  }
+
+  function _setAuthState(loggedIn) {
+    var gate = document.getElementById("auth-gate");
+    var content = document.getElementById("form-content");
+    if (gate) gate.classList.toggle("hidden", loggedIn);
+    if (content) content.classList.toggle("hidden", !loggedIn);
+  }
+
+  function _setLoginHref() {
+    var loginLink = document.getElementById("sr-login-link");
+    if (!loginLink) return;
+    var next = window.location.pathname + window.location.search;
+    loginLink.href = "/login/?next=" + encodeURIComponent(next);
+  }
+
+  function loadCategories() {
+    API.get("/api/providers/categories/").then(function (cats) {
+      categories = cats || [];
+      var sel = document.getElementById("sr-category");
+      categories.forEach(function (c) {
+        var o = document.createElement("option");
+        o.value = c.id; o.textContent = c.name;
+        sel.appendChild(o);
+      });
+    });
+  }
+
+  function loadCityCatalog() {
+    API.get("/api/providers/geo/regions-cities/").then(function (rows) {
+      regionCatalog = UI.normalizeRegionCatalog(Array.isArray(rows) ? rows : []);
+      if (!regionCatalog.length) {
+        regionCatalog = UI.getRegionCatalogFallback();
+      }
+      populateLocationFields();
+    }).catch(function () {
+      regionCatalog = UI.getRegionCatalogFallback();
+      populateLocationFields();
+      showToast("تم تحميل قائمة المواقع الاحتياطية. اختر المنطقة الإدارية ثم المدينة بصيغتها الموحدة.", "info", { duration: 4200 });
+    });
+  }
+
+  function populateLocationFields() {
+    UI.populateRegionOptions(document.getElementById("sr-region"), regionCatalog, {
+      placeholder: "اختر المنطقة الإدارية",
+    });
+    populateMainCitiesForRegion("");
+    populateDispatchLocationFields("");
+    updateCityClearVisibility();
+  }
+
+  function populateMainCitiesForRegion(selectedCity) {
+    UI.populateCityOptions(document.getElementById("sr-city"), regionCatalog, document.getElementById("sr-region").value, {
+      currentValue: selectedCity || "",
+      placeholder: "اختر المدينة (اختياري)",
+      emptyPlaceholder: "اختر المنطقة أولًا ثم المدينة (اختياري)",
+    });
+  }
+
+  function populateDispatchLocationFields(selectedCity) {
+    UI.populateRegionOptions(document.getElementById("sr-dispatch-region"), regionCatalog, {
+      placeholder: "اختر المنطقة الإدارية",
+      currentValue: document.getElementById("sr-dispatch-region") && document.getElementById("sr-dispatch-region").value,
+    });
+    UI.populateCityOptions(document.getElementById("sr-dispatch-city"), regionCatalog, document.getElementById("sr-dispatch-region").value, {
+      currentValue: selectedCity || "",
+      placeholder: "اختر المدينة",
+      emptyPlaceholder: "اختر المنطقة أولًا ثم المدينة",
+    });
+  }
+
+  function getScopedCityValue(regionId, cityId) {
+    var regionEl = document.getElementById(regionId);
+    var cityEl = document.getElementById(cityId);
+    var region = String((regionEl && regionEl.value) || "").trim();
+    var city = String((cityEl && cityEl.value) || "").trim();
+    return city ? UI.formatCityDisplay(city, region) : "";
+  }
+
+  function bindEvents() {
+    // Type chips
+    document.getElementById("sr-type-chips").addEventListener("click", function (e) {
+      var chip = e.target.closest(".chip");
+      if (!chip || providerId) return;
+      requestType = chip.dataset.val;
+      this.querySelectorAll(".chip").forEach(function (c) { c.classList.toggle("active", c === chip); });
+      if (requestType !== "urgent") {
+        dispatchMode = "all";
+        cityScopeMode = "no-city";
+        requestLat = null;
+        requestLng = null;
+        var dChips = document.getElementById("sr-dispatch-chips");
+        if (dChips) dChips.querySelectorAll(".sr-dispatch-chip").forEach(function (c) {
+          c.classList.toggle("active", c.dataset.dispatch === "all");
+        });
+        var ctChips = document.getElementById("sr-city-toggle-chips");
+        if (ctChips) ctChips.querySelectorAll(".sr-city-toggle-chip").forEach(function (c) {
+          c.classList.toggle("active", c.dataset.scope === "no-city");
+        });
+      }
+      updateRequestTypePresentation();
+    });
+
+    // Category → subcategory
+    document.getElementById("sr-category").addEventListener("change", function () {
+      clearFieldError("sr-category");
+      clearFieldError("sr-subcategory");
+      var catId = parseInt(this.value);
+      var cat = categories.find(function (c) { return c.id === catId; });
+      var subSel = document.getElementById("sr-subcategory");
+      subSel.innerHTML = '<option value="">اختر التصنيف</option>';
+      if (cat && cat.subcategories) {
+        cat.subcategories.forEach(function (s) {
+          var o = document.createElement("option");
+          o.value = s.id; o.textContent = s.name;
+          subSel.appendChild(o);
+        });
+      }
+    });
+
+    // Char counts
+    document.getElementById("sr-req-title").addEventListener("input", function () {
+      updateCharCountState("sr-req-title", "sr-title-count", "sr-title-count-wrap", 50);
+    });
+    document.getElementById("sr-desc").addEventListener("input", function () {
+      updateCharCountState("sr-desc", "sr-desc-count", "sr-desc-count-wrap", 500);
+    });
+    updateCharCountState("sr-req-title", "sr-title-count", "sr-title-count-wrap", 50);
+    updateCharCountState("sr-desc", "sr-desc-count", "sr-desc-count-wrap", 500);
+
+    var regionSel = document.getElementById("sr-region");
+    if (regionSel) {
+      regionSel.addEventListener("change", function () {
+        clearFieldError("sr-city");
+        populateMainCitiesForRegion("");
+        updateCityClearVisibility();
+      });
+    }
+
+    var citySel = document.getElementById("sr-city");
+    if (citySel) {
+      citySel.addEventListener("change", function () {
+        clearFieldError("sr-city");
+        updateCityClearVisibility();
+      });
+    }
+    var clearCityBtn = document.getElementById("sr-city-clear");
+    if (clearCityBtn) {
+      clearCityBtn.addEventListener("click", function () {
+        if (regionSel) regionSel.value = "";
+        if (citySel) citySel.value = "";
+        populateMainCitiesForRegion("");
+        updateCityClearVisibility();
+      });
+    }
+
+    var dispatchRegionSel = document.getElementById("sr-dispatch-region");
+    if (dispatchRegionSel) {
+      dispatchRegionSel.addEventListener("change", function () {
+        clearFieldError("sr-dispatch-city");
+        populateDispatchLocationFields("");
+      });
+    }
+
+    var dispatchCitySel = document.getElementById("sr-dispatch-city");
+    if (dispatchCitySel) {
+      dispatchCitySel.addEventListener("change", function () {
+        clearFieldError("sr-dispatch-city");
+      });
+    }
+
+    // File inputs
+    document.getElementById("sr-images").addEventListener("change", function () {
+      allImages = allImages.concat(Array.from(this.files));
+      this.value = "";
+      renderAttachments();
+    });
+    document.getElementById("sr-videos").addEventListener("change", function () {
+      allVideos = allVideos.concat(Array.from(this.files));
+      this.value = "";
+      renderAttachments();
+    });
+    document.getElementById("sr-files").addEventListener("change", function () {
+      allFiles = allFiles.concat(Array.from(this.files));
+      this.value = "";
+      renderAttachments();
+    });
+
+    // Submit
+    document.getElementById("sr-form").addEventListener("submit", function (e) {
+      e.preventDefault(); submit();
+    });
+
+    ["sr-subcategory", "sr-deadline", "sr-req-title", "sr-desc"].forEach(function (id) {
+      var field = document.getElementById(id);
+      if (!field) return;
+      field.addEventListener("input", function () { clearFieldError(id); });
+      field.addEventListener("change", function () { clearFieldError(id); });
+    });
+  }
+
+  function updateCityClearVisibility() {
+    var clearBtn = document.getElementById("sr-city-clear");
+    if (!clearBtn) return;
+    var city = getScopedCityValue("sr-region", "sr-city");
+    clearBtn.classList.toggle("hidden", city.length === 0);
+  }
+
+  /* ── Dispatch mode (urgent) ───────────────────────────── */
+
+  function bindDispatchEvents() {
+    var chipsRoot = document.getElementById("sr-dispatch-chips");
+    if (chipsRoot) {
+      chipsRoot.addEventListener("click", function (e) {
+        var chip = e.target.closest(".sr-dispatch-chip");
+        if (!chip) return;
+        var mode = chip.dataset.dispatch;
+        if (mode === dispatchMode) return;
+        dispatchMode = mode;
+        chipsRoot.querySelectorAll(".sr-dispatch-chip").forEach(function (c) {
+          c.classList.toggle("active", c === chip);
+        });
+        if (mode === "nearest") {
+          openMapModal();
+        }
+        syncDispatchUI();
+      });
+    }
+
+    var cityToggleRoot = document.getElementById("sr-city-toggle-chips");
+    if (cityToggleRoot) {
+      cityToggleRoot.addEventListener("click", function (e) {
+        var chip = e.target.closest(".sr-city-toggle-chip");
+        if (!chip) return;
+        var scope = chip.dataset.scope;
+        if (scope === cityScopeMode) return;
+        cityScopeMode = scope;
+        cityToggleRoot.querySelectorAll(".sr-city-toggle-chip").forEach(function (c) {
+          c.classList.toggle("active", c === chip);
+        });
+        syncCityToggleUI();
+      });
+    }
+
+    /* Modal close/backdrop */
+    var modalCloseBtn = document.getElementById("sr-map-modal-close");
+    var modalBackdrop = document.getElementById("sr-map-modal-backdrop");
+    if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeMapModal);
+    if (modalBackdrop) modalBackdrop.addEventListener("click", closeMapModal);
+
+    /* Modal confirm button */
+    var confirmBtn = document.getElementById("sr-modal-confirm-btn");
+    if (confirmBtn) {
+      confirmBtn.addEventListener("click", function () {
+        if (!modalTempSelectedId) return;
+        var chosen = null;
+        for (var i = 0; i < nearestProvidersList.length; i++) {
+          if (nearestProvidersList[i].id === modalTempSelectedId) { chosen = nearestProvidersList[i]; break; }
+        }
+        if (!chosen) return;
+        nearestSelectedProvider = chosen;
+        showSelectedProviderCard();
+        closeMapModal();
+      });
+    }
+
+    /* Selected provider: change / remove */
+    var changeBtn = document.getElementById("sr-selected-provider-change");
+    var removeBtn = document.getElementById("sr-selected-provider-remove");
+    if (changeBtn) changeBtn.addEventListener("click", function () { openMapModal(); });
+    if (removeBtn) removeBtn.addEventListener("click", function () { clearSelectedProvider(); });
+  }
+
+  function syncDispatchUI() {
+    var dispatchSection = document.getElementById("sr-dispatch-section");
+    var mapWrap = document.getElementById("sr-map-wrap");
+    var cityToggleWrap = document.getElementById("sr-city-toggle-wrap");
+    var mainRegionGroup = document.getElementById("sr-region-group");
+    var mainCityGroup = document.getElementById("sr-city-group");
+    var isUrgent = requestType === "urgent" && !providerId;
+
+    if (dispatchSection) {
+      dispatchSection.classList.toggle("hidden", !isUrgent);
+    }
+
+    if (!isUrgent) {
+      if (mapWrap) mapWrap.classList.add("hidden");
+      if (cityToggleWrap) cityToggleWrap.classList.remove("hidden");
+      if (mainRegionGroup) mainRegionGroup.classList.remove("hidden");
+      if (mainCityGroup) mainCityGroup.classList.remove("hidden");
+      return;
+    }
+
+    if (dispatchMode === "nearest") {
+      if (mapWrap) mapWrap.classList.remove("hidden");
+      if (cityToggleWrap) cityToggleWrap.classList.add("hidden");
+      if (mainRegionGroup) mainRegionGroup.classList.add("hidden");
+      if (mainCityGroup) mainCityGroup.classList.add("hidden");
+    } else {
+      if (mapWrap) mapWrap.classList.add("hidden");
+      if (cityToggleWrap) cityToggleWrap.classList.remove("hidden");
+      if (mainRegionGroup) mainRegionGroup.classList.add("hidden");
+      if (mainCityGroup) mainCityGroup.classList.add("hidden");
+      syncCityToggleUI();
+    }
+  }
+
+  function syncCityToggleUI() {
+    var citySelectWrap = document.getElementById("sr-dispatch-city-select");
+    if (!citySelectWrap) return;
+    if (cityScopeMode === "with-city") {
+      citySelectWrap.classList.remove("hidden");
+      populateDispatchLocationFields(document.getElementById("sr-dispatch-city").value || "");
+    } else {
+      citySelectWrap.classList.add("hidden");
+    }
+  }
+
+  /* ── Map Modal ──────────────────────────────────────── */
+
+  function openMapModal() {
+    var modal = document.getElementById("sr-map-modal");
+    if (!modal) return;
+    modalTempSelectedId = nearestSelectedProvider ? nearestSelectedProvider.id : null;
+    modal.classList.add("open");
+    document.body.style.overflow = "hidden";
+
+    if (!leafletMap) {
+      var canvas = document.getElementById("sr-modal-map-canvas");
+      if (!canvas || typeof L === "undefined") return;
+      leafletMap = L.map(canvas, {
+        center: [24.7136, 46.6753],
+        zoom: 6,
+        zoomControl: true,
+        attributionControl: false,
+      });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+      }).addTo(leafletMap);
+    }
+    setTimeout(function () { leafletMap.invalidateSize(); }, 250);
+    _modalGeolocateAndFetch();
+    _syncModalConfirmBtn();
+  }
+
+  function closeMapModal() {
+    var modal = document.getElementById("sr-map-modal");
+    if (modal) modal.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  function _modalGeolocateAndFetch() {
+    var statusBar = document.getElementById("sr-modal-status-bar");
+    var statusText = document.getElementById("sr-modal-status-text");
+    if (statusBar) statusBar.classList.remove("ready");
+    if (statusText) statusText.textContent = "جاري تحديد الموقع...";
+
+    if (!navigator.geolocation) {
+      showToast("المتصفح لا يدعم تحديد الموقع الجغرافي", "error");
+      if (statusText) statusText.textContent = "تعذّر تحديد الموقع";
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        requestLat = pos.coords.latitude;
+        requestLng = pos.coords.longitude;
+        if (statusBar) statusBar.classList.add("ready");
+        if (statusText) statusText.textContent = "تم تحديد موقعك — جاري البحث عن مزودين...";
+
+        if (leafletMap) {
+          leafletMap.setView([requestLat, requestLng], 12);
+          if (leafletMarker) {
+            leafletMarker.setLatLng([requestLat, requestLng]);
+          } else {
+            leafletMarker = L.circleMarker([requestLat, requestLng], {
+              radius: 8, color: "#6f42c1", fillColor: "#6f42c1", fillOpacity: 0.9, weight: 2,
+            }).addTo(leafletMap);
+            leafletMarker.bindPopup("<b>موقعك الحالي</b>");
+          }
+        }
+
+        _fetchNearbyProviders();
+      },
+      function (err) {
+        var msg = "تعذّر تحديد الموقع.";
+        if (err.code === 1) msg = "تم رفض الوصول للموقع. يرجى تفعيل إذن الموقع من إعدادات المتصفح.";
+        else if (err.code === 2) msg = "الموقع غير متاح حالياً.";
+        else if (err.code === 3) msg = "انتهى الوقت المحدد لتحديد الموقع.";
+        showToast(msg, "error", { duration: 5200 });
+        if (statusText) statusText.textContent = "تعذّر تحديد الموقع";
+        requestLat = null;
+        requestLng = null;
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+    );
+  }
+
+  function _fetchNearbyProviders() {
+    var subcat = document.getElementById("sr-subcategory");
+    var subcatVal = subcat ? subcat.value : "";
+    var url = "/api/providers/list/?has_location=1&accepts_urgent=1&page_size=50";
+    if (subcatVal) url += "&subcategory_id=" + encodeURIComponent(subcatVal);
+
+    var statusText = document.getElementById("sr-modal-status-text");
+    var emptyEl = document.getElementById("sr-modal-empty");
+
+    RAW_API.get(url).then(function (res) {
+      if (!res || !res.ok || !res.data) {
+        if (statusText) statusText.textContent = "تعذّر تحميل المزودين";
+        if (emptyEl) emptyEl.textContent = "تعذّر تحميل قائمة المزودين. حاول مرة أخرى.";
+        return;
+      }
+      var providers = res.data.results || res.data || [];
+      if (!Array.isArray(providers)) providers = [];
+
+      /* Compute distances and filter/sort */
+      var withDist = [];
+      for (var i = 0; i < providers.length; i++) {
+        var p = providers[i];
+        var pLat = parseFloat(p.lat || p.latitude);
+        var pLng = parseFloat(p.lng || p.longitude);
+        if (isNaN(pLat) || isNaN(pLng)) continue;
+        var dist = _haversineKm(requestLat, requestLng, pLat, pLng);
+        p._dist = dist;
+        p._lat = pLat;
+        p._lng = pLng;
+        withDist.push(p);
+      }
+      withDist.sort(function (a, b) { return a._dist - b._dist; });
+      nearestProvidersList = withDist;
+
+      if (statusText) statusText.textContent = "تم العثور على " + withDist.length + " مزود";
+      _renderProvidersOnMap(withDist);
+      _renderProvidersList(withDist);
+    }).catch(function () {
+      if (statusText) statusText.textContent = "تعذّر تحميل المزودين";
+      if (emptyEl) emptyEl.textContent = "خطأ في الاتصال. حاول مرة أخرى.";
+    });
+  }
+
+  function _haversineKm(lat1, lng1, lat2, lng2) {
+    var toRad = function (n) { return (n * Math.PI) / 180; };
+    var r = 6371;
+    var dLat = toRad(lat2 - lat1);
+    var dLng = toRad(lng2 - lng1);
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return r * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  function _renderProvidersOnMap(providers) {
+    if (!leafletMap || typeof L === "undefined") return;
+    if (leafletProviderMarkers) {
+      leafletMap.removeLayer(leafletProviderMarkers);
+    }
+    leafletProviderMarkers = L.layerGroup().addTo(leafletMap);
+    var points = [];
+    if (requestLat && requestLng) points.push([requestLat, requestLng]);
+
+    for (var i = 0; i < providers.length; i++) {
+      var p = providers[i];
+      var marker = L.marker([p._lat, p._lng]);
+      marker.bindPopup(
+        '<div style="text-align:center;min-width:140px">' +
+          (p.profile_image ? '<img src="' + _escHtml(p.profile_image) + '" style="width:40px;height:40px;border-radius:10px;object-fit:cover;margin-bottom:6px" alt="">' : '') +
+          '<div style="font-weight:800;font-size:12px;margin-bottom:3px">' + _escHtml(p.display_name) + '</div>' +
+          '<div style="font-size:11px;color:#666;margin-bottom:6px">' + _formatDist(p._dist) +
+            (p.rating_avg ? ' &middot; ⭐ ' + Number(p.rating_avg).toFixed(1) : '') + '</div>' +
+          '<button onclick="ServiceRequestFormPage._selectProviderFromMap(' + p.id + ')" ' +
+            'style="padding:6px 14px;border:0;border-radius:10px;background:linear-gradient(135deg,#6f42c1,#5b36ab);color:#fff;font-size:11px;font-weight:800;cursor:pointer">' +
+            'اختيار المزود</button>' +
+        '</div>',
+        { maxWidth: 220 }
+      );
+      leafletProviderMarkers.addLayer(marker);
+      points.push([p._lat, p._lng]);
+    }
+
+    if (points.length > 1) {
+      leafletMap.fitBounds(points, { padding: [40, 40], maxZoom: 13 });
+    }
+  }
+
+  function _renderProvidersList(providers) {
+    var listEl = document.getElementById("sr-modal-providers-list");
+    var emptyEl = document.getElementById("sr-modal-empty");
+    if (!listEl) return;
+
+    if (!providers.length) {
+      listEl.innerHTML = "";
+      if (emptyEl) {
+        emptyEl.textContent = "لم يُعثر على مزودين قريبين لهذا التصنيف. جرّب تصنيفاً آخر.";
+        listEl.appendChild(emptyEl);
+      }
+      return;
+    }
+
+    listEl.innerHTML = "";
+    for (var i = 0; i < providers.length; i++) {
+      var p = providers[i];
+      var card = document.createElement("div");
+      card.className = "sr-modal-provider-card" + (modalTempSelectedId === p.id ? " selected" : "");
+      card.dataset.providerId = p.id;
+      card.innerHTML =
+        (p.profile_image
+          ? '<img class="sr-modal-provider-avatar" src="' + _escHtml(p.profile_image) + '" alt="">'
+          : '<div class="sr-modal-provider-avatar" style="display:flex;align-items:center;justify-content:center;color:#999;font-size:18px">👤</div>') +
+        '<div class="sr-modal-provider-info">' +
+          '<div class="sr-modal-provider-name">' + _escHtml(p.display_name) + '</div>' +
+          '<div class="sr-modal-provider-meta">' +
+            '<span>' + _formatDist(p._dist) + '</span>' +
+            (p.rating_avg ? '<span>&middot;</span><span>⭐ ' + Number(p.rating_avg).toFixed(1) + '</span>' : '') +
+            (p.city_display ? '<span>&middot;</span><span>' + _escHtml(p.city_display) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<span class="sr-modal-provider-check">' +
+          (modalTempSelectedId === p.id ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>' : '') +
+        '</span>';
+
+      card.addEventListener("click", (function (pid) {
+        return function () { _onProviderCardClick(pid); };
+      })(p.id));
+
+      listEl.appendChild(card);
+    }
+  }
+
+  function _onProviderCardClick(pid) {
+    modalTempSelectedId = (modalTempSelectedId === pid) ? null : pid;
+    /* Update card visuals */
+    var listEl = document.getElementById("sr-modal-providers-list");
+    if (listEl) {
+      listEl.querySelectorAll(".sr-modal-provider-card").forEach(function (card) {
+        var isSelected = Number(card.dataset.providerId) === modalTempSelectedId;
+        card.classList.toggle("selected", isSelected);
+        var check = card.querySelector(".sr-modal-provider-check");
+        if (check) {
+          check.innerHTML = isSelected ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>' : '';
+        }
+      });
+    }
+    _syncModalConfirmBtn();
+  }
+
+  /* Exposed for popup button onclick */
+  function _selectProviderFromMap(pid) {
+    modalTempSelectedId = pid;
+    _onProviderCardClick(pid);
+    /* Also scroll card into view */
+    var listEl = document.getElementById("sr-modal-providers-list");
+    if (listEl) {
+      var target = listEl.querySelector('[data-provider-id="' + pid + '"]');
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+
+  function _syncModalConfirmBtn() {
+    var btn = document.getElementById("sr-modal-confirm-btn");
+    if (btn) btn.disabled = !modalTempSelectedId;
+  }
+
+  function showSelectedProviderCard() {
+    var cardEl = document.getElementById("sr-selected-provider");
+    if (!cardEl || !nearestSelectedProvider) return;
+    var p = nearestSelectedProvider;
+    var avatarEl = document.getElementById("sr-selected-provider-avatar");
+    var nameEl = document.getElementById("sr-selected-provider-name");
+    var distEl = document.getElementById("sr-selected-provider-distance");
+    if (avatarEl) {
+      avatarEl.src = p.profile_image || "";
+      avatarEl.style.display = p.profile_image ? "" : "none";
+    }
+    if (nameEl) nameEl.textContent = p.display_name || "";
+    if (distEl) {
+      distEl.textContent = _formatDist(p._dist) +
+        (p.rating_avg ? " · ⭐ " + Number(p.rating_avg).toFixed(1) : "") +
+        (p.city_display ? " · " + p.city_display : "");
+    }
+    cardEl.classList.remove("hidden");
+    requestLat = requestLat;
+    requestLng = requestLng;
+  }
+
+  function clearSelectedProvider() {
+    nearestSelectedProvider = null;
+    modalTempSelectedId = null;
+    var cardEl = document.getElementById("sr-selected-provider");
+    if (cardEl) cardEl.classList.add("hidden");
+  }
+
+  function _formatDist(km) {
+    if (km < 1) return Math.round(km * 1000) + " م";
+    return km.toFixed(1) + " كم";
+  }
+
+  function _escHtml(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function getDispatchCity() {
+    if (requestType !== "urgent" || providerId) {
+      return getScopedCityValue("sr-region", "sr-city");
+    }
+    if (dispatchMode === "nearest") {
+      return nearestSelectedProvider && nearestSelectedProvider.city_display
+        ? nearestSelectedProvider.city_display
+        : "";
+    }
+    if (cityScopeMode === "with-city") {
+      return getScopedCityValue("sr-dispatch-region", "sr-dispatch-city");
+    }
+    return "";
+  }
+
+  function dateIso(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  function syncDeadlineBounds() {
+    var deadlineInput = document.getElementById("sr-deadline");
+    if (!deadlineInput) return;
+    var now = new Date();
+    var minIso = dateIso(now);
+    var maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 365);
+    var maxIso = dateIso(maxDate);
+    deadlineInput.min = minIso;
+    deadlineInput.max = maxIso;
+    if (deadlineInput.value && (deadlineInput.value < minIso || deadlineInput.value > maxIso)) {
+      deadlineInput.value = "";
+    }
+  }
+
+  function setProviderTypeMode() {
+    if (!providerId) return;
+    var chipsRoot = document.getElementById("sr-type-chips");
+    if (!chipsRoot) return;
+    chipsRoot.querySelectorAll(".chip").forEach(function (chip) {
+      var isNormal = chip.dataset.val === "normal";
+      chip.classList.toggle("active", isNormal);
+      chip.disabled = !isNormal;
+      if (!isNormal) chip.classList.add("hidden");
+    });
+    updateRequestTypePresentation();
+  }
+
+  function updateRequestTypePresentation() {
+    var mode = providerId ? "provider_direct" : requestType;
+    var shell = document.getElementById("form-content");
+    var variants = {
+      provider_direct: {
+        label: "توجيه حصري",
+        title: "الطلب سيصل مباشرة إلى المزود المحدد",
+        text: "أدخل المطلوب ثم أرسل مباشرة.",
+        sidebarNote: "",
+        helper: "اكتب المطلوب بوضوح وأرفق ما يلزم فقط.",
+        submitText: "إرسال الطلب",
+        successTitle: "تم إرسال الطلب إلى المزود",
+        successMessage: "تم حفظ طلبك وإرساله مباشرة إلى مزود الخدمة. تابع الردود وتحديثات التنفيذ من صفحة الطلبات.",
+        showDeadline: false,
+      },
+      normal: {
+        label: "مباشر مشروط",
+        title: "المسار المباشر يحتاج إلى مزود محدد",
+        text: "يستخدم عند اختيار مزود خدمة بعينه.",
+        sidebarNote: "",
+        helper: "اكتب المطلوب بوضوح قبل الإرسال.",
+        submitText: "إرسال الطلب",
+        successTitle: "تم حفظ الطلب",
+        successMessage: "تم حفظ طلبك بنجاح. ستتمكن من متابعة حالته من صفحة الطلبات.",
+        showDeadline: false,
+      },
+      competitive: {
+        label: "منافسة منظّمة",
+        title: "استقبل عروضًا متعددة",
+        text: "أضف المهلة إذا أردت إغلاق استقبال العروض في وقت محدد.",
+        sidebarNote: "",
+        helper: "أضف وصفًا واضحًا وحدد الموعد النهائي إذا رغبت.",
+        submitText: "إرسال الطلب التنافسي",
+        successTitle: "تم إرسال طلب عروض الأسعار",
+        successMessage: "تم فتح الطلب للمزوّدين المؤهلين. ستظهر لك العروض الواردة في صفحة الطلبات فور وصولها.",
+        showDeadline: true,
+      },
+      urgent: {
+        label: "استجابة عاجلة",
+        title: "وجّه الطلب فورًا",
+        text: "اختر الإرسال للجميع أو البحث عن الأقرب.",
+        sidebarNote: "",
+        helper: "اكتب وصفًا مختصرًا وواضحًا للحالة العاجلة، ثم اختر طريقة التوجيه.",
+        submitText: "إرسال الطلب العاجل",
+        successTitle: "تم إرسال الطلب العاجل",
+        successMessage: "تم توجيه الطلب العاجل وفق المسار المتاح. تابع حالته من صفحة الطلبات وتحقق من الردود أولاً بأول.",
+        showDeadline: false,
+      },
+    };
+
+    var variant = variants[mode] || variants.normal;
+  if (shell) shell.setAttribute("data-request-mode", mode);
+  setText("sr-request-kind-label", variant.label);
+  setText("sr-request-kind-title", variant.title);
+  setText("sr-request-kind-text", variant.text);
+  setText("sr-sidebar-note", variant.sidebarNote || variant.text);
+    setText("sr-submit-helper", variant.helper);
+    setText("sr-submit-text", variant.submitText);
+    setText("sr-success-title", variant.successTitle);
+    setText("sr-success-message", variant.successMessage);
+
+    var deadlineGroup = document.getElementById("sr-deadline-group");
+    if (deadlineGroup) {
+      deadlineGroup.classList.toggle("hidden", !variant.showDeadline);
+      if (!variant.showDeadline) {
+        document.getElementById("sr-deadline").value = "";
+      }
+    }
+
+    syncDispatchUI();
+  }
+
+  function setText(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
+  function updateCharCountState(inputId, countId, wrapId, max) {
+    var input = document.getElementById(inputId);
+    var count = document.getElementById(countId);
+    var wrap = document.getElementById(wrapId);
+    var length = String((input && input.value) || "").length;
+    var warningThreshold = max >= 100 ? Math.floor(max * 0.8) : Math.max(max - 10, 0);
+    var limitThreshold = max >= 100 ? Math.floor(max * 0.94) : Math.max(max - 3, 0);
+    if (count) count.textContent = String(length);
+    if (!wrap) return;
+    wrap.classList.toggle("is-warning", length >= warningThreshold && length < limitThreshold);
+    wrap.classList.toggle("is-limit", length >= limitThreshold);
+  }
+
+  function attachmentBreakdown() {
+    return {
+      images: allImages.length,
+      videos: allVideos.length,
+      files: allFiles.length,
+      total: attachmentCount()
+    };
+  }
+
+  function renderAttachmentNotice() {
+    var note = document.getElementById("sr-attachment-note");
+    var title = document.getElementById("sr-attachment-note-title");
+    var text = document.getElementById("sr-attachment-note-text");
+    var counts = attachmentBreakdown();
+    if (!note || !title || !text) return;
+
+    if (!counts.total) {
+      note.classList.add("hidden");
+      return;
+    }
+
+    var parts = [];
+    if (counts.images) parts.push(counts.images + " صورة");
+    if (counts.videos) parts.push(counts.videos + " فيديو");
+    if (counts.files) parts.push(counts.files + " ملف");
+
+    title.textContent = counts.total === 1 ? "تمت إضافة مرفق واحد" : "تم تجهيز المرفقات";
+    text.textContent = "تمت إضافة " + parts.join(" و") + "، وستُرسل مع الطلب مباشرة عند الإرسال.";
+    note.classList.remove("hidden");
+  }
+
+  function hideToast() {
+    var toast = document.getElementById("sr-toast");
+    if (!toast) return;
+    toast.classList.remove("show");
+    if (toastTimer) {
+      window.clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+  }
+
+  function showToast(message, type, options) {
+    var toast = document.getElementById("sr-toast");
+    var toastTitle = document.getElementById("sr-toast-title");
+    var toastMessage = document.getElementById("sr-toast-message");
+    var toastIcon = document.getElementById("sr-toast-icon");
+    var toneKey = TOAST_TONES[type] ? type : "info";
+    var tone = TOAST_TONES[toneKey];
+    var duration = Number(options && options.duration || 4600);
+    if (!toast) {
+      window.alert(message || "");
+      return;
+    }
+    if (toastTitle) toastTitle.textContent = tone.title;
+    if (toastMessage) toastMessage.textContent = message || "";
+    if (toastIcon) toastIcon.innerHTML = tone.icon;
+    toast.setAttribute("role", tone.role);
+    toast.setAttribute("aria-live", tone.live);
+    toast.classList.remove("show", "success", "error", "warning", "info");
+    toast.classList.add(toneKey);
+    requestAnimationFrame(function () {
+      toast.classList.add("show");
+    });
+    if (toastTimer) window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function () {
+      hideToast();
+    }, duration);
+  }
+
+  function fieldErrorId(id) {
+    return id + "-error";
+  }
+
+  function markFieldInvalid(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add("is-invalid");
+    el.setAttribute("aria-invalid", "true");
+  }
+
+  function setFieldError(id, message) {
+    var errorEl = document.getElementById(fieldErrorId(id));
+    markFieldInvalid(id);
+    if (!errorEl) return;
+    errorEl.textContent = message || "";
+    errorEl.classList.toggle("hidden", !message);
+  }
+
+  function clearFieldError(id) {
+    var el = document.getElementById(id);
+    var errorEl = document.getElementById(fieldErrorId(id));
+    if (el) {
+      el.classList.remove("is-invalid");
+      el.removeAttribute("aria-invalid");
+    }
+    if (errorEl) {
+      errorEl.textContent = "";
+      errorEl.classList.add("hidden");
+    }
+  }
+
+  function clearAllFieldErrors() {
+    ["sr-category", "sr-subcategory", "sr-city", "sr-deadline", "sr-req-title", "sr-desc", "sr-dispatch-city"].forEach(clearFieldError);
+  }
+
+  function focusField(id) {
+    var el = document.getElementById(id);
+    if (!el || typeof el.focus !== "function") return;
+    try {
+      el.focus({ preventScroll: false });
+    } catch (_) {
+      el.focus();
+    }
+  }
+
+  function firstErrorMessage(value) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (Array.isArray(value) && value.length) return String(value[0] || "").trim();
+    return "";
+  }
+
+  function applyApiFieldErrors(data) {
+    if (!data || typeof data !== "object") return "";
+    var fieldMap = {
+      subcategory: "sr-subcategory",
+      description: "sr-desc",
+      title: "sr-req-title",
+      city: "sr-city",
+      quote_deadline: "sr-deadline"
+    };
+    var firstMessage = "";
+    var firstField = "";
+    Object.keys(fieldMap).forEach(function (apiField) {
+      var message = firstErrorMessage(data[apiField]);
+      if (!message) return;
+      setFieldError(fieldMap[apiField], message);
+      if (!firstMessage) {
+        firstMessage = message;
+        firstField = fieldMap[apiField];
+      }
+    });
+    if (firstField) focusField(firstField);
+    return firstMessage;
+  }
+
+  function renderAttachments() {
+    var box = document.getElementById("sr-attachments");
+    var html = "";
+    allImages.forEach(function (f, i) {
+      html += '<div class="attach-item"><img src="' + URL.createObjectURL(f) + '"><button type="button" data-type="img" data-idx="' + i + '" class="attach-remove">×</button></div>';
+    });
+    allVideos.forEach(function (f, i) {
+      html += '<div class="attach-item file-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><span>' + f.name + '</span><button type="button" data-type="vid" data-idx="' + i + '" class="attach-remove">×</button></div>';
+    });
+    allFiles.forEach(function (f, i) {
+      html += '<div class="attach-item file-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>' + f.name + '</span><button type="button" data-type="file" data-idx="' + i + '" class="attach-remove">×</button></div>';
+    });
+    box.innerHTML = html;
+    box.querySelectorAll(".attach-remove").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var t = this.dataset.type, idx = parseInt(this.dataset.idx);
+        if (t === "img") allImages.splice(idx, 1);
+        else if (t === "vid") allVideos.splice(idx, 1);
+        else allFiles.splice(idx, 1);
+        renderAttachments();
+      });
+    });
+    renderAttachmentNotice();
+  }
+
+  function attachmentCount() {
+    return allImages.length + allVideos.length + allFiles.length;
+  }
+
+  function submitOverlayMessage() {
+    var count = attachmentCount();
+    if (!count) return "يتم الآن تجهيز بيانات الطلب وإرسالها إلى الجهة المقصودة.";
+    return "يتم الآن تجهيز بيانات الطلب ورفع " + count + " مرفق ثم إرسالها إلى الجهة المقصودة.";
+  }
+
+  function setSubmitPending(isPending, message) {
+    var btn = document.getElementById("sr-submit");
+    var btnText = document.getElementById("sr-submit-text");
+    if (isPending) {
+      if (btn) btn.disabled = true;
+      if (btnText) btnText.textContent = "جاري الإرسال...";
+      if (submitOverlay) {
+        submitOverlay.show({
+          title: "جاري إرسال الطلب",
+          message: message || submitOverlayMessage()
+        });
+      }
+      return;
+    }
+
+    if (submitOverlay) submitOverlay.hide();
+    if (btn) btn.disabled = false;
+    updateRequestTypePresentation();
+  }
+
+  function submit() {
+    if (isSubmitting) return;
+    clearAllFieldErrors();
+    hideToast();
+    var category = document.getElementById("sr-category").value;
+    var subcat = document.getElementById("sr-subcategory").value;
+    var fixedSubcategoryIds = providerId && fixedTargetContext && Array.isArray(fixedTargetContext.subcategoryIds)
+      ? fixedTargetContext.subcategoryIds.slice()
+      : [];
+    var selectedSubcategoryIds = fixedSubcategoryIds.length
+      ? fixedSubcategoryIds.slice()
+      : (subcat ? [Number(subcat)] : []);
+
+    if (!providerId && !category) {
+      setFieldError("sr-category", "اختر القسم أولاً");
+      focusField("sr-category");
+      showToast("اختر القسم أولاً", "warning");
+      return;
+    }
+
+    if (providerId && !selectedSubcategoryIds.length) {
+      showToast("تعذر تحميل تصنيف المزود المحدد. أعد فتح الصفحة من ملف المزود أو الخدمة.", "warning", { duration: 5200 });
+      return;
+    }
+
+    if (!providerId && !subcat) {
+      setFieldError("sr-subcategory", "الرجاء اختيار التصنيف الفرعي");
+      focusField("sr-subcategory");
+      showToast("الرجاء اختيار التصنيف الفرعي", "warning");
+      return;
+    }
+
+    var title = document.getElementById("sr-req-title").value.trim();
+    var desc = document.getElementById("sr-desc").value.trim();
+    if (!title) {
+      setFieldError("sr-req-title", "يرجى إدخال عنوان الطلب");
+      focusField("sr-req-title");
+      showToast("يرجى إدخال عنوان الطلب", "warning");
+      return;
+    }
+    if (!desc) {
+      setFieldError("sr-desc", "يرجى إدخال تفاصيل الطلب");
+      focusField("sr-desc");
+      showToast("يرجى إدخال تفاصيل الطلب", "warning");
+      return;
+    }
+    if (title.length > 50) {
+      setFieldError("sr-req-title", "عنوان الطلب يجب ألا يتجاوز 50 حرفًا");
+      focusField("sr-req-title");
+      showToast("عنوان الطلب يجب ألا يتجاوز 50 حرفًا", "warning");
+      return;
+    }
+    if (desc.length > 500) {
+      setFieldError("sr-desc", "تفاصيل الطلب يجب ألا تتجاوز 500 حرف");
+      focusField("sr-desc");
+      showToast("تفاصيل الطلب يجب ألا تتجاوز 500 حرف", "warning");
+      return;
+    }
+
+    var effectiveRequestType = providerId ? "normal" : requestType;
+    if (effectiveRequestType === "normal" && !providerId) {
+      showToast("الطلب العادي يتطلب تحديد مزود خدمة", "warning");
+      return;
+    }
+
+    if (effectiveRequestType === "urgent" && dispatchMode === "nearest") {
+      if (requestLat === null || requestLng === null) {
+        showToast("فعّل تحديد الموقع لاستخدام البحث عن الأقرب. اضغط 'إعادة تحديد الموقع'.", "error", { duration: 5200 });
+        return;
+      }
+      if (!nearestSelectedProvider) {
+        showToast("يرجى اختيار مزود من الخريطة قبل الإرسال.", "warning", { duration: 4000 });
+        openMapModal();
+        return;
+      }
+    }
+
+    if (effectiveRequestType === "urgent" && dispatchMode === "all" && cityScopeMode === "with-city") {
+      var dispatchCity = (document.getElementById("sr-dispatch-city").value || "").trim();
+      if (!dispatchCity) {
+        var errEl = document.getElementById("sr-dispatch-city-error");
+        if (errEl) { errEl.textContent = "اختر المدينة أو غيّر النطاق إلى 'جميع المدن'"; errEl.classList.remove("hidden"); }
+        markFieldInvalid("sr-dispatch-city");
+        focusField("sr-dispatch-city");
+        showToast("اختر المدينة أو غيّر النطاق إلى 'جميع المدن'", "warning");
+        return;
+      }
+    }
+
+    var city = providerId && fixedTargetContext && fixedTargetContext.city
+      ? fixedTargetContext.city
+      : getDispatchCity();
+
+    var deadline = document.getElementById("sr-deadline").value;
+    if (deadline) {
+      var min = document.getElementById("sr-deadline").min;
+      var max = document.getElementById("sr-deadline").max;
+      if ((min && deadline < min) || (max && deadline > max)) {
+        setFieldError("sr-deadline", "آخر موعد لاستلام العروض يجب أن يكون خلال 365 يومًا من اليوم");
+        focusField("sr-deadline");
+        showToast("آخر موعد لاستلام العروض يجب أن يكون خلال 365 يومًا من اليوم", "warning");
+        return;
+      }
+    }
+
+    isSubmitting = true;
+    setSubmitPending(true, submitOverlayMessage());
+
+    var fd = new FormData();
+    fd.append("title", title);
+    fd.append("description", desc);
+    fd.append("request_type", effectiveRequestType);
+    fd.append("subcategory", String(selectedSubcategoryIds[0]));
+    selectedSubcategoryIds.forEach(function (subcatId) {
+      fd.append("subcategory_ids", String(subcatId));
+    });
+    if (city) fd.append("city", city);
+    if (providerId) fd.append("provider", providerId);
+    if (deadline) fd.append("quote_deadline", deadline);
+    if (effectiveRequestType === "urgent") {
+      fd.append("dispatch_mode", dispatchMode);
+      if (dispatchMode === "nearest" && requestLat !== null && requestLng !== null) {
+        fd.append("request_lat", String(requestLat));
+        fd.append("request_lng", String(requestLng));
+      }
+      if (dispatchMode === "nearest" && nearestSelectedProvider) {
+        fd.append("provider", String(nearestSelectedProvider.id));
+      }
+    }
+
+    allImages.forEach(function (f) { fd.append("images", f); });
+    allVideos.forEach(function (f) { fd.append("videos", f); });
+    allFiles.forEach(function (f) { fd.append("files", f); });
+
+    ApiClient.request("/api/marketplace/requests/create/", {
+      method: "POST",
+      body: fd,
+      formData: true
+    }).then(function (res) {
+      if (res && res.ok) {
+        document.getElementById("sr-form").classList.add("hidden");
+        document.getElementById("sr-success").classList.remove("hidden");
+        return;
+      }
+      var fieldMessage = applyApiFieldErrors(res && res.data);
+      var msg = fieldMessage || extractApiError(res && res.data) || "فشل إرسال الطلب";
+      showToast(msg, "error", { duration: 5200 });
+    }).catch(function (err) {
+      showToast((err && err.message) || "فشل إرسال الطلب", "error", { duration: 5200 });
+    }).finally(function () {
+      isSubmitting = false;
+      setSubmitPending(false);
+    });
+  }
+
+  function extractApiError(data) {
+    if (!data || typeof data !== "object") return "";
+    if (typeof data.detail === "string" && data.detail.trim()) return data.detail.trim();
+    if (typeof data.error === "string" && data.error.trim()) return data.error.trim();
+    var keys = Object.keys(data);
+    for (var i = 0; i < keys.length; i++) {
+      var value = data[keys[i]];
+      if (typeof value === "string" && value.trim()) return value.trim();
+      if (Array.isArray(value) && value.length) return String(value[0] || "").trim();
+    }
+    return "";
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+  return { init: init, _selectProviderFromMap: _selectProviderFromMap };
+})();

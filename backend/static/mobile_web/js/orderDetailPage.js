@@ -98,8 +98,10 @@ const OrderDetailPage = (() => {
   async function _loadDetail() {
     _setLoading(true);
     _setError('');
+    _setPageFeedback('');
     _setOffersFeedback('');
     _setActionFeedback('');
+    _setProviderDecisionFeedback('');
 
     const res = await ApiClient.get('/api/marketplace/client/requests/' + _requestId + '/');
     _setLoading(false);
@@ -180,6 +182,34 @@ const OrderDetailPage = (() => {
     el.classList.remove('hidden');
     el.classList.toggle('is-error', !!isError);
     el.classList.toggle('is-success', !isError);
+  }
+
+  function _setReviewFeedback(message, isError) {
+    const el = document.getElementById('order-review-feedback');
+    if (!el) return;
+    if (!message) {
+      el.textContent = '';
+      el.classList.add('hidden');
+      el.classList.remove('is-error', 'is-success');
+      return;
+    }
+    el.textContent = message;
+    el.classList.remove('hidden');
+    el.classList.toggle('is-error', !!isError);
+    el.classList.toggle('is-success', !isError);
+  }
+
+  function _setReviewSubmitLoading(loading) {
+    const text = document.getElementById('btn-submit-review-text');
+    const spinner = document.getElementById('btn-submit-review-spinner');
+    if (text) text.textContent = loading ? 'جاري إرسال التقييم...' : 'إرسال التقييم';
+    if (spinner) spinner.classList.toggle('hidden', !loading);
+  }
+
+  function _scrollToReviewSection() {
+    const section = document.getElementById('order-review-section');
+    if (!section || section.classList.contains('hidden')) return;
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function _statusColor(group) {
@@ -307,6 +337,7 @@ const OrderDetailPage = (() => {
     const section = document.getElementById('order-provider-decision-section');
     const grid = document.getElementById('order-provider-inputs-grid');
     const note = document.getElementById('order-provider-decision-note');
+    const feedback = document.getElementById('order-provider-decision-feedback');
     const form = document.getElementById('order-provider-decision-form');
     const rejectReason = document.getElementById('order-provider-reject-note');
     if (!section || !grid || !note || !form || !_order) return;
@@ -322,6 +353,11 @@ const OrderDetailPage = (() => {
     }
 
     grid.innerHTML = '';
+    if (feedback) {
+      feedback.textContent = '';
+      feedback.classList.add('hidden');
+      feedback.classList.remove('is-error', 'is-success');
+    }
     if (_order.expected_delivery_at) grid.appendChild(_readonlyInfoCard('موعد التسليم المتوقع', _formatDateOnly(_order.expected_delivery_at)));
     if (_order.estimated_service_amount !== null && _order.estimated_service_amount !== undefined) {
       grid.appendChild(_readonlyInfoCard('قيمة الخدمة المقدرة', _formatMoney(_order.estimated_service_amount)));
@@ -377,7 +413,7 @@ const OrderDetailPage = (() => {
     const hasReview = _hasReview();
     summary.classList.toggle('hidden', !hasReview);
     if (hasReview) {
-      summary.textContent = 'تم إرسال تقييمك مسبقًا' +
+      summary.textContent = 'تم إرسال تقييمك' +
         (_order.review_rating !== null && _order.review_rating !== undefined ? (' - التقييم العام: ' + _order.review_rating + '/5') : '') +
         (_order.review_comment ? (' - ' + _order.review_comment) : '');
     } else {
@@ -1011,7 +1047,7 @@ const OrderDetailPage = (() => {
     if (!_order || _actionLoading) return;
     const note = String(document.getElementById('order-provider-reject-note')?.value || '').trim();
     if (!approved && !note) {
-      _setActionFeedback('سبب الرفض مطلوب', true);
+      _setProviderDecisionFeedback('سبب الرفض مطلوب', true);
       return;
     }
 
@@ -1023,12 +1059,15 @@ const OrderDetailPage = (() => {
     _setActionLoading(false);
 
     if (!res.ok) {
-      _setActionFeedback(_extractError(res, 'فشل تنفيذ العملية'), true);
+      _setProviderDecisionFeedback(_extractError(res, 'فشل تنفيذ العملية'), true);
       return;
     }
 
-    _setActionFeedback(approved ? 'تم اعتماد التفاصيل وبدأ التنفيذ' : 'تم رفض التفاصيل وإشعار مقدم الخدمة', false);
-    _loadDetail();
+    await _loadDetail();
+    _setPageFeedback(
+      String(res.data?.message || '') || (approved ? 'تم اعتماد التفاصيل وبدأ التنفيذ' : 'تم رفض التفاصيل وإشعار مقدم الخدمة'),
+      false,
+    );
   }
 
   async function _submitReview() {
@@ -1044,17 +1083,19 @@ const OrderDetailPage = (() => {
 
     for (const [key, value] of Object.entries(fields)) {
       if (!value) {
-        _setActionFeedback('يرجى تعبئة جميع عناصر التقييم', true);
+        _setReviewFeedback('يرجى تعبئة جميع عناصر التقييم', true);
         const id = 'review-' + key.replace(/_/g, '-');
         const node = document.getElementById(id);
         if (node) node.focus();
+        _scrollToReviewSection();
         return;
       }
     }
 
     const comment = String(document.getElementById('review-comment')?.value || '').trim();
     if (comment.length > 300) {
-      _setActionFeedback('تعليق التقييم يجب ألا يتجاوز 300 حرف', true);
+      _setReviewFeedback('تعليق التقييم يجب ألا يتجاوز 300 حرف', true);
+      _scrollToReviewSection();
       return;
     }
     const body = {
@@ -1066,19 +1107,36 @@ const OrderDetailPage = (() => {
     };
     if (comment) body.comment = comment;
 
+    _setReviewFeedback('جاري إرسال التقييم...', false);
+    _setReviewSubmitLoading(true);
+    _scrollToReviewSection();
     _setActionLoading(true);
     const res = await ApiClient.request('/api/reviews/requests/' + _requestId + '/review/', {
       method: 'POST',
       body,
     });
     _setActionLoading(false);
+    _setReviewSubmitLoading(false);
 
     if (!res.ok) {
-      _setActionFeedback(_extractError(res, 'تعذر إرسال التقييم'), true);
+      _setReviewFeedback(_extractError(res, 'تعذر إرسال التقييم'), true);
+      _scrollToReviewSection();
       return;
     }
 
-    _setActionFeedback('تم إرسال التقييم بنجاح', false);
+    const criteriaValues = Object.values(fields).map((value) => Number(value) || 0);
+    const overallRating = criteriaValues.reduce((sum, value) => sum + value, 0) / criteriaValues.length;
+    _order.review_id = Number(res.data?.review_id || res.data?.id || Date.now());
+    _order.review_response_speed = body.response_speed;
+    _order.review_cost_value = body.cost_value;
+    _order.review_quality = body.quality;
+    _order.review_credibility = body.credibility;
+    _order.review_on_time = body.on_time;
+    _order.review_comment = comment;
+    _order.review_rating = Number.isFinite(overallRating) ? Number(overallRating.toFixed(1)) : null;
+    _renderReviewSection();
+    _setReviewFeedback('تم إرسال التقييم بنجاح. تم تحديث حالة الطلب.', false);
+    _scrollToReviewSection();
     _loadDetail();
   }
 
@@ -1095,6 +1153,36 @@ const OrderDetailPage = (() => {
 
   function _setActionFeedback(message, isError) {
     const el = document.getElementById('order-action-feedback');
+    if (!el) return;
+    if (!message) {
+      el.textContent = '';
+      el.classList.add('hidden');
+      el.classList.remove('is-error', 'is-success');
+      return;
+    }
+    el.textContent = message;
+    el.classList.remove('hidden');
+    el.classList.toggle('is-error', !!isError);
+    el.classList.toggle('is-success', !isError);
+  }
+
+  function _setPageFeedback(message, isError) {
+    const el = document.getElementById('order-page-feedback');
+    if (!el) return;
+    if (!message) {
+      el.textContent = '';
+      el.classList.add('hidden');
+      el.classList.remove('is-error', 'is-success');
+      return;
+    }
+    el.textContent = message;
+    el.classList.remove('hidden');
+    el.classList.toggle('is-error', !!isError);
+    el.classList.toggle('is-success', !isError);
+  }
+
+  function _setProviderDecisionFeedback(message, isError) {
+    const el = document.getElementById('order-provider-decision-feedback');
     if (!el) return;
     if (!message) {
       el.textContent = '';

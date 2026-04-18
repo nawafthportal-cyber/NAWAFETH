@@ -266,14 +266,10 @@ const SearchPage = (() => {
   async function _fetchProviders() {
     _renderLoading();
 
-    let url = '/api/providers/list/?page_size=30';
-    if (_query) url += '&q=' + encodeURIComponent(_query);
-    if (_activeCat) url += '&category_id=' + encodeURIComponent(_activeCat);
-    if (_activeSubcategory) url += '&subcategory_id=' + encodeURIComponent(_activeSubcategory);
-    if (_activeCity) url += '&city=' + encodeURIComponent(_activeCity);
-    if (_urgentOnly) url += '&accepts_urgent=1';
-
-    const res = await ApiClient.get(url);
+    const res = await ApiClient.get(_buildProvidersUrl({
+      includeQuery: true,
+      pageSize: _query ? 90 : 30,
+    }));
     if (!res.ok || !res.data) {
       _providers = [];
       _distanceKmByProviderId = {};
@@ -281,22 +277,108 @@ const SearchPage = (() => {
       return;
     }
 
-    _providers = Array.isArray(res.data) ? res.data : (res.data.results || []);
+    _providers = _applyProviderFilters(Array.isArray(res.data) ? res.data : (res.data.results || []));
+
+    if (_query && !_providers.length) {
+      const fallbackRes = await ApiClient.get(_buildProvidersUrl({
+        includeQuery: false,
+        pageSize: 90,
+      }));
+      if (fallbackRes.ok && fallbackRes.data) {
+        _providers = _applyProviderFilters(
+          Array.isArray(fallbackRes.data) ? fallbackRes.data : (fallbackRes.data.results || [])
+        );
+      }
+    }
+
+    await _ensureDistanceMap(_isProvidersMapPage || _selectedSort === 'nearest');
+    _renderProviders();
+    _syncResultsLink();
+  }
+
+  function _buildProvidersUrl(options) {
+    const settings = options || {};
+    const includeQuery = settings.includeQuery !== false;
+    const pageSize = Number(settings.pageSize) || 30;
+    let url = '/api/providers/list/?page_size=' + pageSize;
+    if (includeQuery && _query) url += '&q=' + encodeURIComponent(_query);
+    if (_activeCat) url += '&category_id=' + encodeURIComponent(_activeCat);
+    if (_activeSubcategory) url += '&subcategory_id=' + encodeURIComponent(_activeSubcategory);
+    if (_activeCity) url += '&city=' + encodeURIComponent(_activeCity);
+    if (_urgentOnly) url += '&accepts_urgent=1';
+    return url;
+  }
+
+  function _applyProviderFilters(providers) {
+    let filtered = Array.isArray(providers) ? [...providers] : [];
     if (_activeCity) {
-      _providers = _providers.filter(provider => {
-        const providerCity = String(provider?.city || '').trim().toLowerCase();
-        return providerCity && providerCity === _activeCity.trim().toLowerCase();
+      filtered = filtered.filter(provider => {
+        const providerCity = _normalizeSearchText(provider?.city);
+        const providerCityDisplay = _normalizeSearchText(provider?.city_display);
+        const activeCity = _normalizeSearchText(_activeCity);
+        return !!activeCity && (providerCity === activeCity || providerCityDisplay === activeCity);
       });
     }
     if (_urgentOnly) {
-      _providers = _providers.filter(provider => {
+      filtered = filtered.filter(provider => {
         const urgent = provider?.accepts_urgent ?? provider?.isUrgentEnabled ?? provider?.is_urgent_enabled;
         return !!urgent;
       });
     }
-    await _ensureDistanceMap(_isProvidersMapPage || _selectedSort === 'nearest');
-    _renderProviders();
-    _syncResultsLink();
+    return _filterProvidersByQuery(filtered);
+  }
+
+  function _filterProvidersByQuery(providers) {
+    if (!_query) return providers;
+    const tokens = _normalizeSearchText(_query).split(/\s+/).filter(Boolean);
+    if (!tokens.length) return providers;
+    return providers.filter(provider => {
+      const haystack = _providerSearchHaystack(provider);
+      return tokens.every(token => haystack.includes(token));
+    });
+  }
+
+  function _providerSearchHaystack(provider) {
+    const selectedSubcategories = Array.isArray(provider?.selected_subcategories)
+      ? provider.selected_subcategories.map(item => item?.name)
+      : [];
+    const mainCategories = Array.isArray(provider?.main_categories)
+      ? provider.main_categories
+      : [];
+    return _normalizeSearchText([
+      provider?.display_name,
+      provider?.headline,
+      provider?.short_bio,
+      provider?.bio,
+      provider?.about,
+      provider?.description,
+      provider?.about_me,
+      provider?.city_display,
+      provider?.city,
+      provider?.region,
+      provider?.region_name,
+      provider?.primary_subcategory_name,
+      provider?.subcategory_name,
+      provider?.primary_category_name,
+      provider?.category_name,
+      ...selectedSubcategories,
+      ...mainCategories,
+    ].join(' '));
+  }
+
+  function _normalizeSearchText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[\u064B-\u065F\u0670]/g, '')
+      .replace(/ـ/g, '')
+      .replace(/[أإآ]/g, 'ا')
+      .replace(/ى/g, 'ي')
+      .replace(/ة/g, 'ه')
+      .replace(/ؤ/g, 'و')
+      .replace(/ئ/g, 'ي')
+      .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   async function _ensureDistanceMap(requestPermission) {
@@ -361,15 +443,66 @@ const SearchPage = (() => {
 
   function _providerSkeleton() {
     return [
-      '<div class="provider-list-card skeleton-provider-list">',
-      '<div class="provider-list-media shimmer"></div>',
-      '<div class="provider-list-body">',
-      '<div class="shimmer" style="width:48%;height:11px;border-radius:4px"></div>',
-      '<div class="shimmer" style="width:34%;height:9px;border-radius:4px;margin-top:6px"></div>',
-      '<div class="shimmer" style="width:60%;height:9px;border-radius:4px;margin-top:8px"></div>',
+      '<div class="provider-search-skeleton">',
+      '<div class="provider-search-skeleton-cover"></div>',
+      '<div class="provider-search-skeleton-body">',
+      '<div class="provider-search-skeleton-line is-short"></div>',
+      '<div class="provider-search-skeleton-line is-wide"></div>',
+      '<div class="provider-search-skeleton-meta">',
+      '<span class="provider-search-skeleton-pill"></span>',
+      '<span class="provider-search-skeleton-pill"></span>',
+      '<span class="provider-search-skeleton-pill"></span>',
+      '</div>',
+      '<div class="provider-search-skeleton-actions">',
+      '<span class="provider-search-skeleton-btn is-primary"></span>',
+      '<span class="provider-search-skeleton-btn is-secondary"></span>',
+      '</div>',
       '</div>',
       '</div>',
     ].join('');
+  }
+
+  function _providerServiceLabel(provider) {
+    const subcategories = Array.isArray(provider?.selected_subcategories)
+      ? provider.selected_subcategories
+          .map(item => String(item?.name || '').trim())
+          .filter(Boolean)
+      : [];
+    const categories = Array.isArray(provider?.main_categories)
+      ? provider.main_categories
+          .map(item => String(item || '').trim())
+          .filter(Boolean)
+      : [];
+    const candidates = [
+      subcategories.slice(0, 2).join(' • '),
+      categories.slice(0, 2).join(' • '),
+      String(provider?.primary_subcategory_name || '').trim(),
+      String(provider?.subcategory_name || '').trim(),
+      String(provider?.primary_category_name || '').trim(),
+      String(provider?.category_name || '').trim(),
+      _selectedCategoryName(),
+    ];
+    return candidates.find(Boolean) || '';
+  }
+
+  function _truncateText(value, maxLength) {
+    const text = String(value || '').trim();
+    if (!text || text.length <= maxLength) return text;
+    return text.slice(0, Math.max(0, maxLength - 1)).trim() + '…';
+  }
+
+  function _providerSnippet(provider, serviceLabel) {
+    const raw = [
+      provider?.headline,
+      provider?.short_bio,
+      provider?.bio,
+      provider?.about,
+      provider?.description,
+      provider?.about_me,
+    ].map(value => String(value || '').trim()).find(Boolean);
+    if (raw) return _truncateText(raw, 120);
+    if (serviceLabel) return 'متخصص في ' + serviceLabel;
+    return '';
   }
 
   function _renderProviders() {
@@ -670,26 +803,45 @@ const SearchPage = (() => {
     return true;
   }
 
+  function _currentDirectRequestReturnTo() {
+    return window.location.pathname + window.location.search;
+  }
+
+  function _buildDirectRequestHref(providerId) {
+    if (!providerId) return '#';
+    const params = new URLSearchParams();
+    params.set('provider_id', String(providerId));
+    params.set('return_to', _currentDirectRequestReturnTo());
+    return '/service-request/?' + params.toString();
+  }
+
   function _buildProviderCard(provider) {
     const displayName = (provider.display_name || '').trim() || 'مزود خدمة';
     const city = UI.formatCityDisplay(provider.city_display || provider.city, provider.region || provider.region_name);
     const profileUrl = ApiClient.mediaUrl(provider.profile_image);
     const coverUrl = ApiClient.mediaUrl(provider.cover_image);
     const providerProfileHref = '/provider/' + encodeURIComponent(String(provider.id || '')) + '/';
-    const directRequestHref = '/service-request/?provider_id=' + encodeURIComponent(String(provider.id || ''));
+    const directRequestHref = _buildDirectRequestHref(provider.id || '');
     const initial = displayName.charAt(0) || '؟';
     const distanceKm = _distanceKmByProviderId[provider.id];
     const rating = _safeNum(provider.rating_avg);
     const ratingLabel = rating > 0 ? rating.toFixed(1) : '-';
     const ratingCount = _safeInt(provider.rating_count);
     const completed = _completedCount(provider);
+    const followers = _safeInt(provider.followers_count);
+    const serviceLabel = _providerServiceLabel(provider);
+    const snippet = _providerSnippet(provider, serviceLabel);
+    const isFeatured = _featuredProviderIds.has(String(provider.id));
+    const urgentEnabled = !!(provider?.accepts_urgent ?? provider?.isUrgentEnabled ?? provider?.is_urgent_enabled);
 
     const card = UI.el('article', {
-      className: 'provider-list-card',
+      className: 'provider-search-card',
       tabindex: '0',
       role: 'link',
       'aria-label': 'عرض ملف ' + displayName,
     });
+    if (isFeatured) card.classList.add('promo-featured');
+
     const trackProfileClick = () => {
       if (typeof NwAnalytics === 'undefined') return;
       NwAnalytics.track('search.result_click', {
@@ -705,62 +857,60 @@ const SearchPage = (() => {
       });
     };
     card.addEventListener('click', event => {
-      if (event.target.closest('.provider-list-direct-action')) return;
+      if (event.target.closest('.provider-search-actions a')) return;
       trackProfileClick();
       window.location.href = providerProfileHref;
     });
     card.addEventListener('keydown', event => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
-      if (event.target.closest('.provider-list-direct-action')) return;
+      if (event.target.closest('.provider-search-actions a')) return;
       event.preventDefault();
       trackProfileClick();
       window.location.href = providerProfileHref;
     });
 
-    const media = UI.el('div', { className: 'provider-list-media' });
-    if (coverUrl) media.appendChild(UI.lazyImg(coverUrl, displayName));
-    else media.appendChild(UI.el('div', { className: 'provider-list-media-fallback' }));
-    media.appendChild(UI.el('div', { className: 'provider-list-media-overlay' }));
+    const media = UI.el('div', { className: 'provider-search-cover' });
+    if (coverUrl) {
+      media.appendChild(UI.lazyImg(coverUrl, displayName));
+    } else {
+      const fallback = UI.el('div', { className: 'provider-search-cover-fallback' });
+      fallback.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M7 14l3-3 3 3 4-4 3 3"></path></svg>';
+      media.appendChild(fallback);
+    }
+    media.appendChild(UI.el('div', { className: 'provider-search-cover-overlay' }));
 
-    const avatarWrap = UI.el('div', { className: 'provider-list-avatar-wrap' });
-    const avatar = UI.el('div', { className: 'provider-list-avatar' });
+    const mediaTags = UI.el('div', { className: 'provider-search-media-tags' });
+    if (isFeatured) {
+      mediaTags.appendChild(UI.el('span', {
+        className: 'provider-search-featured',
+        textContent: 'مميز',
+      }));
+    }
+    if (Number.isFinite(distanceKm)) {
+      mediaTags.appendChild(UI.el('span', {
+        className: 'provider-search-distance-tag',
+        textContent: distanceKm.toFixed(1) + ' كم',
+      }));
+    }
+    if (mediaTags.childNodes.length) {
+      media.appendChild(mediaTags);
+    }
+
+    const avatar = UI.el('div', { className: 'provider-search-avatar' });
     if (profileUrl) avatar.appendChild(UI.lazyImg(profileUrl, displayName));
     else avatar.appendChild(UI.el('span', { textContent: initial }));
-    avatarWrap.appendChild(avatar);
-    media.appendChild(avatarWrap);
-
-    const excellenceItems = UI.normalizeExcellenceBadges(provider.excellence_badges);
-    if (excellenceItems.length) {
-      const topBadge = UI.el('span', {
-        className: 'provider-list-excellence-top',
-        textContent: excellenceItems[0].name || excellenceItems[0].code || 'تميز',
-      });
-      media.appendChild(topBadge);
-    }
-
-    if (provider.is_verified_blue || provider.is_verified_green) {
-      const badge = UI.el('span', { className: 'provider-list-verified' });
-      badge.appendChild(
-        UI.icon(
-          provider.is_verified_blue ? 'verified_blue' : 'verified_green',
-          14,
-          provider.is_verified_blue ? '#2196F3' : '#4CAF50'
-        )
-      );
-      media.appendChild(badge);
-    }
+    media.appendChild(avatar);
 
     card.appendChild(media);
 
-    const body = UI.el('div', { className: 'provider-list-body' });
-    const nameWrap = UI.el('div', { className: 'provider-list-name-wrap' });
-    const nameLine = UI.el('div', { className: 'provider-list-name-line' });
-    nameLine.appendChild(UI.el('div', { className: 'provider-list-name', textContent: displayName }));
-    nameWrap.appendChild(nameLine);
+    const body = UI.el('div', { className: 'provider-search-body' });
+    const titleRow = UI.el('div', { className: 'provider-search-title-row' });
+    const nameWrap = UI.el('div', { className: 'provider-search-name-wrap' });
+    nameWrap.appendChild(UI.el('h2', { className: 'provider-search-name', textContent: displayName }));
 
-    const badgesRow = UI.el('div', { className: 'provider-list-badges' });
+    const badgesRow = UI.el('div', { className: 'provider-search-badges' });
     if (provider.is_verified_blue || provider.is_verified_green) {
-      const verifiedChip = UI.el('span', { className: 'provider-list-badge is-verified' });
+      const verifiedChip = UI.el('span', { className: 'provider-search-badge is-verified' });
       verifiedChip.appendChild(
         UI.icon(
           provider.is_verified_blue ? 'verified_blue' : 'verified_green',
@@ -772,48 +922,90 @@ const SearchPage = (() => {
       badgesRow.appendChild(verifiedChip);
     }
 
-    if (_featuredProviderIds.has(String(provider.id))) {
-      badgesRow.appendChild(UI.el('span', { className: 'provider-list-badge is-featured', textContent: 'مميز' }));
-    }
-
+    const excellenceItems = UI.normalizeExcellenceBadges(provider.excellence_badges);
     if (excellenceItems.length) {
       badgesRow.appendChild(
         UI.el('span', {
-          className: 'provider-list-badge is-excellence',
+          className: 'provider-search-badge is-excellence',
           textContent: excellenceItems[0].name || excellenceItems[0].code || 'شارة تميز',
         })
       );
+    }
+
+    if (urgentEnabled) {
+      badgesRow.appendChild(UI.el('span', {
+        className: 'provider-search-badge is-urgent',
+        textContent: 'متاح للعاجل',
+      }));
     }
 
     if (badgesRow.childNodes.length) {
       nameWrap.appendChild(badgesRow);
     }
 
-    body.appendChild(nameWrap);
+    titleRow.appendChild(nameWrap);
 
+    const titleAside = UI.el('div', { className: 'provider-search-title-aside' });
+    if (ratingCount > 0 || completed > 0) {
+      const trust = UI.el('span', { className: 'provider-search-trust' });
+      const trustIcon = UI.el('span', { className: 'provider-search-trust-icon' });
+      trustIcon.appendChild(_tinyIcon(ratingCount > 0 ? 'spark' : 'done', ratingCount > 0 ? '#F59E0B' : '#0f766e', 14));
+      trust.appendChild(trustIcon);
+      const trustCopy = UI.el('span', { className: 'provider-search-trust-copy' });
+      trustCopy.appendChild(UI.el('strong', {
+        textContent: ratingCount > 0 ? ratingLabel : String(completed),
+      }));
+      trustCopy.appendChild(UI.el('span', {
+        textContent: ratingCount > 0 ? (ratingCount + ' تقييم') : 'مهمة مكتملة',
+      }));
+      trust.appendChild(trustCopy);
+      titleAside.appendChild(trust);
+    }
+    if (titleAside.childNodes.length) {
+      titleRow.appendChild(titleAside);
+    }
+    body.appendChild(titleRow);
+
+    const meta = UI.el('div', { className: 'provider-search-meta' });
+    if (serviceLabel) {
+      const serviceRow = UI.el('div', { className: 'provider-search-meta-row' });
+      serviceRow.appendChild(_tinyIcon('service', '#0f766e', 14));
+      serviceRow.appendChild(UI.el('span', { textContent: serviceLabel }));
+      meta.appendChild(serviceRow);
+    }
     if (city) {
-      const cityRow = UI.el('div', { className: 'provider-list-meta' });
-      cityRow.appendChild(_tinyIcon('location', '#8A8A93'));
+      const cityRow = UI.el('div', { className: 'provider-search-meta-row' });
+      cityRow.appendChild(_tinyIcon('location', '#8A8A93', 14));
       cityRow.appendChild(UI.el('span', { textContent: city }));
-      body.appendChild(cityRow);
+      meta.appendChild(cityRow);
     }
-
     if (Number.isFinite(distanceKm)) {
-      const distanceRow = UI.el('div', { className: 'provider-list-distance' });
-      distanceRow.appendChild(_tinyIcon('near', '#3F51B5'));
-      distanceRow.appendChild(UI.el('span', { className: 'provider-list-distance-label', textContent: 'يبعد عنك' }));
-      distanceRow.appendChild(UI.el('strong', { className: 'provider-list-distance-value', textContent: distanceKm.toFixed(1) + ' كم' }));
-      body.appendChild(distanceRow);
+      const distanceRow = UI.el('div', { className: 'provider-search-meta-row' });
+      distanceRow.appendChild(_tinyIcon('near', '#3F51B5', 14));
+      distanceRow.appendChild(UI.el('span', { textContent: 'يبعد عنك ' + distanceKm.toFixed(1) + ' كم' }));
+      meta.appendChild(distanceRow);
     }
 
-    const stats = UI.el('div', { className: 'provider-list-stats' });
+    if (meta.childNodes.length) body.appendChild(meta);
+
+    if (snippet) {
+      body.appendChild(UI.el('p', {
+        className: 'provider-search-snippet',
+        textContent: snippet,
+      }));
+    }
+
+    const stats = UI.el('div', { className: 'provider-search-stats' });
     stats.appendChild(_statChip('star', ratingLabel, '#F9A825', ratingCount ? (ratingCount + ' تقييم') : 'بدون تقييمات'));
     stats.appendChild(_statChip('done', String(completed), '#2E7D32', 'طلبات مكتملة'));
+    if (followers > 0) {
+      stats.appendChild(_statChip('people', String(followers), '#2563EB', 'متابعون'));
+    }
     body.appendChild(stats);
 
-    const actions = UI.el('div', { className: 'provider-list-actions' });
+    const actions = UI.el('div', { className: 'provider-search-actions' });
     const requestAction = UI.el('a', {
-      className: 'provider-list-direct-action',
+      className: 'provider-search-primary',
       href: directRequestHref,
       title: 'طلب خدمة مباشرة من ' + displayName,
       'aria-label': 'طلب خدمة مباشرة من ' + displayName,
@@ -832,32 +1024,36 @@ const SearchPage = (() => {
         },
       });
     });
-    requestAction.appendChild(_tinyIcon('request', '#ffffff', 16));
-    requestAction.appendChild(UI.el('span', { textContent: 'اطلب مباشرة' }));
+    const requestActionIcon = UI.el('span', { className: 'provider-search-primary-icon' });
+    requestActionIcon.appendChild(_tinyIcon('request', '#ffffff', 17));
+    requestAction.appendChild(requestActionIcon);
+    const requestActionCopy = UI.el('span', { className: 'provider-search-primary-copy' });
+    requestActionCopy.appendChild(UI.el('strong', { textContent: 'طلب خدمة' }));
+    requestActionCopy.appendChild(UI.el('small', { textContent: 'ابدأ الطلب مع هذا المزود' }));
+    requestAction.appendChild(requestActionCopy);
+    const requestActionTail = UI.el('span', { className: 'provider-search-primary-tail' });
+    requestActionTail.appendChild(_tinyIcon('launch', '#ffffff', 14));
+    requestAction.appendChild(requestActionTail);
     actions.appendChild(requestAction);
     body.appendChild(actions);
 
     card.appendChild(body);
 
-    const arrow = UI.el('div', { className: 'provider-list-arrow' });
-    arrow.appendChild(_tinyIcon('arrow', '#B0B0B8', 14));
-    card.appendChild(arrow);
-
     return card;
   }
 
   function _statChip(kind, value, color, label) {
-    const chip = UI.el('span', { className: 'provider-list-stat-chip' });
-    const iconWrap = UI.el('span', { className: 'provider-list-stat-icon' });
+    const chip = UI.el('span', { className: 'provider-search-stat' });
+    const iconWrap = UI.el('span', { className: 'provider-search-stat-icon' });
     if (kind === 'star') iconWrap.appendChild(UI.icon('star', 12, color));
     else if (kind === 'people') iconWrap.appendChild(UI.icon('people', 12, color));
     else iconWrap.appendChild(_tinyIcon('done', color));
     chip.appendChild(iconWrap);
 
-    const textWrap = UI.el('span', { className: 'provider-list-stat-copy' });
-    textWrap.appendChild(UI.el('strong', { className: 'provider-list-stat-value', textContent: value }));
+    const textWrap = UI.el('span', { className: 'provider-search-stat-copy' });
+    textWrap.appendChild(UI.el('strong', { textContent: value }));
     if (label) {
-      textWrap.appendChild(UI.el('span', { className: 'provider-list-stat-label', textContent: label }));
+      textWrap.appendChild(UI.el('span', { textContent: label }));
     }
     chip.appendChild(textWrap);
     return chip;
@@ -868,15 +1064,20 @@ const SearchPage = (() => {
       location: '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/>',
       near: '<path d="M12 2l4 9-4 2-4-2 4-9zm0 12c3.31 0 6 2.69 6 6h-2a4 4 0 00-8 0H6c0-3.31 2.69-6 6-6z"/>',
       done: '<path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 13.2L7.6 12l1.4-1.4 1.8 1.8 4.2-4.2 1.4 1.4-5.6 5.6z"/>',
-      request: '<path d="M12 3a1 1 0 0 1 1 1v7.59l2.3-2.29a1 1 0 1 1 1.4 1.41l-4 3.99a1 1 0 0 1-1.4 0l-4-3.99a1 1 0 1 1 1.4-1.41L11 11.59V4a1 1 0 0 1 1-1zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>',
+      request: '<path d="M3.9 11.8 19.6 4.2c.6-.29 1.28.24 1.12.88l-3.76 14.06c-.14.52-.82.71-1.23.34l-4.39-3.96-2.6 2.48c-.4.38-1.06.15-1.14-.39l-.59-4.06-3.8-1.55c-.62-.25-.67-1.12-.07-1.41z"/><path d="M9.06 13.11 18.86 6.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>',
       arrow: '<path d="M15 18l-6-6 6-6"/>',
+      launch: '<path d="M7 17 17 7"/><path d="M9 7h8v8"/>',
+      spark: '<path d="m12 2 1.7 4.2L18 8l-4.3 1.8L12 14l-1.7-4.2L6 8l4.3-1.8L12 2zm6 10 1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1 1-2.3zM6 15l1 2.5L9.5 18 7 19l-1 2.5L5 19l-2.5-1L5 17.5 6 15z"/>',
+      profile: '<path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.33 0-8 2.17-8 5v1h16v-1c0-2.83-3.67-5-8-5z"/>',
+      service: '<path d="M5 6h14v2H5zm0 5h11v2H5zm0 5h8v2H5z"/>',
     };
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', String(size || 12));
     svg.setAttribute('height', String(size || 12));
     svg.setAttribute('viewBox', '0 0 24 24');
-    svg.setAttribute('fill', name === 'arrow' ? 'none' : (color || 'currentColor'));
-    if (name === 'arrow') {
+    const strokeIcons = new Set(['arrow', 'launch']);
+    svg.setAttribute('fill', strokeIcons.has(name) ? 'none' : (color || 'currentColor'));
+    if (strokeIcons.has(name)) {
       svg.setAttribute('stroke', color || 'currentColor');
       svg.setAttribute('stroke-width', '2');
       svg.setAttribute('stroke-linecap', 'round');
@@ -884,6 +1085,10 @@ const SearchPage = (() => {
     }
     svg.innerHTML = paths[name] || paths.arrow;
     return svg;
+  }
+
+  function _tinyIconMarkup(name, color, size) {
+    return _tinyIcon(name, color, size).outerHTML;
   }
 
   function _showEmpty(message) {
@@ -1006,6 +1211,7 @@ const SearchPage = (() => {
     const telHref = _resolveProviderTelHref(provider);
     const waHref = _resolveProviderWhatsappHref(provider);
     const chatHref = providerId ? ('/chats/?start=' + encodeURIComponent(providerId)) : '/chats/';
+    const directRequestHref = _buildDirectRequestHref(providerId);
 
     return [
       '<div class="search-map-provider-popup">',
@@ -1021,6 +1227,15 @@ const SearchPage = (() => {
       '<span>طلبات مكتملة: ' + completed + '</span>',
       '</div>',
       '<div class="search-map-provider-actions">',
+      providerId
+        ? (
+          '<a class="map-provider-action is-primary" href="' + directRequestHref + '">' +
+          '<span class="map-provider-action-icon">' + _tinyIconMarkup('request', '#ffffff', 14) + '</span>' +
+          '<span class="map-provider-action-copy"><strong>طلب خدمة</strong><small>ابدأ الآن</small></span>' +
+          '</a>'
+        )
+        : '',
+      '<a class="map-provider-action" href="' + profileUrl + '">الملف</a>',
       telHref
         ? ('<a class="map-provider-action" href="' + telHref + '">اتصال</a>')
         : '<span class="map-provider-action is-disabled">اتصال</span>',

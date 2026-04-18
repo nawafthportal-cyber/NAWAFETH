@@ -16,6 +16,8 @@ const VerificationPage = (() => {
   let _blockingRequestsByBadge = { blue: null, green: null };
   let _accessIssue = null;
   let _toastTimer = null;
+  let _submitOverlay = null;
+  let _isSubmitting = false;
 
   const _blue = {
     approvedSubject: '',
@@ -576,6 +578,10 @@ const VerificationPage = (() => {
       _showAuthGate();
       return;
     }
+
+    _submitOverlay = UI && typeof UI.createSubmitOverlay === 'function'
+      ? UI.createSubmitOverlay({ title: 'جاري إرسال طلب التوثيق' })
+      : null;
 
     _showPage();
     _bindStaticEvents();
@@ -1315,11 +1321,19 @@ const VerificationPage = (() => {
 
   async function _submit() {
     if (!_ensureSubmissionAllowed()) return;
+    if (_isSubmitting) return;
+    _isSubmitting = true;
     const button = document.getElementById('verifySubmitBtn');
     if (button) {
       button.disabled = true;
       button.style.opacity = '0.7';
     }
+    _submitOverlay?.show({
+      title: 'جاري إرسال طلب التوثيق',
+      message: _badgeType === 'blue'
+        ? 'يتم الآن إنشاء طلب الشارة الزرقاء ثم رفع المرفقات الرسمية.'
+        : 'يتم الآن إنشاء طلب الشارة الخضراء ثم رفع المرفقات الداعمة.',
+    });
 
     try {
       if (_badgeType === 'blue') {
@@ -1328,6 +1342,8 @@ const VerificationPage = (() => {
         await _submitGreenRequest();
       }
     } finally {
+      _isSubmitting = false;
+      _submitOverlay?.hide();
       if (button) {
         button.disabled = false;
         button.style.opacity = '';
@@ -1362,6 +1378,12 @@ const VerificationPage = (() => {
     _requestCode = String(createResponse.data.code || '').trim();
     _rememberBlockingRequest(createResponse.data, 'blue');
     _refreshStatusState();
+    _submitOverlay?.update({
+      title: 'جاري رفع مرفقات التوثيق',
+      message: payload.files.length
+        ? `تم إنشاء الطلب، ويجري الآن رفع ${payload.files.length} ملف/ملفات رسمية.`
+        : 'تم إنشاء الطلب وجارٍ تحديث حالة المتابعة.',
+    });
     for (const file of payload.files) {
       const formData = new FormData();
       formData.append('file', file);
@@ -1407,6 +1429,12 @@ const VerificationPage = (() => {
     _requestCode = String(createResponse.data.code || '').trim();
     _rememberBlockingRequest(createResponse.data, 'green');
     _refreshStatusState();
+    _submitOverlay?.update({
+      title: 'جاري رفع المرفقات الداعمة',
+      message: payload.files.length
+        ? `تم إنشاء الطلب، ويجري الآن رفع ${payload.files.length} ملف/ملفات داعمة.`
+        : 'تم إنشاء الطلب وجارٍ تحديث حالة المتابعة.',
+    });
 
     for (const file of payload.files) {
       const formData = new FormData();

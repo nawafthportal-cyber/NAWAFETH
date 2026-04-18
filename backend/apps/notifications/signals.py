@@ -7,6 +7,7 @@ from apps.marketplace.models import (
     OfferStatus,
     RequestStatusLog,
 )
+from apps.marketplace.services.cancellation_copy import client_cancel_status_notification_text
 from apps.messaging.models import Message
 
 from .models import EventLog, EventType
@@ -198,6 +199,12 @@ def notify_request_status_changed(sender, instance: RequestStatusLog, created, *
                 body = f"اكتمل طلبك ({sr.title}). يمكنك الآن مراجعة الطلب وتقييم الخدمة."
                 if note and "يرجى مراجعة الطلب وتقييم الخدمة" not in note:
                     body = f"{body} {note}"
+        elif instance.to_status in {"cancelled", "canceled"} and not is_provider_target:
+            body = client_cancel_status_notification_text(
+                sr=sr,
+                actor=instance.actor,
+                note_text=note,
+            )
         elif note:
             body = f"{body}. {note}"
 

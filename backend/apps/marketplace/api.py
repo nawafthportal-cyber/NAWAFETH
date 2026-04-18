@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.providers.models import ProviderCategory, ProviderProfile
+from apps.providers.location_formatter import city_matches_scope, provider_city_query_values
 from apps.notifications.models import EventType
 from apps.notifications.services import create_notification
 from apps.subscriptions.capabilities import (
@@ -43,6 +44,7 @@ from .models import (
 	ServiceRequest,
 	ServiceRequestDispatch,
 	ServiceRequestAttachment,
+	service_request_pending_input_stage,
 )
 from .serializers import (
 	ClientRequestUpdateSerializer,
@@ -61,6 +63,7 @@ from .serializers import (
 
 from .services.actions import execute_action
 from .services.dispatch import (
+	clear_urgent_request_provider_notifications,
 	dispatch_due_competitive_request_notifications,
 	dispatch_ready_urgent_windows,
 	ensure_dispatch_windows_for_urgent_request,
@@ -76,6 +79,10 @@ from .views import (
 
 
 logger = logging.getLogger(__name__)
+SELF_REQUEST_BLOCK_MESSAGE = (
+	"نقدّر احترافيتك كمزود خدمة، ولا يمكن تنفيذ طلب على حسابك نفسه. "
+	"اختر مزود خدمة آخر لإتمام المتابعة."
+)
 
 
 def _dispatch_ready_urgent_windows_once(*, now=None, limit: int = 200) -> None:
@@ -141,6 +148,52 @@ def _provider_can_access_competitive_request(provider: ProviderProfile, service_
 	)
 
 
+def _provider_display_name(service_request: ServiceRequest) -> str:
+	provider = getattr(service_request, "provider", None)
+	name = (getattr(provider, "display_name", "") or "").strip()
+	if name:
+		return name
+	provider_user = getattr(provider, "user", None)
+	full = f"{(getattr(provider_user, 'first_name', '') or '').strip()} {(getattr(provider_user, 'last_name', '') or '').strip()}".strip()
+	if full:
+		return full
+	return "مزود الخدمة"
+
+
+def _notify_client_provider_inputs_pending(*, sr: ServiceRequest, actor, stage: str, note: str = "") -> None:
+	client_user = getattr(sr, "client", None)
+	if client_user is None:
+		return
+
+	is_progress_update = stage == "progress_update"
+	title = "تحديث جديد بانتظار اعتمادك" if is_progress_update else "تفاصيل التنفيذ بانتظار اعتمادك"
+	body = (
+		f"أرسل {_provider_display_name(sr)} {'تحديثًا جديدًا على الطلب' if is_progress_update else 'تفاصيل التنفيذ للطلب'}: {sr.title}. "
+		f"راجع التفاصيل لاعتمادها أو رفضها."
+	)
+	clean_note = (note or "").strip()
+	if clean_note:
+		body += f" ملاحظة المزود: {clean_note}"
+
+	create_notification(
+		user=client_user,
+		title=title,
+		body=body[:500],
+		kind="request_status_change",
+		url=f"/orders/{sr.id}",
+		actor=actor,
+		event_type=EventType.STATUS_CHANGED,
+		pref_key="request_status_change",
+		request_id=sr.id,
+		meta={
+			"to_status": RequestStatus.AWAITING_CLIENT_APPROVAL,
+			"provider_inputs_stage": stage,
+			"note": clean_note[:255],
+		},
+		audience_mode="client",
+	)
+
+
 # ────────────────────────────────────────────────
 # Permissions
 # ────────────────────────────────────────────────
@@ -184,6 +237,26 @@ class ServiceRequestCreateView(generics.CreateAPIView):
 				user=service_request.provider.user,
 				title="طلب جديد",
 				body=f"لديك طلب خدمة جديد: {service_request.title}",
+				kind="request_created",
+				url=f"/requests/{service_request.id}",
+				actor=self.request.user,
+				event_type=EventType.REQUEST_CREATED,
+				pref_key="new_request",
+				request_id=service_request.id,
+				audience_mode="provider",
+			)
+		# Urgent + nearest with a selected provider: send direct notification
+		# and still create dispatch windows as fallback.
+		if (
+			is_urgent
+			and dispatch_mode == "nearest"
+			and getattr(service_request, "provider_id", None)
+			and getattr(getattr(service_request, "provider", None), "user_id", None)
+		):
+			create_notification(
+				user=service_request.provider.user,
+				title="طلب عاجل موجّه إليك",
+				body=f"لديك طلب خدمة عاجل: {service_request.title}",
 				kind="request_created",
 				url=f"/requests/{service_request.id}",
 				actor=self.request.user,
@@ -338,6 +411,11 @@ class UrgentRequestAcceptView(APIView):
 					{"detail": "الطلب غير موجود"},
 					status=status.HTTP_404_NOT_FOUND,
 				)
+			if service_request.client_id == request.user.id:
+				return Response(
+					{"detail": SELF_REQUEST_BLOCK_MESSAGE},
+					status=status.HTTP_403_FORBIDDEN,
+				)
 
 			if service_request.request_type != RequestType.URGENT:
 				return Response(
@@ -367,7 +445,11 @@ class UrgentRequestAcceptView(APIView):
 					{"detail": "الطلبات العاجلة تتطلب اشتراكًا فعالًا في إحدى الباقات."},
 					status=status.HTTP_403_FORBIDDEN,
 				)
-			if (service_request.city or "").strip() and (provider.city or "").strip() and service_request.city.strip() != provider.city.strip():
+			if not city_matches_scope(
+				getattr(service_request, "city", "") or "",
+				provider_city=getattr(provider, "city", "") or "",
+				provider_region=getattr(provider, "region", "") or "",
+			):
 				return Response(
 					{"detail": "هذا الطلب خارج نطاق مدينتك"},
 					status=status.HTTP_403_FORBIDDEN,
@@ -389,6 +471,7 @@ class UrgentRequestAcceptView(APIView):
 
 			old = service_request.status
 			service_request.accept(provider)
+			clear_urgent_request_provider_notifications(service_request)
 			RequestStatusLog.objects.create(
 				request=service_request,
 				actor=request.user,
@@ -432,6 +515,11 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 			flat=True,
 		)
 
+		provider_city_values = provider_city_query_values(
+			getattr(provider, "city", "") or "",
+			provider_region=getattr(provider, "region", "") or "",
+		)
+
 		qs = (
 			ServiceRequest.objects.select_related("client", "subcategory", "subcategory__category")
 			.filter(
@@ -439,11 +527,12 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 				provider__isnull=True,
 				status=RequestStatus.NEW,
 			)
+			.exclude(client=self.request.user)
 			.filter(
 				Q(subcategory_id__in=provider_subcats)
 				| Q(subcategories__id__in=provider_subcats)
 			)
-			.filter(Q(city=provider.city) | Q(city=""))
+			.filter(Q(city__in=provider_city_values) | Q(city=""))
 			.order_by("-created_at")
 			.distinct()
 		)
@@ -486,6 +575,11 @@ class AvailableCompetitiveRequestsView(generics.ListAPIView):
 
 		delay = competitive_request_delay_for_user(provider.user)
 
+		provider_city_values = provider_city_query_values(
+			getattr(provider, "city", "") or "",
+			provider_region=getattr(provider, "region", "") or "",
+		)
+
 		qs = (
 			ServiceRequest.objects.select_related("client", "subcategory", "subcategory__category")
 			.filter(
@@ -493,11 +587,12 @@ class AvailableCompetitiveRequestsView(generics.ListAPIView):
 				provider__isnull=True,
 				status=RequestStatus.NEW,
 			)
+			.exclude(client=self.request.user)
 			.filter(
 				Q(subcategory_id__in=provider_subcats)
 				| Q(subcategories__id__in=provider_subcats)
 			)
-			.filter(Q(city=provider.city) | Q(city=""))
+			.filter(Q(city__in=provider_city_values) | Q(city=""))
 			.order_by("-created_at")
 			.distinct()
 		)
@@ -554,6 +649,8 @@ class ProviderRequestDetailView(generics.RetrieveAPIView):
 		provider = self.request.user.provider_profile
 
 		if obj.provider_id == provider.id:
+			if obj.client_id == self.request.user.id:
+				raise PermissionDenied(SELF_REQUEST_BLOCK_MESSAGE)
 			return obj
 
 		if obj.provider_id is not None:
@@ -606,6 +703,8 @@ class ProviderAssignedRequestAcceptView(APIView):
 
 				if not sr:
 					return Response({"detail": "الطلب غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+				if sr.client_id == request.user.id:
+					return Response({"detail": SELF_REQUEST_BLOCK_MESSAGE}, status=status.HTTP_403_FORBIDDEN)
 
 				if sr.provider_id != provider.id:
 					return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
@@ -618,6 +717,8 @@ class ProviderAssignedRequestAcceptView(APIView):
 
 				old = sr.status
 				sr.accept(provider)
+				if sr.request_type == RequestType.URGENT:
+					clear_urgent_request_provider_notifications(sr)
 				RequestStatusLog.objects.create(
 					request=sr,
 					actor=request.user,
@@ -764,7 +865,13 @@ class ProviderProgressUpdateView(APIView):
 					status=status.HTTP_400_BAD_REQUEST,
 				)
 
-			if sr.status in PRE_EXECUTION_REQUEST_STATUSES and (
+			pending_stage_before = service_request_pending_input_stage(sr)
+			requires_initial_inputs = (
+				sr.status in (RequestStatus.NEW, RequestStatus.PROVIDER_ACCEPTED)
+				or (sr.status == RequestStatus.AWAITING_CLIENT_APPROVAL and pending_stage_before != "progress_update")
+			)
+
+			if requires_initial_inputs and (
 				"expected_delivery_at" not in s.validated_data
 				or "estimated_service_amount" not in s.validated_data
 			):
@@ -791,7 +898,7 @@ class ProviderProgressUpdateView(APIView):
 					]
 				)
 
-			if sr.status in PRE_EXECUTION_REQUEST_STATUSES:
+			if sr.status in (*PRE_EXECUTION_REQUEST_STATUSES, RequestStatus.IN_PROGRESS):
 				sr.provider_inputs_approved = None
 				sr.provider_inputs_decided_at = None
 				sr.provider_inputs_decision_note = ""
@@ -814,7 +921,24 @@ class ProviderProgressUpdateView(APIView):
 				actor=request.user,
 				from_status=old,
 				to_status=sr.status,
-				note=note or "إرسال/تحديث مدخلات التنفيذ من مزود الخدمة",
+				note=(
+					note
+					or (
+						"إرسال تحديث تقدم من مزود الخدمة بانتظار اعتماد العميل"
+						if old == RequestStatus.IN_PROGRESS or pending_stage_before == "progress_update"
+						else "إرسال/تحديث مدخلات التنفيذ من مزود الخدمة"
+					)
+				),
+			)
+
+			notification_stage = "progress_update" if old == RequestStatus.IN_PROGRESS or pending_stage_before == "progress_update" else "pre_execution"
+			transaction.on_commit(
+				lambda: _notify_client_provider_inputs_pending(
+					sr=sr,
+					actor=request.user,
+					stage=notification_stage,
+					note=note,
+				)
 			)
 
 		return Response(
@@ -838,18 +962,13 @@ class ProviderInputsDecisionView(APIView):
 				user=request.user,
 				request_id=request_id,
 				action=action,
+				note=note,
 			)
 		except Exception as e:
 			return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-		# Save optional decision note
-		if note:
-			ServiceRequest.objects.filter(id=request_id).update(
-				provider_inputs_decision_note=note,
-			)
-
 		return Response(
-			{"ok": True, "request_id": request_id, "approved": approved},
+			{"ok": True, "request_id": request_id, "approved": approved, "message": result.message},
 			status=status.HTTP_200_OK,
 		)
 
@@ -909,6 +1028,11 @@ class CreateOfferView(APIView):
 	def post(self, request, request_id):
 		provider = request.user.provider_profile
 		service_request = get_object_or_404(ServiceRequest, id=request_id)
+		if service_request.client_id == request.user.id:
+			return Response(
+				{"detail": SELF_REQUEST_BLOCK_MESSAGE},
+				status=status.HTTP_403_FORBIDDEN,
+			)
 
 		if service_request.request_type != RequestType.COMPETITIVE:
 			return Response(
@@ -928,7 +1052,11 @@ class CreateOfferView(APIView):
 				status=status.HTTP_400_BAD_REQUEST,
 			)
 
-		if (service_request.city or "").strip() and (provider.city or "").strip() and service_request.city.strip() != provider.city.strip():
+		if not city_matches_scope(
+			getattr(service_request, "city", "") or "",
+			provider_city=getattr(provider, "city", "") or "",
+			provider_region=getattr(provider, "region", "") or "",
+		):
 			return Response(
 				{"detail": "هذا الطلب خارج نطاق مدينتك"},
 				status=status.HTTP_403_FORBIDDEN,
@@ -997,6 +1125,11 @@ class AcceptOfferView(APIView):
 			if service_request.client != request.user:
 				return Response(
 					{"detail": "غير مصرح"},
+					status=status.HTTP_403_FORBIDDEN,
+				)
+			if getattr(getattr(offer, "provider", None), "user_id", None) == request.user.id:
+				return Response(
+					{"detail": SELF_REQUEST_BLOCK_MESSAGE},
 					status=status.HTTP_403_FORBIDDEN,
 				)
 

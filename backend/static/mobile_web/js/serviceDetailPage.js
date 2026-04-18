@@ -134,7 +134,7 @@ var ServiceDetailPage = (function () {
         providerLink.removeAttribute("aria-disabled");
       }
       if (requestBtn) {
-        requestBtn.href = "/service-request/?service_id=" + encodeURIComponent(String(serviceId)) + "&provider_id=" + normalizedProviderId;
+        requestBtn.href = "/service-request/?service_id=" + encodeURIComponent(String(serviceId)) + "&provider_id=" + normalizedProviderId + "&return_to=" + encodeURIComponent(window.location.pathname + window.location.search);
         requestBtn.classList.remove("is-disabled");
         requestBtn.removeAttribute("aria-disabled");
       }

@@ -18,6 +18,7 @@ from django.urls import include, path
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.health import HealthCheckView, HealthLiveView, HealthReadyView, healthz
@@ -218,22 +219,24 @@ if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):
             ),
         ]
 
-if settings.DEBUG or getattr(settings, "SERVE_STATIC", False):
+if settings.DEBUG:
+    # In development, always serve static assets via staticfiles finders so
+    # changes inside backend/static appear immediately instead of being masked
+    # by stale files inside STATIC_ROOT/staticfiles.
+    urlpatterns += staticfiles_urlpatterns()
+elif getattr(settings, "SERVE_STATIC", False):
     # Resilient static fallback for production environments where STATIC_ROOT
     # artifacts may be missing unexpectedly. WhiteNoise will still serve first
     # when collectstatic output exists.
-    if settings.DEBUG:
-        urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    else:
-        import re as _re
-        from django.urls import re_path as _re_path
-        from django.contrib.staticfiles.views import serve as _serve_staticfiles
+    import re as _re
+    from django.urls import re_path as _re_path
+    from django.contrib.staticfiles.views import serve as _serve_staticfiles
 
-        _static_prefix = settings.STATIC_URL.lstrip("/")
-        urlpatterns += [
-            _re_path(
-                r"^%s(?P<path>.*)$" % _re.escape(_static_prefix),
-                _serve_staticfiles,
-                {"insecure": True},
-            ),
-        ]
+    _static_prefix = settings.STATIC_URL.lstrip("/")
+    urlpatterns += [
+        _re_path(
+            r"^%s(?P<path>.*)$" % _re.escape(_static_prefix),
+            _serve_staticfiles,
+            {"insecure": True},
+        ),
+    ]

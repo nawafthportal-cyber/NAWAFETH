@@ -120,6 +120,7 @@ from apps.extras.services import (
     extras_bundle_invoice_for_request,
     extras_bundle_payment_access_url,
     extras_bundle_payload_for_request,
+    extras_bundle_target_provider_user,
     notify_bundle_completed,
     notify_bundle_payment_requested,
 )
@@ -3917,7 +3918,19 @@ def _extras_resolve_specialist(identifier: str):
     normalized_identifier = str(identifier or "").strip()
     if not normalized_identifier:
         return None
-    return _get_user_by_identifier(normalized_identifier)
+    User = get_user_model()
+    by_phone = (
+        User.objects.filter(phone=normalized_identifier, is_active=True, provider_profile__isnull=False)
+        .select_related("provider_profile")
+        .first()
+    )
+    if by_phone is not None:
+        return by_phone
+    return (
+        User.objects.filter(username=normalized_identifier, is_active=True, provider_profile__isnull=False)
+        .select_related("provider_profile")
+        .first()
+    )
 
 
 def _extras_specialist_search_rows(query: str, *, limit: int = 8) -> list[dict]:
@@ -3927,7 +3940,7 @@ def _extras_specialist_search_rows(query: str, *, limit: int = 8) -> list[dict]:
 
     User = get_user_model()
     users = (
-        User.objects.filter(is_active=True)
+        User.objects.filter(is_active=True, provider_profile__isnull=False)
         .select_related("provider_profile")
         .filter(
             Q(username__icontains=normalized_query)
@@ -4353,6 +4366,9 @@ def extras_dashboard(request):
                     target_invoice = extras_bundle_invoice_for_request(target_request)
                 if target_invoice is None or not target_invoice.is_payment_effective():
                     messages.error(request, "لا يمكن تحويل الطلب إلى مكتمل قبل اعتماد السداد فعليًا.")
+                    return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+                if extras_bundle_target_provider_user(target_request) is None:
+                    messages.error(request, "لا يمكن إكمال الطلب قبل ربطه بمزود خدمة صالح يمتلك ملف مزود مفعل.")
                     return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
                 metadata_payload.update(
                     {

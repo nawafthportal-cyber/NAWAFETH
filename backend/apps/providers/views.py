@@ -20,8 +20,11 @@ from apps.accounts.role_context import get_active_role
 
 from .models import (
 	Category,
+	ContentShareChannel,
+	ContentShareContentType,
 	ProviderFollow,
 	ProviderLike,
+	ProviderContentShare,
 	ProviderCategory,
 	ProviderPortfolioItem,
 	ProviderPortfolioLike,
@@ -54,6 +57,7 @@ from .serializers import (
 	ProviderSpotlightItemSerializer,
 	UserPublicSerializer,
 )
+from .location_formatter import provider_city_query_values
 from .media_thumbnails import ensure_video_thumbnail
 
 
@@ -342,7 +346,11 @@ class ProviderListView(generics.ListAPIView):
 		if q:
 			qs = qs.filter(display_name__icontains=q)
 		if city:
-			qs = qs.filter(city__icontains=city)
+			city_values = provider_city_query_values(city)
+			city_query = Q()
+			for value in city_values:
+				city_query |= Q(city__icontains=value)
+			qs = qs.filter(city_query)
 		if has_location in {"1", "true", "yes"}:
 			qs = qs.exclude(lat__isnull=True).exclude(lng__isnull=True)
 		urgent_only = accepts_urgent in {"1", "true", "yes"}
@@ -1046,6 +1054,68 @@ def _invalidate_provider_counters(provider_id: int) -> None:
 		f"provider:{provider_id}:public_stats:provider",
 		f"provider:{provider_id}:public_stats:shared",
 	])
+
+
+def _share_tracking_session_id(request) -> str:
+	session = getattr(request, "session", None)
+	if session is None:
+		return ""
+	if not session.session_key:
+		session.save()
+	return str(session.session_key or "")
+
+
+class RecordProviderContentShareView(APIView):
+	permission_classes = [permissions.AllowAny]
+
+	def post(self, request, provider_id: int):
+		provider = generics.get_object_or_404(ProviderProfile, id=provider_id)
+		content_type = str(request.data.get("content_type") or ContentShareContentType.PROFILE).strip().lower()
+		if content_type not in {value for value, _ in ContentShareContentType.choices}:
+			return Response(
+				{"detail": "نوع المحتوى غير صالح لتسجيل المشاركة."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+
+		channel = str(request.data.get("channel") or ContentShareChannel.OTHER).strip().lower()
+		if channel not in {value for value, _ in ContentShareChannel.choices}:
+			return Response(
+				{"detail": "قناة المشاركة غير صالحة."},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+
+		content_id = None
+		if content_type != ContentShareContentType.PROFILE:
+			raw_content_id = request.data.get("content_id")
+			try:
+				content_id = int(raw_content_id)
+			except (TypeError, ValueError):
+				return Response(
+					{"detail": "يجب إرسال معرف المحتوى عند تسجيل هذه المشاركة."},
+					status=status.HTTP_400_BAD_REQUEST,
+				)
+			if content_id <= 0:
+				return Response(
+					{"detail": "معرف المحتوى غير صالح."},
+					status=status.HTTP_400_BAD_REQUEST,
+				)
+			content_model = ProviderPortfolioItem if content_type == ContentShareContentType.PORTFOLIO else ProviderSpotlightItem
+			if not content_model.objects.filter(id=content_id, provider=provider).exists():
+				return Response(
+					{"detail": "المحتوى المطلوب لا ينتمي إلى هذا المزود."},
+					status=status.HTTP_400_BAD_REQUEST,
+				)
+
+		session_id = str(request.data.get("session_id") or "").strip() or _share_tracking_session_id(request)
+		share = ProviderContentShare.objects.create(
+			provider=provider,
+			user=request.user if getattr(request.user, "is_authenticated", False) else None,
+			content_type=content_type,
+			content_id=content_id,
+			channel=channel,
+			session_id=session_id[:64],
+		)
+		return Response({"ok": True, "share_id": share.id}, status=status.HTTP_200_OK)
 
 
 class FollowProviderView(APIView):

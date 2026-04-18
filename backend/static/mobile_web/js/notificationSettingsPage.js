@@ -139,8 +139,28 @@ const NotificationSettingsPage = (() => {
   async function _load() {
     _setLoading(true);
     _setError('');
+    const profileState = await Auth.resolveProfile(false, _activeMode());
+    if (!profileState.ok) {
+      _setLoading(false);
+      if (!Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _setError('يجري الآن مزامنة نوع الحساب الحالي. حاول مرة أخرى خلال لحظة.');
+      return;
+    }
     const res = await ApiClient.get('/api/notifications/preferences/?mode=' + encodeURIComponent(_activeMode()));
     _setLoading(false);
+
+    if (res.status === 401) {
+      const recovered = await Auth.resolveProfile(true, _activeMode());
+      if (!recovered.ok && !Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _setError('يتم تحديث الجلسة أو نوع الحساب الآن. أعد المحاولة بعد قليل.');
+      return;
+    }
 
     if (!res.ok || !res.data) {
       _setError((res.data && res.data.detail) || 'فشل تحميل إعدادات الإشعارات');

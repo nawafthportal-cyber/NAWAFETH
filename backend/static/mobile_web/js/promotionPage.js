@@ -111,6 +111,8 @@ var PromotionPage = (function () {
 
   var HOME_BANNER_REQUIRED_WIDTH = 1920;
   var HOME_BANNER_REQUIRED_HEIGHT = 840;
+  var submitOverlay = null;
+  var isPromoFlowSubmitting = false;
   var SERVICE_ALLOWED_EXTENSIONS = {
     home_banner: [".jpg", ".jpeg", ".png", ".mp4"],
     promo_messages: [".jpg", ".jpeg", ".png", ".mp4"],
@@ -2421,8 +2423,12 @@ var PromotionPage = (function () {
   function bindForm() {
     var form = document.getElementById("promo-form");
     if (!form) return;
+    submitOverlay = UI && typeof UI.createSubmitOverlay === "function"
+      ? UI.createSubmitOverlay({ title: "جاري تجهيز طلب الترويج" })
+      : null;
     form.addEventListener("submit", async function (e) {
       e.preventDefault();
+      if (isPromoFlowSubmitting) return;
       resetUploadStatus();
       if (!selectedServices.length) {
         alert("اختر خدمة واحدة على الأقل");
@@ -2491,7 +2497,15 @@ var PromotionPage = (function () {
   async function submitRequestFlow(requestBody, submitButton) {
     var createdRequestId = 0;
     if (!submitButton) return false;
+    if (isPromoFlowSubmitting) return false;
+    isPromoFlowSubmitting = true;
     try {
+      if (submitOverlay) {
+        submitOverlay.show({
+          title: "جاري إرسال طلب الترويج",
+          message: "يتم الآن إنشاء الطلب ورفع المرفقات ثم تجهيز الفاتورة للدفع.",
+        });
+      }
       submitButton.textContent = "جاري إنشاء الطلب...";
       var createResult = await createRequestWithAssets(requestBody, submitButton);
       if (!createResult) {
@@ -2515,6 +2529,12 @@ var PromotionPage = (function () {
       }
 
       submitButton.textContent = "جاري تجهيز الفاتورة...";
+      if (submitOverlay) {
+        submitOverlay.update({
+          title: "جاري تجهيز الفاتورة",
+          message: "تم إنشاء الطلب ورفع المرفقات، ويجري الآن تجهيز الفاتورة المرتبطة به.",
+        });
+      }
       var prepared = await preparePromoRequestPayment(createResult.requestId);
       if (!prepared) {
         await discardIncompleteRequest(createdRequestId, "prepare_payment_failed");
@@ -2544,6 +2564,9 @@ var PromotionPage = (function () {
       }
       alert("تعذر إكمال تجهيز الطلب للدفع. حاول مرة أخرى.");
       return false;
+    } finally {
+      isPromoFlowSubmitting = false;
+      if (submitOverlay) submitOverlay.hide();
     }
   }
 
@@ -2576,6 +2599,12 @@ var PromotionPage = (function () {
 
     var uploadFailures = [];
     submitButton.textContent = "جاري رفع المرفقات...";
+    if (submitOverlay) {
+      submitOverlay.update({
+        title: "جاري رفع المرفقات",
+        message: "تم إنشاء الطلب، ويجري الآن رفع المرفقات المطلوبة إلى التخزين السحابي.",
+      });
+    }
     setUploadStatus("waiting", "جاري تجهيز رفع المرفقات", "يتم تجهيز رفع الملفات مباشرة إلى التخزين السحابي.", 0);
     var MAX_UPLOAD_RETRIES = 3;
     for (var x = 0; x < selectedServices.length; x += 1) {

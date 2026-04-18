@@ -138,6 +138,21 @@ const InteractivePage = (() => {
   }
 
   async function _loadAll() {
+    const profileState = await Auth.resolveProfile(false, _mode);
+    if (!profileState.ok) {
+      if (!Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _toast('يجري الآن تثبيت نوع الحساب الحالي. أعد المحاولة بعد لحظة.', 'error');
+      return;
+    }
+    if (profileState.mode && profileState.mode !== _mode) {
+      _mode = profileState.mode;
+      _isProviderMode = _mode === 'provider';
+      _renderTabs();
+      _switchTab(_resolveInitialTab());
+    }
     await Promise.all([
       _fetchFollowing(),
       _fetchFavorites(),
@@ -250,7 +265,12 @@ const InteractivePage = (() => {
     const response = await ApiClient.get(_withMode('/api/providers/me/following/', _mode));
 
     if (response.status === 401) {
-      _showGate();
+      const recovered = await Auth.resolveProfile(true, _mode);
+      if (!recovered.ok && !Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _renderError(container, 'يتم تحديث الجلسة أو نوع الحساب. أعد المحاولة بعد قليل.', _fetchFollowing);
       return;
     }
 
@@ -404,7 +424,12 @@ const InteractivePage = (() => {
 
     const res = await ApiClient.get('/api/providers/me/followers/');
     if (res.status === 401) {
-      _showGate();
+      const recovered = await Auth.resolveProfile(true, _mode);
+      if (!recovered.ok && !Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _renderError(container, 'يتم تحديث الجلسة أو نوع الحساب. أعد المحاولة بعد قليل.', _fetchFollowers);
       return;
     }
     if (!res.ok) {
@@ -491,7 +516,12 @@ const InteractivePage = (() => {
     ]);
 
     if (portfolioRes.status === 401 && spotlightsRes.status === 401) {
-      _showGate();
+      const recovered = await Auth.resolveProfile(true, _mode);
+      if (!recovered.ok && !Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _renderError(container, 'يتم تحديث الجلسة أو نوع الحساب. أعد المحاولة بعد قليل.', _fetchFavorites);
       return;
     }
 

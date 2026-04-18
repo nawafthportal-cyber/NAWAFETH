@@ -41,7 +41,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   final ScrollController _scrollController = ScrollController();
   late final AnimationController _entranceController;
   ValueListenable<UnreadBadges>? _badgeHandle;
-  StreamSubscription<NotificationModel>? _realtimeSubscription;
+  StreamSubscription<NotificationRealtimeEvent>? _realtimeSubscription;
 
   int get _unreadCount =>
       _notifications.where((notification) => !notification.isRead).length;
@@ -105,22 +105,44 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         notification.audienceMode == _activeMode;
   }
 
-  void _handleRealtimeNotification(NotificationModel notification) {
-    if (!_matchesActiveMode(notification) || !mounted) {
+  void _handleRealtimeNotification(NotificationRealtimeEvent event) {
+    if (!mounted) {
       return;
     }
-    setState(() {
-      final existingIndex =
-          _notifications.indexWhere((item) => item.id == notification.id);
-      if (existingIndex >= 0) {
-        _notifications.removeAt(existingIndex);
-      } else {
-        _totalCount += 1;
+    if (event is NotificationCreatedRealtimeEvent) {
+      final notification = event.notification;
+      if (!_matchesActiveMode(notification)) {
+        return;
       }
-      _notifications.insert(0, notification);
-      _errorMessage = null;
-      _isLoading = false;
-    });
+      setState(() {
+        final existingIndex =
+            _notifications.indexWhere((item) => item.id == notification.id);
+        if (existingIndex >= 0) {
+          _notifications.removeAt(existingIndex);
+        } else {
+          _totalCount += 1;
+        }
+        _notifications.insert(0, notification);
+        _errorMessage = null;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    if (event is NotificationDeletedRealtimeEvent) {
+      final notificationIds = event.notificationIds.toSet();
+      if (notificationIds.isEmpty) {
+        return;
+      }
+      setState(() {
+        final before = _notifications.length;
+        _notifications.removeWhere((item) => notificationIds.contains(item.id));
+        final removed = before - _notifications.length;
+        if (removed > 0) {
+          _totalCount = (_totalCount - removed).clamp(0, 1 << 30);
+        }
+      });
+    }
   }
 
   String _normalizePath(String rawPath) {

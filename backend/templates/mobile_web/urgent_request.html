@@ -1,185 +1,1366 @@
 {% extends "mobile_web/base.html" %}
 {% load static %}
 
-{% block title %}نوافــذ — طلب عاجل{% endblock %}
+{% block title %}نوافــذ — الطلب العاجل{% endblock %}
 {% block sidebar_add_service %}active{% endblock %}
 {% block body_class %}page-urgent-request{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+.page-urgent-request{
+  --ur-bg:#f5efe4;
+  --ur-surface:#fffdf8;
+  --ur-ink:#1f2937;
+  --ur-muted:#6b7280;
+  --ur-line:rgba(148, 163, 184, 0.24);
+  --ur-accent:#c67b2b;
+  --ur-accent-strong:#9a5a12;
+  --ur-accent-soft:rgba(198,123,43,.12);
+  --ur-success:#0f766e;
+  --ur-danger:#b42318;
+  --ur-shadow:0 24px 60px rgba(15, 23, 42, .12);
+}
+.page-urgent-request .page-content{
+  background:
+    radial-gradient(circle at top right, rgba(198,123,43,.16), transparent 28%),
+    radial-gradient(circle at top left, rgba(15,118,110,.10), transparent 24%),
+    linear-gradient(180deg, #fcf7ef 0%, #f5efe4 44%, #f7f8fb 100%);
+}
+.page-urgent-request .ur-page{
+  max-width:1180px;
+  margin:0 auto;
+  padding:24px 0 48px;
+}
+.page-urgent-request .ur-auth-gate{
+  max-width:640px;
+  margin:48px auto;
+}
+.page-urgent-request .ur-hero{
+  position:relative;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:minmax(0,1.3fr) minmax(320px,.9fr);
+  gap:18px;
+  padding:24px;
+  border:1px solid rgba(255,255,255,.65);
+  border-radius:34px;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.92), rgba(255,248,238,.95)),
+    linear-gradient(160deg, rgba(198,123,43,.08), rgba(15,118,110,.05));
+  box-shadow:var(--ur-shadow);
+}
+.page-urgent-request .ur-hero:before,
+.page-urgent-request .ur-hero:after{
+  content:"";
+  position:absolute;
+  border-radius:999px;
+  pointer-events:none;
+}
+.page-urgent-request .ur-hero:before{
+  width:220px;
+  height:220px;
+  inset:auto -60px -90px auto;
+  background:radial-gradient(circle, rgba(198,123,43,.20), transparent 72%);
+}
+.page-urgent-request .ur-hero:after{
+  width:180px;
+  height:180px;
+  inset:-70px auto auto -40px;
+  background:radial-gradient(circle, rgba(15,118,110,.16), transparent 70%);
+}
+.page-urgent-request .ur-hero-copy,
+.page-urgent-request .ur-hero-side{
+  position:relative;
+  z-index:1;
+}
+.page-urgent-request .ur-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 14px;
+  border-radius:999px;
+  background:rgba(31,41,55,.06);
+  color:#7c4a14;
+  font-size:13px;
+  font-weight:800;
+}
+.page-urgent-request .ur-type-spotlight{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-top:14px;
+  padding:11px 15px;
+  border-radius:999px;
+  background:rgba(198,123,43,.10);
+  color:#8a4a0c;
+  font-size:13px;
+  font-weight:900;
+}
+.page-urgent-request .ur-type-spotlight svg:last-child{
+  color:#0f766e;
+}
+.page-urgent-request .ur-kicker svg{ color:var(--ur-accent); }
+.page-urgent-request .ur-hero h1{
+  margin:18px 0 10px;
+  color:#111827;
+  font-size:clamp(28px, 5vw, 42px);
+  line-height:1.2;
+}
+.page-urgent-request .ur-hero p{
+  margin:0;
+  color:#475569;
+  font-size:16px;
+  line-height:1.9;
+}
+.page-urgent-request .ur-pill-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:22px;
+}
+.page-urgent-request .ur-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:11px 14px;
+  border-radius:18px;
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(148,163,184,.18);
+  color:#374151;
+  font-size:13px;
+  font-weight:700;
+}
+.page-urgent-request .ur-side-grid{
+  display:grid;
+  gap:14px;
+}
+.page-urgent-request .ur-side-card{
+  padding:18px;
+  border-radius:26px;
+  border:1px solid rgba(148,163,184,.16);
+  background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,249,242,.88));
+  box-shadow:0 18px 38px rgba(15, 23, 42, .08);
+}
+.page-urgent-request .ur-side-card strong{
+  display:block;
+  color:#111827;
+  font-size:16px;
+  margin-bottom:10px;
+}
+.page-urgent-request .ur-side-card p{
+  color:#64748b;
+  font-size:14px;
+  line-height:1.8;
+}
+.page-urgent-request .ur-side-metrics{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:10px;
+}
+.page-urgent-request .ur-metric{
+  padding:14px 12px;
+  border-radius:18px;
+  text-align:center;
+  background:#fff;
+  border:1px solid rgba(148,163,184,.16);
+}
+.page-urgent-request .ur-metric strong{
+  display:block;
+  margin:0 0 6px;
+  color:#0f172a;
+  font-size:18px;
+}
+.page-urgent-request .ur-metric span{
+  color:#64748b;
+  font-size:12px;
+  font-weight:700;
+}
+.page-urgent-request .ur-layout{
+  display:grid;
+  grid-template-columns:minmax(0, 1.1fr) minmax(280px, .52fr);
+  gap:18px;
+  margin-top:18px;
+  align-items:start;
+}
+.page-urgent-request .ur-form-shell{
+  background:rgba(255,255,255,.88);
+  border:1px solid rgba(255,255,255,.72);
+  border-radius:34px;
+  box-shadow:var(--ur-shadow);
+  overflow:hidden;
+}
+.page-urgent-request .ur-form-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:22px 24px 18px;
+  border-bottom:1px solid rgba(148,163,184,.12);
+  background:linear-gradient(180deg, rgba(255,252,247,.94), rgba(255,255,255,.85));
+}
+.page-urgent-request .ur-form-head h2{
+  margin:0;
+  color:#111827;
+  font-size:22px;
+}
+.page-urgent-request .ur-form-head p{
+  margin:8px 0 0;
+  color:#64748b;
+  font-size:14px;
+}
+.page-urgent-request .ur-form-head-copy{
+  display:grid;
+  gap:10px;
+}
+.page-urgent-request .ur-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 14px;
+  border-radius:999px;
+  background:var(--ur-accent-soft);
+  color:var(--ur-accent-strong);
+  font-size:13px;
+  font-weight:900;
+}
+.page-urgent-request .ur-badge.is-type{
+  background:rgba(15,118,110,.10);
+  color:#0f766e;
+}
+.page-urgent-request .ur-form{
+  padding:24px;
+}
+.page-urgent-request .ur-section{
+  padding:20px;
+  border:1px solid rgba(148,163,184,.14);
+  border-radius:28px;
+  background:linear-gradient(180deg, rgba(255,255,255,.96), rgba(250,250,252,.96));
+}
+.page-urgent-request .ur-section + .ur-section{ margin-top:16px; }
+.page-urgent-request .ur-section-head{
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+  margin-bottom:18px;
+}
+.page-urgent-request .ur-step{
+  flex:0 0 40px;
+  width:40px;
+  height:40px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg, var(--ur-accent), #e0a14a);
+  color:#fff;
+  font-weight:900;
+  box-shadow:0 12px 26px rgba(198,123,43,.22);
+}
+.page-urgent-request .ur-section-head h3{
+  margin:0;
+  color:#111827;
+  font-size:18px;
+}
+.page-urgent-request .ur-section-head p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-size:13px;
+  line-height:1.8;
+}
+.page-urgent-request .ur-fields{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:16px;
+}
+.page-urgent-request .ur-fields.one,
+.page-urgent-request .ur-field.span-full{
+  grid-column:1 / -1;
+}
+.page-urgent-request .ur-field label{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+  color:#334155;
+  font-size:14px;
+  font-weight:800;
+}
+.page-urgent-request .ur-required{
+  color:var(--ur-danger);
+  font-weight:900;
+}
+.page-urgent-request .ur-field input,
+.page-urgent-request .ur-field textarea,
+.page-urgent-request .ur-field select{
+  width:100%;
+  min-height:56px;
+  border-radius:18px;
+  border:1px solid rgba(148,163,184,.18);
+  background:#fff;
+  color:#0f172a;
+  padding:14px 16px;
+  font-size:15px;
+  transition:border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.page-urgent-request .ur-field textarea{
+  min-height:144px;
+  resize:vertical;
+}
+.page-urgent-request .ur-field input:focus,
+.page-urgent-request .ur-field textarea:focus,
+.page-urgent-request .ur-field select:focus{
+  outline:none;
+  border-color:rgba(198,123,43,.55);
+  box-shadow:0 0 0 4px rgba(198,123,43,.13);
+}
+.page-urgent-request .ur-field input.is-invalid,
+.page-urgent-request .ur-field textarea.is-invalid,
+.page-urgent-request .ur-field select.is-invalid{
+  border-color:rgba(180,35,24,.45);
+  box-shadow:0 0 0 4px rgba(180,35,24,.09);
+}
+.page-urgent-request .ur-hint,
+.page-urgent-request .ur-field-help{
+  display:block;
+  margin-top:8px;
+  color:#64748b;
+  font-size:12px;
+  line-height:1.7;
+}
+.page-urgent-request .ur-field-error{
+  display:block;
+  min-height:18px;
+  margin-top:8px;
+  color:var(--ur-danger);
+  font-size:12px;
+  font-weight:700;
+}
+.page-urgent-request .hidden{ display:none !important; }
+.page-urgent-request .ur-count{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:8px;
+  color:#64748b;
+  font-size:12px;
+  font-weight:800;
+}
+.page-urgent-request .ur-count.is-warning{ color:#b45309; }
+.page-urgent-request .ur-count.is-limit{ color:var(--ur-danger); }
+.page-urgent-request .ur-dispatch{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:12px;
+}
+.page-urgent-request .ur-dispatch-card{
+  position:relative;
+  display:block;
+  cursor:pointer;
+}
+.page-urgent-request .ur-dispatch-card input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  pointer-events:none;
+}
+.page-urgent-request .ur-dispatch-card-body{
+  height:100%;
+  padding:18px;
+  border-radius:24px;
+  border:1px solid rgba(148,163,184,.18);
+  background:linear-gradient(180deg, #fff, #f9fafb);
+  transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.page-urgent-request .ur-dispatch-card strong{
+  display:block;
+  margin-bottom:8px;
+  color:#111827;
+  font-size:16px;
+}
+.page-urgent-request .ur-dispatch-card span{
+  display:block;
+  color:#64748b;
+  font-size:13px;
+  line-height:1.8;
+}
+.page-urgent-request .ur-dispatch-card input:checked + .ur-dispatch-card-body{
+  border-color:rgba(198,123,43,.36);
+  background:linear-gradient(180deg, rgba(255,250,242,.98), rgba(255,246,232,.98));
+  box-shadow:0 18px 36px rgba(198,123,43,.12);
+  transform:translateY(-2px);
+}
+.page-urgent-request .ur-scope-card,
+.page-urgent-request .ur-selected-provider,
+.page-urgent-request .ur-attachments-card{
+  padding:18px;
+  border-radius:24px;
+  border:1px solid rgba(148,163,184,.16);
+  background:linear-gradient(180deg, #fff, #fbfcff);
+}
+.page-urgent-request .ur-scope-card strong,
+.page-urgent-request .ur-selected-provider strong,
+.page-urgent-request .ur-attachments-card strong{
+  display:block;
+  margin-bottom:8px;
+  color:#111827;
+  font-size:16px;
+}
+.page-urgent-request .ur-scope-card p,
+.page-urgent-request .ur-selected-provider p,
+.page-urgent-request .ur-attachments-card p{
+  margin:0;
+  color:#64748b;
+  font-size:13px;
+  line-height:1.8;
+}
+.page-urgent-request .ur-location-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:12px;
+}
+.page-urgent-request .ur-inline-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:12px;
+}
+.page-urgent-request .ur-btn,
+.page-urgent-request .ur-btn-secondary,
+.page-urgent-request .ur-btn-ghost,
+.page-urgent-request .ur-action-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:48px;
+  padding:0 18px;
+  border-radius:16px;
+  border:none;
+  text-decoration:none;
+  cursor:pointer;
+  font-size:14px;
+  font-weight:900;
+  transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+}
+.page-urgent-request .ur-btn:hover,
+.page-urgent-request .ur-btn-secondary:hover,
+.page-urgent-request .ur-btn-ghost:hover,
+.page-urgent-request .ur-action-btn:hover{
+  transform:translateY(-1px);
+}
+.page-urgent-request .ur-btn{
+  color:#fff;
+  background:linear-gradient(135deg, var(--ur-accent), #aa6118);
+  box-shadow:0 16px 32px rgba(198,123,43,.22);
+}
+.page-urgent-request .ur-btn-secondary{
+  color:#0f172a;
+  background:#fff;
+  border:1px solid rgba(148,163,184,.18);
+}
+.page-urgent-request .ur-btn-ghost{
+  color:#7c4a14;
+  background:rgba(198,123,43,.10);
+}
+.page-urgent-request .ur-action-btn{
+  min-height:40px;
+  padding:0 14px;
+  border-radius:14px;
+  font-size:13px;
+}
+.page-urgent-request .ur-action-call{ background:rgba(15,118,110,.12); color:#115e59; }
+.page-urgent-request .ur-action-whatsapp{ background:rgba(34,197,94,.12); color:#15803d; }
+.page-urgent-request .ur-action-send{ background:rgba(198,123,43,.12); color:#8a4a0c; }
+.page-urgent-request .ur-selected-provider{
+  display:flex;
+  gap:14px;
+  align-items:center;
+}
+.page-urgent-request .ur-provider-avatar{
+  position:relative;
+  flex:0 0 72px;
+  width:72px;
+  height:72px;
+  border-radius:22px;
+  overflow:hidden;
+  background:linear-gradient(135deg, #f8e3c8, #f4c38a);
+  box-shadow:0 12px 22px rgba(15, 23, 42, .1);
+}
+.page-urgent-request .ur-provider-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  cursor:pointer;
+}
+.page-urgent-request .ur-provider-avatar-fallback{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  color:#7c4a14;
+  font-weight:900;
+  font-size:24px;
+}
+.page-urgent-request .ur-provider-badge{
+  position:absolute;
+  left:6px;
+  bottom:6px;
+  width:22px;
+  height:22px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  color:#fff;
+  box-shadow:0 8px 16px rgba(15,23,42,.18);
+}
+.page-urgent-request .ur-provider-badge.blue{ background:#2563eb; }
+.page-urgent-request .ur-provider-badge.green{ background:#16a34a; }
+.page-urgent-request .ur-provider-meta{
+  flex:1 1 auto;
+  min-width:0;
+}
+.page-urgent-request .ur-provider-meta h4{
+  margin:0 0 6px;
+  color:#111827;
+  font-size:17px;
+}
+.page-urgent-request .ur-provider-stat-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+}
+.page-urgent-request .ur-provider-stat{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 10px;
+  border-radius:999px;
+  background:#f8fafc;
+  color:#475569;
+  font-size:12px;
+  font-weight:800;
+}
+.page-urgent-request .ur-picker-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0,1fr));
+  gap:10px;
+  margin-top:14px;
+}
+.page-urgent-request .ur-picker-btn{
+  min-height:54px;
+  padding:0 14px;
+  border-radius:18px;
+  border:1px dashed rgba(148,163,184,.32);
+  background:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  cursor:pointer;
+  color:#334155;
+  font-size:13px;
+  font-weight:800;
+}
+.page-urgent-request .ur-picker-btn svg{ color:var(--ur-accent-strong); }
+.page-urgent-request .ur-recording{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:16px;
+  background:rgba(180,35,24,.08);
+  color:#991b1b;
+  font-size:13px;
+  font-weight:800;
+}
+.page-urgent-request .ur-attachment-summary{
+  margin-top:12px;
+  padding:14px 16px;
+  border-radius:18px;
+  background:#f8fafc;
+  color:#334155;
+  font-size:13px;
+  font-weight:800;
+}
+.page-urgent-request .ur-attachment-list{
+  display:grid;
+  gap:10px;
+  margin-top:14px;
+}
+.page-urgent-request .ur-attachment-group{
+  border:1px solid rgba(148,163,184,.16);
+  border-radius:20px;
+  padding:14px;
+  background:#fff;
+}
+.page-urgent-request .ur-attachment-group h4{
+  margin:0 0 12px;
+  color:#0f172a;
+  font-size:14px;
+}
+.page-urgent-request .ur-attachment-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(92px, 1fr));
+  gap:10px;
+}
+.page-urgent-request .ur-attachment-thumb{
+  position:relative;
+  min-height:92px;
+  border-radius:18px;
+  overflow:hidden;
+  background:#f1f5f9;
+}
+.page-urgent-request .ur-attachment-thumb img,
+.page-urgent-request .ur-attachment-thumb video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.page-urgent-request .ur-attachment-file{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  min-height:54px;
+  padding:10px 12px;
+  border-radius:16px;
+  background:#f8fafc;
+}
+.page-urgent-request .ur-attachment-file span{
+  color:#334155;
+  font-size:13px;
+  font-weight:700;
+  word-break:break-word;
+}
+.page-urgent-request .ur-remove-btn{
+  width:32px;
+  height:32px;
+  border:none;
+  border-radius:12px;
+  background:rgba(180,35,24,.10);
+  color:#991b1b;
+  cursor:pointer;
+  font-size:18px;
+  line-height:1;
+}
+.page-urgent-request .ur-side-panel{
+  position:sticky;
+  top:92px;
+  display:grid;
+  gap:16px;
+}
+.page-urgent-request .ur-side-block{
+  padding:20px;
+  border-radius:28px;
+  background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(249,250,252,.94));
+  border:1px solid rgba(255,255,255,.74);
+  box-shadow:0 18px 44px rgba(15, 23, 42, .10);
+}
+.page-urgent-request .ur-side-block h3{
+  margin:0 0 12px;
+  color:#111827;
+  font-size:17px;
+}
+.page-urgent-request .ur-side-list{
+  display:grid;
+  gap:10px;
+}
+.page-urgent-request .ur-side-item{
+  padding:12px 14px;
+  border-radius:18px;
+  background:#fff;
+  border:1px solid rgba(148,163,184,.14);
+}
+.page-urgent-request .ur-side-item strong{
+  display:block;
+  margin-bottom:6px;
+  color:#0f172a;
+  font-size:14px;
+}
+.page-urgent-request .ur-side-item span{
+  color:#64748b;
+  font-size:12px;
+  line-height:1.7;
+}
+.page-urgent-request .ur-submit-row{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  gap:12px;
+  margin-top:18px;
+  padding:20px 0 0;
+}
+.page-urgent-request .ur-submit-note{
+  color:#64748b;
+  font-size:13px;
+  line-height:1.8;
+}
+.page-urgent-request .ur-toast{
+  position:fixed;
+  right:18px;
+  bottom:102px;
+  z-index:150;
+  width:min(420px, calc(100vw - 32px));
+  padding:16px;
+  border-radius:24px;
+  color:#fff;
+  background:#0f172a;
+  box-shadow:0 18px 50px rgba(15,23,42,.28);
+  opacity:0;
+  transform:translateY(16px);
+  pointer-events:none;
+  transition:opacity .22s ease, transform .22s ease;
+}
+.page-urgent-request .ur-toast.show{
+  opacity:1;
+  transform:translateY(0);
+  pointer-events:auto;
+}
+.page-urgent-request .ur-toast.success{ background:#0f766e; }
+.page-urgent-request .ur-toast.warning{ background:#9a5a12; }
+.page-urgent-request .ur-toast.error{ background:#991b1b; }
+.page-urgent-request .ur-toast-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.page-urgent-request .ur-toast-head strong{ display:block; margin-bottom:4px; font-size:15px; }
+.page-urgent-request .ur-toast-head p{ margin:0; font-size:13px; line-height:1.7; opacity:.94; }
+.page-urgent-request .ur-toast-close{
+  flex:0 0 auto;
+  width:36px;
+  height:36px;
+  border:none;
+  border-radius:12px;
+  color:inherit;
+  background:rgba(255,255,255,.14);
+  cursor:pointer;
+}
+.page-urgent-request .ur-success{
+  position:fixed;
+  inset:0;
+  z-index:180;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  background:rgba(15,23,42,.56);
+  backdrop-filter:blur(10px);
+}
+.page-urgent-request .ur-success.visible{ display:flex; }
+.page-urgent-request .ur-success-card{
+  width:min(460px, 100%);
+  padding:30px 24px;
+  border-radius:32px;
+  background:linear-gradient(180deg, #fff, #f9fafb);
+  text-align:center;
+  box-shadow:0 28px 70px rgba(15,23,42,.24);
+}
+.page-urgent-request .ur-success-icon{
+  width:78px;
+  height:78px;
+  margin:0 auto 16px;
+  border-radius:24px;
+  display:grid;
+  place-items:center;
+  background:rgba(15,118,110,.12);
+  color:#0f766e;
+}
+.page-urgent-request .ur-success-card h3{
+  margin:0 0 10px;
+  color:#111827;
+  font-size:25px;
+}
+.page-urgent-request .ur-success-card p{
+  margin:0;
+  color:#64748b;
+  line-height:1.9;
+}
+.page-urgent-request .ur-map-modal{
+  position:fixed;
+  inset:0;
+  z-index:170;
+  display:none;
+  align-items:flex-end;
+}
+.page-urgent-request .ur-map-modal.open{ display:flex; }
+.page-urgent-request .ur-map-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(15,23,42,.52);
+  backdrop-filter:blur(7px);
+}
+.page-urgent-request .ur-map-panel{
+  position:relative;
+  z-index:1;
+  width:min(1060px, calc(100vw - 18px));
+  max-height:min(90vh, 860px);
+  margin:0 auto 10px;
+  border-radius:30px 30px 22px 22px;
+  overflow:hidden;
+  background:#fff;
+  box-shadow:0 34px 86px rgba(15,23,42,.28);
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+}
+.page-urgent-request .ur-map-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  padding:20px 20px 16px;
+  border-bottom:1px solid rgba(148,163,184,.14);
+  background:linear-gradient(180deg, rgba(255,252,247,.96), rgba(255,255,255,.94));
+}
+.page-urgent-request .ur-map-head h3{
+  margin:0;
+  color:#111827;
+  font-size:20px;
+}
+.page-urgent-request .ur-map-head p{
+  margin:6px 0 0;
+  color:#64748b;
+  font-size:13px;
+}
+.page-urgent-request .ur-map-close{
+  width:42px;
+  height:42px;
+  border:none;
+  border-radius:14px;
+  background:#f1f5f9;
+  cursor:pointer;
+}
+.page-urgent-request .ur-map-body{
+  display:grid;
+  grid-template-columns:minmax(0,.95fr) minmax(320px,.75fr);
+  min-height:0;
+}
+.page-urgent-request .ur-map-canvas{
+  min-height:360px;
+}
+.page-urgent-request .ur-map-list-wrap{
+  border-inline-start:1px solid rgba(148,163,184,.14);
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  min-height:0;
+}
+.page-urgent-request .ur-map-status{
+  padding:14px 16px;
+  color:#475569;
+  font-size:13px;
+  font-weight:800;
+  border-bottom:1px solid rgba(148,163,184,.12);
+  background:#fafafa;
+}
+.page-urgent-request .ur-map-list{
+  min-height:0;
+  overflow:auto;
+  padding:14px;
+  display:grid;
+  gap:12px;
+}
+.page-urgent-request .ur-provider-card{
+  padding:14px;
+  border-radius:22px;
+  border:1px solid rgba(148,163,184,.16);
+  background:#fff;
+  transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.page-urgent-request .ur-provider-card.selected{
+  border-color:rgba(198,123,43,.34);
+  box-shadow:0 18px 36px rgba(198,123,43,.12);
+  transform:translateY(-1px);
+}
+.page-urgent-request .ur-provider-card-head{
+  display:flex;
+  gap:12px;
+  align-items:center;
+}
+.page-urgent-request .ur-provider-card-avatar{
+  position:relative;
+  width:62px;
+  height:62px;
+  border-radius:18px;
+  overflow:hidden;
+  background:linear-gradient(135deg, #fde7cc, #efb56e);
+  flex:0 0 62px;
+}
+.page-urgent-request .ur-provider-card-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  cursor:pointer;
+}
+.page-urgent-request .ur-provider-card-name{
+  margin:0 0 6px;
+  color:#111827;
+  font-size:16px;
+}
+.page-urgent-request .ur-provider-card-sub{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  color:#64748b;
+  font-size:12px;
+  font-weight:800;
+}
+.page-urgent-request .ur-provider-card-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:12px;
+}
+.page-urgent-request .ur-map-empty{
+  padding:22px;
+  color:#64748b;
+  font-size:14px;
+  text-align:center;
+}
+.page-urgent-request .ur-popup{
+  padding:12px;
+  min-width:220px;
+}
+.page-urgent-request .ur-popup-head{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-bottom:10px;
+}
+.page-urgent-request .ur-popup-avatar{
+  position:relative;
+  width:48px;
+  height:48px;
+  border-radius:16px;
+  overflow:hidden;
+  background:linear-gradient(135deg, #fde7cc, #efb56e);
+  flex:0 0 48px;
+}
+.page-urgent-request .ur-popup-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.page-urgent-request .ur-popup-title{
+  margin:0 0 4px;
+  color:#111827;
+  font-size:15px;
+  font-weight:900;
+}
+.page-urgent-request .ur-popup-meta{
+  color:#64748b;
+  font-size:12px;
+  font-weight:800;
+}
+.page-urgent-request .ur-popup-actions{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:8px;
+}
+.page-urgent-request .ur-popup-actions a,
+.page-urgent-request .ur-popup-actions button{
+  min-height:38px;
+  border:none;
+  border-radius:12px;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:900;
+}
+.page-urgent-request .ur-popup-actions a{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
+}
+.page-urgent-request .ur-popup-actions .call{ background:rgba(15,118,110,.12); color:#115e59; }
+.page-urgent-request .ur-popup-actions .whatsapp{ background:rgba(34,197,94,.12); color:#15803d; }
+.page-urgent-request .ur-popup-actions .send{ background:rgba(198,123,43,.14); color:#8a4a0c; }
+.page-urgent-request .leaflet-popup-content-wrapper{
+  border-radius:20px;
+}
+@media (max-width: 980px){
+  .page-urgent-request .ur-hero,
+  .page-urgent-request .ur-layout,
+  .page-urgent-request .ur-map-body{
+    grid-template-columns:1fr;
+  }
+  .page-urgent-request .ur-side-panel{
+    position:static;
+  }
+  .page-urgent-request .ur-map-list-wrap{
+    border-inline-start:none;
+    border-top:1px solid rgba(148,163,184,.14);
+  }
+}
+@media (max-width: 720px){
+  .page-urgent-request .ur-page{ padding-top:16px; }
+  .page-urgent-request .ur-hero,
+  .page-urgent-request .ur-form,
+  .page-urgent-request .ur-form-head{ padding:18px; }
+  .page-urgent-request .ur-fields,
+  .page-urgent-request .ur-dispatch,
+  .page-urgent-request .ur-location-grid,
+  .page-urgent-request .ur-picker-grid,
+  .page-urgent-request .ur-side-metrics{
+    grid-template-columns:1fr;
+  }
+  .page-urgent-request .ur-selected-provider{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .page-urgent-request .ur-toast{
+    right:12px;
+    left:12px;
+    width:auto;
+    bottom:92px;
+  }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="page-content">
-  <div class="container">
-    <div id="auth-gate" class="auth-gate auth-gate-unified ur-auth-gate hidden">
-      <div class="auth-gate-unified-icon ur-auth-gate-icon" aria-hidden="true">
+  <div class="container ur-page">
+    <div id="auth-gate" class="auth-gate auth-gate-unified ur-auth-gate{% if request.user.is_authenticated and provider_mode_blocked %}{% elif not request.user.is_authenticated %}{% else %} hidden{% endif %}">
+      {% if request.user.is_authenticated and provider_mode_blocked %}
+      <p class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
+      <div class="auth-gate-unified-icon" aria-hidden="true">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-2 .9-2 2v11c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+      </div>
+      <h2 class="auth-gate-unified-title">{{ provider_mode_block.title }}</h2>
+      <p class="auth-gate-unified-desc">{{ provider_mode_block.description }}</p>
+      <div class="auth-gate-unified-actions" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px">
+        <button type="button" class="btn btn-primary auth-gate-unified-btn" data-provider-request-switch="client" data-provider-request-target="{{ provider_mode_block.target }}">{{ provider_mode_block.switch_label }}</button>
+        <a href="/profile/" class="btn btn-secondary" style="min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">{{ provider_mode_block.profile_label }}</a>
+      </div>
+      <p class="auth-gate-unified-note" style="margin-top:12px">{{ provider_mode_block.note }}</p>
+      {% else %}
+      <div class="auth-gate-unified-icon" aria-hidden="true">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
       </div>
-      <h2 class="auth-gate-unified-title">سجّل دخولك لإرسال طلب عاجل</h2>
-      <p class="auth-gate-unified-desc">أرسل طلبك خلال ثوانٍ وسيتم توجيهه إلى مزوّدي الخدمة الأقرب والأكثر ملاءمة حسب التخصص والمدينة.</p>
-      <a href="/login/?next=/urgent-request/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
+      <h2 class="auth-gate-unified-title">سجّل دخولك لإنشاء طلب عاجل</h2>
+      <p class="auth-gate-unified-desc">أنشئ طلبك بسرعة، اختر التصنيف المناسب، وحدد نطاق الإرسال بدقة ليصل إلى المزودين المطابقين فورًا.</p>
+      <a href="/login/?next=/urgent-request/" class="btn btn-primary">تسجيل الدخول</a>
+      {% endif %}
     </div>
 
-    <div id="form-content" class="hidden ur-shell">
-      <div class="mw-form-header mw-form-header-urgent ur-header">
-        <a href="/add-service/" class="mw-form-back" aria-label="رجوع">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-        </a>
-        <h1>طلب خدمة عاجلة</h1>
-        <span class="mw-form-head-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
-        </span>
-      </div>
-      <p class="mw-form-subtitle ur-subtitle">صِف احتياجك بسرعة، وحدد المدينة والتخصص، وسنوجّه الطلب إلى المزوّدين المؤهلين فورًا.</p>
-
-      <section class="ur-intro-card" aria-hidden="true">
-        <div class="ur-intro-chip">أولوية عالية</div>
-        <p>اختر التخصص والمدينة بدقة ليصل الطلب إلى المزوّدين المناسبين بسرعة أكبر.</p>
-        <div class="ur-overview">
-          <div class="ur-overview-item">
-            <strong>توجيه ذكي</strong>
-            <span>حسب التخصص والمدينة</span>
+    <div id="form-content"{% if not request.user.is_authenticated or provider_mode_blocked %} class="hidden"{% endif %}>
+      <section class="ur-hero">
+        <div class="ur-hero-copy">
+          <span class="ur-kicker">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+            مسار طلب عاجل ذكي
+          </span>
+          <span class="ur-type-spotlight">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+            نوع الطلب: عاجل
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2zm1 11h-2V7h2zm0 4h-2v-2h2z"/></svg>
+          </span>
+          <h1>أرسل طلبك العاجل للمزوّد الأنسب خلال دقائق</h1>
+          <p>اختر التصنيف الرئيسي والفرعي، حدد نطاق الإرسال، أضف العنوان والتفاصيل والمرفقات، ثم دع المنصة تطابق التخصص والمدينة أو تعرض لك أقرب المزوّدين على الخريطة.</p>
+          <div class="ur-pill-row">
+            <span class="ur-pill">مطابقة حسب التصنيف الرئيسي والفرعي</span>
+            <span class="ur-pill">نطاق مدينة اختياري عند الإرسال للجميع</span>
+            <span class="ur-pill">خريطة تفاعلية عند اختيار الأقرب</span>
           </div>
-          <div class="ur-overview-item">
-            <strong>عرض خريطة</strong>
-            <span>لرؤية الأقرب قبل الإرسال</span>
-          </div>
-          <div class="ur-overview-item">
-            <strong>مرفقات مساندة</strong>
-            <span>صور وفيديو وملفات</span>
+        </div>
+        <div class="ur-hero-side">
+          <div class="ur-side-grid">
+            <div class="ur-side-card">
+              <strong>كيف يعمل المسار الجديد؟</strong>
+              <p>عند اختيار <b>إرسال للجميع</b> يتم الإرسال فقط إلى المزوّدين المطابقين للتصنيف، ومع تحديد المدينة تتم مطابقة المدينة أيضًا. وعند اختيار <b>إرسال للأقرب</b> تظهر خريطة تفاعلية للمزوّدين داخل المدينة المختارة مع وسائل التواصل والإرسال المباشر.</p>
+            </div>
+            <div class="ur-side-metrics">
+              <div class="ur-metric"><strong>300</strong><span>حد التفاصيل</span></div>
+              <div class="ur-metric"><strong>4</strong><span>أنواع مرفقات</span></div>
+              <div class="ur-metric"><strong>2</strong><span>أنماط إرسال</span></div>
+            </div>
           </div>
         </div>
       </section>
 
-      <form id="ur-form" class="form-card mw-form-card ur-form" autocomplete="off">
-        <div class="ur-grid">
-          <section class="ur-section ur-section-span-full">
-            <div class="ur-section-head">
-              <span class="ur-section-step">1</span>
+      <div class="ur-layout">
+        <section class="ur-form-shell">
+          <div class="ur-form-head">
+            <div class="ur-form-head-copy">
+              <span class="ur-badge is-type">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+                طلب عاجل
+              </span>
               <div>
-                <h2>تحديد نوع الخدمة</h2>
-                <p>اختر التصنيف الرئيسي ثم التخصص الفرعي لتصل الرسالة إلى المزوّدين المؤهلين فقط.</p>
+              <h2>نموذج الطلب العاجل</h2>
+              <p>واجهة جديدة مبنية لتوافق الفكرة الجديدة وربطها مع واجهات الباكند الحالية بدون كسر مسار الإرسال.</p>
               </div>
             </div>
+            <span class="ur-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 3 7v6c0 5 3.84 9.74 9 11 5.16-1.26 9-6 9-11V7l-9-5z"/></svg>
+              مطابقة احترافية
+            </span>
+          </div>
 
-            <div class="ur-fields-grid ur-fields-grid-two">
-              <div class="form-group ur-group">
-                <label class="form-label ur-label" for="ur-category">التصنيف الرئيسي <span class="ur-required">*</span></label>
-                <select class="form-select" id="ur-category">
-                  <option value="">اختر التصنيف...</option>
-                </select>
+          <form id="ur-form" class="ur-form" autocomplete="off">
+            <section class="ur-section">
+              <div class="ur-section-head">
+                <span class="ur-step">1</span>
+                <div>
+                  <h3>التصنيف الرئيسي والفرعي</h3>
+                  <p>اختر التخصص بدقة حتى تصل الرسالة فقط إلى المزوّدين المطابقين.</p>
+                </div>
               </div>
-
-              <div class="form-group ur-group">
-                <label class="form-label ur-label" for="ur-subcategory">التصنيف الفرعي <span class="ur-required">*</span></label>
-                <select class="form-select" id="ur-subcategory">
-                  <option value="">-- اختر التخصص --</option>
-                </select>
-                <p class="ur-hint">كلما كان التخصص أدق ظهرت نتائج أنسب عند التوجيه أو على الخريطة.</p>
+              <div class="ur-fields">
+                <div class="ur-field">
+                  <label for="ur-category">التصنيف الرئيسي <span class="ur-required">*</span></label>
+                  <select id="ur-category" aria-describedby="ur-category-error">
+                    <option value="">اختر التصنيف الرئيسي</option>
+                  </select>
+                  <small class="ur-field-error hidden" id="ur-category-error"></small>
+                </div>
+                <div class="ur-field">
+                  <label for="ur-subcategory">التصنيف الفرعي <span class="ur-required">*</span></label>
+                  <select id="ur-subcategory" aria-describedby="ur-subcategory-error">
+                    <option value="">اختر التصنيف الفرعي</option>
+                  </select>
+                  <small class="ur-field-help">سيتم استخدامه في مطابقة المزوّدين عند الإرسال أو على الخريطة.</small>
+                  <small class="ur-field-error hidden" id="ur-subcategory-error"></small>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section class="ur-section ur-section-span-full">
-            <div class="ur-section-head">
-              <span class="ur-section-step">2</span>
-              <div>
-                <h2>نطاق الإرسال والموقع</h2>
-                <p>حدّد هل تريد الإرسال للجميع أو استهداف الأقرب، ثم اختر المدينة عند الحاجة.</p>
-              </div>
-            </div>
-
-            <div class="ur-fields-grid ur-fields-grid-two">
-              <div class="form-group ur-group">
-                <label class="form-label ur-label">طريقة الإرسال</label>
-                <div class="radio-group ur-radio-group">
-                  <label class="radio-chip-label ur-mode-card" for="ur-dispatch-nearest">
-                    <input type="radio" id="ur-dispatch-nearest" name="dispatch_mode" value="nearest" hidden>
-                    <span class="radio-chip">
-                      <strong>البحث عن الأقرب</strong>
-                      <small>بحسب موقعك الحالي ونطاق تغطية المزوّدين</small>
-                    </span>
-                  </label>
-                  <label class="radio-chip-label ur-mode-card" for="ur-dispatch-all">
-                    <input type="radio" id="ur-dispatch-all" name="dispatch_mode" value="all" checked hidden>
-                    <span class="radio-chip active">
-                      <strong>إرسال للجميع</strong>
-                      <small>إرسال الطلب إلى جميع المزوّدين المطابقين</small>
-                    </span>
-                  </label>
+            <section class="ur-section">
+              <div class="ur-section-head">
+                <span class="ur-step">2</span>
+                <div>
+                  <h3>نطاق الإرسال والمنطقة</h3>
+                  <p>يمكنك الإرسال لجميع المزوّدين المطابقين أو اختيار الأقرب من خلال الخريطة داخل المدينة المحددة.</p>
                 </div>
               </div>
 
-              <div class="form-group ur-group">
-                <label class="form-label ur-label" for="ur-city">المدينة</label>
-                <select class="form-select" id="ur-city">
-                  <option value="">اختر المدينة...</option>
-                </select>
-                <button type="button" id="ur-city-clear" class="city-clear-btn hidden">إلغاء المدينة (إرسال لجميع المدن)</button>
-                <div id="ur-city-hint" class="form-hint ur-city-hint hidden" aria-live="polite">
-                  <span id="ur-city-hint-text"></span>
-                  <a id="ur-city-map-link" class="form-hint-link hidden" href="">عرض الخريطة</a>
+              <div class="ur-dispatch">
+                <label class="ur-dispatch-card">
+                  <input type="radio" name="dispatch_mode" id="ur-dispatch-all" value="all" checked>
+                  <span class="ur-dispatch-card-body">
+                    <strong>إرسال للجميع</strong>
+                    <span>يطابق جميع المزوّدين حسب التصنيف الرئيسي والفرعي، ومع تحديد المدينة تتم المطابقة داخلها فقط.</span>
+                  </span>
+                </label>
+                <label class="ur-dispatch-card">
+                  <input type="radio" name="dispatch_mode" id="ur-dispatch-nearest" value="nearest">
+                  <span class="ur-dispatch-card-body">
+                    <strong>إرسال للأقرب</strong>
+                    <span>يستخدم موقعك الحالي ثم يعرض لك خريطة للمزوّدين في المدينة المختارة لتحديد مزوّد وإرسال الطلب له مباشرة.</span>
+                  </span>
+                </label>
+              </div>
+
+              <div class="ur-inline-actions" style="margin-top:16px">
+                <div class="ur-scope-card" style="flex:1 1 280px">
+                  <strong>نطاق الإرسال</strong>
+                  <p id="ur-dispatch-summary">سيتم الإرسال لجميع المزوّدين المطابقين للتصنيف، ويمكنك اختيار المدينة لتقييد النطاق.</p>
                 </div>
-                <p class="ur-hint">عند اختيار الأقرب سنطلب موقعك الحالي لتوجيه الطلب جغرافيًا بشكل فعلي.</p>
+              </div>
+
+              <div class="ur-location-grid" style="margin-top:16px">
+                <div class="ur-field">
+                  <label for="ur-region">المنطقة الإدارية</label>
+                  <select id="ur-region">
+                    <option value="">اختر المنطقة الإدارية</option>
+                  </select>
+                </div>
+                <div class="ur-field">
+                  <label for="ur-city">المدينة <span id="ur-city-required" class="ur-required hidden">*</span></label>
+                  <select id="ur-city" aria-describedby="ur-city-error">
+                    <option value="">اختر المنطقة أولًا ثم المدينة</option>
+                  </select>
+                  <small class="ur-field-help">اختياري عند الإرسال للجميع، ومطلوب عند اختيار الأقرب.</small>
+                  <small class="ur-field-error hidden" id="ur-city-error"></small>
+                </div>
+              </div>
+
+              <div class="ur-inline-actions">
+                <button type="button" class="ur-btn-ghost hidden" id="ur-city-clear">إلغاء المدينة المحددة</button>
+                <button type="button" class="ur-btn-secondary hidden" id="ur-open-map">فتح الخريطة واختيار مزوّد</button>
+              </div>
+
+              <div id="ur-selected-provider" class="ur-selected-provider hidden" style="margin-top:16px">
+                <div class="ur-provider-avatar" id="ur-provider-avatar">
+                  <div class="ur-provider-avatar-fallback" id="ur-provider-avatar-fallback">م</div>
+                  <img id="ur-provider-image" class="hidden" alt="صورة المزوّد">
+                  <span id="ur-provider-badge" class="ur-provider-badge hidden"></span>
+                </div>
+                <div class="ur-provider-meta">
+                  <h4 id="ur-provider-name">لم يتم اختيار مزوّد بعد</h4>
+                  <p id="ur-provider-location">اختر مزوّدًا من الخريطة لتفعيل الإرسال المباشر عند خيار الأقرب.</p>
+                  <div class="ur-provider-stat-row">
+                    <span class="ur-provider-stat" id="ur-provider-rating">التقييم —</span>
+                    <span class="ur-provider-stat" id="ur-provider-completed">المكتملة —</span>
+                    <span class="ur-provider-stat" id="ur-provider-distance">المسافة —</span>
+                  </div>
+                </div>
+                <div class="ur-inline-actions">
+                  <a href="#" id="ur-provider-call" class="ur-action-btn ur-action-call hidden">اتصال</a>
+                  <a href="#" id="ur-provider-whatsapp" target="_blank" rel="noopener" class="ur-action-btn ur-action-whatsapp hidden">واتس</a>
+                  <button type="button" id="ur-provider-change" class="ur-action-btn ur-action-send">تغيير</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="ur-section">
+              <div class="ur-section-head">
+                <span class="ur-step">3</span>
+                <div>
+                  <h3>عنوان الطلب والتفاصيل</h3>
+                  <p>العنوان يوضح الطلب بسرعة، والتفاصيل مختصرة وواضحة بحد أقصى 300 حرف.</p>
+                </div>
+              </div>
+              <div class="ur-fields">
+                <div class="ur-field span-full">
+                  <label for="ur-title">عنوان الطلب <span class="ur-required">*</span></label>
+                  <input id="ur-title" type="text" maxlength="50" placeholder="مثال: صيانة عاجلة لمكيف منزل">
+                  <small class="ur-field-error hidden" id="ur-title-error"></small>
+                  <div class="ur-count" id="ur-title-count-wrap"><span id="ur-title-count">0</span>/50</div>
+                </div>
+                <div class="ur-field span-full">
+                  <label for="ur-description">تفاصيل الطلب <span class="ur-required">*</span></label>
+                  <textarea id="ur-description" maxlength="300" placeholder="اكتب وصفًا مختصرًا وواضحًا لما تحتاجه، مع أهم الملاحظات أو الحالة الحالية..."></textarea>
+                  <small class="ur-field-error hidden" id="ur-description-error"></small>
+                  <div class="ur-count" id="ur-desc-count-wrap"><span id="ur-desc-count">0</span>/300</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="ur-section">
+              <div class="ur-section-head">
+                <span class="ur-step">4</span>
+                <div>
+                  <h3>المرفقات</h3>
+                  <p>يمكنك رفع صور أو فيديو، استخدام الكاميرا، تسجيل صوت، أو إرفاق ملف <code>pdf</code>.</p>
+                </div>
+              </div>
+
+              <div class="ur-attachments-card">
+                <strong>إدارة المرفقات</strong>
+                <p>المرفقات تُرسل مع الطلب عبر نفس الـ API الحالي وتُصنّف تلقائيًا إلى صور وفيديو وصوت وملفات.</p>
+
+                <div class="ur-picker-grid">
+                  <button type="button" class="ur-picker-btn" id="ur-pick-gallery">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zM4 6H2v14a2 2 0 0 0 2 2h14v-2H4z"/></svg>
+                    صور / فيديو
+                  </button>
+                  <button type="button" class="ur-picker-btn" id="ur-pick-camera">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 5h-3.17l-1.84-2H9.01L7.17 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+                    كاميرا
+                  </button>
+                  <button type="button" class="ur-picker-btn" id="ur-record-audio">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z"/></svg>
+                    تسجيل صوت
+                  </button>
+                  <button type="button" class="ur-picker-btn" id="ur-pick-pdf">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm0 2.5L18.5 9H14zM8 13h2.5a2 2 0 0 1 0 4H9v2H8zm1 1v2h1.5a1 1 0 0 0 0-2zm5-1a2 2 0 0 1 0 4H13v2h-1v-6zm0 1H13v2h1a1 1 0 1 0 0-2z"/></svg>
+                    PDF
+                  </button>
+                </div>
+
+                <input id="ur-gallery-input" type="file" multiple accept="image/*,video/*" hidden>
+                <input id="ur-camera-input" type="file" multiple accept="image/*,video/*" capture="environment" hidden>
+                <input id="ur-pdf-input" type="file" multiple accept=".pdf,application/pdf" hidden>
+
+                <div id="ur-recording" class="ur-recording hidden">جارٍ التسجيل الآن... اضغط مرة أخرى لإيقاف التسجيل وحفظ الملف الصوتي.</div>
+                <div id="ur-attachment-summary" class="ur-attachment-summary">لا توجد مرفقات مضافة حتى الآن.</div>
+                <div id="ur-attachment-list" class="ur-attachment-list"></div>
+              </div>
+            </section>
+
+            <div class="ur-submit-row">
+              <div class="ur-submit-note">
+                سيتم إرسال الطلب عبر مسار <code>/api/marketplace/requests/create/</code> مع مطابقة التصنيف والمدينة، وإرسال مباشر للمزوّد المختار عند نمط الأقرب.
+              </div>
+              <div class="ur-inline-actions">
+                <a href="/add-service/" class="ur-btn-secondary">إلغاء</a>
+                <button type="submit" id="ur-submit" class="ur-btn">إرسال الطلب العاجل</button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <aside class="ur-side-panel">
+          <section class="ur-side-block">
+            <h3>قواعد المطابقة</h3>
+            <div class="ur-side-list">
+              <div class="ur-side-item">
+                <strong>إرسال للجميع</strong>
+                <span>يطابق جميع مزوّدي المنصة حسب التصنيف الرئيسي والفرعي، ومع اختيار المدينة تتم مطابقة المدينة أيضًا.</span>
+              </div>
+              <div class="ur-side-item">
+                <strong>إرسال للأقرب</strong>
+                <span>يعتمد على المدينة المختارة وموقعك الحالي لإظهار المزوّدين القريبين مع خيارات الاتصال والواتساب والإرسال.</span>
+              </div>
+              <div class="ur-side-item">
+                <strong>المرفقات</strong>
+                <span>تُرفع كصور وفيديو وصوت وملفات ضمن نفس الطلب مع دعم الكاميرا وملفات <code>pdf</code>.</span>
               </div>
             </div>
           </section>
 
-          <section class="ur-section ur-section-span-full">
-            <div class="ur-section-head">
-              <span class="ur-section-step">3</span>
-              <div>
-                <h2>تفاصيل الطلب</h2>
-                <p>اكتب وصفًا واضحًا ومباشرًا يشرح المطلوب بدقة ليتمكن المزوّد من فهم الحالة بسرعة.</p>
+          <section class="ur-side-block">
+            <h3>ملخص مباشر</h3>
+            <div class="ur-side-list">
+              <div class="ur-side-item">
+                <strong id="ur-summary-service">التصنيف: غير محدد</strong>
+                <span id="ur-summary-service-sub">اختر التصنيف الرئيسي والفرعي لبدء المطابقة.</span>
               </div>
-            </div>
-
-            <div class="form-group ur-group">
-              <label class="form-label ur-label" for="ur-description">وصف الخدمة المطلوبة <span class="ur-required">*</span></label>
-              <textarea class="form-textarea" id="ur-description" placeholder="اوصف ما تحتاجه بالتفصيل، وحدد المشكلة أو المطلوب والنتيجة المتوقعة..." rows="6" maxlength="500"></textarea>
-              <div class="form-char-count"><span id="ur-desc-count">0</span>/500</div>
-            </div>
-          </section>
-
-          <section class="ur-section ur-section-span-full">
-            <div class="ur-section-head">
-              <span class="ur-section-step">4</span>
-              <div>
-                <h2>المرفقات المساندة</h2>
-                <p>أضف صورًا أو فيديو أو تسجيلًا صوتيًا أو ملفات توضيحية لتسريع فهم الحالة واتخاذ القرار.</p>
+              <div class="ur-side-item">
+                <strong id="ur-summary-scope">النطاق: إرسال للجميع</strong>
+                <span id="ur-summary-location">بدون تقييد مدينة حتى الآن.</span>
               </div>
-            </div>
-
-            <div class="form-group ur-group">
-              <label class="form-label ur-label" for="ur-files">مرفقات (اختياري)</label>
-              <div class="file-upload-area ur-upload-area">
-                <input type="file" id="ur-files" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" hidden>
-                <button type="button" class="file-upload-trigger ur-upload-trigger" id="ur-file-trigger">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H9.5v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S6.5 2.79 6.5 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
-                  <span>إرفاق صور/فيديو/صوت أو ملفات</span>
-                </button>
-                <p class="ur-upload-hint">يمكنك رفع أكثر من نوع من المرفقات، وسيتم إرسالها مع الطلب فورًا.</p>
-                <div class="ur-file-summary" id="ur-file-summary">لا توجد مرفقات مضافة</div>
-                <div class="file-list" id="ur-file-list"></div>
+              <div class="ur-side-item">
+                <strong id="ur-summary-attachments">المرفقات: 0</strong>
+                <span id="ur-summary-provider">لم يتم تحديد مزوّد مباشر بعد.</span>
               </div>
             </div>
           </section>
+        </aside>
+      </div>
+
+      <div id="ur-map-modal" class="ur-map-modal" aria-hidden="true">
+        <button type="button" class="ur-map-backdrop" id="ur-map-backdrop" aria-label="إغلاق"></button>
+        <div class="ur-map-panel" role="dialog" aria-modal="true" aria-labelledby="ur-map-title">
+          <div class="ur-map-head">
+            <div>
+              <h3 id="ur-map-title">المزوّدون الأقرب داخل المدينة</h3>
+              <p id="ur-map-subtitle">اختر مزوّدًا من الخريطة أو من القائمة، ثم استخدم إرسال الطلب لتحديده مباشرة.</p>
+            </div>
+            <button type="button" class="ur-map-close" id="ur-map-close" aria-label="إغلاق">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+          <div class="ur-map-body">
+            <div id="ur-map-canvas" class="ur-map-canvas"></div>
+            <div class="ur-map-list-wrap">
+              <div class="ur-map-status" id="ur-map-status">جار تجهيز نتائج المزوّدين...</div>
+              <div id="ur-map-list" class="ur-map-list"></div>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div class="form-actions ur-actions">
-          <a href="/add-service/" class="btn-outlined">إلغاء</a>
-          <button type="submit" class="btn-primary-lg btn-orange" id="ur-submit">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-inline-end:4px"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-            تقديم الطلب
+      <div id="ur-success" class="ur-success hidden">
+        <div class="ur-success-card">
+          <div class="ur-success-icon">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <h3>تم إرسال طلبك بنجاح</h3>
+          <p id="ur-success-message">تم إنشاء الطلب العاجل وإرساله للمسار المطابق. سيتم تحويلك إلى صفحة الطلبات خلال لحظات.</p>
+        </div>
+      </div>
+
+      <div id="ur-toast" class="ur-toast" role="status" aria-live="polite" aria-atomic="true">
+        <div class="ur-toast-head">
+          <div>
+            <strong id="ur-toast-title">تنبيه</strong>
+            <p id="ur-toast-message">ستظهر الرسائل المهمة هنا.</p>
+          </div>
+          <button type="button" id="ur-toast-close" class="ur-toast-close" aria-label="إغلاق">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
-        </div>
-      </form>
-
-      <!-- Success overlay -->
-      <div id="ur-success" class="success-overlay hidden">
-        <div class="success-card">
-          <div class="success-icon">✅</div>
-          <h2 class="success-title">تم إرسال طلبك بنجاح!</h2>
-          <p class="success-msg">سيتم إشعار مقدمي الخدمات القريبين منك. يمكنك متابعة حالة الطلب من صفحة الطلبات</p>
-          <a href="/orders/" class="btn btn-primary" style="margin-top:16px">متابعة الطلبات</a>
-          <a href="/" class="btn-link" style="margin-top:8px">العودة للرئيسية</a>
         </div>
       </div>
     </div>
@@ -188,5 +1369,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/urgentRequestPage.js' %}"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'mobile_web/js/urgentRequestPage.js' %}?v=20260418-urgent-redesign"></script>
 {% endblock %}

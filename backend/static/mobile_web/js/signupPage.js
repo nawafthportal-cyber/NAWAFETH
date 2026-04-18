@@ -486,6 +486,9 @@ const SignupPage = (() => {
     _setLoading(false);
 
     if (res.ok) {
+      if (typeof Auth.saveTokens === 'function') {
+        Auth.saveTokens({ role_state: (res.data && res.data.role_state) || 'client' });
+      }
       if (typeof Auth.clearProfileCache === 'function') {
         Auth.clearProfileCache();
       }

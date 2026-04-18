@@ -85,6 +85,36 @@ def service_request_pre_execution_return_status(service_request) -> str:
 	return RequestStatus.NEW
 
 
+def service_request_pending_input_stage(service_request, *, status_logs=None) -> str:
+	status = (getattr(service_request, "status", "") or "").strip().lower()
+	if status != RequestStatus.AWAITING_CLIENT_APPROVAL:
+		return ""
+
+	logs = status_logs
+	if logs is None:
+		prefetched = getattr(service_request, "_prefetched_objects_cache", {})
+		cached_logs = prefetched.get("status_logs") if isinstance(prefetched, dict) else None
+		if cached_logs is not None:
+			logs = cached_logs
+		else:
+			try:
+				logs = service_request.status_logs.only("to_status")
+			except Exception:
+				logs = []
+
+	for log in logs or []:
+		to_status = (getattr(log, "to_status", "") or "").strip().lower()
+		if to_status == RequestStatus.IN_PROGRESS:
+			return "progress_update"
+	return "pre_execution"
+
+
+def service_request_pending_input_return_status(service_request, *, status_logs=None) -> str:
+	if service_request_pending_input_stage(service_request, status_logs=status_logs) == "progress_update":
+		return RequestStatus.IN_PROGRESS
+	return service_request_pre_execution_return_status(service_request)
+
+
 class DispatchMode(models.TextChoices):
 	ALL = "all", "الكل"
 	NEAREST = "nearest", "الأقرب"
@@ -167,20 +197,26 @@ class ServiceRequest(models.Model):
 	def accept(self, provider: ProviderProfile) -> None:
 		if self.status != RequestStatus.NEW:
 			raise ValidationError("لا يمكن قبول الطلب الآن")
+
+		update_qs = ServiceRequest.objects.filter(pk=self.pk, status=RequestStatus.NEW).filter(
+			models.Q(provider__isnull=True) | models.Q(provider=provider)
+		)
+		updated = update_qs.update(
+			provider=provider,
+			status=RequestStatus.PROVIDER_ACCEPTED,
+			provider_inputs_approved=None,
+			provider_inputs_decided_at=None,
+			provider_inputs_decision_note="",
+		)
+		if not updated:
+			self.refresh_from_db()
+			raise ValidationError("لا يمكن قبول الطلب الآن")
+
 		self.provider = provider
 		self.status = RequestStatus.PROVIDER_ACCEPTED
 		self.provider_inputs_approved = None
 		self.provider_inputs_decided_at = None
 		self.provider_inputs_decision_note = ""
-		self.save(
-			update_fields=[
-				"provider",
-				"status",
-				"provider_inputs_approved",
-				"provider_inputs_decided_at",
-				"provider_inputs_decision_note",
-			]
-		)
 
 	def start(self) -> None:
 		if self.status not in (*PRE_EXECUTION_REQUEST_STATUSES, RequestStatus.IN_PROGRESS):
@@ -201,8 +237,31 @@ class ServiceRequest(models.Model):
 			allowed_statuses = [*PRE_EXECUTION_REQUEST_STATUSES, RequestStatus.IN_PROGRESS]
 		if self.status not in allowed_statuses:
 			raise ValidationError("لا يمكن إلغاء الطلب في هذه الحالة")
+		clear_provider_state = self.status in PRE_EXECUTION_REQUEST_STATUSES
 		self.status = RequestStatus.CANCELLED
-		self.save(update_fields=["status"])
+		update_fields = ["status"]
+		if clear_provider_state:
+			self.provider = None
+			self.expected_delivery_at = None
+			self.estimated_service_amount = None
+			self.received_amount = None
+			self.remaining_amount = None
+			self.provider_inputs_approved = None
+			self.provider_inputs_decided_at = None
+			self.provider_inputs_decision_note = ""
+			update_fields.extend(
+				[
+					"provider",
+					"expected_delivery_at",
+					"estimated_service_amount",
+					"received_amount",
+					"remaining_amount",
+					"provider_inputs_approved",
+					"provider_inputs_decided_at",
+					"provider_inputs_decision_note",
+				]
+			)
+		self.save(update_fields=update_fields)
 
 	def reopen(self) -> None:
 		if self.status != RequestStatus.CANCELLED:

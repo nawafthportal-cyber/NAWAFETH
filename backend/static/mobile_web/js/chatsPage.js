@@ -181,6 +181,16 @@ const ChatsPage = (() => {
   async function _fetchThreads() {
     _setLoading(true);
     _setError('');
+    const profileState = await Auth.resolveProfile(false, _activeMode());
+    if (!profileState.ok) {
+      _setLoading(false);
+      if (!Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _setError('يجري الآن التحقق من الجلسة ونوع الحساب. حاول مرة أخرى بعد لحظة.');
+      return;
+    }
 
     try {
       const [threadsRes, statesRes] = await Promise.all([
@@ -189,7 +199,12 @@ const ChatsPage = (() => {
       ]);
 
       if (threadsRes.status === 401 || statesRes.status === 401) {
-        _showGate();
+        const recovered = await Auth.resolveProfile(true, _activeMode());
+        if (!recovered.ok && !Auth.isLoggedIn()) {
+          _showGate();
+          return;
+        }
+        _setError('يتم تحديث الجلسة أو نوع الحساب الآن. أعد المحاولة بعد قليل.');
         return;
       }
 

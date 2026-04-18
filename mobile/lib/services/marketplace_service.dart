@@ -11,6 +11,7 @@ library;
 
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'account_mode_service.dart';
 import 'api_client.dart';
 import 'upload_optimizer.dart';
 import '../models/service_request_model.dart';
@@ -45,6 +46,8 @@ class MarketplaceService {
     List<File> files = const [],
     File? audio,
   }) async {
+    final activeMode = await AccountModeService.apiMode();
+
     // تحسين الصور والملفات قبل الرفع
     final optimizedImages = <File>[];
     for (final img in images) {
@@ -61,6 +64,7 @@ class MarketplaceService {
       'POST',
       '/api/marketplace/requests/create/',
       (request) async {
+        request.fields['mode'] = activeMode;
         request.fields['title'] = title;
         request.fields['description'] = description;
         request.fields['request_type'] = requestType;

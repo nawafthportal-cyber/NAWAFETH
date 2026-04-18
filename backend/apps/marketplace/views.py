@@ -17,6 +17,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied, ValidationError
 
+from apps.providers.location_formatter import city_matches_scope, provider_city_query_values
 from apps.providers.models import ProviderCategory, ProviderProfile
 from apps.subscriptions.capabilities import (
 	competitive_request_delay_for_user,
@@ -38,7 +39,11 @@ from .models import (
 )
 
 from apps.marketplace.services.actions import allowed_actions, execute_action
-from apps.marketplace.services.dispatch import provider_can_access_urgent_request, provider_dispatch_tier
+from apps.marketplace.services.dispatch import (
+	clear_urgent_request_provider_notifications,
+	provider_can_access_urgent_request,
+	provider_dispatch_tier,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -95,7 +100,11 @@ def _request_subcategory_ids(service_request: ServiceRequest) -> list[int]:
 
 
 def _provider_matches_request_scope(provider: ProviderProfile, service_request: ServiceRequest) -> bool:
-	if (service_request.city or "").strip() and (provider.city or "").strip() and service_request.city.strip() != provider.city.strip():
+	if not city_matches_scope(
+		getattr(service_request, "city", "") or "",
+		provider_city=getattr(provider, "city", "") or "",
+		provider_region=getattr(provider, "region", "") or "",
+	):
 		return False
 	return ProviderCategory.objects.filter(
 		provider=provider,
@@ -158,7 +167,15 @@ def _provider_available_request_ids(provider: ProviderProfile, *, now=None) -> l
 			Q(subcategory_id__in=provider_subcategories)
 			| Q(subcategories__id__in=provider_subcategories)
 		)
-		.filter(Q(city=provider.city) | Q(city=""))
+		.filter(
+			Q(
+				city__in=provider_city_query_values(
+					getattr(provider, "city", "") or "",
+					provider_region=getattr(provider, "region", "") or "",
+				)
+			)
+			| Q(city="")
+		)
 		.distinct()
 	)
 
@@ -205,6 +222,8 @@ def _accept_provider_request_from_legacy_html(*, provider: ProviderProfile, acto
 	if service_request.provider_id == provider.id:
 		old = service_request.status
 		service_request.accept(provider)
+		if service_request.request_type == RequestType.URGENT:
+			clear_urgent_request_provider_notifications(service_request)
 		RequestStatusLog.objects.create(
 			request=service_request,
 			actor=actor,
@@ -230,6 +249,7 @@ def _accept_provider_request_from_legacy_html(*, provider: ProviderProfile, acto
 		raise ValidationError("هذا الطلب لم يصبح متاحًا لباقتك بعد")
 
 	service_request.accept(provider)
+	clear_urgent_request_provider_notifications(service_request)
 	RequestStatusLog.objects.create(
 		request=service_request,
 		actor=actor,
@@ -561,7 +581,11 @@ def provider_requests(request):
 	if q:
 		qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
 	if city:
-		qs = qs.filter(city__icontains=city)
+		city_values = provider_city_query_values(city)
+		city_query = Q()
+		for value in city_values:
+			city_query |= Q(city__icontains=value)
+		qs = qs.filter(city_query)
 	if request_type in {choice[0] for choice in RequestType.choices}:
 		qs = qs.filter(request_type=request_type)
 	if status:

@@ -34,6 +34,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
   // ── Form state ──
   CategoryModel? _selectedCat;
   SubCategoryModel? _selectedSub;
+  String? _selectedRegion;
   String? _selectedCity;
   DateTime? _deadline;
   bool _submitting = false;
@@ -126,7 +127,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
       description: details,
       requestType: 'competitive',
       subcategory: _selectedSub!.id,
-      city: _selectedCity,
+      city: _selectedScopedCity.isEmpty ? null : _selectedScopedCity,
       quoteDeadline: _deadline != null ? DateFormat('yyyy-MM-dd').format(_deadline!) : null,
       files: _files,
     );
@@ -308,22 +309,47 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _label('المدينة', isDark),
+                _label('المنطقة الإدارية والمدينة', isDark),
                 const SizedBox(height: 6),
-                _dropdownWidget<String>(
-                  isDark: isDark,
-                  hint: 'اختر المدينة (اختياري)',
-                  value: _selectedCity,
-                  items: SaudiCities.all,
-                  labelFn: (city) => city,
-                  onChanged: (city) => setState(() => _selectedCity = city),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _dropdownWidget<SaudiRegionCatalogEntry>(
+                        isDark: isDark,
+                        hint: 'اختر المنطقة الإدارية',
+                        value: _activeRegion,
+                        items: SaudiCities.regionCatalogFallback,
+                        labelFn: (region) => region.displayName,
+                        onChanged: (region) {
+                          setState(() {
+                            _selectedRegion = region?.nameAr;
+                            _selectedCity = null;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _dropdownWidget<String>(
+                        isDark: isDark,
+                        hint: 'اختر المدينة (اختياري)',
+                        value: _selectedCity,
+                        items: _availableCities,
+                        labelFn: (city) => city,
+                        onChanged: (city) => setState(() => _selectedCity = city),
+                      ),
+                    ),
+                  ],
                 ),
-                if (_selectedCity != null) ...[
+                if (_selectedScopedCity.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
-                      onPressed: () => setState(() => _selectedCity = null),
+                      onPressed: () => setState(() {
+                        _selectedRegion = null;
+                        _selectedCity = null;
+                      }),
                       icon: const Icon(Icons.location_off_outlined, size: 14),
                       label: const Text(
                         'إلغاء المدينة (إرسال لجميع المدن)',
@@ -421,6 +447,16 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
     );
   }
 
+  SaudiRegionCatalogEntry? get _activeRegion {
+    return SaudiCities.findRegionEntry(_selectedRegion);
+  }
+
+  List<String> get _availableCities => _activeRegion?.cities ?? const [];
+
+  String get _selectedScopedCity {
+    return SaudiCities.normalizeScopedCity(_selectedCity, region: _selectedRegion);
+  }
+
   Widget _dropdownWidget<T>({
     required bool isDark,
     required String hint,
@@ -512,7 +548,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
   Widget _heroCard() {
     final categoryLabel = _selectedCat?.name ?? 'اختر التصنيف المناسب';
     final deadlineLabel = _deadline != null ? DateFormat('yyyy/MM/dd').format(_deadline!) : 'بدون موعد نهائي';
-    final cityLabel = (_selectedCity ?? '').trim().isEmpty ? 'جميع المدن' : _selectedCity!;
+    final cityLabel = _selectedScopedCity.isEmpty ? 'جميع المدن' : _selectedScopedCity;
 
     return Container(
       width: double.infinity,

@@ -780,6 +780,21 @@
   <div class="container mwx-shell">
     {% include "mobile_web/_auth_gate_unified.html" with gate_id="auth-gate" kicker="نافذتك الشخصية" title="سجّل دخولك لعرض نافذتي" description="يمكنك متابعة نشاطك وتعديل بياناتك بعد تسجيل الدخول." next_path="/profile/" note="ملفك الشخصي، إعداداتك، وأدواتك في لوحة واحدة." %}
 
+    <div id="profile-error-state" class="auth-gate auth-gate-unified hidden">
+      <p class="auth-gate-unified-kicker">تعذر تحميل البيانات</p>
+      <div class="auth-gate-icon auth-gate-unified-icon" aria-hidden="true">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 8v5"></path>
+          <circle cx="12" cy="16.5" r="0.8" fill="currentColor" stroke="none"></circle>
+        </svg>
+      </div>
+      <h2 class="auth-gate-unified-title">لم نتمكن من تحميل بيانات نافذتي الآن</h2>
+      <p id="profile-error-message" class="auth-gate-unified-desc">حدث تعثر مؤقت أثناء جلب بيانات الحساب. أعد المحاولة بعد لحظة.</p>
+      <button id="profile-error-retry" type="button" class="btn btn-primary auth-gate-unified-btn">إعادة المحاولة</button>
+      <p class="auth-gate-unified-note">إذا استمرت المشكلة فغالبًا أن نقطة <code>/api/accounts/me/</code> ما زالت ترجع 503 أثناء الاختبار المحلي.</p>
+    </div>
+
     <div id="profile-content" class="mwx-content hidden">
       <section class="mwx-head" aria-label="ملخص نافذتي">
         <div class="mwx-head-main">
@@ -964,5 +979,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/profilePage.js' %}"></script>
+<script src="{% static 'mobile_web/js/profilePage.js' %}?v=20260418-authswitch2"></script>
 {% endblock %}

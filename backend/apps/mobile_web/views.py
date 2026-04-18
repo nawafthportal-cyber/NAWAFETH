@@ -116,6 +116,72 @@ def _provider_meta_context(request, provider):
     }
 
 
+def _normalize_account_mode(raw_value):
+    value = " ".join(str(raw_value or "").split()).strip().lower()
+    return value if value in {"client", "provider"} else "client"
+
+
+def _has_provider_profile(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    try:
+        return bool(getattr(user, "provider_profile", None))
+    except Exception:
+        return False
+
+
+def _mobile_request_account_mode(request):
+    raw_mode = (
+        request.GET.get("mode")
+        or request.headers.get("X-Account-Mode")
+        or request.COOKIES.get("nw_account_mode")
+        or ""
+    )
+    return _normalize_account_mode(raw_mode)
+
+
+def _request_path_without_mode(request):
+    query = request.GET.copy()
+    if "mode" in query:
+        query.pop("mode")
+    encoded = query.urlencode()
+    if encoded:
+        return f"{request.path}?{encoded}"
+    return request.path
+
+
+class ClientModeOnlyRequestViewMixin:
+    provider_block_title = "إنشاء الطلبات متاح في وضع العميل فقط"
+    provider_block_description = (
+        "أنت تستخدم المنصة الآن بوضع مقدم الخدمة، لذلك تم إيقاف هذا المسار حتى لا تختلط أدوات المزود بمسارات العميل."
+    )
+    provider_block_note = "بدّل نوع الحساب إلى عميل الآن ثم أكمل من نفس الصفحة مباشرة."
+    provider_block_switch_label = "التبديل إلى عميل"
+    provider_block_profile_label = "الذهاب إلى نافذتي"
+
+    def is_provider_mode_blocked(self):
+        request = self.request
+        return _has_provider_profile(getattr(request, "user", None)) and _mobile_request_account_mode(request) == "provider"
+
+    def get_provider_mode_target(self):
+        return _request_path_without_mode(self.request)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        blocked = self.is_provider_mode_blocked()
+        context["provider_mode_blocked"] = blocked
+        context["provider_mode_target"] = self.get_provider_mode_target()
+        context["provider_mode_block"] = {
+            "title": self.provider_block_title,
+            "description": self.provider_block_description,
+            "note": self.provider_block_note,
+            "switch_label": self.provider_block_switch_label,
+            "profile_label": self.provider_block_profile_label,
+            "target": context["provider_mode_target"],
+        }
+        return context
+
+
 class MobileWebHomeView(TemplateView):
     """
     Serves the mobile-web home page shell.
@@ -300,16 +366,25 @@ class MobileWebLegacyPromoRequestRedirectView(RedirectView):
         return target
 
 
-class MobileWebAddServiceView(TemplateView):
+class MobileWebAddServiceView(ClientModeOnlyRequestViewMixin, TemplateView):
     template_name = "mobile_web/add_service.html"
+    provider_block_title = "إنشاء الطلبات متاح في وضع العميل"
+    provider_block_description = "أنت تستخدم المنصة الآن بوضع مقدم الخدمة، لذلك تم إيقاف مسارات الطلب الجديدة حتى لا تختلط أدوات المزود بمسارات العميل."
+    provider_block_note = "بدّل نوع الحساب إلى عميل الآن، ثم ستظهر لك جميع مسارات الطلب مباشرة في نفس الصفحة."
 
 
-class MobileWebUrgentRequestView(TemplateView):
+class MobileWebUrgentRequestView(ClientModeOnlyRequestViewMixin, TemplateView):
     template_name = "mobile_web/urgent_request.html"
+    provider_block_title = "الطلب العاجل متاح في وضع العميل فقط"
+    provider_block_description = "أنت تستخدم المنصة الآن بوضع مقدم الخدمة، لذلك لا يمكن إنشاء طلب عاجل من هذا الوضع."
+    provider_block_note = "بدّل نوع الحساب إلى عميل الآن، ثم أكمل إرسال الطلب العاجل مباشرة."
 
 
-class MobileWebRequestQuoteView(TemplateView):
+class MobileWebRequestQuoteView(ClientModeOnlyRequestViewMixin, TemplateView):
     template_name = "mobile_web/request_quote.html"
+    provider_block_title = "طلب عروض الأسعار متاح في وضع العميل فقط"
+    provider_block_description = "أنت تستخدم المنصة الآن بوضع مقدم الخدمة، لذلك لا يمكن إنشاء طلب عروض أسعار من هذا الوضع."
+    provider_block_note = "بدّل نوع الحساب إلى عميل الآن، ثم أكمل طلب عروض الأسعار مباشرة."
 
 
 class MobileWebSettingsView(TemplateView):
@@ -378,8 +453,11 @@ class MobileWebServiceDetailView(TemplateView):
     template_name = "mobile_web/service_detail.html"
 
 
-class MobileWebServiceRequestFormView(TemplateView):
+class MobileWebServiceRequestFormView(ClientModeOnlyRequestViewMixin, TemplateView):
     template_name = "mobile_web/service_request_form.html"
+    provider_block_title = "إنشاء الطلبات متاح في وضع العميل فقط"
+    provider_block_description = "أنت تستخدم المنصة الآن بوضع مقدم الخدمة، لذلك لا يمكن إرسال طلب مباشر أو تنافسي أو عاجل من هذا الوضع."
+    provider_block_note = "بدّل نوع الحساب إلى عميل الآن، ثم أكمل الطلب من نفس الصفحة مباشرة."
 
 
 class MobileWebProviderRegisterView(TemplateView):

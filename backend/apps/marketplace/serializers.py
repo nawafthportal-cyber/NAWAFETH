@@ -1,12 +1,20 @@
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.providers.location_formatter import format_city_display
+from apps.accounts.role_context import get_validated_role
+from apps.providers.location_formatter import (
+    city_matches_scope,
+    format_city_display,
+    normalize_city_scope,
+)
 from .models import (
     Offer,
     RequestStatusLog,
     ServiceRequest,
     ServiceRequestAttachment,
+    service_request_pending_input_stage,
     request_status_group_value,
     service_request_status_label,
 )
@@ -28,6 +36,26 @@ from apps.uploads.validators import (
 from .services.actions import allowed_actions
 
 
+COORDINATE_QUANT = Decimal("0.000001")
+
+
+def _normalize_coordinate(value, *, field_name: str, min_value: str, max_value: str):
+    if value in (None, ""):
+        return None
+
+    try:
+        normalized = Decimal(str(value)).quantize(COORDINATE_QUANT, rounding=ROUND_HALF_UP)
+    except (InvalidOperation, TypeError, ValueError):
+        label = "خط العرض" if field_name == "request_lat" else "خط الطول"
+        raise serializers.ValidationError({field_name: f"{label} غير صالح"})
+
+    if not (Decimal(min_value) <= normalized <= Decimal(max_value)):
+        label = "خط العرض" if field_name == "request_lat" else "خط الطول"
+        raise serializers.ValidationError({field_name: f"{label} غير صالح"})
+
+    return normalized
+
+
 class ServiceRequestCreateSerializer(serializers.ModelSerializer):
     subcategory = serializers.PrimaryKeyRelatedField(
         queryset=SubCategory.objects.filter(is_active=True),
@@ -39,8 +67,8 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True,
     )
-    request_lat = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, write_only=True)
-    request_lng = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, write_only=True)
+    request_lat = serializers.FloatField(required=False, write_only=True)
+    request_lng = serializers.FloatField(required=False, write_only=True)
     provider = serializers.PrimaryKeyRelatedField(
         queryset=ProviderProfile.objects.all(),
         required=False,
@@ -90,9 +118,13 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        request = self.context.get("request")
+        requester = getattr(request, "user", None)
+        requester_id = getattr(requester, "id", None)
+        active_role = get_validated_role(request, fallback="client") if request is not None else "client"
         provider = attrs.get("provider")
         request_type = attrs.get("request_type")
-        city = (attrs.get("city") or "").strip()
+        city = normalize_city_scope(attrs.get("city") or "")
         dispatch_mode = (attrs.get("dispatch_mode") or "all").strip().lower()
         request_lat = attrs.get("request_lat")
         request_lng = attrs.get("request_lng")
@@ -100,6 +132,22 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         subcategory = attrs.get("subcategory")
         subcategory_ids = list(attrs.get("subcategory_ids") or [])
         attrs["city"] = city
+        if city and len(city) > ServiceRequest._meta.get_field("city").max_length:
+            raise serializers.ValidationError({
+                "city": "صيغة المدينة طويلة أكثر من المسموح"
+            })
+
+        # Dual-role users may submit client-side service requests while their
+        # active account mode is client. Only block explicit provider mode.
+        if requester and active_role == "provider":
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "نقدّر احترافيتك كمزود خدمة، ولتنظيم التجربة لا يمكن إنشاء طلب خدمة أثناء استخدام وضع مقدم الخدمة. "
+                        "بدّل نوع الحساب إلى عميل من نافذتي ثم أكمل إرسال الطلب."
+                    )
+                }
+            )
 
         if subcategory is not None and subcategory.id not in subcategory_ids:
             subcategory_ids = [subcategory.id, *subcategory_ids]
@@ -128,17 +176,24 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         attrs["_selected_subcategory_ids"] = normalized_ids
 
         # City rules:
-        # - urgent + nearest: required
+        # - urgent + nearest: optional (location-based ranking handles filtering)
         # - urgent + all: optional
         # - normal/competitive: optional
-        city_required = request_type == "urgent" and dispatch_mode == "nearest"
-        if city_required and not city:
-            raise serializers.ValidationError({"city": "المدينة مطلوبة"})
 
-        if request_lat is not None and not (-90 <= float(request_lat) <= 90):
-            raise serializers.ValidationError({"request_lat": "خط العرض غير صالح"})
-        if request_lng is not None and not (-180 <= float(request_lng) <= 180):
-            raise serializers.ValidationError({"request_lng": "خط الطول غير صالح"})
+        request_lat = _normalize_coordinate(
+            request_lat,
+            field_name="request_lat",
+            min_value="-90",
+            max_value="90",
+        )
+        request_lng = _normalize_coordinate(
+            request_lng,
+            field_name="request_lng",
+            min_value="-180",
+            max_value="180",
+        )
+        attrs["request_lat"] = request_lat
+        attrs["request_lng"] = request_lng
 
         if request_type == "urgent" and dispatch_mode == "nearest":
             if request_lat is None or request_lng is None:
@@ -151,11 +206,12 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
             attrs["request_lng"] = None
 
         # Competitive/Urgent requests are broadcast to matching providers.
-        # They must NOT be targeted to a single provider.
+        # They must NOT be targeted to a single provider (except urgent+nearest).
         if request_type in ("competitive", "urgent") and provider is not None:
-            raise serializers.ValidationError({
-                "provider": "هذا النوع من الطلبات لا يدعم تحديد مزود خدمة."
-            })
+            if not (request_type == "urgent" and dispatch_mode == "nearest"):
+                raise serializers.ValidationError({
+                    "provider": "هذا النوع من الطلبات لا يدعم تحديد مزود خدمة."
+                })
 
         if request_type == "normal" and provider is None:
             raise serializers.ValidationError({
@@ -163,10 +219,23 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
             })
 
         if request_type == "normal" and provider is not None:
+            if requester_id and getattr(provider, "user_id", None) == requester_id:
+                raise serializers.ValidationError(
+                    {
+                        "provider": (
+                            "نقدّر احترافيتك كمزود خدمة، ولا يمكن توجيه الطلب إلى حسابك نفسه. "
+                            "اختر مزود خدمة آخر لإتمام الطلب."
+                        )
+                    }
+                )
             # Ensure provider is eligible for this request (same city + same subcategory)
-            if city and (getattr(provider, "city", None) or "").strip() and provider.city.strip() != city:
+            if city and not city_matches_scope(
+                city,
+                provider_city=getattr(provider, "city", "") or "",
+                provider_region=getattr(provider, "region", "") or "",
+            ):
                 raise serializers.ValidationError({
-                    "city": "مدينة الطلب لا تطابق مدينة مزود الخدمة"
+                    "city": "المدينة المختارة لا تطابق نطاق مزود الخدمة"
                 })
             if not ProviderCategory.objects.filter(
                 provider=provider,
@@ -315,7 +384,9 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
     subcategory_name = serializers.CharField(source="subcategory.name", read_only=True)
     category_name = serializers.CharField(source="subcategory.category.name", read_only=True)
     client_phone = serializers.CharField(source="client.phone", read_only=True)
+    client_city = serializers.CharField(source="client.city", read_only=True)
     client_name = serializers.SerializerMethodField()
+    client_city_display = serializers.SerializerMethodField()
     provider_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_phone = serializers.CharField(source="provider.user.phone", read_only=True)
     subcategory_ids = serializers.SerializerMethodField()
@@ -345,6 +416,9 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
         last = (getattr(obj.client, "last_name", "") or "").strip()
         name = f"{first} {last}".strip()
         return name or "-"
+
+    def get_client_city_display(self, obj):
+        return format_city_display(getattr(obj.client, "city", ""))
 
     def get_subcategory_ids(self, obj):
         try:
@@ -433,6 +507,8 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
             "category_name",
             "client_name",
             "client_phone",
+            "client_city",
+            "client_city_display",
         )
 
 
@@ -635,6 +711,7 @@ class ProviderRequestDetailSerializer(ServiceRequestListSerializer):
     attachments = ServiceRequestAttachmentSerializer(many=True, read_only=True)
     status_logs = RequestStatusLogSerializer(many=True, read_only=True)
     available_actions = serializers.SerializerMethodField()
+    provider_inputs_stage = serializers.SerializerMethodField()
 
     def get_available_actions(self, obj):
         request = self.context.get("request")
@@ -643,9 +720,17 @@ class ProviderRequestDetailSerializer(ServiceRequestListSerializer):
             return []
         return allowed_actions(user, obj)
 
+    def get_provider_inputs_stage(self, obj):
+        logs = None
+        prefetched = getattr(obj, "_prefetched_objects_cache", {})
+        if isinstance(prefetched, dict):
+            logs = prefetched.get("status_logs")
+        return service_request_pending_input_stage(obj, status_logs=logs)
+
     class Meta(ServiceRequestListSerializer.Meta):
         fields = ServiceRequestListSerializer.Meta.fields + (
             "attachments",
             "status_logs",
             "available_actions",
+            "provider_inputs_stage",
         )

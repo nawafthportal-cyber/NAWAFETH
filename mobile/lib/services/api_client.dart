@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../config/app_env.dart';
+import 'account_mode_service.dart';
 import 'auth_service.dart';
 
 class ApiClient {
@@ -68,10 +69,12 @@ class ApiClient {
   }) async {
     final url = _buildUri(path);
     final token = skipAuth ? null : await AuthService.getAccessToken();
+    final activeMode = await AccountModeService.apiMode();
 
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'X-Account-Mode': activeMode,
     };
 
     if (token != null && token.isNotEmpty) {
@@ -164,6 +167,7 @@ class ApiClient {
       await AuthService.logout();
       return const _RefreshAttemptResult(ok: false, terminal: true);
     }
+    final activeMode = await AccountModeService.apiMode();
 
     try {
       final url = _buildUri('/api/accounts/token/refresh/');
@@ -172,6 +176,7 @@ class ApiClient {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'X-Account-Mode': activeMode,
         },
         body: jsonEncode({'refresh': refreshToken}),
       ).timeout(const Duration(seconds: 10));
@@ -298,9 +303,11 @@ class ApiClient {
   }) async {
     final uri = _buildUri(path);
     final token = skipAuth ? null : await AuthService.getAccessToken();
+    final activeMode = await AccountModeService.apiMode();
 
     final request = http.MultipartRequest(method, uri);
     request.headers['Accept'] = 'application/json';
+    request.headers['X-Account-Mode'] = activeMode;
     if (token != null && token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
     }

@@ -517,6 +517,22 @@
 {% block content %}
 <main class="page-content">
   <div class="container asv2-shell">
+    <div id="add-service-provider-block" class="auth-gate auth-gate-unified{% if not provider_mode_blocked %} hidden{% endif %}">
+      {% if provider_mode_blocked %}
+      <p class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
+      <div class="auth-gate-unified-icon" aria-hidden="true">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-2 .9-2 2v11c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+      </div>
+      <h2 class="auth-gate-unified-title">{{ provider_mode_block.title }}</h2>
+      <p class="auth-gate-unified-desc">{{ provider_mode_block.description }}</p>
+      <div class="auth-gate-unified-actions" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px">
+        <button type="button" class="btn btn-primary auth-gate-unified-btn" data-provider-request-switch="client" data-provider-request-target="{{ provider_mode_block.target }}">{{ provider_mode_block.switch_label }}</button>
+        <a href="/profile/" class="btn btn-secondary" style="min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">{{ provider_mode_block.profile_label }}</a>
+      </div>
+      <p class="auth-gate-unified-note" style="margin-top:12px">{{ provider_mode_block.note }}</p>
+      {% endif %}
+    </div>
+    <div id="add-service-client-content"{% if provider_mode_blocked %} class="hidden"{% endif %}>
     <section class="asv2-hero">
       <div class="asv2-hero-top">
         <span class="asv2-kicker">لوحة بدء الطلب</span>
@@ -596,6 +612,7 @@
         <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
       </div>
     </section>
+    </div>
   </div>
 </main>
 {% endblock %}

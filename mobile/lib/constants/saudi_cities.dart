@@ -22,6 +22,57 @@ class SaudiCities {
     return _cleanText(value).replaceFirst(RegExp(r'^(?:منطقة|المنطقة)\s+'), '').trim();
   }
 
+  static Map<String, String> splitCityScope(String? value) {
+    final normalized = _cleanText(value);
+    if (normalized.isEmpty) return const {'region': '', 'city': ''};
+    final parts = normalized.split(' - ');
+    if (parts.length < 2) {
+      return {'region': '', 'city': normalized};
+    }
+    return {
+      'region': _stripRegionPrefix(parts.first),
+      'city': _cleanText(parts.sublist(1).join(' - ')),
+    };
+  }
+
+  static SaudiRegionCatalogEntry? findRegionEntry(String? region) {
+    final normalized = _cleanText(region);
+    if (normalized.isEmpty) return null;
+    for (final entry in regionCatalogFallback) {
+      if (entry.nameAr == normalized || entry.displayName == _stripRegionPrefix(normalized)) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  static SaudiRegionCatalogEntry? findRegionForCity(String? city, {String? region}) {
+    final regionEntry = findRegionEntry(region);
+    if (regionEntry != null) return regionEntry;
+
+    final scope = splitCityScope(city);
+    final scopeRegion = scope['region'] ?? '';
+    if (scopeRegion.isNotEmpty) {
+      return findRegionEntry(scopeRegion);
+    }
+
+    final cityName = scope['city'] ?? _cleanText(city);
+    final inferredRegion = lookupRegionByCity(cityName);
+    if (inferredRegion.isEmpty) return null;
+    return findRegionEntry(inferredRegion);
+  }
+
+  static String normalizeScopedCity(String? city, {String? region}) {
+    final scope = splitCityScope(city);
+    final regionText = _stripRegionPrefix(region).isNotEmpty
+        ? _stripRegionPrefix(region)
+        : (scope['region'] ?? '');
+    final cityText = (scope['city'] ?? '').isNotEmpty
+        ? (scope['city'] ?? '')
+        : _cleanText(city);
+    return formatCityDisplay(cityText, region: regionText);
+  }
+
   static const List<SaudiRegionCatalogEntry> regionCatalogFallback = [
     SaudiRegionCatalogEntry(
       nameAr: 'منطقة الرياض',

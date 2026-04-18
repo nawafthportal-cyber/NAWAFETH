@@ -600,6 +600,12 @@ const ProviderDashboardPage = (() => {
         try {
           const data = await ensureQrData();
           await navigator.clipboard.writeText(data.targetUrl);
+          if (_providerProfile && _providerProfile.id) {
+            await ApiClient.request('/api/providers/' + encodeURIComponent(String(_providerProfile.id)) + '/share/', {
+              method: 'POST',
+              body: { content_type: 'profile', channel: 'copy_link' },
+            });
+          }
           alert('تم نسخ الرابط');
         } catch (error) {
           alert(error && error.message ? error.message : 'تعذر النسخ');
@@ -614,6 +620,12 @@ const ProviderDashboardPage = (() => {
           if (navigator.share) {
             try {
               await navigator.share({ title: data.title, text: data.targetUrl, url: data.targetUrl });
+              if (_providerProfile && _providerProfile.id) {
+                await ApiClient.request('/api/providers/' + encodeURIComponent(String(_providerProfile.id)) + '/share/', {
+                  method: 'POST',
+                  body: { content_type: 'profile', channel: 'other' },
+                });
+              }
               return;
             } catch {
               // continue to fallback

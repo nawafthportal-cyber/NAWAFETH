@@ -5,6 +5,7 @@
 
 const MyQrPage = (() => {
   let _qrData = null;
+  let _providerProfileId = null;
   let _eventsBound = false;
   let _toastTimer = null;
 
@@ -63,6 +64,9 @@ const MyQrPage = (() => {
       }
 
       _qrData = qr;
+      _providerProfileId = current && current.providerProfile && current.providerProfile.id
+        ? current.providerProfile.id
+        : null;
 
       const titleEl = document.getElementById('qr-title');
       const subtitleEl = document.getElementById('qr-subtitle');
@@ -106,6 +110,12 @@ const MyQrPage = (() => {
     }
     try {
       await navigator.clipboard.writeText(_qrData.targetUrl);
+      if (_providerProfileId && window.ApiClient && typeof ApiClient.request === 'function') {
+        await ApiClient.request('/api/providers/' + encodeURIComponent(String(_providerProfileId)) + '/share/', {
+          method: 'POST',
+          body: { content_type: 'profile', channel: 'copy_link' },
+        });
+      }
       _showToast('تم نسخ الرابط', 'success');
     } catch (_) {
       _showToast('تعذر نسخ الرابط', 'error');
@@ -126,6 +136,12 @@ const MyQrPage = (() => {
     if (navigator.share) {
       try {
         await navigator.share(sharePayload);
+        if (_providerProfileId && window.ApiClient && typeof ApiClient.request === 'function') {
+          await ApiClient.request('/api/providers/' + encodeURIComponent(String(_providerProfileId)) + '/share/', {
+            method: 'POST',
+            body: { content_type: 'profile', channel: 'other' },
+          });
+        }
         return;
       } catch (_) {
         // fallback to copy

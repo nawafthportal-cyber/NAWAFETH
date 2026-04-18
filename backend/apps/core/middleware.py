@@ -118,6 +118,15 @@ class DatabaseOutageShortCircuitMiddleware:
             return False
         if path.startswith("/api/health") or path.startswith("/api/core/health"):
             return False
+        # Keep identity/session endpoints reachable even when an outage marker
+        # was set by a previous transient DB error so the frontend can recover
+        # its active account mode instead of looking logged out.
+        if path.startswith("/api/accounts/me/"):
+            return False
+        if path.startswith("/api/accounts/token/refresh/"):
+            return False
+        if path.startswith("/api/accounts/logout/"):
+            return False
         if path.startswith("/api/content/public/"):
             return False
         if path.startswith("/api/core/unread-badges/"):

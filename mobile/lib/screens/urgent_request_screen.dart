@@ -66,6 +66,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
   // ── Form state ──
   CategoryModel? _selectedCat;
   SubCategoryModel? _selectedSub;
+  String? _selectedRegion;
   String? _selectedCity;
   String _dispatchMode = 'all'; // 'all' | 'nearest'
   String _lastNearestToastKey = '';
@@ -188,7 +189,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
       _snack('أدخل وصفًا للخدمة');
       return;
     }
-    if (_dispatchMode == 'nearest' && (_selectedCity ?? '').isEmpty) {
+    if (_dispatchMode == 'nearest' && _selectedScopedCity.isEmpty) {
       _snack('اختر المدينة عند البحث عن الأقرب');
       return;
     }
@@ -199,7 +200,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
       description: desc,
       requestType: 'urgent',
       subcategory: _selectedSub!.id,
-      city: _selectedCity,
+      city: _selectedScopedCity.isEmpty ? null : _selectedScopedCity,
       dispatchMode: _dispatchMode,
       images: _images,
       videos: _videos,
@@ -261,7 +262,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
   }
 
   void _maybeShowNearestMapToast() {
-    final city = (_selectedCity ?? '').trim();
+    final city = _selectedScopedCity;
     if (_dispatchMode != 'nearest' || city.isEmpty) return;
     final key = '$_dispatchMode::$city';
     if (key == _lastNearestToastKey) return;
@@ -417,27 +418,49 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _label('المدينة', isDark),
+                _label('المنطقة الإدارية والمدينة', isDark),
                 const SizedBox(height: 6),
-                _dropdown<String>(
-                  isDark: isDark,
-                  hint: _dispatchMode == 'nearest'
-                      ? 'اختر المدينة (إلزامي)'
-                      : 'اختر المدينة (اختياري)',
-                  value: _selectedCity,
-                  items: SaudiCities.all,
-                  labelFn: (city) => city,
-                  onChanged: (city) {
-                    setState(() => _selectedCity = city);
-                    _maybeShowNearestMapToast();
-                  },
+                Row(
+                  children: [
+                    Expanded(
+                      child: _dropdown<SaudiRegionCatalogEntry>(
+                        isDark: isDark,
+                        hint: 'اختر المنطقة الإدارية',
+                        value: _activeRegion,
+                        items: SaudiCities.regionCatalogFallback,
+                        labelFn: (region) => region.displayName,
+                        onChanged: (region) {
+                          setState(() {
+                            _selectedRegion = region?.nameAr;
+                            _selectedCity = null;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _dropdown<String>(
+                        isDark: isDark,
+                        hint: _dispatchMode == 'nearest'
+                            ? 'اختر المدينة (إلزامي)'
+                            : 'اختر المدينة (اختياري)',
+                        value: _selectedCity,
+                        items: _availableCities,
+                        labelFn: (city) => city,
+                        onChanged: (city) {
+                          setState(() => _selectedCity = city);
+                          _maybeShowNearestMapToast();
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                if (_dispatchMode == 'nearest' && (_selectedCity ?? '').trim().isNotEmpty) ...[
+                if (_dispatchMode == 'nearest' && _selectedScopedCity.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () => _openMapForCity(_selectedCity!),
+                      onPressed: () => _openMapForCity(_selectedScopedCity),
                       icon: const Icon(Icons.map_outlined, size: 16),
                       label: const Text(
                         'عرض المزوّدين الأقرب على الخريطة',
@@ -453,12 +476,15 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                     ),
                   ),
                 ],
-                if (_dispatchMode == 'all' && _selectedCity != null) ...[
+                if (_dispatchMode == 'all' && _selectedScopedCity.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
-                      onPressed: () => setState(() => _selectedCity = null),
+                      onPressed: () => setState(() {
+                        _selectedRegion = null;
+                        _selectedCity = null;
+                      }),
                       icon: const Icon(Icons.location_off_outlined, size: 14),
                       label: const Text(
                         'إلغاء المدينة (إرسال لجميع المدن)',
@@ -567,6 +593,16 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
         color: isDark ? Colors.white70 : _inkColor,
       ),
     );
+  }
+
+  SaudiRegionCatalogEntry? get _activeRegion {
+    return SaudiCities.findRegionEntry(_selectedRegion);
+  }
+
+  List<String> get _availableCities => _activeRegion?.cities ?? const [];
+
+  String get _selectedScopedCity {
+    return SaudiCities.normalizeScopedCity(_selectedCity, region: _selectedRegion);
   }
 
   Widget _dropdown<T>({
@@ -724,7 +760,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
 
   Widget _heroCard() {
     final categoryLabel = _selectedCat?.name ?? 'اختر التصنيف المناسب';
-    final cityLabel = (_selectedCity ?? '').trim().isEmpty ? 'بدون مدينة محددة' : _selectedCity!;
+    final cityLabel = _selectedScopedCity.isEmpty ? 'بدون مدينة محددة' : _selectedScopedCity;
 
     return Container(
       width: double.infinity,

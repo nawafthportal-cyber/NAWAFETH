@@ -22,6 +22,7 @@ from .services import (
     _notification_entitlement_context,
     notification_preference_availability,
     notification_tier_to_canonical,
+    delete_notifications,
     normalize_preference_mode,
 )
 from .selectors import filter_notification_ids_by_mode
@@ -175,10 +176,9 @@ class NotificationActionView(APIView):
         return Response({"detail": "إجراء غير مدعوم"}, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, notif_id: int):
-        deleted, _ = Notification.objects.filter(id=notif_id, user=request.user).delete()
+        deleted = delete_notifications(qs=Notification.objects.filter(id=notif_id, user=request.user))
         if not deleted:
             return Response({"detail": "غير موجود"}, status=status.HTTP_404_NOT_FOUND)
-        invalidate_unread_badge_cache(user_id=request.user.id)
         return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
