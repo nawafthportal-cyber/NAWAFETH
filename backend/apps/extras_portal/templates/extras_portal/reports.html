@@ -20,8 +20,8 @@
       {% endfor %}
     </div>
 
-    {# ── Report Info + Export ── #}
-    <div class="mt-5 grid gap-4 lg:grid-cols-[1fr,auto]">
+    {# ── Report Info ── #}
+    <div class="mt-5">
       <div class="rounded-2xl border border-slate-200 bg-white p-5">
         <div class="flex flex-wrap items-center gap-3">
           <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-600">{{ request_code }}</span>
@@ -34,10 +34,9 @@
           <div><span class="text-slate-500">الفترة من:</span> <strong>{{ bundle_context.start_label }}</strong></div>
           <div><span class="text-slate-500">الفترة إلى:</span> <strong>{{ bundle_context.end_label }}</strong></div>
         </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="{% url 'extras_portal:reports_export_pdf' %}" class="rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">PDF</a>
-        <a href="{% url 'extras_portal:reports_export_xlsx' %}" class="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Excel</a>
+        <div class="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          يتم عرض تفاصيل البنود المفعلة وملخص كل خدمة داخل هذه الصفحة مباشرة، لذلك لم يعد تنزيل النتائج بصيغة PDF متاحًا من هنا.
+        </div>
       </div>
     </div>
 
@@ -104,7 +103,7 @@
                 <th class="px-4 py-3 text-right font-semibold">البند</th>
                 <th class="px-4 py-3 text-right font-semibold">الفترة</th>
                 <th class="px-4 py-3 text-right font-semibold">الحالة</th>
-                <th class="px-4 py-3 text-right font-semibold">تصدير</th>
+                <th class="px-4 py-3 text-right font-semibold">تفاصيل الخدمة</th>
               </tr>
             </thead>
             <tbody>
@@ -113,16 +112,7 @@
                   <td class="px-4 py-3 font-bold text-slate-800">{{ row.label }}</td>
                   <td class="px-4 py-3 text-slate-500">{{ row.start_label }} — {{ row.end_label }}</td>
                   <td class="px-4 py-3"><span class="rounded-full px-2.5 py-0.5 text-xs font-bold {{ row.status_class }}">{{ row.status }}</span></td>
-                  <td class="px-4 py-3">
-                    {% if row.can_export %}
-                      <div class="flex gap-2">
-                        <a href="{% url 'extras_portal:reports_export_pdf' %}?request={{ row.request_id }}" class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white">PDF</a>
-                        <a href="{% url 'extras_portal:reports_export_xlsx' %}?request={{ row.request_id }}" class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700">Excel</a>
-                      </div>
-                    {% else %}
-                      <span class="text-slate-300">—</span>
-                    {% endif %}
-                  </td>
+                  <td class="px-4 py-3 text-sm text-slate-600">{{ row.summary }}</td>
                 </tr>
               {% endfor %}
             </tbody>

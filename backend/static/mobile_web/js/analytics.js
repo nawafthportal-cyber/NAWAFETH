@@ -10,7 +10,10 @@ window.NwAnalytics = (() => {
       'Accept': 'application/json',
     };
     try {
-      const token = sessionStorage.getItem('nw_access_token');
+      const token = (window.Auth && typeof window.Auth.getAccessToken === 'function')
+        ? window.Auth.getAccessToken()
+        : ((window.sessionStorage && window.sessionStorage.getItem('nw_access_token'))
+          || (window.localStorage && window.localStorage.getItem('nw_access_token')));
       if (token) headers.Authorization = 'Bearer ' + token;
     } catch (_) {}
     return headers;

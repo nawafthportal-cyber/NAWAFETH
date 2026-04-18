@@ -234,7 +234,7 @@ const PlansPage = (() => {
     if (!userPill) return;
 
     try {
-      const profile = await Auth.getProfile();
+      const profile = await Auth.getProfile(false, 'provider');
       function _looksLikePhone(v) {
         var s = String(v || '').replace(/[\s\-\+\(\)@]/g, '');
         return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);

@@ -28,6 +28,7 @@ EVENT_TAXONOMY: tuple[str, ...] = (
     "promo.popup_open",
     "promo.popup_click",
     "search.result_click",
+    "search.direct_request_click",
 )
 
 

@@ -631,11 +631,13 @@ const Nav = (() => {
     }
     function _safeVal(v) { var s = String(v || '').trim(); return (s && !_looksLikePhone(s)) ? s : ''; }
     const display = _safeVal(profile.display_name) || _safeVal(profile.provider_display_name) || _safeVal(profile.first_name) || _safeVal(profile.username) || 'مستخدم';
-    const role = profile.role_state === 'provider'
-      ? 'مقدم خدمة'
-      : profile.role_state === 'client'
-        ? 'عميل'
-        : 'حساب مستخدم';
+    const role = String(profile.role_label || '').trim() || (
+      profile.role_state === 'provider'
+        ? 'مقدم خدمة'
+        : profile.role_state === 'client'
+          ? 'عميل'
+          : 'حساب مستخدم'
+    );
     const initial = (display || 'م').charAt(0);
 
     if (nameEl) nameEl.textContent = display;

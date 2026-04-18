@@ -555,8 +555,14 @@ const SpotlightViewer = (() => {
   }
 
   function _isAuthenticated() {
+    if (window.Auth && typeof window.Auth.isLoggedIn === 'function') {
+      return !!window.Auth.isLoggedIn();
+    }
     try {
-      return !!sessionStorage.getItem('nw_access_token');
+      return !!(
+        (window.sessionStorage && (window.sessionStorage.getItem('nw_access_token') || window.sessionStorage.getItem('nw_refresh_token')))
+        || (window.localStorage && (window.localStorage.getItem('nw_access_token') || window.localStorage.getItem('nw_refresh_token')))
+      );
     } catch (_) {
       return false;
     }

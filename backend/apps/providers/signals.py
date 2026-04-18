@@ -11,8 +11,10 @@ from .models import (
     ProviderFollow,
     ProviderLike,
     ProviderPortfolioLike,
+    ProviderPortfolioSave,
     ProviderSpotlightItem,
     ProviderSpotlightLike,
+    ProviderSpotlightSave,
 )
 
 
@@ -214,6 +216,38 @@ def notify_provider_spotlight_like(sender, instance: ProviderSpotlightLike, crea
         body=f"أبدى {actor_label} إعجابه بأحد عناصر الأضواء الخاصة بك.",
         pref_key="new_like_services",
         meta={"liker_id": instance.user_id, "item_id": instance.item_id, "item_type": "spotlight", "role_context": instance.role_context},
+    )
+
+
+@receiver(post_save, sender=ProviderPortfolioSave)
+def notify_provider_portfolio_save(sender, instance: ProviderPortfolioSave, created, **kwargs):
+    if not created:
+        return
+
+    actor_label = _actor_label(instance.user)
+    _notify_provider_social_event(
+        provider=instance.item.provider,
+        actor=instance.user,
+        title="تم حفظ أحد أعمالك في المفضلة",
+        body=f"قام {actor_label} بحفظ أحد عناصر معرض أعمالك في المفضلة.",
+        pref_key="new_like_services",
+        meta={"saver_id": instance.user_id, "item_id": instance.item_id, "item_type": "portfolio", "role_context": instance.role_context, "interaction_type": "save"},
+    )
+
+
+@receiver(post_save, sender=ProviderSpotlightSave)
+def notify_provider_spotlight_save(sender, instance: ProviderSpotlightSave, created, **kwargs):
+    if not created:
+        return
+
+    actor_label = _actor_label(instance.user)
+    _notify_provider_social_event(
+        provider=instance.item.provider,
+        actor=instance.user,
+        title="تم حفظ أحد عناصر الأضواء في المفضلة",
+        body=f"قام {actor_label} بحفظ أحد عناصر الأضواء الخاصة بك في المفضلة.",
+        pref_key="new_like_services",
+        meta={"saver_id": instance.user_id, "item_id": instance.item_id, "item_type": "spotlight", "role_context": instance.role_context, "interaction_type": "save"},
     )
 
 

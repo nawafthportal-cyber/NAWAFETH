@@ -17,7 +17,15 @@ var ProviderPortfolioPage = (function () {
      to a minimal fetch-based client so the page never fails
      with "تعذر تهيئة الاتصال".                                 */
   function _getToken() {
-    try { return sessionStorage.getItem("nw_access_token"); } catch (_) { return null; }
+    if (window.Auth && typeof window.Auth.getAccessToken === 'function') {
+      return window.Auth.getAccessToken();
+    }
+    try {
+      return (window.sessionStorage && window.sessionStorage.getItem("nw_access_token"))
+        || (window.localStorage && window.localStorage.getItem("nw_access_token"));
+    } catch (_) {
+      return null;
+    }
   }
 
   function _buildFallbackApi() {

@@ -37,6 +37,8 @@ def main() -> int:
     django.setup()
 
     from django.conf import settings
+    from django.db import connections
+    from django.db.migrations.executor import MigrationExecutor
     from django.urls import resolve
 
     critical_paths = [
@@ -72,6 +74,12 @@ def main() -> int:
     # Static availability checks (guards against missing collectstatic artifacts).
     missing = [asset for asset in critical_assets if not _static_exists(asset)]
     _check(not missing, f"Missing critical static assets: {', '.join(missing)}")
+
+    # Migration drift check (guards against code deploying ahead of database schema).
+    executor = MigrationExecutor(connections["default"])
+    pending_plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+    pending = [f"{migration.app_label}.{migration.name}" for migration, _ in pending_plan]
+    _check(not pending, f"Pending migrations detected: {', '.join(pending)}")
 
     print("[smoke] Startup smoke checks passed.")
     return 0

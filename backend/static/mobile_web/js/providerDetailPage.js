@@ -340,7 +340,7 @@ const ProviderDetailPage = (() => {
     }
 
     try {
-      _currentProfile = await Auth.getProfile();
+      _currentProfile = await Auth.getProfile(false, 'provider');
     } catch (_) {
       _currentProfile = null;
     }

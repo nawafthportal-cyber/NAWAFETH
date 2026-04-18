@@ -236,6 +236,13 @@ NOTIFICATION_CATALOG = {
         "required_tier": CanonicalPlanTier.PIONEER,
     },
     # الباقة الاحترافية
+    "review_update": {
+        "title": "تحديثات المراجعات على خدماتك",
+        "tier": NotificationTier.PROFESSIONAL,
+        "default_enabled": True,
+        "audience_modes": ("provider",),
+        "required_tier": CanonicalPlanTier.PROFESSIONAL,
+    },
     "positive_review": {
         "title": "تقييم إيجابي لخدماتك",
         "tier": NotificationTier.PROFESSIONAL,

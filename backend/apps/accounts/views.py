@@ -104,9 +104,54 @@ def _safe_media_url(field_file):
         return None
 
 
+def _has_completed_client_registration(user: User) -> bool:
+    required_values = (
+        getattr(user, "username", ""),
+        getattr(user, "first_name", ""),
+        getattr(user, "last_name", ""),
+        getattr(user, "email", ""),
+    )
+    return bool(getattr(user, "terms_accepted_at", None)) and all(
+        str(value or "").strip() for value in required_values
+    )
+
+
+def _resolve_profile_status(user: User) -> str:
+    role_state = getattr(user, "role_state", None)
+    if role_state == UserRole.PROVIDER:
+        return "provider"
+    if role_state == UserRole.STAFF:
+        return "staff"
+    if role_state == UserRole.VISITOR:
+        return "visitor"
+    if role_state == UserRole.PHONE_ONLY:
+        return "phone_only"
+    if role_state == UserRole.CLIENT:
+        return "complete" if _has_completed_client_registration(user) else "phone_only"
+    return "unknown"
+
+
+def _resolve_role_label(user: User) -> str:
+    role_state = getattr(user, "role_state", None)
+    profile_status = _resolve_profile_status(user)
+    if role_state == UserRole.PROVIDER:
+        return "مقدم خدمة"
+    if role_state == UserRole.STAFF:
+        return "موظف"
+    if role_state == UserRole.VISITOR:
+        return "زائر"
+    if profile_status == "phone_only":
+        return "عميل برقم الجوال"
+    if role_state == UserRole.CLIENT:
+        return "عميل"
+    return "حساب مستخدم"
+
+
 def _me_payload(user: User, *, request=None) -> dict:
     active_role = get_active_role(request) if request is not None else UserRole.CLIENT
     validated_role = get_validated_role(request) if request is not None else UserRole.CLIENT
+    profile_status = _resolve_profile_status(user)
+    role_label = _resolve_role_label(user)
 
     has_provider_profile = False
     try:
@@ -208,6 +253,8 @@ def _me_payload(user: User, *, request=None) -> dict:
         "profile_image": _safe_media_url(getattr(user, "profile_image", None)),
         "cover_image": _safe_media_url(getattr(user, "cover_image", None)),
         "role_state": role_state,
+        "profile_status": profile_status,
+        "role_label": role_label,
         "has_provider_profile": has_provider_profile,
         "is_provider": is_provider,
         "following_count": following_count,
@@ -299,6 +346,8 @@ def _issue_tokens_for_phone(phone: str):
         "ok": True,
         "user_id": user.id,
         "role_state": user.role_state,
+        "profile_status": _resolve_profile_status(user),
+        "role_label": _resolve_role_label(user),
         "is_new_user": bool(created),
         "needs_completion": user.role_state in (UserRole.VISITOR, UserRole.PHONE_ONLY),
         "refresh": str(refresh),
@@ -768,6 +817,8 @@ def biometric_login(request):
         "ok": True,
         "user_id": user.id,
         "role_state": user.role_state,
+        "profile_status": _resolve_profile_status(user),
+        "role_label": _resolve_role_label(user),
         "is_new_user": False,
         "needs_completion": user.role_state in (UserRole.VISITOR, UserRole.PHONE_ONLY),
         "refresh": str(refresh),
@@ -840,7 +891,15 @@ def complete_registration(request):
             "role_state",
         ]
     )
-    return Response({"ok": True, "role_state": user.role_state}, status=status.HTTP_200_OK)
+    return Response(
+        {
+            "ok": True,
+            "role_state": user.role_state,
+            "profile_status": _resolve_profile_status(user),
+            "role_label": _resolve_role_label(user),
+        },
+        status=status.HTTP_200_OK,
+    )
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -877,7 +936,8 @@ def skip_completion(request):
             "ok": True,
             "role_state": user.role_state,
             "needs_completion": False,
-            "profile_status": "partial",
+            "profile_status": _resolve_profile_status(user),
+            "role_label": _resolve_role_label(user),
         },
         status=status.HTTP_200_OK,
     )

@@ -3,6 +3,7 @@ import importlib
 from django.conf import settings
 from django.db import connections
 from django.db.utils import OperationalError
+from django.db.migrations.executor import MigrationExecutor
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -41,6 +42,26 @@ class HealthReadyView(APIView):
         except Exception as e:
             overall_ok = False
             components["db"] = {"ok": False, "error": str(e)}
+
+        if components.get("db", {}).get("ok"):
+            try:
+                conn = connections["default"]
+                executor = MigrationExecutor(conn)
+                plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
+                pending = [f"{migration.app_label}.{migration.name}" for migration, _ in plan]
+                if pending:
+                    overall_ok = False
+                    components["migrations"] = {
+                        "ok": False,
+                        "pending": pending,
+                    }
+                else:
+                    components["migrations"] = {"ok": True}
+            except Exception as e:
+                overall_ok = False
+                components["migrations"] = {"ok": False, "error": str(e)}
+        else:
+            components["migrations"] = {"ok": False, "skipped": True}
 
         # Redis check (only if configured)
         redis_url = getattr(settings, "REDIS_URL", "") or ""

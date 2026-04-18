@@ -9,12 +9,53 @@ const ApiClient = (() => {
   const BASE = window.location.origin;
   let _refreshing = null;
 
+  function _readStoredValue(key) {
+    try {
+      const sessionValue = window.sessionStorage ? window.sessionStorage.getItem(key) : null;
+      if (sessionValue) return sessionValue;
+    } catch (_) {}
+    try {
+      return window.localStorage ? window.localStorage.getItem(key) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _writeStoredValue(key, value) {
+    if (value === null || value === undefined || value === '') return;
+    try {
+      if (window.sessionStorage) window.sessionStorage.setItem(key, String(value));
+    } catch (_) {}
+    try {
+      if (window.localStorage) window.localStorage.setItem(key, String(value));
+    } catch (_) {}
+  }
+
+  function _removeStoredValue(key) {
+    try {
+      if (window.sessionStorage) window.sessionStorage.removeItem(key);
+    } catch (_) {}
+    try {
+      if (window.localStorage) window.localStorage.removeItem(key);
+    } catch (_) {}
+  }
+
   /**
    * Get stored JWT access token (if user is authenticated).
    * Returns null for anonymous browsing (home page allows AllowAny).
    */
   function _getToken() {
-    try { return sessionStorage.getItem('nw_access_token'); } catch(_) { return null; }
+    if (typeof Auth !== 'undefined' && Auth && typeof Auth.getAccessToken === 'function') {
+      return Auth.getAccessToken();
+    }
+    return _readStoredValue('nw_access_token');
+  }
+
+  function _getRefreshToken() {
+    if (typeof Auth !== 'undefined' && Auth && typeof Auth.getRefreshToken === 'function') {
+      return Auth.getRefreshToken();
+    }
+    return _readStoredValue('nw_refresh_token');
   }
 
   function _clearStoredTokens() {
@@ -24,12 +65,10 @@ const ApiClient = (() => {
         return;
       } catch (_) {}
     }
-    try {
-      sessionStorage.removeItem('nw_access_token');
-      sessionStorage.removeItem('nw_refresh_token');
-      sessionStorage.removeItem('nw_user_id');
-      sessionStorage.removeItem('nw_role_state');
-    } catch(_) {}
+    _removeStoredValue('nw_access_token');
+    _removeStoredValue('nw_refresh_token');
+    _removeStoredValue('nw_user_id');
+    _removeStoredValue('nw_role_state');
   }
 
   function _isRefreshPath(path) {
@@ -37,8 +76,7 @@ const ApiClient = (() => {
   }
 
   async function _tryRefresh() {
-    let refresh;
-    try { refresh = sessionStorage.getItem('nw_refresh_token'); } catch(_) { return { ok: false, terminal: true }; }
+    const refresh = _getRefreshToken();
     if (!refresh) return { ok: false, terminal: true };
     try {
       const res = await fetch(BASE + '/api/accounts/token/refresh/', {
@@ -49,7 +87,11 @@ const ApiClient = (() => {
       if (res.ok) {
         const d = await res.json();
         if (d && d.access) {
-          try { sessionStorage.setItem('nw_access_token', d.access); } catch(_) {}
+          if (typeof Auth !== 'undefined' && Auth && typeof Auth.saveTokens === 'function') {
+            Auth.saveTokens({ access: d.access });
+          } else {
+            _writeStoredValue('nw_access_token', d.access);
+          }
           return { ok: true, terminal: false };
         }
       }

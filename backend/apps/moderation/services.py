@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
+from apps.notifications.services import create_notification
 
 from .models import (
     ModerationActionLog,
@@ -18,6 +19,71 @@ from .models import (
 
 
 User = get_user_model()
+
+
+def _case_status_label(value: str) -> str:
+    return dict(ModerationStatus.choices).get(value, value or "-")
+
+
+def _decision_label(value: str) -> str:
+    return dict(ModerationDecisionCode.choices).get(value, value or "-")
+
+
+def _case_notification_url(case: ModerationCase) -> str:
+    linked_ticket_id = str(getattr(case, "linked_support_ticket_id", "") or "").strip()
+    if linked_ticket_id.isdigit():
+        return f"/contact/?ticket={int(linked_ticket_id)}"
+
+    source_model = str(getattr(case, "source_model", "") or "").strip()
+    source_object_id = str(getattr(case, "source_object_id", "") or "").strip()
+    if source_model == "Review" and source_object_id.isdigit():
+        try:
+            from apps.reviews.models import Review
+
+            review = Review.objects.filter(id=int(source_object_id)).only("request_id").first()
+        except Exception:
+            review = None
+        request_id = getattr(review, "request_id", None)
+        if request_id:
+            return f"/requests/{request_id}/"
+
+    return "/contact/"
+
+
+def _reporter_audience_mode(user) -> str:
+    if user is None:
+        return "client"
+    try:
+        return "provider" if getattr(user, "provider_profile", None) is not None else "client"
+    except Exception:
+        return "client"
+
+
+def _notify_case_reporter(*, case: ModerationCase, title: str, body: str, actor=None, meta: dict | None = None) -> None:
+    reporter = getattr(case, "reporter", None)
+    reporter_id = getattr(case, "reporter_id", None)
+    if reporter is None or not reporter_id:
+        return
+    if str(getattr(case, "linked_support_ticket_id", "") or "").strip():
+        return
+
+    transaction.on_commit(
+        lambda: create_notification(
+            user=reporter,
+            title=title,
+            body=body[:500],
+            kind="report_status_change",
+            url=_case_notification_url(case),
+            actor=actor,
+            meta={
+                "case_id": case.id,
+                "case_code": case.code or "",
+                **(meta or {}),
+            },
+            pref_key="report_status_change",
+            audience_mode=_reporter_audience_mode(reporter),
+        )
+    )
 
 
 def _decision_target_status(decision_code: str) -> str:
@@ -198,6 +264,17 @@ def change_case_status(*, case: ModerationCase, new_status: str, note: str = "",
         request=request,
         extra={"before": old_status, "after": new_status},
     )
+    trimmed_note = (note or "").strip()
+    body = f"تم تحديث حالة البلاغ ({case.code or case.id}) من {_case_status_label(old_status)} إلى {_case_status_label(new_status)}."
+    if trimmed_note:
+        body = f"{body} ملاحظة: {trimmed_note}"
+    _notify_case_reporter(
+        case=case,
+        title="تحديث على البلاغ",
+        body=body,
+        actor=by_user,
+        meta={"from_status": old_status, "to_status": new_status},
+    )
     return case
 
 
@@ -262,5 +339,18 @@ def record_decision(
         reference_id=str(case.id),
         request=request,
         extra={"decision_code": decision_code, "is_final": bool(is_final)},
+    )
+    body = f"تم تحديث البلاغ ({case.code or case.id}) بقرار: {_decision_label(decision_code)}."
+    trimmed_note = (note or "").strip()
+    if is_final:
+        body = f"{body} الحالة الحالية: {_case_status_label(case.status)}."
+    if trimmed_note:
+        body = f"{body} ملاحظة: {trimmed_note}"
+    _notify_case_reporter(
+        case=case,
+        title="تحديث على البلاغ",
+        body=body,
+        actor=by_user,
+        meta={"decision_code": decision_code, "is_final": bool(is_final), "status": case.status},
     )
     return decision

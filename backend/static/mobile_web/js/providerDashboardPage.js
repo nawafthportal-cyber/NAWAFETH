@@ -150,7 +150,7 @@ const ProviderDashboardPage = (() => {
     // Parallel fetch
     const [profRes, provRes, subRes, plansRes, urgentRes, competitiveRes, assignedRes, spotsRes] =
       await Promise.allSettled([
-        ApiClient.get('/api/accounts/me/'),
+        ApiClient.get('/api/accounts/me/?mode=provider'),
         ApiClient.get('/api/providers/me/profile/'),
         ApiClient.get('/api/subscriptions/my/'),
         ApiClient.get('/api/subscriptions/plans/'),

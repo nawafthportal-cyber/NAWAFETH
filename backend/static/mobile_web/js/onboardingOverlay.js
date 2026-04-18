@@ -206,13 +206,11 @@ const OnboardingOverlay = (() => {
 
     const chip = document.createElement('span');
     chip.className = 'ob-step-chip';
-    chip.textContent = 'الشاشة ' + (idx + 1);
-    meta.appendChild(chip);
+     meta.appendChild(chip);
 
     const caption = document.createElement('span');
     caption.className = 'ob-step-caption';
-    caption.textContent = idx >= _slides.length - 1 ? 'آخر خطوة قبل الدخول' : 'تعرّف سريع على التجربة';
-    meta.appendChild(caption);
+     meta.appendChild(caption);
 
     el.appendChild(meta);
 
@@ -363,30 +361,6 @@ const OnboardingOverlay = (() => {
       mediaWrap.appendChild(img);
     }
     wrap.appendChild(mediaWrap);
-
-    const copy = document.createElement('div');
-    copy.className = 'ob-promo-copy';
-
-    const kicker = document.createElement('div');
-    kicker.className = 'ob-promo-kicker';
-    kicker.textContent = 'لمحة قبل الدخول';
-    copy.appendChild(kicker);
-
-    if (_introBlock.title) {
-      const title = document.createElement('h2');
-      title.className = 'ob-promo-title';
-      title.textContent = _introBlock.title;
-      copy.appendChild(title);
-    }
-
-    if (_introBlock.desc) {
-      const desc = document.createElement('p');
-      desc.className = 'ob-promo-desc';
-      desc.textContent = _introBlock.desc;
-      copy.appendChild(desc);
-    }
-
-    wrap.appendChild(copy);
 
     /* ── Bottom action bar (no text, just button) ── */
     const bottomBar = document.createElement('div');

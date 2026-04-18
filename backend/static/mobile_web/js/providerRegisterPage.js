@@ -522,7 +522,14 @@ var ProviderRegisterPage = (function () {
 
   function showSuccessPanel() {
     sessionStorage.setItem("nw_account_mode", "provider");
-    sessionStorage.setItem("nw_role_state", "provider");
+    if (window.Auth && typeof window.Auth.saveRoleState === "function") {
+      window.Auth.saveRoleState("provider");
+    } else {
+      sessionStorage.setItem("nw_role_state", "provider");
+      try {
+        if (window.localStorage) window.localStorage.setItem("nw_role_state", "provider");
+      } catch (_) {}
+    }
     goToStep("success");
     document.getElementById("reg-success").classList.add("active");
     try {

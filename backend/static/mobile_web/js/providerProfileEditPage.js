@@ -997,9 +997,13 @@ var ProviderProfileEditPage = (function () {
       if (RAW) {
         uploadPromise = RAW.request("/api/providers/me/profile/", { method: "PATCH", body: fd, formData: true });
       } else {
+        var accessToken = (window.Auth && typeof window.Auth.getAccessToken === "function")
+          ? (window.Auth.getAccessToken() || "")
+          : (((window.sessionStorage && window.sessionStorage.getItem("nw_access_token"))
+            || (window.localStorage && window.localStorage.getItem("nw_access_token"))) || "");
         uploadPromise = fetch(window.location.origin + "/api/providers/me/profile/", {
           method: "PATCH",
-          headers: { "Authorization": "Bearer " + (sessionStorage.getItem("nw_access_token") || "") },
+          headers: { "Authorization": "Bearer " + accessToken },
           body: fd
         }).then(function (res) {
           return res.json().then(function (data) { return { ok: res.ok, data: data }; });
