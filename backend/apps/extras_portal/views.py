@@ -5,7 +5,7 @@ from datetime import datetime, time, timedelta
 from django.core.cache import cache
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
-from django.db.models import Q, Sum
+from django.db.models import Count, Exists, OuterRef, Q, Sum
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -50,6 +50,7 @@ from .auth import (
 )
 from .forms import BulkMessageForm, FinanceSettingsForm, PortalLoginForm, PortalOTPForm
 from .models import (
+    ClientRecord,
     ExtrasPortalFinanceSettings,
     ExtrasPortalScheduledMessage,
     ExtrasPortalScheduledMessageRecipient,
@@ -58,6 +59,7 @@ from .models import (
     LoyaltyMembership,
     LoyaltyProgram,
     ProviderPotentialClient,
+    ReportDataSnapshot,
 )
 
 
@@ -533,6 +535,13 @@ REPORT_OPTION_GROUPS: tuple[dict[str, object], ...] = (
             "content_commenters",
         ),
     },
+    {
+        "title": "تفاصيل طلبات الخدمة",
+        "description": "القائمة التفصيلية لطلبات الخدمة المقدمة خلال الفترة المعتمدة.",
+        "keys": (
+            "service_orders_detail",
+        ),
+    },
 )
 
 
@@ -657,6 +666,68 @@ def _placeholder_card(*, key: str, label: str, helper_text: str) -> dict[str, ob
         "placeholder_text": "هذا الخيار قيد التطوير وسيتم إتاحته قريباً. لن يتم احتساب رسوم عليه حتى يصبح جاهزاً.",
         "helper_text": helper_text,
     }
+
+
+def _detail_list_card(*, key: str, label: str, rows: list[dict[str, str]], total_count: int, helper_text: str, columns: list[dict[str, str]]) -> dict[str, object]:
+    table_rows = []
+    for row in rows:
+        table_rows.append([row.get(col["key"], "") for col in columns])
+    return {
+        "key": key,
+        "title": label,
+        "kind": "detail_list",
+        "badge": f"{max(0, int(total_count or 0))} طلب",
+        "badge_class": "bg-purple-100 text-purple-700",
+        "accent_class": "bg-purple-100 text-purple-700",
+        "wide": True,
+        "table_rows": table_rows,
+        "columns": columns,
+        "total_count": total_count,
+        "helper_text": helper_text,
+        "empty_message": "لا توجد طلبات خدمة ضمن الفترة المحددة.",
+    }
+
+
+def _build_service_orders_detail_rows(requests_qs) -> list[dict[str, str]]:
+    rows = []
+    for r in requests_qs[:500]:
+        client_name = ""
+        if getattr(r, "client", None):
+            first = str(getattr(r.client, "first_name", "") or "").strip()
+            last = str(getattr(r.client, "last_name", "") or "").strip()
+            username = str(getattr(r.client, "username", "") or "").strip()
+            client_name = " ".join(part for part in [first, last] if part).strip() or (f"@{username}" if username else f"#{r.client_id}")
+        rows.append({
+            "client_name": client_name,
+            "created_at": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "-",
+            "title": str(r.title or ""),
+            "expected_delivery_at": r.expected_delivery_at.strftime("%Y-%m-%d %H:%M") if getattr(r, "expected_delivery_at", None) else "-",
+            "estimated_service_amount": str(getattr(r, "estimated_service_amount", None) or "-"),
+            "received_amount": str(getattr(r, "received_amount", None) or "-"),
+            "remaining_amount": str(getattr(r, "remaining_amount", None) or "-"),
+            "status": str(r.get_status_display() if hasattr(r, "get_status_display") else r.status),
+            "delivered_at": r.delivered_at.strftime("%Y-%m-%d %H:%M") if getattr(r, "delivered_at", None) else "-",
+            "actual_service_amount": str(getattr(r, "actual_service_amount", None) or "-"),
+            "canceled_at": r.canceled_at.strftime("%Y-%m-%d %H:%M") if getattr(r, "canceled_at", None) else "-",
+            "cancel_reason": str(getattr(r, "cancel_reason", "") or "-"),
+        })
+    return rows
+
+
+SERVICE_ORDERS_DETAIL_COLUMNS = [
+    {"key": "client_name", "label": "اسم العميل"},
+    {"key": "created_at", "label": "تاريخ الطلب"},
+    {"key": "title", "label": "عنوان الطلب"},
+    {"key": "expected_delivery_at", "label": "موعد التسليم المتوقع"},
+    {"key": "estimated_service_amount", "label": "قيمة الخدمة المقدرة"},
+    {"key": "received_amount", "label": "المبلغ المستلم"},
+    {"key": "remaining_amount", "label": "المبلغ المتبقي"},
+    {"key": "status", "label": "حالة الطلب"},
+    {"key": "delivered_at", "label": "موعد التسليم الفعلي"},
+    {"key": "actual_service_amount", "label": "قيمة الخدمة الفعلية"},
+    {"key": "canceled_at", "label": "تاريخ الإلغاء"},
+    {"key": "cancel_reason", "label": "سبب الإلغاء"},
+]
 
 
 def _reports_bundle_context_from_section_context(section_context: dict[str, object] | None) -> dict[str, object]:
@@ -977,6 +1048,14 @@ def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end
             total_count=commenters_distinct_count,
             helper_text="معرفات المستخدمين الذين علقوا على محتوى منصة مزود الخدمة.",
         ),
+        "service_orders_detail": _detail_list_card(
+            key="service_orders_detail",
+            label=option_label_for("reports", "service_orders_detail"),
+            rows=_build_service_orders_detail_rows(requests_qs),
+            total_count=requests_qs.count(),
+            helper_text="القائمة التفصيلية لجميع طلبات الخدمة تتضمن: اسم العميل، تاريخ الطلب، عنوان الطلب، موعد التسليم المتوقع، قيمة الخدمة المقدرة، المبلغ المستلم، المبلغ المتبقي، حالة الطلب، موعد التسليم الفعلي، قيمة الخدمة الفعلية، تاريخ الإلغاء، سبب الإلغاء.",
+            columns=SERVICE_ORDERS_DETAIL_COLUMNS,
+        ),
     }
 
     return {
@@ -1056,6 +1135,12 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
             end_at=report_context.get("end_at"),
         )
         option_cards_by_key = option_catalog["option_cards_by_key"]
+
+        try:
+            _save_report_snapshots(provider, report_context, option_catalog)
+        except Exception:
+            pass
+
         option_groups: list[dict[str, object]] = []
         for group in REPORT_OPTION_GROUPS:
             cards = [
@@ -1086,7 +1171,7 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
         for key in report_context.get("selected_option_keys", []):
             card = option_cards_by_key.get(key, {})
             card_kind = str(card.get("kind") or "")
-            is_ready = card_kind in {"stats", "list"}
+            is_ready = card_kind in {"stats", "list", "detail_list"}
             is_placeholder = card_kind == "placeholder"
             if is_ready:
                 row_status = "جاهز للعرض"
@@ -1259,6 +1344,228 @@ def portal_reports_export_pdf(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _save_report_snapshots(provider: ProviderProfile, bundle_context: dict, option_catalog: dict) -> None:
+    """Persist a snapshot of each option card's data for the given bundle request."""
+    request_obj = bundle_context.get("request_obj")
+    if not request_obj:
+        return
+    unified_request_id = getattr(request_obj, "id", None)
+    request_code = str(getattr(request_obj, "code", "") or "")
+    start_at = bundle_context.get("start_at")
+    end_at = bundle_context.get("end_at")
+    option_cards = option_catalog.get("option_cards_by_key", {})
+
+    import json as _json
+
+    for option_key, card in option_cards.items():
+        if option_key not in bundle_context.get("selected_option_keys", []):
+            continue
+        snapshot_data = {}
+        kind = card.get("kind")
+        if kind == "stats":
+            snapshot_data = {"stats": card.get("stats", [])}
+        elif kind == "list":
+            entries = card.get("entries", [])
+            badge_text = str(card.get("badge") or "0")
+            try:
+                total_count = int(badge_text.split()[0])
+            except (ValueError, IndexError):
+                total_count = 0
+            snapshot_data = {
+                "entries": entries,
+                "total_count": total_count,
+            }
+        elif kind == "detail_list":
+            snapshot_data = {
+                "table_rows": card.get("table_rows", []),
+                "columns": card.get("columns", []),
+                "total_count": card.get("total_count", 0),
+            }
+        ReportDataSnapshot.objects.update_or_create(
+            provider=provider,
+            unified_request_id=unified_request_id,
+            option_key=option_key,
+            defaults={
+                "request_code": request_code,
+                "section_key": PORTAL_SECTION_REPORTS,
+                "data_json": snapshot_data,
+                "start_at": start_at,
+                "end_at": end_at,
+            },
+        )
+
+
+def _get_option_export_data(provider: ProviderProfile, option_key: str, bundle_context: dict) -> dict:
+    """Return export-ready data for a specific option key."""
+    start_at = bundle_context.get("start_at")
+    end_at = bundle_context.get("end_at")
+    catalog = _report_option_card_catalog(provider, start_at=start_at, end_at=end_at)
+    card = catalog["option_cards_by_key"].get(option_key, {})
+    return card
+
+
+OPTION_EXPORT_HEADERS_MAP = {
+    "service_requesters": (["المعرف", "معرف المستخدم"], lambda e: [e.get("primary", ""), e.get("secondary", "")]),
+    "potential_clients": (["المعرف", "معرف المستخدم"], lambda e: [e.get("primary", ""), e.get("secondary", "")]),
+    "content_favoriters": (["المعرف", "معرف المستخدم"], lambda e: [e.get("primary", ""), e.get("secondary", "")]),
+    "platform_followers": (["المعرف", "معرف المستخدم"], lambda e: [e.get("primary", ""), e.get("secondary", "")]),
+    "content_sharers": (["المعرف", "معرف المستخدم"], lambda e: [e.get("primary", ""), e.get("secondary", "")]),
+    "positive_reviewers": (["المعرف", "معرف المستخدم"], lambda e: [e.get("primary", ""), e.get("secondary", "")]),
+    "content_commenters": (["المعرف", "معرف المستخدم"], lambda e: [e.get("primary", ""), e.get("secondary", "")]),
+}
+
+
+def _get_full_identity_entries(provider, option_key, start_at, end_at):
+    """Return full (un-truncated) identity entries for a list-type option."""
+    FULL_LIMIT = 5000
+    if option_key == "service_requesters":
+        qs = _apply_datetime_window(ServiceRequest.objects.filter(provider=provider).select_related("client"), "created_at", start_at, end_at)
+        return _make_identity_entries([r.client for r in qs[:FULL_LIMIT] if getattr(r, "client", None)], limit=FULL_LIMIT)
+    if option_key == "potential_clients":
+        qs = _apply_datetime_window(ProviderPotentialClient.objects.filter(provider=provider).select_related("user").order_by("-created_at"), "created_at", start_at, end_at)
+        return _make_identity_entries([r.user for r in qs[:FULL_LIMIT] if getattr(r, "user", None)], limit=FULL_LIMIT)
+    if option_key == "content_favoriters":
+        portfolio = _apply_datetime_window(ProviderPortfolioLike.objects.filter(item__provider=provider).select_related("user").order_by("-created_at"), "created_at", start_at, end_at)
+        provider_l = _apply_datetime_window(ProviderLike.objects.filter(provider=provider).select_related("user").order_by("-created_at"), "created_at", start_at, end_at)
+        spotlight_l = _apply_datetime_window(ProviderSpotlightLike.objects.filter(item__provider=provider).select_related("user").order_by("-created_at"), "created_at", start_at, end_at)
+        users = [r.user for r in portfolio[:FULL_LIMIT] if getattr(r, "user", None)]
+        users += [r.user for r in provider_l[:FULL_LIMIT] if getattr(r, "user", None)]
+        users += [r.user for r in spotlight_l[:FULL_LIMIT] if getattr(r, "user", None)]
+        return _make_identity_entries(users, limit=FULL_LIMIT)
+    if option_key == "platform_followers":
+        qs = _apply_datetime_window(ProviderFollow.objects.filter(provider=provider).select_related("user").order_by("-created_at"), "created_at", start_at, end_at)
+        return _make_identity_entries([r.user for r in qs[:FULL_LIMIT] if getattr(r, "user", None)], limit=FULL_LIMIT)
+    if option_key == "content_sharers":
+        qs = _apply_datetime_window(ProviderContentShare.objects.filter(provider=provider).select_related("user").order_by("-created_at"), "created_at", start_at, end_at)
+        return _make_identity_entries([r.user for r in qs[:FULL_LIMIT] if getattr(r, "user", None)], limit=FULL_LIMIT)
+    if option_key == "positive_reviewers":
+        qs = _apply_datetime_window(Review.objects.filter(provider=provider, rating__gte=4).select_related("client").order_by("-created_at"), "created_at", start_at, end_at)
+        return _make_identity_entries([r.client for r in qs[:FULL_LIMIT] if getattr(r, "client", None)], limit=FULL_LIMIT)
+    if option_key == "content_commenters":
+        qs = _apply_datetime_window(ProviderContentComment.objects.filter(provider=provider, is_approved=True).select_related("user").order_by("-created_at"), "created_at", start_at, end_at)
+        return _make_identity_entries([r.user for r in qs[:FULL_LIMIT] if getattr(r, "user", None)], limit=FULL_LIMIT)
+    return []
+
+
+@extras_portal_login_required
+def portal_report_option_export_xlsx(request: HttpRequest, option_key: str) -> HttpResponse:
+    provider = _get_provider_or_403(request)
+    section_response = _portal_require_section(provider, PORTAL_SECTION_REPORTS)
+    if section_response is not None:
+        return section_response
+
+    bundle_context = _report_bundle_context_for_request(provider, request.GET.get("request"))
+    if not bundle_context.get("request_obj"):
+        return HttpResponse("لا يوجد طلب تقارير مفعّل.", status=404)
+
+    selected_keys = bundle_context.get("selected_option_keys", [])
+    if option_key not in selected_keys:
+        return HttpResponse("هذا الخيار غير مفعّل في طلبك.", status=403)
+
+    start_at = bundle_context.get("start_at")
+    end_at = bundle_context.get("end_at")
+    label = option_label_for(PORTAL_SECTION_REPORTS, option_key)
+
+    if option_key == "service_orders_detail":
+        qs = _report_requests_queryset(provider, bundle_context).order_by("-id")[:5000]
+        detail_rows = _build_service_orders_detail_rows(qs)
+        headers = [c["label"] for c in SERVICE_ORDERS_DETAIL_COLUMNS]
+        rows = [[r.get(c["key"], "") for c in SERVICE_ORDERS_DETAIL_COLUMNS] for r in detail_rows]
+        return xlsx_response(
+            filename=f"report-{option_key}-provider-{provider.id}.xlsx",
+            sheet_name=label[:31],
+            headers=headers,
+            rows=rows,
+        )
+
+    if option_key in OPTION_EXPORT_HEADERS_MAP:
+        hdrs, row_fn = OPTION_EXPORT_HEADERS_MAP[option_key]
+        entries = _get_full_identity_entries(provider, option_key, start_at, end_at)
+        rows = [row_fn(e) for e in entries]
+        return xlsx_response(
+            filename=f"report-{option_key}-provider-{provider.id}.xlsx",
+            sheet_name=label[:31],
+            headers=hdrs,
+            rows=rows,
+        )
+
+    # Stats-type cards (platform_metrics, platform_visits, etc.)
+    card = _get_option_export_data(provider, option_key, bundle_context)
+    if card and card.get("kind") == "stats":
+        stats = card.get("stats", [])
+        headers = ["المؤشر", "القيمة"]
+        rows = [[s.get("label", ""), s.get("value", "")] for s in stats]
+        return xlsx_response(
+            filename=f"report-{option_key}-provider-{provider.id}.xlsx",
+            sheet_name=label[:31],
+            headers=headers,
+            rows=rows,
+        )
+
+    return HttpResponse("لا يمكن تصدير هذا الخيار.", status=400)
+
+
+@extras_portal_login_required
+def portal_report_option_export_pdf(request: HttpRequest, option_key: str) -> HttpResponse:
+    provider = _get_provider_or_403(request)
+    section_response = _portal_require_section(provider, PORTAL_SECTION_REPORTS)
+    if section_response is not None:
+        return section_response
+
+    bundle_context = _report_bundle_context_for_request(provider, request.GET.get("request"))
+    if not bundle_context.get("request_obj"):
+        return HttpResponse("لا يوجد طلب تقارير مفعّل.", status=404)
+
+    selected_keys = bundle_context.get("selected_option_keys", [])
+    if option_key not in selected_keys:
+        return HttpResponse("هذا الخيار غير مفعّل في طلبك.", status=403)
+
+    start_at = bundle_context.get("start_at")
+    end_at = bundle_context.get("end_at")
+    label = option_label_for(PORTAL_SECTION_REPORTS, option_key)
+
+    if option_key == "service_orders_detail":
+        qs = _report_requests_queryset(provider, bundle_context).order_by("-id")[:2000]
+        detail_rows = _build_service_orders_detail_rows(qs)
+        headers = [c["label"] for c in SERVICE_ORDERS_DETAIL_COLUMNS]
+        rows = [[r.get(c["key"], "") for c in SERVICE_ORDERS_DETAIL_COLUMNS] for r in detail_rows]
+        return pdf_response(
+            filename=f"report-{option_key}-provider-{provider.id}.pdf",
+            title=label,
+            headers=headers,
+            rows=rows,
+            landscape=True,
+        )
+
+    if option_key in OPTION_EXPORT_HEADERS_MAP:
+        hdrs, row_fn = OPTION_EXPORT_HEADERS_MAP[option_key]
+        entries = _get_full_identity_entries(provider, option_key, start_at, end_at)
+        rows = [row_fn(e) for e in entries]
+        return pdf_response(
+            filename=f"report-{option_key}-provider-{provider.id}.pdf",
+            title=label,
+            headers=hdrs,
+            rows=rows,
+            landscape=False,
+        )
+
+    # Stats-type cards (platform_metrics, platform_visits, etc.)
+    card = _get_option_export_data(provider, option_key, bundle_context)
+    if card and card.get("kind") == "stats":
+        stats = card.get("stats", [])
+        headers = ["المؤشر", "القيمة"]
+        rows = [[s.get("label", ""), s.get("value", "")] for s in stats]
+        return pdf_response(
+            filename=f"report-{option_key}-provider-{provider.id}.pdf",
+            title=label,
+            headers=headers,
+            rows=rows,
+            landscape=False,
+        )
+
+    return HttpResponse("لا يمكن تصدير هذا الخيار.", status=400)
+
+
 @extras_portal_login_required
 def portal_clients(request: HttpRequest) -> HttpResponse:
     provider = _get_provider_or_403(request)
@@ -1280,27 +1587,155 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
     bulk_message_limit = _portal_safe_int(clients_payload.get("bulk_message_count", 0), default=0, minimum=0)
     clients_supports_bulk_messages = _portal_section_has_option(section_context, "bulk_messages")
 
+    # ── Handle POST: save client data OR send bulk message ──
+    if request.method == "POST":
+        post_action = request.POST.get("action", "")
+
+        # ── Save Data action ──
+        if post_action == "save_data":
+            _save_client_records(request, provider)
+            messages.success(request, "تم حفظ البيانات بنجاح")
+            return redirect("extras_portal:clients")
+
+        # ── Loyalty message action ──
+        if post_action == "send_loyalty":
+            _send_loyalty_message(request, provider, provider_user)
+            return redirect("extras_portal:clients")
+
+        # ── Bulk message action (default POST) ──
+        if not clients_supports_bulk_messages:
+            messages.error(request, "إرسال الرسائل الجماعية غير مفعّل في طلب الخدمات الإضافية الحالي.")
+            return redirect("extras_portal:clients")
+
+        form = BulkMessageForm(request.POST, request.FILES)
+        if form.is_valid():
+            selected_ids = request.POST.getlist("client_ids")
+            recipient_ids = [int(i) for i in selected_ids if str(i).isdigit()]
+
+            if not recipient_ids:
+                messages.error(request, "اختر عميل واحد على الأقل")
+                return redirect("extras_portal:clients")
+
+            recipients = list(
+                User.objects.filter(
+                    id__in=recipient_ids,
+                    requests__provider=provider,
+                ).distinct()
+            )
+            if not recipients:
+                messages.error(request, "لا يوجد عملاء صالحون")
+                return redirect("extras_portal:clients")
+
+            send_at = form.cleaned_data.get("send_at")
+            scheduled = ExtrasPortalScheduledMessage.objects.create(
+                provider=provider,
+                body=form.cleaned_data["body"],
+                attachment=form.cleaned_data.get("attachment"),
+                send_at=send_at,
+                created_by=request.user,
+            )
+            ExtrasPortalScheduledMessageRecipient.objects.bulk_create(
+                [
+                    ExtrasPortalScheduledMessageRecipient(
+                        scheduled_message=scheduled,
+                        user=u,
+                    )
+                    for u in recipients
+                ],
+                ignore_conflicts=True,
+            )
+
+            if not send_at:
+                now = timezone.now()
+                try:
+                    for u in recipients:
+                        thread = _get_or_create_direct_thread(provider_user, u)
+                        Message.objects.create(
+                            thread=thread,
+                            sender=provider_user,
+                            body=scheduled.body,
+                            attachment=scheduled.attachment,
+                            attachment_type="",
+                            attachment_name="",
+                            created_at=now,
+                        )
+                    scheduled.status = "sent"
+                    scheduled.sent_at = now
+                    scheduled.save(update_fields=["status", "sent_at"])
+                    messages.success(request, "تم إرسال الرسالة")
+                except Exception as e:
+                    scheduled.status = "failed"
+                    scheduled.error = str(e)[:255]
+                    scheduled.save(update_fields=["status", "error"])
+                    messages.error(request, "تعذر إرسال الرسالة")
+            else:
+                messages.success(request, "تمت جدولة الرسالة")
+
+            return redirect("extras_portal:clients")
+    else:
+        form = BulkMessageForm()
+
+    # ── Build enriched client rows ──
+    follower_user_ids = set(
+        ProviderFollow.objects.filter(provider=provider).values_list("user_id", flat=True)
+    )
+    potential_user_ids = set(
+        ProviderPotentialClient.objects.filter(provider=provider).values_list("user_id", flat=True)
+    )
+
     clients_qs = (
         User.objects.filter(requests__provider=provider)
         .distinct()
+        .annotate(request_count=Count("requests", filter=Q(requests__provider=provider)))
         .order_by("-id")
     )
     clients_total_count = clients_qs.count()
-    clients = list(clients_qs[:500])
     clients_with_phone_count = clients_qs.exclude(phone__isnull=True).exclude(phone="").count()
+    clients_list = list(clients_qs[:500])
+    client_user_ids = [c.id for c in clients_list]
 
+    # Load existing ClientRecord data keyed by user_id
+    records_map: dict[int, ClientRecord] = {
+        rec.user_id: rec
+        for rec in ClientRecord.objects.filter(provider=provider, user_id__in=client_user_ids)
+    }
+
+    # Check which clients were previously served (have completed orders)
+    served_user_ids = set(
+        ServiceRequest.objects.filter(
+            provider=provider,
+            status=RequestStatus.COMPLETED,
+            client_id__in=client_user_ids,
+        ).values_list("client_id", flat=True).distinct()
+    )
+
+    enriched_clients = []
+    for idx, client in enumerate(clients_list, start=1):
+        rec = records_map.get(client.id)
+        enriched_clients.append({
+            "row_num": idx,
+            "user": client,
+            "name": _client_display_name(client),
+            "previously_served": client.id in served_user_ids,
+            "is_follower": client.id in follower_user_ids,
+            "is_potential": client.id in potential_user_ids,
+            "request_count": getattr(client, "request_count", 0),
+            "classification": rec.classification if rec else "",
+            "reminder_text": rec.reminder_text if rec else "",
+            "reminder_date": str(rec.reminder_date) if rec and rec.reminder_date else "",
+            "reminder_time": rec.reminder_time.strftime("%H:%M") if rec and rec.reminder_time else "",
+            "loyalty_points_added": rec.loyalty_points_added if rec else 0,
+        })
+
+    # ── Messages summary ──
     recent_scheduled_messages_qs = (
         ExtrasPortalScheduledMessage.objects.filter(provider=provider)
         .prefetch_related("recipients")
         .order_by("-created_at")
     )
-    recent_scheduled_messages = list(recent_scheduled_messages_qs[:5])
-    message_summary = {
-        "total": recent_scheduled_messages_qs.count(),
-        "pending": recent_scheduled_messages_qs.filter(status="pending").count(),
-        "sent": recent_scheduled_messages_qs.filter(status="sent").count(),
-        "failed": recent_scheduled_messages_qs.filter(status="failed").count(),
-    }
+    sent_messages_count = recent_scheduled_messages_qs.filter(status="sent").count()
+    remaining_messages = max(bulk_message_limit - sent_messages_count, 0)
+
     recent_message_rows = [
         {
             "id": scheduled.id,
@@ -1313,93 +1748,10 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             "sent_at": scheduled.sent_at,
             "has_attachment": bool(getattr(scheduled, "attachment", None)),
         }
-        for scheduled in recent_scheduled_messages
+        for scheduled in recent_scheduled_messages_qs[:5]
     ]
 
-    form = BulkMessageForm(request.POST or None, request.FILES or None)
-    if request.method == "POST" and not clients_supports_bulk_messages:
-        messages.error(request, "إرسال الرسائل الجماعية غير مفعّل في طلب الخدمات الإضافية الحالي.")
-        return redirect("extras_portal:clients")
-
-    if request.method == "POST" and form.is_valid():
-        selected_ids = request.POST.getlist("client_ids")
-        recipient_ids = [int(i) for i in selected_ids if str(i).isdigit()]
-
-        if not recipient_ids:
-            messages.error(request, "اختر عميل واحد على الأقل")
-            return redirect("extras_portal:clients")
-
-        recipients = list(
-            User.objects.filter(
-                id__in=recipient_ids,
-                requests__provider=provider,
-            ).distinct()
-        )
-        if not recipients:
-            messages.error(request, "لا يوجد عملاء صالحون")
-            return redirect("extras_portal:clients")
-
-        send_at = form.cleaned_data.get("send_at")
-        scheduled = ExtrasPortalScheduledMessage.objects.create(
-            provider=provider,
-            body=form.cleaned_data["body"],
-            attachment=form.cleaned_data.get("attachment"),
-            send_at=send_at,
-            created_by=request.user,
-        )
-        ExtrasPortalScheduledMessageRecipient.objects.bulk_create(
-            [
-                ExtrasPortalScheduledMessageRecipient(
-                    scheduled_message=scheduled,
-                    user=u,
-                )
-                for u in recipients
-            ],
-            ignore_conflicts=True,
-        )
-
-        # If no schedule, send immediately.
-        if not send_at:
-            now = timezone.now()
-            try:
-                for u in recipients:
-                    thread = _get_or_create_direct_thread(provider_user, u)
-                    Message.objects.create(
-                        thread=thread,
-                        sender=provider_user,
-                        body=scheduled.body,
-                        attachment=scheduled.attachment,
-                        attachment_type="",
-                        attachment_name="",
-                        created_at=now,
-                    )
-                scheduled.status = "sent"
-                scheduled.sent_at = now
-                scheduled.save(update_fields=["status", "sent_at"])
-                messages.success(request, "تم إرسال الرسالة")
-            except Exception as e:
-                scheduled.status = "failed"
-                scheduled.error = str(e)[:255]
-                scheduled.save(update_fields=["status", "error"])
-                messages.error(request, "تعذر إرسال الرسالة")
-        else:
-            messages.success(request, "تمت جدولة الرسالة")
-
-        return redirect("extras_portal:clients")
-
-    # ---------- all_followers ----------
-    clients_supports_all_followers = _portal_section_has_option(section_context, "all_followers")
-    followers_qs = ProviderFollow.objects.filter(provider=provider).select_related("user").order_by("-created_at")
-    followers_list = list(followers_qs[:500]) if clients_supports_all_followers else []
-    followers_total_count = followers_qs.count() if clients_supports_all_followers else 0
-
-    # ---------- potential_clients_contact ----------
-    clients_supports_potential = _portal_section_has_option(section_context, "potential_clients_contact")
-    potential_qs = ProviderPotentialClient.objects.filter(provider=provider).select_related("user").order_by("-created_at")
-    potential_clients_list = list(potential_qs[:500]) if clients_supports_potential else []
-    potential_clients_total = potential_qs.count() if clients_supports_potential else 0
-
-    # ---------- loyalty_program ----------
+    # ── Loyalty program ──
     clients_supports_loyalty = _portal_section_has_option(section_context, "loyalty_program")
     loyalty_program = None
     if clients_supports_loyalty:
@@ -1408,13 +1760,11 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             defaults={"name": "برنامج الولاء", "points_per_completed_request": 10, "is_active": True},
         )
 
-    # ---------- loyalty_points ----------
+    # ── Loyalty summary ──
     clients_supports_points = _portal_section_has_option(section_context, "loyalty_points")
-    loyalty_memberships: list = []
     loyalty_summary: dict[str, int] = {"members": 0, "total_earned": 0, "total_redeemed": 0}
     if clients_supports_points and loyalty_program:
-        memberships_qs = LoyaltyMembership.objects.filter(program=loyalty_program).select_related("user").order_by("-points_balance")
-        loyalty_memberships = list(memberships_qs[:200])
+        memberships_qs = LoyaltyMembership.objects.filter(program=loyalty_program)
         agg = memberships_qs.aggregate(
             total_earned=Sum("total_earned"),
             total_redeemed=Sum("total_redeemed"),
@@ -1424,6 +1774,10 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             "total_earned": agg["total_earned"] or 0,
             "total_redeemed": agg["total_redeemed"] or 0,
         }
+
+    # ── Subscription info ──
+    subscription = getattr(provider, "extras_portal_subscription", None)
+    subscription_end = subscription.ends_at if subscription else None
 
     return render(
         request,
@@ -1436,30 +1790,131 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             "clients_option_labels": clients_option_labels,
             "clients_subscription_years": clients_subscription_years,
             "bulk_message_limit": bulk_message_limit,
+            "remaining_messages": remaining_messages,
+            "sent_messages_count": sent_messages_count,
             "clients_supports_bulk_messages": clients_supports_bulk_messages,
-            "clients": clients,
+            "enriched_clients": enriched_clients,
             "clients_total_count": clients_total_count,
             "clients_with_phone_count": clients_with_phone_count,
-            "message_summary": message_summary,
             "recent_message_rows": recent_message_rows,
             "form": form,
-            # all_followers
-            "clients_supports_all_followers": clients_supports_all_followers,
-            "followers_list": followers_list,
-            "followers_total_count": followers_total_count,
-            # potential_clients_contact
-            "clients_supports_potential": clients_supports_potential,
-            "potential_clients_list": potential_clients_list,
-            "potential_clients_total": potential_clients_total,
-            # loyalty_program
+            # loyalty
             "clients_supports_loyalty": clients_supports_loyalty,
             "loyalty_program": loyalty_program,
-            # loyalty_points
             "clients_supports_points": clients_supports_points,
-            "loyalty_memberships": loyalty_memberships,
             "loyalty_summary": loyalty_summary,
+            # subscription
+            "subscription_end": subscription_end,
         },
     )
+
+
+def _client_display_name(user: User) -> str:
+    """Return best available display name for a client user."""
+    full = f"{user.first_name or ''} {user.last_name or ''}".strip()
+    return full or getattr(user, "username", "") or str(user.id)
+
+
+def _save_client_records(request: HttpRequest, provider: ProviderProfile) -> None:
+    """Bulk save classification, reminders and loyalty points from POST."""
+    client_ids = request.POST.getlist("record_client_ids")
+    for cid_str in client_ids:
+        if not cid_str.isdigit():
+            continue
+        cid = int(cid_str)
+        classification = request.POST.get(f"classification_{cid}", "").strip()[:120]
+        reminder_text = request.POST.get(f"reminder_text_{cid}", "").strip()[:500]
+        reminder_date_str = request.POST.get(f"reminder_date_{cid}", "").strip()
+        reminder_time_str = request.POST.get(f"reminder_time_{cid}", "").strip()
+        loyalty_pts_str = request.POST.get(f"loyalty_points_{cid}", "0").strip()
+
+        reminder_date = None
+        if reminder_date_str:
+            parsed = parse_date(reminder_date_str)
+            if parsed:
+                reminder_date = parsed
+
+        reminder_time = None
+        if reminder_time_str:
+            try:
+                parts = reminder_time_str.split(":")
+                reminder_time = time(int(parts[0]), int(parts[1]))
+            except (ValueError, IndexError):
+                pass
+
+        loyalty_points = 0
+        if loyalty_pts_str.isdigit():
+            loyalty_points = int(loyalty_pts_str)
+
+        ClientRecord.objects.update_or_create(
+            provider=provider,
+            user_id=cid,
+            defaults={
+                "classification": classification,
+                "reminder_text": reminder_text,
+                "reminder_date": reminder_date,
+                "reminder_time": reminder_time,
+                "loyalty_points_added": loyalty_points,
+            },
+        )
+
+
+def _send_loyalty_message(request: HttpRequest, provider: ProviderProfile, provider_user: User) -> None:
+    """Send loyalty program message to all clients with loyalty points."""
+    loyalty_body = request.POST.get("loyalty_body", "").strip()
+    if not loyalty_body:
+        messages.error(request, "أدخل نص رسالة الولاء")
+        return
+    loyalty_send_at_str = request.POST.get("loyalty_send_at", "").strip()
+    loyalty_send_at = None
+    if loyalty_send_at_str:
+        loyalty_send_at = parse_datetime(loyalty_send_at_str)
+
+    # Find clients with loyalty points > 0
+    records_with_points = ClientRecord.objects.filter(
+        provider=provider,
+        loyalty_points_added__gt=0,
+    ).select_related("user")
+    if not records_with_points.exists():
+        messages.error(request, "لا يوجد عملاء بنقاط ولاء")
+        return
+
+    recipients = [rec.user for rec in records_with_points]
+    scheduled = ExtrasPortalScheduledMessage.objects.create(
+        provider=provider,
+        body=loyalty_body,
+        send_at=loyalty_send_at,
+        created_by=request.user,
+    )
+    ExtrasPortalScheduledMessageRecipient.objects.bulk_create(
+        [ExtrasPortalScheduledMessageRecipient(scheduled_message=scheduled, user=u) for u in recipients],
+        ignore_conflicts=True,
+    )
+
+    if not loyalty_send_at:
+        now = timezone.now()
+        try:
+            for u in recipients:
+                thread = _get_or_create_direct_thread(provider_user, u)
+                Message.objects.create(
+                    thread=thread,
+                    sender=provider_user,
+                    body=scheduled.body,
+                    attachment_type="",
+                    attachment_name="",
+                    created_at=now,
+                )
+            scheduled.status = "sent"
+            scheduled.sent_at = now
+            scheduled.save(update_fields=["status", "sent_at"])
+            messages.success(request, "تم إرسال رسالة الولاء")
+        except Exception as e:
+            scheduled.status = "failed"
+            scheduled.error = str(e)[:255]
+            scheduled.save(update_fields=["status", "error"])
+            messages.error(request, "تعذر إرسال رسالة الولاء")
+    else:
+        messages.success(request, "تمت جدولة رسالة الولاء")
 
 
 @extras_portal_login_required

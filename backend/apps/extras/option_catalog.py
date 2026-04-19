@@ -8,12 +8,13 @@ EXTRAS_REPORT_OPTIONS: tuple[tuple[str, str], ...] = (
     ("orders_breakdown", "عدد الطلبات (الجديدة - تحت التنفيذ - المكتملة - الملغية)"),
     ("platform_shares", "عدد مرات مشاركة منصتي"),
     ("service_requesters", "قائمة بمعرفات من طلب خدماتي"),
-    ("potential_clients", "قائمة بمعرفات من تم تميزه كعميل محتمل"),
+    ("potential_clients", "قائمة بمعرفات من تم تمييزه كعميل محتمل"),
     ("content_favoriters", "قائمة بمعرفات من عمل تفضيل لمحتوى منصتي"),
     ("platform_followers", "قائمة بمعرفات من عمل متابعة لمنصتي"),
     ("content_sharers", "قائمة بمعرفات من عمل مشاركة لمنصتي"),
     ("positive_reviewers", "قائمة بمعرفات أصحاب التقييم الإيجابي لخدماتي"),
     ("content_commenters", "قائمة بمعرفات المعلقين على محتوى منصتي"),
+    ("service_orders_detail", "قائمة بتفاصيل طلبات خدماتي"),
 )
 
 # Options that appear in the catalog but have no backend data model yet.
@@ -39,10 +40,7 @@ EXTRAS_CLIENT_OPTIONS: tuple[tuple[str, str], ...] = (
 
 # Client options with no backend implementation yet.
 UNAVAILABLE_CLIENT_OPTIONS: frozenset[str] = frozenset({
-    "export_clients",
-    "list_services",
-    "grouping",
-    "recurring_reminders",
+    # All previously unavailable client options are now implemented.
 })
 
 
@@ -56,8 +54,7 @@ EXTRAS_FINANCE_OPTIONS: tuple[tuple[str, str], ...] = (
 
 # Finance options with no backend implementation yet.
 UNAVAILABLE_FINANCE_OPTIONS: frozenset[str] = frozenset({
-    "electronic_payments",
-    "electronic_invoices",
+    # All previously unavailable finance options are now implemented.
 })
 
 

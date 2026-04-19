@@ -188,6 +188,9 @@ const LoginPage = (() => {
       } catch {}
 
       var next = _resolveNext();
+      if (!res.data.needs_completion) {
+        _queueWelcomeBackToast(res.data);
+      }
       if (res.data.needs_completion) {
         window.location.href = '/signup/?next=' + encodeURIComponent(next);
         return;
@@ -368,6 +371,18 @@ const LoginPage = (() => {
       if (Array.isArray(value) && value.length) return String(value[0]);
     }
     return fallback;
+  }
+
+  function _queueWelcomeBackToast(data) {
+    if (!window.Toast || typeof window.Toast.queue !== 'function') return;
+    window.Toast.queue(
+      'مرحبًا بعودتك إلى منصة نوافذ. يسعدنا استمرار ثقتك بنا، ونتمنى لك تجربة سلسة ومثمرة.',
+      {
+        title: 'مرحبًا بعودتك',
+        type: 'success',
+        duration: 6200,
+      }
+    );
   }
 
   if (document.readyState === 'loading') {

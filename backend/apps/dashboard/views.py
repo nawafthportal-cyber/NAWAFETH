@@ -111,7 +111,13 @@ from apps.verification.models import (
 )
 from apps.verification.serializers import VerificationRequestDetailSerializer
 from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus
-from apps.extras.option_catalog import UNAVAILABLE_CLIENT_OPTIONS, UNAVAILABLE_FINANCE_OPTIONS
+from apps.extras.option_catalog import (
+    EXTRAS_CLIENT_OPTIONS as CATALOG_EXTRAS_CLIENT_OPTIONS,
+    EXTRAS_FINANCE_OPTIONS as CATALOG_EXTRAS_FINANCE_OPTIONS,
+    EXTRAS_REPORT_OPTIONS as CATALOG_EXTRAS_REPORT_OPTIONS,
+    UNAVAILABLE_CLIENT_OPTIONS,
+    UNAVAILABLE_FINANCE_OPTIONS,
+)
 from apps.extras_portal.models import ExtrasPortalSubscription, ExtrasPortalSubscriptionStatus
 from apps.extras.services import (
     activate_bundle_portal_subscription_for_request,
@@ -3267,20 +3273,7 @@ EXTRAS_DASHBOARD_SECTIONS = {
 }
 EXTRAS_DASHBOARD_MAIN_SECTION = EXTRAS_DASHBOARD_SECTION_OVERVIEW
 
-EXTRAS_REPORT_OPTIONS: tuple[tuple[str, str], ...] = (
-    ("platform_metrics", "مؤشرات المنصة"),
-    ("platform_visits", "عدد الزيارات لمنصتي"),
-    ("platform_favorites", "عدد التفضيلات لمحتوى منصتي"),
-    ("orders_breakdown", "عدد الطلبات (الجديدة - تحت التنفيذ - المكتملة - الملغية)"),
-    ("platform_shares", "عدد مرات مشاركة منصتي"),
-    ("service_requesters", "قائمة بمعرفات من طلب خدماتي"),
-    ("potential_clients", "قائمة بمعرفات من تم تميزه كعميل محتمل"),
-    ("content_favoriters", "قائمة بمعرفات من عمل تفضيل لمحتوى منصتي"),
-    ("platform_followers", "قائمة بمعرفات من عمل متابعة لمنصتي"),
-    ("content_sharers", "قائمة بمعرفات من عمل مشاركة لمنصتي"),
-    ("positive_reviewers", "قائمة بمعرفات أصحاب التقييم الإيجابي لخدماتي"),
-    ("content_commenters", "قائمة بمعرفات المعلقين على محتوى منصتي"),
-)
+EXTRAS_REPORT_OPTIONS = CATALOG_EXTRAS_REPORT_OPTIONS
 
 EXTRAS_REPORT_OPTION_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
@@ -3305,29 +3298,16 @@ EXTRAS_REPORT_OPTION_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "content_commenters",
         ),
     ),
+    (
+        "تفاصيل طلبات الخدمة",
+        (
+            "service_orders_detail",
+        ),
+    ),
 )
 
-EXTRAS_CLIENT_OPTIONS: tuple[tuple[str, str], ...] = (
-    ("platform_clients_list", "قوائم عملاء منصتي"),
-    ("historical_clients", "قائمة بجميع العملاء الذين سبق لهم تقديم طلب خدمة تشمل معرفاتهم ووسائل التواصل معهم"),
-    ("all_followers", "قائمة بكل متابعي المختص"),
-    ("potential_clients_contact", "قائمة بالعملاء المحتملين (المرشحين من قائمة التواصل)"),
-    ("export_clients", "تصدير المعلومات إلى ملف PDF أو Excel"),
-    ("list_services", "خدمات القوائم"),
-    ("grouping", "التصنيف على شكل مجموعات (خدمة محددة - مهم - متكرر ...)"),
-    ("bulk_messages", "إرسال الرسائل الجماعية لعملائي"),
-    ("recurring_reminders", "خيار تذكير مرتبط بالعملاء وخدمتهم المتكررة (مثل الصيانة الدوري) يشمل مواعيد ورسائل تنبيه"),
-    ("loyalty_program", "برنامج الولاء"),
-    ("loyalty_points", "وضع نظام نقاط لعملائي مرتبط بعدد طلباتهم"),
-)
-
-EXTRAS_FINANCE_OPTIONS: tuple[tuple[str, str], ...] = (
-    ("bank_qr_registration", "خدمة تسجيل الحساب البنكي للمختص (QR)"),
-    ("electronic_payments", "خدمات الدفع الإلكتروني"),
-    ("electronic_invoices", "الفواتير الإلكترونية لعمليات الدفع من خلال منصة مختص"),
-    ("financial_statement", "كشف حساب شامل (اسم العميل - التاريخ - المبلغ المستلم - المبلغ الباقي - المبلغ النهائي)"),
-    ("finance_export", "تصدير البيانات المالية للعمليات المنفذة من خلال منصة مختص إلى ملف PDF أو Excel"),
-)
+EXTRAS_CLIENT_OPTIONS = CATALOG_EXTRAS_CLIENT_OPTIONS
+EXTRAS_FINANCE_OPTIONS = CATALOG_EXTRAS_FINANCE_OPTIONS
 
 
 def _extras_nav_items(active_key: str) -> list[dict]:
@@ -3780,17 +3760,27 @@ def _extras_parse_option_selection(raw_values: list[str], options: tuple[tuple[s
 def _extras_report_option_groups() -> list[dict]:
     labels_map = _extras_option_map(EXTRAS_REPORT_OPTIONS)
     groups: list[dict] = []
+    grouped_keys: set[str] = set()
     for title, keys in EXTRAS_REPORT_OPTION_GROUPS:
+        group_options = [
+            {"key": key, "label": labels_map[key]}
+            for key in keys
+            if key in labels_map
+        ]
+        grouped_keys.update(option["key"] for option in group_options)
         groups.append(
             {
                 "title": title,
-                "options": [
-                    {"key": key, "label": labels_map[key]}
-                    for key in keys
-                    if key in labels_map
-                ],
+                "options": group_options,
             }
         )
+    ungrouped_options = [
+        {"key": key, "label": label}
+        for key, label in EXTRAS_REPORT_OPTIONS
+        if key not in grouped_keys
+    ]
+    if ungrouped_options:
+        groups.append({"title": "بنود إضافية", "options": ungrouped_options})
     return groups
 
 

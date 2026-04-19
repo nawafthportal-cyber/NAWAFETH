@@ -16,6 +16,8 @@ urlpatterns = [
     path("reports/", views.portal_reports, name="reports"),
     path("reports/export/pdf/", views.portal_reports_export_pdf, name="reports_export_pdf"),
     path("reports/export/xlsx/", views.portal_reports_export_xlsx, name="reports_export_xlsx"),
+    path("reports/export/<str:option_key>/pdf/", views.portal_report_option_export_pdf, name="report_option_export_pdf"),
+    path("reports/export/<str:option_key>/xlsx/", views.portal_report_option_export_xlsx, name="report_option_export_xlsx"),
 
     path("clients/", views.portal_clients, name="clients"),
 

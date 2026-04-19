@@ -50,7 +50,7 @@ python manage.py runserver
 
 ```powershell
 cd c:\Users\manso\nawafeth\backend
-python manage.py runserver 0.0.0.0:8000
+python manage.py runserver
 ```
 
 التشغيل عبر السكربتات الجاهزة:

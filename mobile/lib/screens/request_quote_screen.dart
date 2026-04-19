@@ -6,9 +6,11 @@ import 'package:file_picker/file_picker.dart';
 import '../services/home_service.dart';
 import '../services/marketplace_service.dart';
 import '../services/account_mode_service.dart';
+import '../services/api_client.dart';
 import '../models/category_model.dart';
 import '../constants/saudi_cities.dart';
 import '../widgets/bottom_nav.dart';
+import 'orders_hub_screen.dart';
 
 class RequestQuoteScreen extends StatefulWidget {
   const RequestQuoteScreen({super.key});
@@ -27,6 +29,8 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
 
   // ── API data ──
   List<CategoryModel> _categories = [];
+  List<SaudiRegionCatalogEntry> _regionCatalog =
+      List<SaudiRegionCatalogEntry>.from(SaudiCities.regionCatalogFallback);
   bool _loadingCats = true;
   bool _accountChecked = false;
   bool _isProviderMode = false;
@@ -39,6 +43,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
   DateTime? _deadline;
   bool _submitting = false;
   bool _showSuccess = false;
+  int? _createdRequestId;
 
   // ── Attachments ──
   final List<File> _files = [];
@@ -74,16 +79,62 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
       return;
     }
 
-    _loadCategories();
+    _loadReferenceData();
   }
 
-  Future<void> _loadCategories() async {
+  Future<void> _loadReferenceData() async {
     try {
-      final cats = await HomeService.fetchCategories();
-      if (mounted) setState(() { _categories = cats; _loadingCats = false; });
+      final results = await Future.wait<dynamic>([
+        HomeService.fetchCategories(),
+        _fetchRegionCatalog(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _categories = results[0] as List<CategoryModel>;
+          _regionCatalog = results[1] as List<SaudiRegionCatalogEntry>;
+          _loadingCats = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingCats = false);
     }
+  }
+
+  Future<List<SaudiRegionCatalogEntry>> _fetchRegionCatalog() async {
+    final response = await ApiClient.get('/api/providers/geo/regions-cities/');
+    final parsed = _normalizeRegionCatalog(response.data);
+    if (response.isSuccess && parsed.isNotEmpty) return parsed;
+    return List<SaudiRegionCatalogEntry>.from(SaudiCities.regionCatalogFallback);
+  }
+
+  List<SaudiRegionCatalogEntry> _normalizeRegionCatalog(dynamic data) {
+    final rawList = data is List
+        ? data
+        : (data is Map && data['results'] is List ? data['results'] as List : const []);
+    final normalized = <SaudiRegionCatalogEntry>[];
+    for (final item in rawList) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      final name = (map['name_ar'] ?? map['name'] ?? map['region'] ?? '').toString().trim();
+      if (name.isEmpty) continue;
+      final cities = <String>[];
+      final citiesRaw = map['cities'];
+      if (citiesRaw is List) {
+        for (final city in citiesRaw) {
+          final value = city is Map
+              ? (city['name_ar'] ?? city['name'] ?? city['city'])
+              : city;
+          final cityName = value.toString().trim();
+          if (cityName.isNotEmpty && !cities.contains(cityName)) {
+            cities.add(cityName);
+          }
+        }
+      }
+      if (cities.isNotEmpty) {
+        normalized.add(SaudiRegionCatalogEntry(nameAr: name, cities: cities));
+      }
+    }
+    return normalized;
   }
 
   Future<void> _pickImages() async {
@@ -116,11 +167,14 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
     final title = _titleCtrl.text.trim();
     final details = _detailsCtrl.text.trim();
 
-    if (_selectedSub == null) { _snack('اختر التصنيف الفرعي'); return; }
-    if (title.isEmpty) { _snack('أدخل عنوان الطلب'); return; }
-    if (details.isEmpty) { _snack('أدخل تفاصيل الطلب'); return; }
+    if (_selectedSub == null) { _snack('يرجى اختيار التصنيف الفرعي'); return; }
+    if (title.isEmpty) { _snack('يرجى كتابة عنوان الطلب'); return; }
+    if (title.length > 50) { _snack('عنوان الطلب يجب ألا يتجاوز 50 حرفًا'); return; }
+    if (details.isEmpty) { _snack('يرجى كتابة تفاصيل الطلب'); return; }
+    if (details.length > 500) { _snack('تفاصيل الطلب يجب ألا تتجاوز 500 حرف'); return; }
 
     setState(() => _submitting = true);
+    final grouped = _groupAttachments(_files);
 
     final res = await MarketplaceService.createRequest(
       title: title,
@@ -129,17 +183,53 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
       subcategory: _selectedSub!.id,
       city: _selectedScopedCity.isEmpty ? null : _selectedScopedCity,
       quoteDeadline: _deadline != null ? DateFormat('yyyy-MM-dd').format(_deadline!) : null,
-      files: _files,
+      images: grouped.images,
+      videos: grouped.videos,
+      files: grouped.files,
+      audio: grouped.audio,
     );
 
     if (!mounted) return;
     setState(() => _submitting = false);
 
     if (res.isSuccess) {
-      setState(() => _showSuccess = true);
+      setState(() {
+        _createdRequestId = _extractRequestId(res.data);
+        _showSuccess = true;
+      });
     } else {
-      _snack(res.error ?? 'فشل إرسال الطلب');
+      _snack(_apiErrorMessage(res) ?? 'تعذر إرسال الطلب، تحقق من البيانات وحاول مرة أخرى');
     }
+  }
+
+  int? _extractRequestId(dynamic data) {
+    if (data is! Map) return null;
+    final map = Map<String, dynamic>.from(data);
+    for (final value in [map['id'], map['request_id'], map['number']]) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) {
+        final parsed = int.tryParse(value.trim());
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  String? _apiErrorMessage(ApiResponse response) {
+    final data = response.data;
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      final detail = map['detail'] ?? map['error'];
+      if (detail is String && detail.trim().isNotEmpty) return detail.trim();
+      const fields = ['title', 'subcategory', 'description', 'city', 'quote_deadline'];
+      for (final field in fields) {
+        final value = map[field];
+        if (value is List && value.isNotEmpty) return value.first.toString();
+        if (value is String && value.trim().isNotEmpty) return value.trim();
+      }
+    }
+    return response.error;
   }
 
   void _snack(String msg) {
@@ -290,7 +380,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
               children: [
                 _label('عنوان الطلب', isDark),
                 const SizedBox(height: 6),
-                _textInput(_titleCtrl, 'أدخل عنوان الطلب', 1, 80, isDark),
+                _textInput(_titleCtrl, 'أدخل عنوان الطلب', 1, 50, isDark),
                 const SizedBox(height: 14),
                 _label('تفاصيل الطلب', isDark),
                 const SizedBox(height: 6),
@@ -318,7 +408,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
                         isDark: isDark,
                         hint: 'اختر المنطقة الإدارية',
                         value: _activeRegion,
-                        items: SaudiCities.regionCatalogFallback,
+                        items: _regionCatalog,
                         labelFn: (region) => region.displayName,
                         onChanged: (region) {
                           setState(() {
@@ -407,23 +497,29 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
           children: [
             const Icon(Icons.check_circle_rounded, size: 48, color: Colors.green),
             const SizedBox(height: 12),
-            Text('تم إرسال الطلب بنجاح!', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+            Text('تم إرسال الطلب بنجاح', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
                 fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87)),
             const SizedBox(height: 6),
-            Text('ستتلقى العروض قريبًا في قسم طلباتي.',
+            Text(
+                _createdRequestId != null
+                    ? 'تم اعتماد طلبك رقم $_createdRequestId، وستصلك العروض في قسم طلباتي.'
+                    : 'تم اعتماد طلبك، وستصلك العروض في قسم طلباتي.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 10, fontFamily: 'Cairo',
                     color: isDark ? Colors.white54 : Colors.black45)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const OrdersHubScreen()),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _mainColor, foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                 elevation: 0,
               ),
-              child: const Text('العودة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, fontFamily: 'Cairo')),
+              child: const Text('عرض طلباتي', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, fontFamily: 'Cairo')),
             ),
           ],
         ),
@@ -448,6 +544,13 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
   }
 
   SaudiRegionCatalogEntry? get _activeRegion {
+    final normalized = (_selectedRegion ?? '').trim();
+    if (normalized.isEmpty) return null;
+    for (final entry in _regionCatalog) {
+      if (entry.nameAr == normalized || entry.displayName == normalized) {
+        return entry;
+      }
+    }
     return SaudiCities.findRegionEntry(_selectedRegion);
   }
 
@@ -651,7 +754,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
                   _heroChip(Icons.category_outlined, categoryLabel),
                   _heroChip(Icons.place_outlined, cityLabel),
                   _heroChip(Icons.calendar_month_outlined, deadlineLabel),
-                  _heroChip(Icons.attach_file_rounded, '${_files.length} مرفقات'),
+                  _heroChip(Icons.attach_file_rounded, _attachmentSummaryLabel),
                 ],
               ),
             ],
@@ -998,6 +1101,61 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
     return lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.webp');
   }
 
+  bool _isVideoFile(String path) {
+    final lower = path.toLowerCase();
+    return lower.endsWith('.mp4') ||
+        lower.endsWith('.mov') ||
+        lower.endsWith('.avi') ||
+        lower.endsWith('.mkv') ||
+        lower.endsWith('.webm') ||
+        lower.endsWith('.m4v');
+  }
+
+  bool _isAudioFile(String path) {
+    final lower = path.toLowerCase();
+    return lower.endsWith('.mp3') ||
+        lower.endsWith('.wav') ||
+        lower.endsWith('.aac') ||
+        lower.endsWith('.ogg') ||
+        lower.endsWith('.m4a');
+  }
+
+  _RequestAttachments _groupAttachments(List<File> attachments) {
+    final images = <File>[];
+    final videos = <File>[];
+    final files = <File>[];
+    File? audio;
+    for (final file in attachments) {
+      final path = file.path;
+      if (_isImageFile(path)) {
+        images.add(file);
+      } else if (_isVideoFile(path)) {
+        videos.add(file);
+      } else if (_isAudioFile(path) && audio == null) {
+        audio = file;
+      } else {
+        files.add(file);
+      }
+    }
+    return _RequestAttachments(
+      images: images,
+      videos: videos,
+      files: files,
+      audio: audio,
+    );
+  }
+
+  String get _attachmentSummaryLabel {
+    if (_files.isEmpty) return 'بدون مرفقات';
+    final grouped = _groupAttachments(_files);
+    final parts = <String>[];
+    if (grouped.images.isNotEmpty) parts.add('${grouped.images.length} صورة');
+    if (grouped.videos.isNotEmpty) parts.add('${grouped.videos.length} فيديو');
+    if (grouped.audio != null) parts.add('تسجيل صوتي');
+    if (grouped.files.isNotEmpty) parts.add('${grouped.files.length} ملف');
+    return parts.join('، ');
+  }
+
   String _fileName(String path) => path.split(Platform.pathSeparator).last;
 
   Widget _buildEntrance(int index, Widget child) {
@@ -1019,4 +1177,18 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
       ),
     );
   }
+}
+
+class _RequestAttachments {
+  final List<File> images;
+  final List<File> videos;
+  final List<File> files;
+  final File? audio;
+
+  const _RequestAttachments({
+    required this.images,
+    required this.videos,
+    required this.files,
+    required this.audio,
+  });
 }

@@ -957,7 +957,82 @@ ul, ol { list-style: none; }
 }
 .sidebar-auth-link { color: var(--color-text-secondary); }
 .sidebar-auth-link:hover { color: var(--color-primary); }
-.sidebar-logout.hidden { display: none; }
+.sidebar-delete-account {
+  color: #c62828;
+}
+.sidebar-delete-account .sidebar-icon {
+  background: rgba(198, 40, 40, 0.08);
+}
+.sidebar-delete-account:hover {
+  color: #b71c1c;
+  background: rgba(198, 40, 40, 0.08);
+}
+.sidebar-logout.hidden,
+.sidebar-delete-account.hidden {
+  display: none;
+}
+
+.global-toast {
+  position: fixed;
+  top: calc(18px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: 2000;
+  width: min(520px, calc(100vw - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  color: #172033;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+  transform: translate(-50%, -18px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.global-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+.global-toast-icon {
+  width: 12px;
+  height: 12px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 6px rgba(103, 58, 183, 0.12);
+  flex: 0 0 auto;
+}
+.global-toast.success .global-toast-icon {
+  background: #0f766e;
+  box-shadow: 0 0 0 6px rgba(15, 118, 110, 0.12);
+}
+.global-toast.warning .global-toast-icon {
+  background: #b45309;
+  box-shadow: 0 0 0 6px rgba(180, 83, 9, 0.12);
+}
+.global-toast.error .global-toast-icon {
+  background: #c62828;
+  box-shadow: 0 0 0 6px rgba(198, 40, 40, 0.12);
+}
+.global-toast-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  line-height: 1.65;
+}
+.global-toast-copy strong {
+  font-size: 14px;
+  font-weight: 800;
+  color: #111827;
+}
+.global-toast-copy span {
+  font-size: 13px;
+  color: #4b5563;
+}
 
 @media (min-width: 1024px) {
   .sidebar {
@@ -968,6 +1043,13 @@ ul, ol { list-style: none; }
 @media (max-width: 768px) {
   .sidebar {
     width: min(360px, 92vw);
+  }
+  .global-toast {
+    top: auto;
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    width: min(420px, calc(100vw - 24px));
+    padding: 12px 14px;
+    border-radius: 16px;
   }
 }
 

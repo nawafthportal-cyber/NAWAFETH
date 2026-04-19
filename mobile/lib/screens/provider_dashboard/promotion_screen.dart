@@ -939,105 +939,25 @@ class _PromotionScreenState extends State<PromotionScreen>
     }
 
     final attempt = Map<String, dynamic>.from(initRes.dataAsMap ?? const {});
-    bool isPaying = false;
-    final completed = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) => StatefulBuilder(
-            builder: (dialogContext, setDialogState) => AlertDialog(
-              title: const Text(
-                'صفحة دفع الترويج',
-                style:
-                    TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _line(
-                        'رقم الطلب', (request['code'] as String? ?? '').trim()),
-                    if ((request['invoice_code'] as String? ?? '')
-                        .trim()
-                        .isNotEmpty)
-                      _line('رقم الفاتورة',
-                          (request['invoice_code'] as String).trim()),
-                    _line(
-                        'الإجمالي', '${_money(request['invoice_total'])} ريال'),
-                    if (request['invoice_vat'] != null)
-                      _line('VAT', '${_money(request['invoice_vat'])} ريال'),
-                    if ((attempt['provider_reference'] as String? ?? '')
-                        .trim()
-                        .isNotEmpty)
-                      _line('مرجع الدفع',
-                          (attempt['provider_reference'] as String).trim()),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'سيتم تنفيذ الدفع التجريبي ثم تفعيل الحملة مباشرة بعد تأكيد السداد.',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        color: Colors.black54,
-                        height: 1.6,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: isPaying
-                      ? null
-                      : () => Navigator.pop(dialogContext, false),
-                  child: const Text('إلغاء',
-                      style: TextStyle(fontFamily: 'Cairo')),
-                ),
-                FilledButton(
-                  onPressed: isPaying
-                      ? null
-                      : () async {
-                          setDialogState(() => isPaying = true);
-                          final payRes =
-                              await BillingService.completeMockPayment(
-                            invoiceId: invoiceId,
-                            idempotencyKey: idempotencyKey,
-                          );
-                          if (!mounted) return;
-                          if (!payRes.isSuccess) {
-                            if (!dialogContext.mounted) return;
-                            setDialogState(() => isPaying = false);
-                            _snack(payRes.error ?? 'تعذر إتمام الدفع', true);
-                            return;
-                          }
-                          if (!dialogContext.mounted) return;
-                          Navigator.pop(dialogContext, true);
-                        },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _brandColor,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: isPaying
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text(
-                          'تأكيد الدفع',
-                          style: TextStyle(fontFamily: 'Cairo'),
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ) ??
-        false;
+    final checkoutUrl = (attempt['checkout_url'] as String? ?? '').trim();
+    if (checkoutUrl.isEmpty) {
+      _snack('تعذر الحصول على رابط صفحة الدفع', true);
+      return;
+    }
 
-    if (!completed) return;
-    await _loadRequests(silent: true);
+    final opened = await BillingService.openCheckout(
+      checkoutUrl: checkoutUrl,
+      requestCode: (request['code'] as String? ?? '').trim(),
+    );
     if (!mounted) return;
-    _snack('تم سداد الفاتورة وتفعيل العرض الترويجي', false);
+    if (!opened) {
+      _snack('تعذر فتح صفحة الدفع الموحدة', true);
+      return;
+    }
+    _snack(
+      'تم فتح صفحة الدفع الموحدة. بعد نجاح السداد ستعود تلقائيًا إلى التطبيق.',
+      false,
+    );
   }
 }
 
@@ -3283,6 +3203,7 @@ class _PromoPaymentScreenState extends State<_PromoPaymentScreen> {
     final initRes = await BillingService.initPayment(
       invoiceId: widget.invoiceId,
       idempotencyKey: idempotencyKey,
+      paymentMethod: _method,
     );
     if (!mounted) return;
     if (!initRes.isSuccess) {
@@ -3291,14 +3212,22 @@ class _PromoPaymentScreenState extends State<_PromoPaymentScreen> {
       return;
     }
 
-    final payRes = await BillingService.completeMockPayment(
-      invoiceId: widget.invoiceId,
-      idempotencyKey: idempotencyKey,
+    final attempt = Map<String, dynamic>.from(initRes.dataAsMap ?? const {});
+    final checkoutUrl = (attempt['checkout_url'] as String? ?? '').trim();
+    if (checkoutUrl.isEmpty) {
+      setState(() => _paying = false);
+      _snack('تعذر الحصول على رابط صفحة الدفع', true);
+      return;
+    }
+
+    final opened = await BillingService.openCheckout(
+      checkoutUrl: checkoutUrl,
+      requestCode: widget.requestCode,
     );
     if (!mounted) return;
-    if (!payRes.isSuccess) {
+    if (!opened) {
       setState(() => _paying = false);
-      _snack(payRes.error ?? 'تعذر إتمام عملية الدفع', true);
+      _snack('تعذر فتح صفحة الدفع الموحدة', true);
       return;
     }
 
@@ -3306,7 +3235,11 @@ class _PromoPaymentScreenState extends State<_PromoPaymentScreen> {
     _cardNumber.clear();
     _cardExpiry.clear();
     _cardCvv.clear();
-    Navigator.pop(context, true);
+    setState(() => _paying = false);
+    _snack(
+      'تم فتح صفحة الدفع الموحدة. بعد نجاح السداد ستعود تلقائيًا إلى التطبيق.',
+      false,
+    );
   }
 
   @override

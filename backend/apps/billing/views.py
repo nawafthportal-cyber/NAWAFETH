@@ -6,8 +6,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404
 from django.views import View
+from urllib.parse import urlparse
 
 from .models import Invoice, PaymentAttempt, PaymentProvider
 from .serializers import (
@@ -39,7 +40,16 @@ def _safe_next_path(raw_next: str, default_path: str = "/verification/") -> str:
     value = (raw_next or "").strip()
     if value.startswith("/") and not value.startswith("//"):
         return value
+    parsed = urlparse(value)
+    if parsed.scheme == "nawafeth" and parsed.netloc == "payment-return":
+        return value
     return default_path
+
+
+def _safe_redirect(target: str):
+    response = HttpResponse(status=302)
+    response["Location"] = target
+    return response
 
 
 class MockCheckoutView(View):
@@ -65,7 +75,7 @@ class MockCheckoutView(View):
         next_path = _safe_next_path(request.GET.get("next"), default_path="/verification/")
         if invoice.is_payment_effective():
             sep = "&" if "?" in next_path else "?"
-            return redirect(f"{next_path}{sep}payment=already_paid&invoice={invoice.code}")
+            return _safe_redirect(f"{next_path}{sep}payment=already_paid&invoice={invoice.code}")
 
         action = (request.GET.get("action") or "pay").strip().lower()
         status_value = "success"
@@ -105,7 +115,7 @@ class MockCheckoutView(View):
         elif status_value == "failed":
             payment_flag = "failed"
         sep = "&" if "?" in next_path else "?"
-        return redirect(f"{next_path}{sep}payment={payment_flag}&invoice={invoice.code}")
+        return _safe_redirect(f"{next_path}{sep}payment={payment_flag}&invoice={invoice.code}")
 
 
 class InvoiceCreateView(generics.CreateAPIView):

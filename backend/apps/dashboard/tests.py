@@ -4,6 +4,8 @@ from django.urls import reverse
 from apps.accounts.models import User, UserRole
 from apps.billing.models import Invoice, InvoiceStatus
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
+from apps.dashboard.views import EXTRAS_REPORT_OPTIONS, _extras_report_option_groups
+from apps.extras.option_catalog import EXTRAS_REPORT_OPTIONS as CATALOG_EXTRAS_REPORT_OPTIONS
 from apps.extras_portal.models import ExtrasPortalSubscription
 from apps.providers.models import ProviderProfile
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestStatus, UnifiedRequestType
@@ -113,3 +115,19 @@ class DashboardExtrasSpecialistTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(request_obj.status, UnifiedRequestStatus.IN_PROGRESS)
         self.assertEqual(ExtrasPortalSubscription.objects.count(), 0)
+
+
+class DashboardExtrasCatalogParityTests(TestCase):
+    def test_dashboard_report_options_match_provider_request_catalog(self):
+        self.assertEqual(EXTRAS_REPORT_OPTIONS, CATALOG_EXTRAS_REPORT_OPTIONS)
+
+    def test_dashboard_report_groups_include_every_catalog_option(self):
+        grouped_keys = [
+            option["key"]
+            for group in _extras_report_option_groups()
+            for option in group["options"]
+        ]
+        catalog_keys = [key for key, _label in CATALOG_EXTRAS_REPORT_OPTIONS]
+
+        self.assertEqual(grouped_keys, catalog_keys)
+        self.assertIn("service_orders_detail", grouped_keys)

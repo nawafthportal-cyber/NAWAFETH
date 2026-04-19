@@ -122,8 +122,14 @@ const SettingsPage = (() => {
 
     const res = await ApiClient.request('/api/accounts/delete/', { method: 'DELETE' });
     if (res.ok) {
+      if (window.Toast && typeof window.Toast.queue === 'function') {
+        window.Toast.queue(
+          'نعتذر لك عن أي تقصير في تجربتك معنا. تم حذف حسابك وبياناته المرتبطة من قاعدة البيانات، ونسعد بخدمتك مرة أخرى متى رغبت بالعودة.',
+          { title: 'تم حذف الحساب نهائيًا', type: 'warning', duration: 7600 }
+        );
+      }
       Auth.logout();
-      window.location.href = '/';
+      window.location.href = '/login/';
     } else {
       _showError(res.data?.detail || 'حدث خطأ أثناء حذف الحساب');
       if (btn) { btn.disabled = false; btn.textContent = 'حذف الحساب نهائياً'; }

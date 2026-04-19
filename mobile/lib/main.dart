@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'services/auth_service.dart';
 import 'services/onboarding_service.dart';
 import 'services/account_mode_service.dart';
 import 'services/push_notification_service.dart';
+import 'services/payment_return_service.dart';
 
 // 🟣 الشاشات الرئيسية
 import 'screens/home_screen.dart';
@@ -49,10 +52,13 @@ class MyThemeController extends InheritedWidget {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PushNotificationService.initialize();
+  await PaymentReturnService.initialize();
   final showOnboarding = await OnboardingService.shouldShowOnboarding();
   final isLoggedIn = await AuthService.isLoggedIn();
   runApp(NawafethApp(showOnboarding: showOnboarding, isLoggedIn: isLoggedIn));
 }
+
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 class NawafethApp extends StatefulWidget {
   final bool showOnboarding;
@@ -71,6 +77,23 @@ class NawafethApp extends StatefulWidget {
 class _NawafethAppState extends State<NawafethApp> {
   ThemeMode _themeMode = ThemeMode.light;
   Locale _locale = const Locale('ar', 'SA'); // ✅ اللغة الافتراضية العربية
+  StreamSubscription<PaymentReturnPayload>? _paymentReturnSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _paymentReturnSubscription = PaymentReturnService.stream.listen((payload) {
+      final context = rootNavigatorKey.currentContext;
+      if (context == null) return;
+      PaymentReturnService.showSnackBar(context, payload);
+    });
+  }
+
+  @override
+  void dispose() {
+    _paymentReturnSubscription?.cancel();
+    super.dispose();
+  }
 
   /// 🔄 تبديل الثيم
   void _changeTheme(ThemeMode mode) {
@@ -94,6 +117,7 @@ class _NawafethAppState extends State<NawafethApp> {
       changeLanguage: _changeLanguage,
       locale: _locale,
       child: MaterialApp(
+        navigatorKey: rootNavigatorKey,
         title: 'Nawafeth App',
         debugShowCheckedModeBanner: false,
 

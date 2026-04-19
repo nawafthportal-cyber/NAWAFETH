@@ -864,13 +864,13 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         Navigator.push(context,
             MaterialPageRoute(builder: (_) => const OrdersHubScreen()));
       }),
+      _QuickAction(Icons.bookmark_border_rounded, 'محفوظاتي', () {
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const InteractiveScreen()));
+      }),
       _QuickAction(Icons.chat_bubble_outline_rounded, 'محادثاتي', () {
         Navigator.push(
             context, MaterialPageRoute(builder: (_) => const MyChatsScreen()));
-      }),
-      _QuickAction(Icons.notifications_none_rounded, 'الإشعارات', () {
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const NotificationsScreen()));
       }),
       _QuickAction(Icons.people_outline_rounded, 'تفاعلي', () {
         Navigator.push(context,

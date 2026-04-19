@@ -209,8 +209,16 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       return;
     }
 
+    final userProfile = meResult.data!;
+    if (!userProfile.hasProviderProfile && !userProfile.isProvider) {
+      await AccountModeService.setProviderMode(false);
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/profile');
+      return;
+    }
+
     setState(() {
-      _userProfile = meResult.data;
+      _userProfile = userProfile;
       _isLoading = false;
     });
 

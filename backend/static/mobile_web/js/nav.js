@@ -4,6 +4,69 @@
    =================================================================== */
 'use strict';
 
+const Toast = (() => {
+  const PENDING_KEY = 'nw_pending_toast_v1';
+  let _timer = 0;
+
+  function _storage() {
+    try { return window.sessionStorage; } catch (_) { return null; }
+  }
+
+  function show(message, options = {}) {
+    const toast = document.getElementById('global-toast');
+    const titleEl = document.getElementById('global-toast-title');
+    const messageEl = document.getElementById('global-toast-message');
+    if (!toast || !messageEl) return;
+
+    const title = String(options.title || '').trim();
+    const text = String(message || '').trim();
+    if (!title && !text) return;
+
+    toast.classList.remove('success', 'warning', 'error', 'info', 'show');
+    toast.classList.add(String(options.type || 'success').trim() || 'success');
+    if (titleEl) titleEl.textContent = title;
+    messageEl.textContent = text;
+
+    requestAnimationFrame(() => toast.classList.add('show'));
+    if (_timer) window.clearTimeout(_timer);
+    _timer = window.setTimeout(() => {
+      toast.classList.remove('show');
+    }, Number(options.duration || 5200));
+  }
+
+  function queue(message, options = {}) {
+    const store = _storage();
+    if (!store) return;
+    try {
+      store.setItem(PENDING_KEY, JSON.stringify({
+        title: String(options.title || '').trim(),
+        message: String(message || '').trim(),
+        type: String(options.type || 'success').trim() || 'success',
+        duration: Number(options.duration || 5200),
+      }));
+    } catch (_) {}
+  }
+
+  function flushPending() {
+    const store = _storage();
+    if (!store) return;
+    let payload = null;
+    try {
+      payload = JSON.parse(store.getItem(PENDING_KEY) || 'null');
+      store.removeItem(PENDING_KEY);
+    } catch (_) {
+      try { store.removeItem(PENDING_KEY); } catch (__) {}
+      return;
+    }
+    if (!payload || !payload.message) return;
+    show(payload.message, payload);
+  }
+
+  return { show, queue, flushPending };
+})();
+
+window.Toast = Toast;
+
 const Nav = (() => {
   let _sidebarOpen = false;
   let _badgeRefreshInFlight = false;
@@ -38,8 +101,10 @@ const Nav = (() => {
     _initModeAwareProfileNav();
     _initSidebarController();
     _initQuickNavButtons();
+    Toast.flushPending();
     _initAuthUI();
     _initLogout();
+    _initDeleteAccount();
     _initUnreadBadges();
     _initTopbarSponsor();
     _initTopbarBrandLogo();
@@ -141,7 +206,7 @@ const Nav = (() => {
 
     sidebar.querySelectorAll('a.sidebar-link, button.sidebar-link').forEach(link => {
       link.addEventListener('click', () => {
-        if (link.id !== 'sidebar-logout') shut();
+        if (link.id !== 'sidebar-logout' && link.id !== 'sidebar-delete-account') shut();
       });
     });
 
@@ -571,6 +636,7 @@ const Nav = (() => {
     const loginLink = document.getElementById('sidebar-login-link');
     const desktopLoginLink = document.getElementById('home-desktop-login');
     const logoutBtn = document.getElementById('sidebar-logout');
+    const deleteAccountBtn = document.getElementById('sidebar-delete-account');
     const nameEl = document.getElementById('sidebar-name');
     const roleEl = document.getElementById('sidebar-role');
     const avatarEl = document.getElementById('sidebar-avatar');
@@ -591,6 +657,7 @@ const Nav = (() => {
       if (loginLink) loginLink.classList.remove('hidden');
       if (desktopLoginLink) desktopLoginLink.classList.remove('hidden');
       if (logoutBtn) logoutBtn.classList.add('hidden');
+      if (deleteAccountBtn) deleteAccountBtn.classList.add('hidden');
       if (nameEl) nameEl.textContent = 'زائر';
       if (roleEl) roleEl.textContent = 'تصفح كضيف';
       if (avatarEl) avatarEl.textContent = '';
@@ -601,6 +668,7 @@ const Nav = (() => {
     if (loginLink) loginLink.classList.add('hidden');
     if (desktopLoginLink) desktopLoginLink.classList.add('hidden');
     if (logoutBtn) logoutBtn.classList.remove('hidden');
+    if (deleteAccountBtn) deleteAccountBtn.classList.remove('hidden');
 
     const profile = await Auth.getProfile();
     if (!profile) return;
@@ -681,13 +749,47 @@ const Nav = (() => {
     if (!btn) return;
     btn.addEventListener('click', async () => {
       const refresh = Auth.getRefreshToken();
-      if (refresh) {
-        await ApiClient.request('/api/accounts/logout/', {
-          method: 'POST', body: { refresh },
-        });
-      }
+      await ApiClient.request('/api/accounts/logout/', {
+        method: 'POST', body: refresh ? { refresh } : {},
+      });
       Auth.logout();
       window.location.href = '/';
+    });
+  }
+
+  /* ---------- Delete account ---------- */
+  function _initDeleteAccount() {
+    const btn = document.getElementById('sidebar-delete-account');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      const confirmed = window.confirm(
+        'سيتم حذف حسابك نهائيًا من قاعدة البيانات ولن يمكن استعادته. هل تريد المتابعة؟'
+      );
+      if (!confirmed) return;
+
+      btn.disabled = true;
+      const label = btn.querySelector('.sidebar-label');
+      const previousLabel = label ? label.textContent : '';
+      if (label) label.textContent = 'جارٍ حذف الحساب...';
+
+      const res = await ApiClient.request('/api/accounts/delete/', {
+        method: 'DELETE',
+        timeout: 20000,
+      });
+
+      if (res?.ok) {
+        Toast.queue(
+          'نعتذر لك عن أي تقصير في تجربتك معنا. تم حذف حسابك وبياناته المرتبطة من قاعدة البيانات، ونسعد بخدمتك مرة أخرى متى رغبت بالعودة.',
+          { title: 'تم حذف الحساب نهائيًا', type: 'warning', duration: 7600 }
+        );
+        Auth.logout();
+        window.location.href = '/login/';
+        return;
+      }
+
+      btn.disabled = false;
+      if (label) label.textContent = previousLabel || 'حذف الحساب نهائيًا';
+      window.alert((res && res.data && (res.data.detail || res.data.error)) || 'تعذر حذف الحساب، حاول مرة أخرى.');
     });
   }
 

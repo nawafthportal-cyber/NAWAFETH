@@ -1055,6 +1055,7 @@ def logout_view(request):
 def delete_account_view(request):
     """Permanently delete the authenticated user account."""
     user: User = request.user
+    auth_logout(request)
     user.delete()
     return Response({"ok": True, "detail": "تم حذف الحساب بنجاح"}, status=status.HTTP_200_OK)
 

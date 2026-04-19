@@ -208,3 +208,63 @@ class LoyaltyTransaction(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class ReportDataSnapshot(models.Model):
+    """Persists a point-in-time snapshot of report data for a specific option."""
+
+    provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.CASCADE,
+        related_name="report_snapshots",
+    )
+    unified_request_id = models.PositiveIntegerField(null=True, blank=True, db_index=True)
+    request_code = models.CharField(max_length=100, blank=True, default="")
+    section_key = models.CharField(max_length=50, default="reports")
+    option_key = models.CharField(max_length=100, db_index=True)
+    data_json = models.JSONField(default=dict)
+    start_at = models.DateTimeField(null=True, blank=True)
+    end_at = models.DateTimeField(null=True, blank=True)
+    snapshot_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-snapshot_at"]
+        indexes = [
+            models.Index(fields=["provider", "unified_request_id", "option_key"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"ReportDataSnapshot provider={self.provider_id} option={self.option_key}"
+
+
+class ClientRecord(models.Model):
+    """Per-client editable metadata managed by the provider in the clients dashboard."""
+    provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.CASCADE,
+        related_name="client_records",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="extras_portal_client_records",
+    )
+    classification = models.CharField(max_length=120, blank=True, default="")
+    reminder_text = models.CharField(max_length=500, blank=True, default="")
+    reminder_date = models.DateField(null=True, blank=True)
+    reminder_time = models.TimeField(null=True, blank=True)
+    loyalty_points_added = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "user"],
+                name="uniq_client_record_provider_user",
+            )
+        ]
+        ordering = ["-updated_at"]
+
+    def __str__(self) -> str:
+        return f"ClientRecord provider={self.provider_id} user={self.user_id}"

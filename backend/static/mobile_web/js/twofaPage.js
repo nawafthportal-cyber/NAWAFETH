@@ -208,6 +208,10 @@ const TwofaPage = (() => {
     });
     _sessionRemove('nw_auth_dev_code');
 
+    if (!res.data.needs_completion) {
+      _queueWelcomeBackToast(res.data);
+    }
+
     if (res.data.needs_completion) {
       const target = new URL('/signup/', window.location.origin);
       target.searchParams.set('next', _next);
@@ -438,6 +442,10 @@ const TwofaPage = (() => {
       _sessionSet('nw_auth_phone', phone);
       _sessionRemove('nw_auth_dev_code');
 
+      if (!res.data.needs_completion) {
+        _queueWelcomeBackToast(res.data);
+      }
+
       if (res.data.needs_completion) {
         window.location.href = '/signup/?next=' + encodeURIComponent(_next);
         return;
@@ -533,6 +541,21 @@ const TwofaPage = (() => {
       if (Array.isArray(value) && value.length) return String(value[0]);
     }
     return fallback;
+  }
+
+  function _queueWelcomeBackToast(data) {
+    if (!window.Toast || typeof window.Toast.queue !== 'function') return;
+    const isNewUser = !!(data && data.is_new_user);
+    window.Toast.queue(
+      isNewUser
+        ? 'يسعدنا انضمامك إلى منصة نوافذ. نتمنى لك تجربة موفقة ومتكاملة.'
+        : 'مرحبًا بعودتك إلى منصة نوافذ. يسعدنا استمرار ثقتك بنا، ونتمنى لك تجربة سلسة ومثمرة.',
+      {
+        title: isNewUser ? 'أهلًا بك في نوافذ' : 'مرحبًا بعودتك',
+        type: 'success',
+        duration: 6200,
+      }
+    );
   }
 
   function _showToast(message, type) {
