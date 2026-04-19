@@ -542,6 +542,7 @@ const OnboardingOverlay = (() => {
       if (res.ok) {
         /* Store phone and dev code (dev only) */
         try {
+          sessionStorage.setItem('nw_auth_phone', phone);
           localStorage.setItem('nw_auth_phone', phone);
           if (res.data && res.data.dev_code) {
             localStorage.setItem('nw_auth_dev_code', res.data.dev_code);
@@ -554,7 +555,7 @@ const OnboardingOverlay = (() => {
 
         /* Dismiss overlay and navigate to TwoFA */
         _dismissFinal();
-        window.location.href = '/twofa/?phone=' + encodeURIComponent(phone) + '&next=/';
+        window.location.href = '/twofa/?next=/';
       } else {
         const msg = (res.data && (res.data.detail || res.data.error || res.data.phone))
           || 'تعذر إرسال رمز التحقق، حاول مرة أخرى';

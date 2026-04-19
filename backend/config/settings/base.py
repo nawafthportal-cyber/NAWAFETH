@@ -179,6 +179,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.safe_server_auth",
                 "apps.content.context_processors.site_public_content",
                 "apps.dashboard.context_processors.dashboard_nav_access",
             ],

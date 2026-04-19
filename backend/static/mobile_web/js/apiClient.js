@@ -8,6 +8,14 @@ const ApiClient = (() => {
   // Base URL — auto-detect from current origin (same Django server)
   const BASE = window.location.origin;
   let _refreshing = null;
+  const _getCache = new Map();
+  const _getInFlight = new Map();
+
+  const GET_CACHE_RULES = [
+    { test: (path) => path === '/api/content/public/', ttl: 5 * 60 * 1000 },
+    { test: (path) => path.indexOf('/api/providers/categories/') === 0, ttl: 5 * 60 * 1000 },
+    { test: (path) => path.indexOf('/api/accounts/me/') === 0, ttl: 10 * 1000 },
+  ];
 
   function _readStoredValue(key) {
     try {
@@ -104,6 +112,30 @@ const ApiClient = (() => {
     return String(path || '').indexOf('/api/accounts/token/refresh/') !== -1;
   }
 
+  function _tokenExpiresSoon(token, skewSeconds) {
+    try {
+      const parts = String(token || '').split('.');
+      if (parts.length < 2) return false;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const exp = Number(payload && payload.exp);
+      if (!Number.isFinite(exp)) return false;
+      return (exp * 1000) <= (Date.now() + Math.max(10, Number(skewSeconds) || 60) * 1000);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function _getFreshTokenIfNeeded(token, path) {
+    if (!token || _isRefreshPath(path) || !_tokenExpiresSoon(token, 75)) return token;
+    const refreshed = await refreshAccessToken();
+    return _getToken() || (refreshed && refreshed.ok ? token : '');
+  }
+
+  function _cacheRuleFor(path) {
+    const cleanPath = String(path || '').split('#')[0];
+    return GET_CACHE_RULES.find((rule) => rule.test(cleanPath)) || null;
+  }
+
   async function _tryRefresh() {
     const refresh = _getRefreshToken();
     if (!refresh) return { ok: false, terminal: true };
@@ -162,8 +194,12 @@ const ApiClient = (() => {
   async function request(path, opts = {}) {
     const url = BASE + path;
     const headers = { 'Accept': 'application/json' };
-    const token = _getToken();
-    const shouldAttachAuth = Boolean(token) && !opts.omitAuth && !_isRefreshPath(path);
+    let token = _getToken();
+    let shouldAttachAuth = Boolean(token) && !opts.omitAuth && !_isRefreshPath(path);
+    if (shouldAttachAuth && !opts._refreshChecked) {
+      token = await _getFreshTokenIfNeeded(token, path);
+      shouldAttachAuth = Boolean(token) && !opts.omitAuth && !_isRefreshPath(path);
+    }
     if (shouldAttachAuth) headers['Authorization'] = 'Bearer ' + token;
     headers['X-Account-Mode'] = _getActiveAccountMode();
 
@@ -199,11 +235,11 @@ const ApiClient = (() => {
       if (res.status === 401 && !opts._retried && shouldAttachAuth) {
         const refreshResult = await refreshAccessToken();
         if (refreshResult.ok) {
-          return request(path, Object.assign({}, opts, { _retried: true }));
+          return request(path, Object.assign({}, opts, { _retried: true, _refreshChecked: true }));
         }
         // Public endpoints must still work even when stale credentials exist.
         // Retry once without Authorization after any refresh failure.
-        return request(path, Object.assign({}, opts, { _retried: true, omitAuth: true }));
+        return request(path, Object.assign({}, opts, { _retried: true, _refreshChecked: true, omitAuth: true }));
       }
 
       return _parseResponse(res);
@@ -217,7 +253,32 @@ const ApiClient = (() => {
    * GET helper.
    */
   function get(path, timeout) {
-    return request(path, { timeout: timeout || 12000 });
+    const rule = _cacheRuleFor(path);
+    if (!rule) return request(path, { timeout: timeout || 12000 });
+
+    const cached = _getCache.get(path);
+    if (cached && cached.expiresAt > Date.now()) {
+      return Promise.resolve(cached.value);
+    }
+
+    const pending = _getInFlight.get(path);
+    if (pending) return pending;
+
+    const promise = request(path, { timeout: timeout || 12000 })
+      .then((res) => {
+        if (res && res.ok) {
+          _getCache.set(path, {
+            value: res,
+            expiresAt: Date.now() + rule.ttl,
+          });
+        }
+        return res;
+      })
+      .finally(() => {
+        _getInFlight.delete(path);
+      });
+    _getInFlight.set(path, promise);
+    return promise;
   }
 
   /**

@@ -1209,7 +1209,7 @@ const ChatDetailPage = (() => {
   function _buildWsCandidates(token) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const mode = encodeURIComponent(_activeMode());
-    const path = '/ws/thread/' + state.threadId + '/?token=' + encodeURIComponent(token) + '&mode=' + mode;
+    const path = '/ws/thread/' + state.threadId + '/?mode=' + mode;
     const urls = [];
 
     const addCandidate = (host) => {
@@ -1283,7 +1283,7 @@ const ChatDetailPage = (() => {
     }
 
     try {
-      state.ws = new WebSocket(wsUrl);
+      state.ws = new WebSocket(wsUrl, ['nawafeth.jwt', token]);
     } catch (_) {
       _handleWsFailure();
       return;

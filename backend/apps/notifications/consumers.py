@@ -60,7 +60,8 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             await self.close(code=4503)
             return
 
-        await self.accept()
+        subprotocols = self.scope.get("subprotocols") or []
+        await self.accept("nawafeth.jwt" if "nawafeth.jwt" in subprotocols else None)
         await self.send_json({"type": "connected"})
 
         # Start server-side heartbeat loop.

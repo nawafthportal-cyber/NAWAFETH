@@ -1,6 +1,4 @@
 import os
-from urllib.parse import parse_qs
-
 # Ensure Django settings are configured before importing anything that touches
 # django.conf.settings (e.g., authentication models).
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
@@ -18,7 +16,7 @@ http_app = get_asgi_application()
 
 # Import websocket components only after Django is initialized.
 from apps.core.db_outage import is_database_outage_active, mark_database_outage  # noqa: E402
-from apps.messaging.jwt_auth import JwtAuthMiddleware  # noqa: E402
+from apps.messaging.jwt_auth import JwtAuthMiddleware, get_token_from_scope  # noqa: E402
 import apps.notifications.routing  # noqa: E402
 
 websocket_urlpatterns = list(apps.notifications.routing.websocket_urlpatterns)
@@ -38,9 +36,7 @@ class TokenAwareWebSocketAuthMiddleware:
     @staticmethod
     def _has_token(scope) -> bool:
         try:
-            query = parse_qs((scope.get("query_string") or b"").decode())
-            token = (query.get("token") or [None])[0]
-            return bool(token)
+            return bool(get_token_from_scope(scope))
         except Exception:
             return False
 

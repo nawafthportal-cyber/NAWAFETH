@@ -38,6 +38,7 @@ const TwofaPage = (() => {
     const qs = new URLSearchParams(window.location.search);
     _phone = _normalizePhone05(qs.get('phone') || _sessionGet('nw_auth_phone') || '');
     _next = (qs.get('next') || '/').trim() || '/';
+    _cleanSensitiveQuery(qs);
 
     if (!_phone || !_isValidPhone05(_phone)) {
       window.location.href = '/login/?next=' + encodeURIComponent(_next);
@@ -65,10 +66,13 @@ const TwofaPage = (() => {
 
   function _sessionGet(key) {
     try {
-      return sessionStorage.getItem(key);
-    } catch (_) {
-      return null;
-    }
+      const sessionValue = sessionStorage.getItem(key);
+      if (sessionValue) return sessionValue;
+    } catch (_) {}
+    try {
+      return localStorage.getItem(key);
+    } catch (_) {}
+    return null;
   }
 
   function _sessionSet(key, value) {
@@ -80,6 +84,16 @@ const TwofaPage = (() => {
   function _sessionRemove(key) {
     try {
       sessionStorage.removeItem(key);
+    } catch (_) {}
+  }
+
+  function _cleanSensitiveQuery(qs) {
+    if (!qs || !qs.has('phone') || !window.history || !window.history.replaceState) return;
+    try {
+      if (_phone) _sessionSet('nw_auth_phone', _phone);
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete('phone');
+      window.history.replaceState({}, document.title, clean.pathname + clean.search + clean.hash);
     } catch (_) {}
   }
 

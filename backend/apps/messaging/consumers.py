@@ -125,7 +125,8 @@ class RequestChatConsumer(AsyncWebsocketConsumer):
         self.group_name = f"chat_request_{self.request_id}"
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
+        subprotocols = self.scope.get("subprotocols") or []
+        await self.accept("nawafeth.jwt" if "nawafeth.jwt" in subprotocols else None)
 
         # إشعار “متصل”
         await self.send_json({"type": "connected", "request_id": self.request_id})
@@ -372,7 +373,8 @@ class ThreadConsumer(AsyncJsonWebsocketConsumer):
             return
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
+        subprotocols = self.scope.get("subprotocols") or []
+        await self.accept("nawafeth.jwt" if "nawafeth.jwt" in subprotocols else None)
 
         # Optional: confirm connected
         await self.send_json({"type": "connected", "thread_id": self.thread_id})

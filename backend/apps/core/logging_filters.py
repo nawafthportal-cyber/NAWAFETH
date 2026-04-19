@@ -1,4 +1,5 @@
 import logging
+import re
 
 from .request_context import get_request_id, get_request_path
 
@@ -61,6 +62,27 @@ class ExcludeHealthCheckAccessFilter(logging.Filter):
         return '"GET /health' not in message and '"HEAD /health' not in message
 
 
+class RedactSensitiveRequestDataFilter(logging.Filter):
+    """Redact credentials and high-risk identifiers from access/error logs."""
+
+    _patterns = (
+        (re.compile(r"([?&]token=)[^&\s\"]+", re.IGNORECASE), r"\1[redacted]"),
+        (re.compile(r"([?&]phone=)[^&\s\"]+", re.IGNORECASE), r"\1[redacted]"),
+        (re.compile(r"\b(phone=)[0-9+]+", re.IGNORECASE), r"\1[redacted]"),
+        (re.compile(r"(Authorization:\s*Bearer\s+)[A-Za-z0-9._\-]+", re.IGNORECASE), r"\1[redacted]"),
+    )
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        redacted = message
+        for pattern, replacement in self._patterns:
+            redacted = pattern.sub(replacement, redacted)
+        if redacted != message:
+            record.msg = redacted
+            record.args = ()
+        return True
+
+
 class ExcludeCommonBotScan404Filter(logging.Filter):
     """Drop noisy 404 probes from common internet scanners."""
 
@@ -87,6 +109,7 @@ class ExcludeUnreadCountUnauthorizedFilter(logging.Filter):
         if (
             "Unauthorized: /api/notifications/unread-count/" in message
             or "Unauthorized: /api/messaging/direct/unread-count/" in message
+            or "Unauthorized: /api/core/unread-badges/" in message
         ):
             return False
 
@@ -94,7 +117,8 @@ class ExcludeUnreadCountUnauthorizedFilter(logging.Filter):
         # 1.2.3.4 - "GET /api/notifications/unread-count/?mode=client HTTP/1.1" 401
         unread_notifications = '/api/notifications/unread-count/' in message
         unread_messages = '/api/messaging/direct/unread-count/' in message
-        if (unread_notifications or unread_messages) and '" 401' in message:
+        unread_badges = '/api/core/unread-badges/' in message
+        if (unread_notifications or unread_messages or unread_badges) and '" 401' in message:
             return False
 
         return True

@@ -25,7 +25,8 @@ body.page-search.page-search-providers {
 
 body.page-search.page-search-providers .page-content {
   padding-top: 10px;
-  padding-bottom: calc(var(--bottom-nav-height) + 20px);
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 20px);
+  overflow-x: clip;
   background:
     radial-gradient(circle at 8% 0%, rgba(201, 122, 29, 0.12), transparent 28%),
     radial-gradient(circle at 100% 0%, rgba(15, 118, 110, 0.18), transparent 34%),
@@ -35,12 +36,14 @@ body.page-search.page-search-providers .page-content {
 body.page-search.page-search-providers .search-discovery-page {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-discovery-shell,
 body.page-search.page-search-providers .search-discovery-hero-inner {
   width: min(1240px, calc(100% - 24px));
   margin: 0 auto;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-discovery-hero {
@@ -93,6 +96,8 @@ body.page-search.page-search-providers .search-discovery-topbar {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 body.page-search.page-search-providers .search-back-btn {
@@ -113,6 +118,8 @@ body.page-search.page-search-providers .search-discovery-status {
   align-items: center;
   gap: 8px;
   min-height: 30px;
+  min-width: 0;
+  max-width: 100%;
   padding: 0 12px;
   border-radius: 999px;
   border: 1px solid rgba(15, 118, 110, 0.15);
@@ -136,11 +143,13 @@ body.page-search.page-search-providers .search-discovery-grid {
   z-index: 1;
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-discovery-copy {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-discovery-kicker {
@@ -173,6 +182,7 @@ body.page-search.page-search-providers .search-discovery-subtitle {
 
 body.page-search.page-search-providers .search-mobile-input-wrap {
   position: relative;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-input {
@@ -236,6 +246,7 @@ body.page-search.page-search-providers .search-discovery-signals {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-signal-pill {
@@ -259,7 +270,7 @@ body.page-search.page-search-providers .search-signal-pill svg {
 
 body.page-search.page-search-providers .search-discovery-toolbar {
   position: sticky;
-  top: 10px;
+  top: max(10px, env(safe-area-inset-top, 0px));
   z-index: 8;
   display: flex;
   align-items: center;
@@ -278,6 +289,7 @@ body.page-search.page-search-providers .search-discovery-toolbar {
 body.page-search.page-search-providers .search-results-copy {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-results-eyebrow {
@@ -300,6 +312,7 @@ body.page-search.page-search-providers .search-mobile-actions-row {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-mobile-sort-btn,
@@ -312,9 +325,11 @@ body.page-search.page-search-providers .search-mobile-map-btn {
   font-weight: 900;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   text-decoration: none;
   cursor: pointer;
+  flex: 1 1 140px;
 }
 
 body.page-search.page-search-providers .search-mobile-sort-btn {
@@ -332,6 +347,7 @@ body.page-search.page-search-providers .search-mobile-map-btn {
 
 body.page-search.page-search-providers .search-discovery-filters {
   padding: 4px 0 0;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .filter-row {
@@ -340,6 +356,8 @@ body.page-search.page-search-providers .filter-row {
   overflow-x: auto;
   padding: 4px 2px 2px;
   scrollbar-width: none;
+  min-width: 0;
+  overscroll-behavior-x: contain;
 }
 
 body.page-search.page-search-providers .filter-row::-webkit-scrollbar {
@@ -393,6 +411,7 @@ body.page-search.page-search-providers .promo-slide video {
 body.page-search.page-search-providers .search-discovery-results {
   display: grid;
   gap: 14px;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-results-head {
@@ -401,6 +420,7 @@ body.page-search.page-search-providers .search-results-head {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .search-results-title {
@@ -422,12 +442,14 @@ body.page-search.page-search-providers .search-results-note {
 body.page-search.page-search-providers .providers-list-compact {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .provider-search-card {
   position: relative;
   display: grid;
   overflow: hidden;
+  min-width: 0;
   border: 1px solid rgba(23, 32, 51, 0.08);
   border-radius: 26px;
   background:
@@ -573,6 +595,7 @@ body.page-search.page-search-providers .provider-search-body {
   display: grid;
   gap: 10px;
   padding: 28px 14px 14px;
+  min-width: 0;
   z-index: 1;
 }
 
@@ -581,6 +604,7 @@ body.page-search.page-search-providers .provider-search-title-row {
   align-items: start;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .provider-search-name-wrap {
@@ -595,6 +619,7 @@ body.page-search.page-search-providers .provider-search-title-aside {
   gap: 8px;
   justify-items: end;
   flex: 0 0 auto;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .provider-search-name {
@@ -609,6 +634,7 @@ body.page-search.page-search-providers .provider-search-name {
 
 body.page-search.page-search-providers .provider-search-trust {
   min-width: 90px;
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -656,6 +682,7 @@ body.page-search.page-search-providers .provider-search-badges {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .provider-search-badge {
@@ -680,11 +707,6 @@ body.page-search.page-search-providers .provider-search-badge.is-excellence {
   color: #8a570e;
 }
 
-body.page-search.page-search-providers .provider-search-badge.is-urgent {
-  background: rgba(205, 96, 45, 0.12);
-  color: #9f4317;
-}
-
 body.page-search.page-search-providers .provider-search-meta {
   display: grid;
   gap: 6px;
@@ -692,16 +714,23 @@ body.page-search.page-search-providers .provider-search-meta {
   border-radius: 16px;
   background: rgba(247, 249, 252, 0.9);
   border: 1px solid rgba(23, 32, 51, 0.07);
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .provider-search-meta-row {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   color: #526073;
   font-family: 'Cairo', sans-serif;
   font-size: 10.5px;
   font-weight: 800;
+}
+
+body.page-search.page-search-providers .provider-search-meta-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 body.page-search.page-search-providers .provider-search-meta-row svg {
@@ -728,6 +757,7 @@ body.page-search.page-search-providers .provider-search-stats {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .provider-search-stat {
@@ -779,6 +809,7 @@ body.page-search.page-search-providers .provider-search-actions {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   align-items: stretch;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .provider-search-primary {
@@ -808,6 +839,8 @@ body.page-search.page-search-providers .provider-search-primary {
   color: #fff;
   box-shadow: 0 12px 20px rgba(15, 118, 110, 0.18);
   justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
 }
 
 body.page-search.page-search-providers .provider-search-primary::after {
@@ -979,7 +1012,7 @@ body.page-search.page-search-providers .sort-sheet-backdrop.active {
 body.page-search.page-search-providers .sort-sheet {
   position: fixed;
   inset-inline: 12px;
-  bottom: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
   z-index: 90;
   width: min(420px, calc(100vw - 24px));
   margin: 0 auto;
@@ -1036,7 +1069,7 @@ body.page-search.page-search-providers .sort-sheet-option.active {
 
 body.page-search.page-search-providers .search-map-modal {
   position: fixed;
-  inset: 12px;
+  inset: max(8px, env(safe-area-inset-top, 0px)) 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
   z-index: 90;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -1208,7 +1241,7 @@ body.page-search.page-search-providers .map-provider-action.is-disabled {
 body.page-search.page-search-providers .search-toast {
   position: fixed;
   inset-inline: 14px;
-  bottom: calc(var(--bottom-nav-height) + 18px);
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 18px);
   z-index: 110;
   width: min(420px, calc(100vw - 28px));
   margin: 0 auto;
@@ -1258,6 +1291,7 @@ body.page-search.page-search-providers .search-toast.show {
   body.page-search.page-search-providers .search-discovery-side {
     display: grid;
     gap: 12px;
+    min-width: 0;
   }
 }
 
@@ -1267,10 +1301,72 @@ body.page-search.page-search-providers .search-toast.show {
     width: calc(100% - 16px);
   }
 
+  body.page-search.page-search-providers .search-discovery-page {
+    gap: 12px;
+  }
+
   body.page-search.page-search-providers .search-discovery-hero-inner,
   body.page-search.page-search-providers .search-discovery-toolbar {
     border-radius: 24px;
     padding: 14px;
+  }
+
+  body.page-search.page-search-providers .search-discovery-topbar {
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  body.page-search.page-search-providers .search-back-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  body.page-search.page-search-providers .search-discovery-status {
+    flex: 1 1 calc(100% - 52px);
+    justify-content: center;
+    padding-inline: 10px;
+    font-size: 10.5px;
+  }
+
+  body.page-search.page-search-providers .search-mobile-title {
+    font-size: clamp(1.42rem, 7vw, 1.95rem);
+  }
+
+  body.page-search.page-search-providers .search-discovery-subtitle {
+    font-size: 12px;
+    line-height: 1.75;
+  }
+
+  body.page-search.page-search-providers .search-input {
+    height: 48px;
+    padding-inline: 42px;
+  }
+
+  body.page-search.page-search-providers .search-signal-pill {
+    flex: 1 1 calc(50% - 5px);
+    justify-content: center;
+    min-width: 0;
+  }
+
+  body.page-search.page-search-providers .search-discovery-toolbar {
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+  }
+
+  body.page-search.page-search-providers .search-results-copy,
+  body.page-search.page-search-providers .search-mobile-actions-row {
+    width: 100%;
+  }
+
+  body.page-search.page-search-providers .search-mobile-actions-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.page-search.page-search-providers .search-mobile-sort-btn,
+  body.page-search.page-search-providers .search-mobile-map-btn {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 12px;
   }
 
   body.page-search.page-search-providers .provider-search-cover {
@@ -1288,11 +1384,17 @@ body.page-search.page-search-providers .search-toast.show {
   }
 
   body.page-search.page-search-providers .provider-search-title-row {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   body.page-search.page-search-providers .provider-search-trust {
     min-width: 0;
+    width: 100%;
+  }
+
+  body.page-search.page-search-providers .provider-search-title-aside {
+    justify-items: stretch;
   }
 
   body.page-search.page-search-providers .provider-search-stats {
@@ -1304,12 +1406,35 @@ body.page-search.page-search-providers .search-toast.show {
   }
 
   body.page-search.page-search-providers .search-map-modal {
-    inset: 8px;
+    inset: max(8px, env(safe-area-inset-top, 0px)) 8px calc(env(safe-area-inset-bottom, 0px) + 8px);
     border-radius: 24px;
   }
 }
 
 @media (max-width: 420px) {
+  body.page-search.page-search-providers .search-discovery-hero-inner,
+  body.page-search.page-search-providers .search-discovery-toolbar {
+    padding: 12px;
+  }
+
+  body.page-search.page-search-providers .search-discovery-status {
+    width: 100%;
+    justify-content: center;
+  }
+
+  body.page-search.page-search-providers .search-signal-pill {
+    flex-basis: 100%;
+  }
+
+  body.page-search.page-search-providers .search-mobile-actions-row,
+  body.page-search.page-search-providers .provider-search-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.page-search.page-search-providers .provider-search-body {
+    padding: 22px 12px 12px;
+  }
+
   body.page-search.page-search-providers .provider-search-primary,
   body.page-search.page-search-providers .provider-search-secondary {
     width: 100%;
@@ -1437,5 +1562,5 @@ body.page-search.page-search-providers .search-toast.show {
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/searchPage.js' %}?v=20260418-search-redesign3"></script>
+<script src="{% static 'mobile_web/js/searchPage.js' %}?v=20260419-search-redesign4"></script>
 {% endblock %}

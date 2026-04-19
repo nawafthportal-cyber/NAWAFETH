@@ -235,6 +235,9 @@ LOGGING = {
 		"exclude_public_suspicious_session": {
 			"()": "apps.core.logging_filters.ExcludePublicSuspiciousSessionFilter",
 		},
+		"redact_sensitive_request_data": {
+			"()": "apps.core.logging_filters.RedactSensitiveRequestDataFilter",
+		},
 	},
 	"handlers": {
 		"console": {
@@ -242,6 +245,7 @@ LOGGING = {
 			"formatter": "standard",
 			"filters": [
 				"request_context",
+				"redact_sensitive_request_data",
 				"exclude_bot_scan_404",
 				"exclude_unread_unauthorized",
 				"exclude_public_suspicious_session",

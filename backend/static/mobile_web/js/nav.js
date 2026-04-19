@@ -838,13 +838,35 @@ const Nav = (() => {
     return isLoopback && window.location.protocol === 'http:';
   }
 
-  function _badgeSocketUrl() {
-    const token = Auth.getAccessToken();
+  function _jwtExpiresSoon(token, skewSeconds) {
+    try {
+      const parts = String(token || '').split('.');
+      if (parts.length < 2) return false;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      const exp = Number(payload && payload.exp);
+      if (!Number.isFinite(exp)) return false;
+      return (exp * 1000) <= (Date.now() + Math.max(10, Number(skewSeconds) || 60) * 1000);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function _badgeSocketToken() {
+    let token = Auth.getAccessToken();
+    if (token && _jwtExpiresSoon(token, 75) && typeof Auth.refreshAccessToken === 'function') {
+      try {
+        const refreshed = await Auth.refreshAccessToken();
+        if (refreshed) token = Auth.getAccessToken();
+      } catch (_) {}
+    }
     if (!token) return null;
+    return token;
+  }
+
+  function _badgeSocketUrl() {
     try {
       const url = new URL('/ws/notifications/', ApiClient.BASE || window.location.origin);
       url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-      url.searchParams.set('token', token);
       return url.toString();
     } catch (_) {
       return null;
@@ -879,7 +901,7 @@ const Nav = (() => {
     _syncBadgePolling(true);
   }
 
-  function _connectBadgeSocket() {
+  async function _connectBadgeSocket() {
     if (!_canUseBadgeRealtime()) {
       _closeBadgeSocket();
       return;
@@ -889,10 +911,12 @@ const Nav = (() => {
     }
     const url = _badgeSocketUrl();
     if (!url) return;
+    const token = await _badgeSocketToken();
+    if (!token) return;
 
     let socket;
     try {
-      socket = new WebSocket(url);
+      socket = new WebSocket(url, ['nawafeth.jwt', token]);
     } catch (_) {
       _scheduleBadgeSocketReconnect();
       return;

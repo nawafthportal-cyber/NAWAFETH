@@ -130,7 +130,6 @@ const LoginPage = (() => {
     const qs = new URLSearchParams(window.location.search);
     const next = qs.get('next') || '/';
     const target = new URL('/twofa/', window.location.origin);
-    target.searchParams.set('phone', normalizedPhone);
     target.searchParams.set('next', next);
     window.location.href = target.toString();
   }

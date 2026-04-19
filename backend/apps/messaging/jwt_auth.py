@@ -13,6 +13,24 @@ from apps.accounts.models import User
 from apps.core.db_outage import mark_database_outage
 
 
+def get_token_from_scope(scope) -> str | None:
+    """Read JWT from WebSocket subprotocol first, then legacy query string."""
+
+    subprotocols = scope.get("subprotocols") or []
+    for index, value in enumerate(subprotocols):
+        if value == "nawafeth.jwt" and index + 1 < len(subprotocols):
+            token = str(subprotocols[index + 1] or "").strip()
+            if token:
+                return token
+        if isinstance(value, str) and value.startswith("nawafeth.jwt."):
+            token = value.removeprefix("nawafeth.jwt.").strip()
+            if token:
+                return token
+
+    query = parse_qs(scope.get("query_string", b"").decode())
+    return (query.get("token") or [None])[0]
+
+
 @database_sync_to_async
 def get_user_for_token(token_str: str):
     # Step 1: validate JWT signature + expiry — purely cryptographic, no DB hit.
@@ -42,8 +60,7 @@ class JwtAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
         close_old_connections()
 
-        query = parse_qs(scope.get("query_string", b"").decode())
-        token = (query.get("token") or [None])[0]
+        token = get_token_from_scope(scope)
 
         # If a token is provided, prefer JWT auth.
         # Otherwise, keep any existing user set by upstream middleware (e.g. AuthMiddlewareStack).

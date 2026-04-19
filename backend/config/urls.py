@@ -84,6 +84,8 @@ admin.site.index_title = _("مرحبًا بك في لوحة التحكم")
 
 urlpatterns = [
     path("favicon.ico", RootFaviconView.as_view(), name="favicon"),
+    path("apple-touch-icon.png", RootFaviconView.as_view(), name="apple_touch_icon"),
+    path("apple-touch-icon-precomposed.png", RootFaviconView.as_view(), name="apple_touch_icon_precomposed"),
     path("robots.txt", RootRobotsTxtView.as_view(), name="robots_txt"),
     path("sw.js", RootServiceWorkerView.as_view(), name="service_worker"),
     path("checkout/<str:provider>/<uuid:attempt_id>/", MockCheckoutView.as_view(), name="public_mock_checkout"),

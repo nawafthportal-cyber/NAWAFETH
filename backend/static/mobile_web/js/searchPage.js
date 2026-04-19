@@ -27,6 +27,8 @@ const SearchPage = (() => {
   let _promoBannerEl = null;
   let _lastCategoryPopupKey = '';
   let _isProvidersMapPage = false;
+  let _providerFetchSeq = 0;
+  const _providerListCache = new Map();
 
   let _input;
   let _clearBtn;
@@ -264,12 +266,15 @@ const SearchPage = (() => {
   }
 
   async function _fetchProviders() {
+    const fetchSeq = ++_providerFetchSeq;
     _renderLoading();
 
-    const res = await ApiClient.get(_buildProvidersUrl({
+    const primaryUrl = _buildProvidersUrl({
       includeQuery: true,
       pageSize: _query ? 90 : 30,
-    }));
+    });
+    const res = await _getProvidersResponse(primaryUrl);
+    if (fetchSeq !== _providerFetchSeq) return;
     if (!res.ok || !res.data) {
       _providers = [];
       _distanceKmByProviderId = {};
@@ -280,10 +285,12 @@ const SearchPage = (() => {
     _providers = _applyProviderFilters(Array.isArray(res.data) ? res.data : (res.data.results || []));
 
     if (_query && !_providers.length) {
-      const fallbackRes = await ApiClient.get(_buildProvidersUrl({
+      const fallbackUrl = _buildProvidersUrl({
         includeQuery: false,
         pageSize: 90,
-      }));
+      });
+      const fallbackRes = await _getProvidersResponse(fallbackUrl);
+      if (fetchSeq !== _providerFetchSeq) return;
       if (fallbackRes.ok && fallbackRes.data) {
         _providers = _applyProviderFilters(
           Array.isArray(fallbackRes.data) ? fallbackRes.data : (fallbackRes.data.results || [])
@@ -292,8 +299,26 @@ const SearchPage = (() => {
     }
 
     await _ensureDistanceMap(_isProvidersMapPage || _selectedSort === 'nearest');
+    if (fetchSeq !== _providerFetchSeq) return;
     _renderProviders();
     _syncResultsLink();
+  }
+
+  async function _getProvidersResponse(url) {
+    const cached = _providerListCache.get(url);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+    const res = await ApiClient.get(url);
+    if (res && res.ok) {
+      _providerListCache.set(url, {
+        value: res,
+        expiresAt: Date.now() + 30000,
+      });
+      if (_providerListCache.size > 24) {
+        const firstKey = _providerListCache.keys().next().value;
+        if (firstKey) _providerListCache.delete(firstKey);
+      }
+    }
+    return res;
   }
 
   function _buildProvidersUrl(options) {
@@ -832,7 +857,6 @@ const SearchPage = (() => {
     const serviceLabel = _providerServiceLabel(provider);
     const snippet = _providerSnippet(provider, serviceLabel);
     const isFeatured = _featuredProviderIds.has(String(provider.id));
-    const urgentEnabled = !!(provider?.accepts_urgent ?? provider?.isUrgentEnabled ?? provider?.is_urgent_enabled);
 
     const card = UI.el('article', {
       className: 'provider-search-card',
@@ -930,13 +954,6 @@ const SearchPage = (() => {
           textContent: excellenceItems[0].name || excellenceItems[0].code || 'شارة تميز',
         })
       );
-    }
-
-    if (urgentEnabled) {
-      badgesRow.appendChild(UI.el('span', {
-        className: 'provider-search-badge is-urgent',
-        textContent: 'متاح للعاجل',
-      }));
     }
 
     if (badgesRow.childNodes.length) {

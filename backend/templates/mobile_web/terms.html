@@ -5,27 +5,437 @@
 {% block body_class %}page-terms{% endblock %}
 {% block sidebar_terms %}active{% endblock %}
 
+{% block extra_css %}
+<style>
+body.page-terms {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(15, 118, 110, 0.12), transparent 30%),
+    radial-gradient(circle at 8% 12%, rgba(124, 58, 237, 0.1), transparent 28%),
+    linear-gradient(180deg, #f6f8fb 0%, #eef3f6 100%);
+}
+
+body.page-terms .page-content {
+  padding-top: 14px;
+  padding-bottom: calc(var(--bottom-nav-height) + 26px);
+}
+
+body.page-terms .terms-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+body.page-terms .terms-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 190px;
+  display: grid;
+  align-items: end;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.22), transparent 30%),
+    radial-gradient(circle at 96% 0%, rgba(45, 212, 191, 0.22), transparent 32%),
+    linear-gradient(135deg, #24135f 0%, #5132a7 48%, #0f766e 100%);
+  color: #fff;
+  box-shadow: 0 24px 54px rgba(33, 25, 86, 0.18);
+}
+
+body.page-terms .terms-hero::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: -80px;
+  bottom: -120px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+body.page-terms .terms-hero-copy,
+body.page-terms .terms-hero-meta {
+  position: relative;
+  z-index: 1;
+}
+
+body.page-terms .terms-kicker {
+  margin: 0 0 8px;
+  color: rgba(255, 255, 255, 0.76);
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+body.page-terms .terms-hero h1 {
+  margin: 0;
+  color: #fff;
+  font-family: 'Cairo', sans-serif;
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  font-weight: 900;
+  line-height: 1.22;
+}
+
+body.page-terms .terms-hero p {
+  max-width: 680px;
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.9;
+}
+
+body.page-terms .terms-hero-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+body.page-terms .terms-stat {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+}
+
+body.page-terms .terms-stat span,
+body.page-terms .terms-doc-meta span,
+body.page-terms .terms-section-label {
+  display: block;
+  color: rgba(255, 255, 255, 0.72);
+  font-family: 'Cairo', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+body.page-terms .terms-stat strong {
+  display: block;
+  margin-top: 3px;
+  color: #fff;
+  font-family: 'Cairo', sans-serif;
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+body.page-terms .terms-layout {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.34fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+body.page-terms .terms-rail,
+body.page-terms .terms-loading-card,
+body.page-terms .terms-empty-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.07);
+}
+
+body.page-terms .terms-rail {
+  position: sticky;
+  top: calc(var(--navbar-height) + 12px);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+body.page-terms .terms-rail h2 {
+  margin: 0;
+  color: #111827;
+  font-family: 'Cairo', sans-serif;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+body.page-terms .terms-nav {
+  display: grid;
+  gap: 8px;
+}
+
+body.page-terms .terms-nav-link {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  border-radius: 16px;
+  background: #fff;
+  color: #243042;
+  font-family: 'Cairo', sans-serif;
+  font-size: 11.5px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+body.page-terms .terms-nav-link:hover,
+body.page-terms .terms-nav-link.is-active {
+  border-color: rgba(15, 118, 110, 0.24);
+  background: rgba(15, 118, 110, 0.08);
+  color: #115e59;
+}
+
+body.page-terms .terms-nav-icon,
+body.page-terms .terms-doc-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(124, 58, 237, 0.1));
+  color: #115e59;
+}
+
+body.page-terms .terms-documents {
+  display: grid;
+  gap: 14px;
+}
+
+body.page-terms .terms-doc-card {
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.08);
+}
+
+body.page-terms .terms-doc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(15, 118, 110, 0.1), transparent 34%),
+    linear-gradient(180deg, #fff, #f8fbfc);
+}
+
+body.page-terms .terms-doc-title-wrap {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+body.page-terms .terms-doc-title {
+  margin: 0;
+  color: #111827;
+  font-family: 'Cairo', sans-serif;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+body.page-terms .terms-doc-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body.page-terms .terms-doc-meta span {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.08);
+  color: #115e59;
+}
+
+body.page-terms .terms-open-document {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #115e59, #0f766e);
+  color: #fff;
+  font-family: 'Cairo', sans-serif;
+  font-size: 11.5px;
+  font-weight: 900;
+  text-decoration: none;
+  box-shadow: 0 12px 22px rgba(15, 118, 110, 0.22);
+  white-space: nowrap;
+}
+
+body.page-terms .terms-doc-body {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+}
+
+body.page-terms .terms-clause {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  border-radius: 18px;
+  background: #fff;
+}
+
+body.page-terms .terms-clause-number {
+  width: 34px;
+  height: 34px;
+  border-radius: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  color: #334155;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body.page-terms .terms-clause h3 {
+  margin: 0;
+  color: #111827;
+  font-family: 'Cairo', sans-serif;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.55;
+}
+
+body.page-terms .terms-clause p {
+  margin: 6px 0 0;
+  color: #4b5563;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 2;
+}
+
+body.page-terms .terms-loading-card,
+body.page-terms .terms-empty-card {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  text-align: center;
+}
+
+body.page-terms .terms-empty-card p {
+  margin: 8px 0 0;
+  color: #475569;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+@media (max-width: 899px) {
+  body.page-terms .terms-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-terms .terms-rail {
+    position: static;
+  }
+
+  body.page-terms .terms-nav {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  body.page-terms .terms-nav-link {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  body.page-terms .container {
+    width: calc(100% - 16px);
+  }
+
+  body.page-terms .terms-hero,
+  body.page-terms .terms-doc-head,
+  body.page-terms .terms-doc-body {
+    padding: 14px;
+  }
+
+  body.page-terms .terms-hero-meta {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-terms .terms-doc-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.page-terms .terms-open-document {
+    width: 100%;
+  }
+
+  body.page-terms .terms-clause {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="page-content">
-  <div class="container">
-    <div class="page-header">
-      <h1 id="terms-page-title">الشروط والأحكام</h1>
-    </div>
+  <div class="container terms-shell">
+    <section class="terms-hero">
+      <div class="terms-hero-copy">
+        <p class="terms-kicker">المركز القانوني</p>
+        <h1 id="terms-page-title">الشروط والأحكام</h1>
+        <p id="terms-page-summary">اطلع على سياسات نوافذ الرسمية بطريقة واضحة ومنظمة قبل استخدام خدمات المنصة.</p>
+      </div>
 
-    <div id="terms-loading" class="text-center">
-      <span class="spinner-inline"></span>
-    </div>
+      <div class="terms-hero-meta" aria-label="ملخص المستندات">
+        <div class="terms-stat">
+          <span>المستندات</span>
+          <strong id="terms-doc-count">0</strong>
+        </div>
+        <div class="terms-stat">
+          <span>آخر تحديث</span>
+          <strong id="terms-latest-update">-</strong>
+        </div>
+        <div class="terms-stat">
+          <span>مرفقات رسمية</span>
+          <strong id="terms-file-count">0</strong>
+        </div>
+      </div>
+    </section>
 
-    <div id="terms-list" class="expand-cards hidden"></div>
+    <section class="terms-layout">
+      <aside class="terms-rail hidden" id="terms-rail">
+        <h2>المستندات</h2>
+        <nav class="terms-nav" id="terms-nav" aria-label="مستندات الشروط"></nav>
+      </aside>
 
-    <div id="terms-empty" class="empty-hint hidden">
-      <div class="empty-icon">📄</div>
-      <p id="terms-empty-label">لا توجد مستندات متاحة حالياً</p>
-    </div>
+      <div class="terms-main">
+        <div id="terms-loading" class="terms-loading-card">
+          <span class="spinner-inline"></span>
+        </div>
+
+        <div id="terms-list" class="terms-documents hidden"></div>
+
+        <div id="terms-empty" class="terms-empty-card hidden">
+          <p id="terms-empty-label">لا توجد مستندات متاحة حالياً</p>
+        </div>
+      </div>
+    </section>
   </div>
 </main>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/termsPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/termsPage.js' %}?v=20260419-legal-polish"></script>
 {% endblock %}

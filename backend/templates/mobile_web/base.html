@@ -350,19 +350,19 @@
 
 <script>
   window.NAWAFETH_SERVER_AUTH = {
-    isAuthenticated: {% if request.user.is_authenticated %}true{% else %}false{% endif %},
-    userId: {% if request.user.is_authenticated %}{{ request.user.id|default:'null' }}{% else %}null{% endif %},
-    roleState: {% if request.user.is_authenticated %}"{{ request.user.role_state|default:''|escapejs }}"{% else %}"guest"{% endif %}
+    isAuthenticated: {% if safe_server_auth.is_authenticated %}true{% else %}false{% endif %},
+    userId: {% if safe_server_auth.user_id %}{{ safe_server_auth.user_id }}{% else %}null{% endif %},
+    roleState: "{{ safe_server_auth.role_state|default:'guest'|escapejs }}"
   };
 </script>
 
 <!-- ====== SHARED JS ====== -->
 <script src="{% static 'mobile_web/js/cache.js' %}"></script>
-<script src="{% static 'mobile_web/js/apiClient.js' %}?v=20260418-authswitch4"></script>
-<script src="{% static 'mobile_web/js/analytics.js' %}"></script>
+<script src="{% static 'mobile_web/js/apiClient.js' %}?v=20260419-secops1"></script>
+<script src="{% static 'mobile_web/js/analytics.js' %}?v=20260419-secops1"></script>
 <script src="{% static 'mobile_web/js/utils.js' %}"></script>
-<script src="{% static 'mobile_web/js/auth.js' %}?v=20260418-authswitch4"></script>
-<script src="{% static 'mobile_web/js/nav.js' %}?v=20260418-authswitch4"></script>
+<script src="{% static 'mobile_web/js/auth.js' %}?v=20260419-secops1"></script>
+<script src="{% static 'mobile_web/js/nav.js' %}?v=20260419-secops1"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
