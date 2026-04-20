@@ -92,10 +92,94 @@ const AddServicePage = (() => {
       grid.appendChild(frag);
       window.requestAnimationFrame(() => {
         grid.classList.add('is-ready');
+        _initMarqueeDrag(grid);
       });
     } catch (_) {
       _renderMessage(grid, 'حدث خطأ أثناء تحميل التصنيفات.');
     }
+  }
+
+  function _initMarqueeDrag(track) {
+    const viewport = track.closest('.asv2-categories-viewport');
+    const hint = document.querySelector('.asv2-categories-scroll-hint');
+    if (!viewport) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let currentOffset = 0;
+    let resumeTimer = null;
+
+    function _getTranslateX() {
+      const style = window.getComputedStyle(track);
+      const matrix = new DOMMatrix(style.transform);
+      return matrix.m41;
+    }
+
+    function _pause() {
+      track.classList.add('is-paused');
+      clearTimeout(resumeTimer);
+    }
+
+    function _scheduleResume() {
+      clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => {
+        track.classList.remove('is-paused');
+        viewport.classList.remove('is-dragging');
+      }, 2500);
+    }
+
+    function _hideHint() {
+      if (hint) hint.classList.add('hidden');
+    }
+
+    function _onPointerDown(e) {
+      if (e.button && e.button !== 0) return;
+      isDragging = true;
+      startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      currentOffset = _getTranslateX();
+      _pause();
+      viewport.classList.add('is-dragging');
+      _hideHint();
+      track.style.transform = 'translateX(' + currentOffset + 'px)';
+      track.style.animation = 'none';
+    }
+
+    function _onPointerMove(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      const delta = clientX - startX;
+      const halfWidth = track.scrollWidth / 2;
+      let newOffset = currentOffset + delta;
+      if (newOffset > 0) newOffset = newOffset % halfWidth - halfWidth;
+      else if (Math.abs(newOffset) > halfWidth) newOffset = -(Math.abs(newOffset) % halfWidth);
+      track.style.transform = 'translateX(' + newOffset + 'px)';
+    }
+
+    function _onPointerUp() {
+      if (!isDragging) return;
+      isDragging = false;
+      const offset = _getTranslateX();
+      const halfWidth = track.scrollWidth / 2;
+      const progress = Math.abs(offset) / halfWidth;
+      track.style.animation = '';
+      track.style.transform = '';
+      track.style.animationDelay = '-' + (progress * 60) + 's';
+      _scheduleResume();
+    }
+
+    viewport.addEventListener('mousedown', _onPointerDown);
+    window.addEventListener('mousemove', _onPointerMove);
+    window.addEventListener('mouseup', _onPointerUp);
+    viewport.addEventListener('touchstart', _onPointerDown, { passive: true });
+    viewport.addEventListener('touchmove', _onPointerMove, { passive: false });
+    viewport.addEventListener('touchend', _onPointerUp);
+
+    viewport.addEventListener('touchstart', function() {
+      _pause();
+      _hideHint();
+    }, { passive: true, once: false });
+    viewport.addEventListener('touchend', _scheduleResume);
   }
 
   function _buildCategoryItem(cat, isClone) {

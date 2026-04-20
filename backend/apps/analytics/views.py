@@ -89,7 +89,8 @@ class RequestsBreakdownView(APIView):
 	permission_classes = [IsBackofficeAnalytics]
 
 	def get(self, request):
-		data = requests_breakdown()
+		start_date, end_date = parse_dates(request.query_params)
+		data = requests_breakdown(start_date=start_date, end_date=end_date)
 		return Response(data, status=status.HTTP_200_OK)
 
 

@@ -311,6 +311,13 @@
     margin-inline: -14px;
     padding: 2px 0 4px;
     direction: ltr;
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  body.page-add-service .asv2-categories-viewport.is-dragging {
+    cursor: grabbing;
   }
 
   body.page-add-service .asv2-categories-viewport::before,
@@ -343,7 +350,37 @@
   }
 
   body.page-add-service .asv2-categories-track.is-ready {
-    animation: asv2-category-marquee 34s linear infinite;
+    animation: asv2-category-marquee 60s linear infinite;
+  }
+
+  body.page-add-service .asv2-categories-viewport:hover .asv2-categories-track.is-ready,
+  body.page-add-service .asv2-categories-track.is-ready.is-paused {
+    animation-play-state: paused;
+  }
+
+  body.page-add-service .asv2-categories-scroll-hint {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    opacity: 1;
+    transition: opacity .4s ease;
+    pointer-events: none;
+  }
+
+  body.page-add-service .asv2-categories-scroll-hint.hidden {
+    opacity: 0;
+  }
+
+  body.page-add-service .asv2-categories-scroll-hint i {
+    display: inline-block;
+    animation: asv2-hint-sway 1.6s ease-in-out infinite;
+  }
+
+  @keyframes asv2-hint-sway {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(-6px); }
   }
 
   body.page-add-service .asv2-categories-grid .cat-item {
@@ -684,6 +721,7 @@
           <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
         </div>
       </div>
+      <div class="asv2-categories-scroll-hint">اسحب لاستعراض التصنيفات <i>⟵</i></div>
     </section>
     </div>
   </div>
@@ -691,5 +729,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/addServicePage.js' %}?v=20260420-desktop-marquee1"></script>
+<script src="{% static 'mobile_web/js/addServicePage.js' %}?v=20260420-marquee-drag"></script>
 {% endblock %}

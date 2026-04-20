@@ -736,6 +736,11 @@ body.home-mobile-layout .reel-item:hover {
   scrollbar-width: none;
   scroll-snap-type: x proximity;
   overscroll-behavior-x: contain;
+  cursor: grab;
+}
+
+.categories-scroll:active {
+  cursor: grabbing;
 }
 
 .categories-scroll::-webkit-scrollbar {

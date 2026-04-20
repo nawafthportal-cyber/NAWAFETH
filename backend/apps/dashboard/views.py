@@ -842,8 +842,8 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
     requests_qs = ServiceRequest.objects.filter(created_at__range=(start_dt, end_dt))
     support_qs = SupportTicket.objects.filter(created_at__range=(start_dt, end_dt))
 
-    total_users = get_user_model().objects.count()
-    users_complete = get_user_model().objects.filter(terms_accepted_at__isnull=False).count()
+    total_users = get_user_model().objects.filter(created_at__range=(start_dt, end_dt)).count()
+    users_complete = get_user_model().objects.filter(terms_accepted_at__range=(start_dt, end_dt)).count()
     users_staff = get_user_model().objects.filter(is_staff=True, is_active=True).count()
     app_logins = OTP.objects.filter(created_at__range=(start_dt, end_dt)).count()
 
@@ -916,17 +916,17 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
     kpi_extras = extras_kpis(start_date=start_date, end_date=end_date, limit=20)
 
     app_downloads_summary = {
-        "android": DeviceToken.objects.filter(platform="android", is_active=True).values("token").distinct().count(),
-        "ios": DeviceToken.objects.filter(platform="ios", is_active=True).values("token").distinct().count(),
-        "web": DeviceToken.objects.filter(platform="web", is_active=True).values("token").distinct().count(),
+        "android": DeviceToken.objects.filter(platform="android", is_active=True, created_at__range=(start_dt, end_dt)).values("token").distinct().count(),
+        "ios": DeviceToken.objects.filter(platform="ios", is_active=True, created_at__range=(start_dt, end_dt)).values("token").distinct().count(),
+        "web": DeviceToken.objects.filter(platform="web", is_active=True, created_at__range=(start_dt, end_dt)).values("token").distinct().count(),
     }
     app_downloads_summary["total"] = (
         app_downloads_summary["android"] + app_downloads_summary["ios"] + app_downloads_summary["web"]
     )
 
     visitor_summary = {
-        "visitor_accounts": get_user_model().objects.filter(role_state=UserRole.VISITOR).count(),
-        "phone_only_accounts": get_user_model().objects.filter(role_state=UserRole.PHONE_ONLY).count(),
+        "visitor_accounts": get_user_model().objects.filter(role_state=UserRole.VISITOR, created_at__range=(start_dt, end_dt)).count(),
+        "phone_only_accounts": get_user_model().objects.filter(role_state=UserRole.PHONE_ONLY, created_at__range=(start_dt, end_dt)).count(),
         "profile_views": AnalyticsEvent.objects.filter(
             occurred_at__range=(start_dt, end_dt),
             event_name="provider.profile_view",

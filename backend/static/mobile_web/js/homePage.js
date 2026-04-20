@@ -52,6 +52,9 @@ const HomePage = (() => {
   let _providersPaused = false;
   let _providersBound = false;
   let _categoriesWheelSnapTimer = null;
+  let _categoriesAutoTimer = null;
+  let _categoriesResumeTimer = null;
+  let _categoriesPaused = false;
   let _sectionObserver = null;
   let _popupShown = false;       // only show popup once per session
   let _homeContent = {
@@ -830,17 +833,22 @@ const HomePage = (() => {
 
     if (!carousel.dataset.bound) {
       prevBtn.addEventListener('click', function() {
+        _pauseCategoriesAutoScroll();
         scrollToHiddenCard('left');
+        _scheduleCategoriesResume();
       });
 
       nextBtn.addEventListener('click', function() {
+        _pauseCategoriesAutoScroll();
         scrollToHiddenCard('right');
+        _scheduleCategoriesResume();
       });
 
       $categoriesList.addEventListener('wheel', function(event) {
         if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
         if (($categoriesList.scrollWidth - $categoriesList.clientWidth) <= 4) return;
         event.preventDefault();
+        _pauseCategoriesAutoScroll();
         $categoriesList.classList.add('is-wheel-scrolling');
         $categoriesList.scrollBy({ left: event.deltaY, behavior: 'auto' });
         window.clearTimeout(_categoriesWheelSnapTimer);
@@ -849,6 +857,7 @@ const HomePage = (() => {
           if (typeof carousel._updateCategoriesArrows === 'function') {
             carousel._updateCategoriesArrows();
           }
+          _scheduleCategoriesResume();
         }, 140);
       }, { passive: false });
 
@@ -861,6 +870,25 @@ const HomePage = (() => {
       carousel.dataset.bound = 'true';
     }
 
+    /* — Auto-scroll: slow continuous scroll — */
+    _startCategoriesAutoScroll();
+
+    if (!carousel.dataset.autoBound) {
+      $categoriesList.addEventListener('touchstart', function() {
+        _pauseCategoriesAutoScroll();
+      }, { passive: true });
+      $categoriesList.addEventListener('touchend', function() {
+        _scheduleCategoriesResume();
+      }, { passive: true });
+      $categoriesList.addEventListener('mouseenter', function() {
+        _pauseCategoriesAutoScroll();
+      });
+      $categoriesList.addEventListener('mouseleave', function() {
+        _scheduleCategoriesResume();
+      });
+      carousel.dataset.autoBound = 'true';
+    }
+
     window.requestAnimationFrame(function() {
       if (typeof carousel._updateCategoriesArrows === 'function') {
         carousel._updateCategoriesArrows();
@@ -871,6 +899,65 @@ const HomePage = (() => {
         carousel._updateCategoriesArrows();
       }
     }, 140);
+  }
+
+  /* ----------------------------------------------------------
+     CATEGORIES: slow auto-scroll with pause on interaction
+  ---------------------------------------------------------- */
+  var CATEGORIES_AUTO_STEP = 1;
+  var CATEGORIES_AUTO_INTERVAL = 30;
+  var CATEGORIES_RESUME_DELAY = 2500;
+
+  function _startCategoriesAutoScroll() {
+    _stopCategoriesAutoScroll();
+    if (!$categoriesList) return;
+    if (_isDesktopHomeGrid && _isDesktopHomeGrid()) return;
+    var cards = $categoriesList.querySelectorAll('.cat-item');
+    if (cards.length <= 2) return;
+
+    _categoriesPaused = false;
+    _categoriesAutoTimer = setInterval(function() {
+      if (_categoriesPaused || !$categoriesList) return;
+      var maxScroll = $categoriesList.scrollWidth - $categoriesList.clientWidth;
+      if (maxScroll <= 0) return;
+
+      if ($categoriesList.scrollLeft >= maxScroll - 1) {
+        $categoriesList.scrollTo({ left: 0, behavior: 'smooth' });
+      } else {
+        $categoriesList.scrollLeft += CATEGORIES_AUTO_STEP;
+      }
+    }, CATEGORIES_AUTO_INTERVAL);
+  }
+
+  function _stopCategoriesAutoScroll() {
+    if (_categoriesAutoTimer) {
+      clearInterval(_categoriesAutoTimer);
+      _categoriesAutoTimer = null;
+    }
+    if (_categoriesResumeTimer) {
+      clearTimeout(_categoriesResumeTimer);
+      _categoriesResumeTimer = null;
+    }
+  }
+
+  function _pauseCategoriesAutoScroll() {
+    _categoriesPaused = true;
+    if (_categoriesResumeTimer) {
+      clearTimeout(_categoriesResumeTimer);
+      _categoriesResumeTimer = null;
+    }
+  }
+
+  function _scheduleCategoriesResume() {
+    if (_categoriesResumeTimer) {
+      clearTimeout(_categoriesResumeTimer);
+    }
+    _categoriesResumeTimer = setTimeout(function() {
+      _categoriesPaused = false;
+      if (!_categoriesAutoTimer) {
+        _startCategoriesAutoScroll();
+      }
+    }, CATEGORIES_RESUME_DELAY);
   }
 
   function _updateCategoriesProgress(carousel, totalCount, visibleCount, hiddenLeftCount, hiddenRightCount, isScrollable) {

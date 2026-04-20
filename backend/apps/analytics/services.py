@@ -618,6 +618,8 @@ def extras_kpis(*, start_date=None, end_date=None, limit: int = 10) -> dict:
 
 
 def kpis_summary(start_date=None, end_date=None):
+    start_date, end_date = _normalize_range(start_date, end_date)
+
     inv_qs = Invoice.objects.all()
     if start_date:
         inv_qs = inv_qs.filter(paid_at__date__gte=start_date)
@@ -629,11 +631,25 @@ def kpis_summary(start_date=None, end_date=None):
     revenue_total = paid.aggregate(total=Sum("total"))["total"] or 0
     invoices_paid = paid.count()
 
-    subs_active = Subscription.objects.filter(status=SubscriptionStatus.ACTIVE).count()
-    subs_expired = Subscription.objects.filter(status=SubscriptionStatus.EXPIRED).count()
+    subs_active = Subscription.objects.filter(
+        status=SubscriptionStatus.ACTIVE,
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+    ).count()
+    subs_expired = Subscription.objects.filter(
+        status=SubscriptionStatus.EXPIRED,
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+    ).count()
 
-    ad_total = VerificationRequest.objects.count()
-    md_total = PromoRequest.objects.count()
+    ad_total = VerificationRequest.objects.filter(
+        requested_at__date__gte=start_date,
+        requested_at__date__lte=end_date,
+    ).count()
+    md_total = PromoRequest.objects.filter(
+        created_at__date__gte=start_date,
+        created_at__date__lte=end_date,
+    ).count()
 
     return {
         "revenue_total": float(revenue_total),
@@ -688,9 +704,21 @@ def revenue_monthly(start_date=None, end_date=None):
     return out
 
 
-def requests_breakdown():
-    ad = VerificationRequest.objects.values("status").annotate(count=Count("id")).order_by("-count")
-    md = PromoRequest.objects.values("status").annotate(count=Count("id")).order_by("-count")
+def requests_breakdown(start_date=None, end_date=None):
+    start_date, end_date = _normalize_range(start_date, end_date)
+
+    ad_qs = VerificationRequest.objects.all()
+    md_qs = PromoRequest.objects.all()
+
+    if start_date:
+        ad_qs = ad_qs.filter(requested_at__date__gte=start_date)
+        md_qs = md_qs.filter(created_at__date__gte=start_date)
+    if end_date:
+        ad_qs = ad_qs.filter(requested_at__date__lte=end_date)
+        md_qs = md_qs.filter(created_at__date__lte=end_date)
+
+    ad = ad_qs.values("status").annotate(count=Count("id")).order_by("-count")
+    md = md_qs.values("status").annotate(count=Count("id")).order_by("-count")
 
     return {
         "verification": list(ad),
