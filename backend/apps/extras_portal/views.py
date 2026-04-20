@@ -305,6 +305,7 @@ def _latest_portal_section_context(provider: ProviderProfile, section_key: str) 
             "request_obj": request_obj,
             "bundle": bundle,
             "invoice": bundle_context["invoice"],
+            "effective_at": bundle_context.get("effective_at"),
             "section_key": section_key,
             "section_payload": section_payload,
             "option_keys": option_keys,
@@ -316,6 +317,7 @@ def _latest_portal_section_context(provider: ProviderProfile, section_key: str) 
         "request_obj": None,
         "bundle": {},
         "invoice": None,
+        "effective_at": None,
         "section_key": section_key,
         "section_payload": {},
         "option_keys": [],
@@ -1587,6 +1589,13 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
     bulk_message_limit = _portal_safe_int(clients_payload.get("bulk_message_count", 0), default=0, minimum=0)
     clients_supports_bulk_messages = _portal_section_has_option(section_context, "bulk_messages")
 
+    # ── Date scope from bundle activation ──
+    _clients_effective_at = section_context.get("effective_at")
+    _clients_deadline = (
+        (_clients_effective_at + timedelta(days=365 * clients_subscription_years))
+        if _clients_effective_at else None
+    )
+
     # ── Handle POST: save client data OR send bulk message ──
     if request.method == "POST":
         post_action = request.POST.get("action", "")
@@ -1683,10 +1692,28 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
         ProviderPotentialClient.objects.filter(provider=provider).values_list("user_id", flat=True)
     )
 
+    # Scope to requests within the subscription date window
+    _scoped_requests_qs = ServiceRequest.objects.filter(provider=provider)
+    _scoped_requests_qs = _apply_datetime_window(
+        _scoped_requests_qs, "created_at", _clients_effective_at, _clients_deadline,
+    )
+
+    _scoped_request_filter = Q(requests__provider=provider)
+    if _clients_effective_at:
+        _scoped_request_filter &= Q(requests__created_at__gte=_clients_effective_at)
+    if _clients_deadline:
+        _scoped_request_filter &= Q(requests__created_at__lte=_clients_deadline)
+
+    _scoped_count_filter = Q(requests__provider=provider)
+    if _clients_effective_at:
+        _scoped_count_filter &= Q(requests__created_at__gte=_clients_effective_at)
+    if _clients_deadline:
+        _scoped_count_filter &= Q(requests__created_at__lte=_clients_deadline)
+
     clients_qs = (
-        User.objects.filter(requests__provider=provider)
+        User.objects.filter(_scoped_request_filter)
         .distinct()
-        .annotate(request_count=Count("requests", filter=Q(requests__provider=provider)))
+        .annotate(request_count=Count("requests", filter=_scoped_count_filter))
         .order_by("-id")
     )
     clients_total_count = clients_qs.count()
@@ -1700,13 +1727,17 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
         for rec in ClientRecord.objects.filter(provider=provider, user_id__in=client_user_ids)
     }
 
-    # Check which clients were previously served (have completed orders)
+    # Check which clients were previously served (have completed orders in the window)
+    _served_qs = ServiceRequest.objects.filter(
+        provider=provider,
+        status=RequestStatus.COMPLETED,
+        client_id__in=client_user_ids,
+    )
+    _served_qs = _apply_datetime_window(
+        _served_qs, "created_at", _clients_effective_at, _clients_deadline,
+    )
     served_user_ids = set(
-        ServiceRequest.objects.filter(
-            provider=provider,
-            status=RequestStatus.COMPLETED,
-            client_id__in=client_user_ids,
-        ).values_list("client_id", flat=True).distinct()
+        _served_qs.values_list("client_id", flat=True).distinct()
     )
 
     enriched_clients = []
@@ -1724,6 +1755,8 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             "reminder_text": rec.reminder_text if rec else "",
             "reminder_date": str(rec.reminder_date) if rec and rec.reminder_date else "",
             "reminder_time": rec.reminder_time.strftime("%H:%M") if rec and rec.reminder_time else "",
+            "reminder_sent": rec.reminder_sent if rec else False,
+            "reminder_sent_at": rec.reminder_sent_at if rec else None,
             "loyalty_points_added": rec.loyalty_points_added if rec else 0,
         })
 
@@ -1854,6 +1887,8 @@ def _save_client_records(request: HttpRequest, provider: ProviderProfile) -> Non
                 "reminder_text": reminder_text,
                 "reminder_date": reminder_date,
                 "reminder_time": reminder_time,
+                "reminder_sent": False,
+                "reminder_sent_at": None,
                 "loyalty_points_added": loyalty_points,
             },
         )
@@ -1937,20 +1972,23 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
     supports_bank_qr_registration = _portal_section_has_option(section_context, "bank_qr_registration")
     supports_financial_statement = _portal_section_has_option(section_context, "financial_statement")
     supports_finance_export = _portal_section_has_option(section_context, "finance_export")
-    requested_account_name = " ".join(
-        part for part in [
-            str(finance_payload.get("qr_first_name") or "").strip(),
-            str(finance_payload.get("qr_last_name") or "").strip(),
-        ]
-        if part
-    ).strip()
+    supports_electronic_payments = _portal_section_has_option(section_context, "electronic_payments")
+    supports_electronic_invoices = _portal_section_has_option(section_context, "electronic_invoices")
+
+    # Requested account info from the extras bundle payment (operator filled)
+    requested_first_name = str(finance_payload.get("qr_first_name") or "").strip()
+    requested_last_name = str(finance_payload.get("qr_last_name") or "").strip()
+    requested_account_name = " ".join(part for part in [requested_first_name, requested_last_name] if part).strip()
     requested_iban = str(finance_payload.get("iban") or "").strip()
 
     settings_obj = ExtrasPortalFinanceSettings.objects.filter(provider=provider).first()
 
     form = FinanceSettingsForm(request.POST or None, request.FILES or None, initial={
         "bank_name": getattr(settings_obj, "bank_name", ""),
+        "account_holder_first_name": getattr(settings_obj, "account_holder_first_name", "") or requested_first_name,
+        "account_holder_last_name": getattr(settings_obj, "account_holder_last_name", "") or requested_last_name,
         "account_name": getattr(settings_obj, "account_name", "") or requested_account_name,
+        "account_number": getattr(settings_obj, "account_number", ""),
         "iban": getattr(settings_obj, "iban", "") or requested_iban,
     })
 
@@ -1962,7 +2000,10 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
         if not settings_obj:
             settings_obj = ExtrasPortalFinanceSettings(provider=provider)
         settings_obj.bank_name = form.cleaned_data.get("bank_name") or ""
+        settings_obj.account_holder_first_name = form.cleaned_data.get("account_holder_first_name") or ""
+        settings_obj.account_holder_last_name = form.cleaned_data.get("account_holder_last_name") or ""
         settings_obj.account_name = form.cleaned_data.get("account_name") or ""
+        settings_obj.account_number = form.cleaned_data.get("account_number") or ""
         settings_obj.iban = form.cleaned_data.get("iban") or ""
         if form.cleaned_data.get("qr_image") is not None:
             settings_obj.qr_image = form.cleaned_data.get("qr_image")
@@ -1970,41 +2011,83 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
         messages.success(request, "تم حفظ الإعدادات")
         return redirect("extras_portal:finance")
 
-    since_days = 30
-    since = timezone.now() - timedelta(days=since_days)
+    # ── Subscription info ──
+    portal_subscription = getattr(provider, "extras_portal_subscription", None)
+    subscription_end = getattr(portal_subscription, "ends_at", None)
+
+    # ── Date scope from bundle activation ──
+    effective_at = section_context.get("effective_at")
+    finance_deadline = (
+        (effective_at + timedelta(days=365 * finance_subscription_years))
+        if effective_at else None
+    )
+
+    # ── Account Statement (كشف حساب شامل) ──
     statement_qs = ServiceRequest.objects.none()
     if supports_financial_statement:
         statement_qs = (
-            ServiceRequest.objects.filter(provider=provider, created_at__gte=since)
+            ServiceRequest.objects.filter(provider=provider)
             .select_related("client")
-            .order_by("-id")
+            .order_by("-created_at")
+        )
+        statement_qs = _apply_datetime_window(
+            statement_qs, "created_at", effective_at, finance_deadline,
         )
     statement = list(statement_qs[:500])
+
+    # Enrich statement rows with client display name
+    statement_rows = []
+    for r in statement:
+        statement_rows.append({
+            "id": r.id,
+            "client_name": _finance_client_name(r.client),
+            "client_phone": getattr(r.client, "phone", "") if r.client else "",
+            "created_at": r.created_at,
+            "estimated_service_amount": r.estimated_service_amount,
+            "received_amount": r.received_amount,
+            "remaining_amount": r.remaining_amount,
+            "actual_service_amount": r.actual_service_amount,
+            "status": r.status,
+            "status_display": r.get_status_display(),
+            "delivered_at": r.delivered_at,
+            "canceled_at": r.canceled_at,
+            "cancel_reason": r.cancel_reason or "",
+        })
 
     totals = statement_qs.aggregate(
         received=Sum("received_amount"),
         remaining=Sum("remaining_amount"),
         estimated=Sum("estimated_service_amount"),
+        actual=Sum("actual_service_amount"),
     )
+
+    # ── Profile completion ──
     settings_fields = [
         bool(getattr(settings_obj, "bank_name", "").strip()) if settings_obj else False,
+        bool(getattr(settings_obj, "account_holder_first_name", "").strip()) if settings_obj else False,
+        bool(getattr(settings_obj, "account_holder_last_name", "").strip()) if settings_obj else False,
         bool(getattr(settings_obj, "account_name", "").strip()) if settings_obj else False,
+        bool(getattr(settings_obj, "account_number", "").strip()) if settings_obj else False,
         bool(getattr(settings_obj, "iban", "").strip()) if settings_obj else False,
         bool(getattr(settings_obj, "qr_image", None)) if settings_obj else False,
     ]
-    finance_profile_completion = int((sum(1 for value in settings_fields if value) / len(settings_fields)) * 100)
-    finance_summary = {
-        "statement_count": statement_qs.count(),
-        "received_requests": statement_qs.exclude(received_amount__isnull=True).exclude(received_amount=0).count(),
-        "outstanding_requests": statement_qs.exclude(remaining_amount__isnull=True).exclude(remaining_amount=0).count(),
-        "finance_profile_completion": finance_profile_completion,
-    }
+    finance_profile_completion = int((sum(1 for v in settings_fields if v) / len(settings_fields)) * 100)
+
     finance_display_values = {
         "bank_name": getattr(settings_obj, "bank_name", "") or "",
+        "account_holder_first_name": getattr(settings_obj, "account_holder_first_name", "") or requested_first_name,
+        "account_holder_last_name": getattr(settings_obj, "account_holder_last_name", "") or requested_last_name,
         "account_name": getattr(settings_obj, "account_name", "") or requested_account_name,
+        "account_number": getattr(settings_obj, "account_number", "") or "",
         "iban": getattr(settings_obj, "iban", "") or requested_iban,
         "qr_image": getattr(settings_obj, "qr_image", None),
     }
+
+    provider_identifier = str(getattr(provider.user, "username", "") or "").strip()
+    if provider_identifier:
+        provider_identifier = f"@{provider_identifier}"
+    else:
+        provider_identifier = provider.display_name or str(provider.user.id)
 
     return render(
         request,
@@ -2012,24 +2095,39 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
         {
             **_portal_shell_context(provider, active_section=PORTAL_SECTION_FINANCE),
             "provider": provider,
-            "finance_section_context": section_context,
-            "finance_option_keys": finance_option_keys,
+            "provider_identifier": provider_identifier,
             "finance_option_labels": finance_option_labels,
             "finance_subscription_years": finance_subscription_years,
+            "subscription_end": subscription_end,
             "supports_bank_qr_registration": supports_bank_qr_registration,
             "supports_financial_statement": supports_financial_statement,
             "supports_finance_export": supports_finance_export,
-            "requested_account_name": requested_account_name,
-            "requested_iban": requested_iban,
+            "supports_electronic_payments": supports_electronic_payments,
+            "supports_electronic_invoices": supports_electronic_invoices,
             "finance_display_values": finance_display_values,
             "finance_settings": settings_obj,
+            "finance_profile_completion": finance_profile_completion,
             "form": form,
-            "statement": statement,
-            "since_days": since_days,
+            "statement_rows": statement_rows,
+            "statement_count": statement_qs.count(),
             "totals": totals,
-            "finance_summary": finance_summary,
         },
     )
+
+
+def _finance_client_name(client) -> str:
+    """Return client display name for finance tables."""
+    if not client:
+        return "—"
+    fn = getattr(client, "first_name", "") or ""
+    ln = getattr(client, "last_name", "") or ""
+    full = f"{fn} {ln}".strip()
+    if full:
+        return full
+    username = getattr(client, "username", "") or ""
+    if username:
+        return f"@{username}"
+    return getattr(client, "phone", "") or "—"
 
 
 @extras_portal_login_required
@@ -2044,35 +2142,46 @@ def portal_finance_export_xlsx(request: HttpRequest) -> HttpResponse:
         return redirect("extras_portal:finance")
     from apps.core.models import PlatformConfig
     _limit = PlatformConfig.load().export_xlsx_max_rows
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:_limit]
+
+    # ── Date scope from bundle activation ──
+    finance_payload = _portal_section_payload(section_context)
+    finance_subscription_years = _portal_safe_int(finance_payload.get("subscription_years", 1), default=1, minimum=1)
+    effective_at = section_context.get("effective_at")
+    finance_deadline = (
+        (effective_at + timedelta(days=365 * finance_subscription_years))
+        if effective_at else None
+    )
+
+    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-created_at")
+    qs = _apply_datetime_window(qs, "created_at", effective_at, finance_deadline)
+    qs = qs[:_limit]
 
     rows = []
     for r in qs:
+        client_name = _finance_client_name(r.client)
         rows.append(
             [
-                r.id,
-                getattr(r.client, "phone", ""),
-                r.get_status_display(),
+                client_name,
                 r.created_at,
-                r.estimated_service_amount,
-                r.received_amount,
-                r.remaining_amount,
-                r.actual_service_amount,
+                r.estimated_service_amount or 0,
+                r.received_amount or 0,
+                r.remaining_amount or 0,
+                r.actual_service_amount or 0,
+                r.get_status_display(),
             ]
         )
 
     return xlsx_response(
         filename=f"extras-portal-finance-provider-{provider.id}.xlsx",
-        sheet_name="المالية",
+        sheet_name="كشف حساب شامل",
         headers=[
-            "رقم الطلب",
-            "جوال العميل",
-            "الحالة",
-            "التاريخ",
-            "المقدر",
-            "المستلم",
-            "المتبقي",
-            "الفعلي",
+            "اسم العميل",
+            "الوقت والتاريخ",
+            "قيمة الخدمة المقدرة",
+            "المبلغ المستلم",
+            "المبلغ المتبقي",
+            "قيمة الخدمة الفعلية",
+            "حالة الطلب",
         ],
         rows=rows,
     )
@@ -2090,24 +2199,47 @@ def portal_finance_export_pdf(request: HttpRequest) -> HttpResponse:
         return redirect("extras_portal:finance")
     from apps.core.models import PlatformConfig
     _limit = PlatformConfig.load().export_pdf_max_rows
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:_limit]
+
+    # ── Date scope from bundle activation ──
+    finance_payload = _portal_section_payload(section_context)
+    finance_subscription_years = _portal_safe_int(finance_payload.get("subscription_years", 1), default=1, minimum=1)
+    effective_at = section_context.get("effective_at")
+    finance_deadline = (
+        (effective_at + timedelta(days=365 * finance_subscription_years))
+        if effective_at else None
+    )
+
+    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-created_at")
+    qs = _apply_datetime_window(qs, "created_at", effective_at, finance_deadline)
+    qs = qs[:_limit]
 
     rows = []
     for r in qs:
+        client_name = _finance_client_name(r.client)
         rows.append(
             [
-                r.id,
-                getattr(r.client, "phone", ""),
-                r.get_status_display(),
+                client_name,
                 r.created_at,
-                r.received_amount,
+                r.estimated_service_amount or 0,
+                r.received_amount or 0,
+                r.remaining_amount or 0,
+                r.actual_service_amount or 0,
+                r.get_status_display(),
             ]
         )
 
     return pdf_response(
         filename=f"extras-portal-finance-provider-{provider.id}.pdf",
-        title="كشف الحساب",
-        headers=["رقم الطلب", "جوال العميل", "الحالة", "التاريخ", "المستلم"],
+        title="كشف حساب شامل",
+        headers=[
+            "اسم العميل",
+            "الوقت والتاريخ",
+            "قيمة الخدمة المقدرة",
+            "المبلغ المستلم",
+            "المبلغ المتبقي",
+            "قيمة الخدمة الفعلية",
+            "حالة الطلب",
+        ],
         rows=rows,
         landscape=True,
     )

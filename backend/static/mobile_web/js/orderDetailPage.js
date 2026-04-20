@@ -252,22 +252,24 @@ const OrderDetailPage = (() => {
     if (meta) {
       meta.innerHTML = '';
       const lines = [];
-      if (_order.created_at) lines.push('تاريخ الإنشاء: ' + _formatDate(_order.created_at));
-      if (_order.request_type) lines.push('نوع الطلب: ' + _requestTypeLabel(_order.request_type));
+      if (_order.created_at) lines.push({ label: 'تاريخ الإنشاء', value: _formatDate(_order.created_at) });
+      if (_order.request_type) lines.push({ label: 'نوع الطلب', value: _requestTypeLabel(_order.request_type) });
       if (_order.category_name || _order.subcategory_name) {
-        lines.push(
-          'التصنيف: ' +
-          (_order.category_name || '-') +
-          (_order.subcategory_name ? (' / ' + _order.subcategory_name) : ''),
-        );
+        lines.push({
+          label: 'التصنيف',
+          value: (_order.category_name || '-') + (_order.subcategory_name ? (' / ' + _order.subcategory_name) : ''),
+        });
       }
-      if (_order.provider_name) lines.push('مقدم الخدمة: ' + _order.provider_name);
-      if (_order.provider_phone) lines.push('رقم مقدم الخدمة: ' + _order.provider_phone);
+      if (_order.provider_name) lines.push({ label: 'مقدم الخدمة', value: _order.provider_name });
+      if (_order.provider_phone) lines.push({ label: 'رقم مقدم الخدمة', value: _order.provider_phone });
       const cityDisplay = UI.formatCityDisplay(_order.city_display || _order.city, _order.region || _order.region_name);
-      if (cityDisplay) lines.push('المدينة: ' + cityDisplay);
+      if (cityDisplay) lines.push({ label: 'المدينة', value: cityDisplay });
 
       lines.forEach((line) => {
-        meta.appendChild(UI.el('div', { className: 'order-meta-line', textContent: line }));
+        const item = UI.el('div', { className: 'order-meta-line' });
+        item.appendChild(UI.el('span', { className: 'order-meta-label', textContent: line.label }));
+        item.appendChild(UI.el('strong', { className: 'order-meta-value', textContent: line.value || '-' }));
+        meta.appendChild(item);
       });
     }
 
@@ -535,12 +537,24 @@ const OrderDetailPage = (() => {
         window.location.href = href;
       });
     }
-    line.appendChild(UI.el('span', { textContent: name }));
+    const nameWrap = UI.el('span', { className: 'order-file-name' });
+    nameWrap.appendChild(UI.el('span', { className: 'order-file-icon', textContent: _attachmentIcon(type) }));
+    nameWrap.appendChild(UI.el('span', { textContent: name }));
+    line.appendChild(nameWrap);
     line.appendChild(UI.el('span', {
       className: 'order-line-type',
       textContent: type,
     }));
     return line;
+  }
+
+  function _attachmentIcon(type) {
+    const t = String(type || '').toLowerCase();
+    if (t.includes('image') || ['png', 'jpg', 'jpeg', 'webp'].includes(t)) return 'IMG';
+    if (t.includes('pdf')) return 'PDF';
+    if (t.includes('video') || t.includes('mp4')) return 'VID';
+    if (t.includes('audio')) return 'AUD';
+    return 'FILE';
   }
 
   function _splitAttachments(order) {

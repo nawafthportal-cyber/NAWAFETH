@@ -13,6 +13,7 @@ class EventType(models.TextChoices):
 	PAYMENT_RECEIVED = "payment_received", "تم تسجيل سداد"
 	AD_VISIT = "ad_visit", "تم تسجيل زيارة إعلان"
 	SCHEDULED_MESSAGE_SENT = "scheduled_message_sent", "تم تنفيذ رسالة مجدولة"
+	CLIENT_REMINDER_DUE = "client_reminder_due", "تذكير عميل مستحق"
 	PROVIDER_JOINED_CATEGORY = "provider_joined_category", "انضم مزود جديد إلى الفئة"
 	CATEGORY_HIGHLIGHT_PUBLISHED = "category_highlight_published", "تم نشر لمحة ضمن الفئة"
 

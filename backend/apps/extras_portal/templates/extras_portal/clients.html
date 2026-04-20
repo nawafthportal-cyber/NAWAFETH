@@ -109,6 +109,7 @@
               <th class="px-3 py-3 text-right font-bold">تذكير خاص</th>
               <th class="px-2 py-3 text-center font-bold">تاريخ التذكير</th>
               <th class="px-2 py-3 text-center font-bold">وقت التذكير</th>
+              <th class="px-2 py-3 text-center font-bold">حالة التذكير</th>
               <th class="px-2 py-3 text-center font-bold">نقاط الولاء</th>
             </tr>
           </thead>
@@ -157,13 +158,30 @@
                 <td class="px-2 py-2.5">
                   <input type="time" name="reminder_time_{{ c.user.id }}" value="{{ c.reminder_time }}">
                 </td>
+                <td class="px-2 py-2.5 text-center">
+                  {% if c.reminder_date %}
+                    {% if c.reminder_sent %}
+                      <span class="auto-badge badge-yes" title="تم الإرسال{% if c.reminder_sent_at %} {{ c.reminder_sent_at|date:'Y-m-d H:i' }}{% endif %}">
+                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        تم
+                      </span>
+                    {% else %}
+                      <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600" title="بانتظار الموعد">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        قيد الانتظار
+                      </span>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-slate-300 text-[10px]">—</span>
+                  {% endif %}
+                </td>
                 <td class="px-2 py-2.5">
                   <input type="number" name="loyalty_points_{{ c.user.id }}" value="{{ c.loyalty_points_added }}" min="0" class="text-center w-20">
                 </td>
               </tr>
             {% empty %}
               <tr>
-                <td colspan="12" class="px-4 py-10 text-center text-sm text-slate-400">لا يوجد عملاء حاليًا.</td>
+                <td colspan="13" class="px-4 py-10 text-center text-sm text-slate-400">لا يوجد عملاء حاليًا.</td>
               </tr>
             {% endfor %}
           </tbody>

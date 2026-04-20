@@ -768,21 +768,32 @@ const HomePage = (() => {
       var tolerance = 6;
       var hasLeftOverflow = false;
       var hasRightOverflow = false;
+      var hiddenLeftCount = 0;
+      var hiddenRightCount = 0;
+      var visibleCount = 0;
 
       cards.forEach(function(card) {
         var rect = card.getBoundingClientRect();
         if (rect.left < listRect.left - tolerance) {
           hasLeftOverflow = true;
+          hiddenLeftCount += 1;
         }
         if (rect.right > listRect.right + tolerance) {
           hasRightOverflow = true;
+          hiddenRightCount += 1;
+        }
+        if (rect.right > listRect.left + tolerance && rect.left < listRect.right - tolerance) {
+          visibleCount += 1;
         }
       });
 
       var isScrollable = ($categoriesList.scrollWidth - $categoriesList.clientWidth) > tolerance;
       carousel.classList.toggle('is-scrollable', isScrollable);
+      carousel.classList.toggle('at-start', isScrollable && !hasRightOverflow);
+      carousel.classList.toggle('at-end', isScrollable && !hasLeftOverflow);
       prevBtn.disabled = !hasLeftOverflow;
       nextBtn.disabled = !hasRightOverflow;
+      _updateCategoriesProgress(carousel, cards.length, visibleCount, hiddenLeftCount, hiddenRightCount, isScrollable);
     }
 
     function scrollToHiddenCard(edge) {
@@ -860,6 +871,25 @@ const HomePage = (() => {
         carousel._updateCategoriesArrows();
       }
     }, 140);
+  }
+
+  function _updateCategoriesProgress(carousel, totalCount, visibleCount, hiddenLeftCount, hiddenRightCount, isScrollable) {
+    if (!carousel) return;
+    if (!isScrollable || !totalCount) {
+      carousel.style.setProperty('--category-thumb-pct', '100%');
+      carousel.style.setProperty('--category-progress-offset', '0%');
+      return;
+    }
+
+    const safeTotal = Math.max(1, Number(totalCount) || 1);
+    const safeVisible = Math.max(1, Math.min(safeTotal, Number(visibleCount) || 1));
+    const thumbPct = Math.max(18, Math.min(72, (safeVisible / safeTotal) * 100));
+    const travelPct = 100 - thumbPct;
+    const hiddenSum = Math.max(1, (Number(hiddenLeftCount) || 0) + (Number(hiddenRightCount) || 0));
+    const progress = Math.max(0, Math.min(1, (Number(hiddenRightCount) || 0) / hiddenSum));
+
+    carousel.style.setProperty('--category-thumb-pct', thumbPct.toFixed(2) + '%');
+    carousel.style.setProperty('--category-progress-offset', (travelPct * progress).toFixed(2) + '%');
   }
 
   function _renderCategoriesEmpty() {

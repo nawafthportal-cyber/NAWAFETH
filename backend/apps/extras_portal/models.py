@@ -40,7 +40,10 @@ class ExtrasPortalFinanceSettings(models.Model):
         related_name="extras_portal_finance_settings",
     )
     bank_name = models.CharField(max_length=120, blank=True, default="")
+    account_holder_first_name = models.CharField(max_length=60, blank=True, default="")
+    account_holder_last_name = models.CharField(max_length=60, blank=True, default="")
     account_name = models.CharField(max_length=120, blank=True, default="")
+    account_number = models.CharField(max_length=30, blank=True, default="")
     iban = models.CharField(max_length=34, blank=True, default="")
     qr_image = models.FileField(upload_to="extras_portal/finance/%Y/%m/", null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -254,6 +257,8 @@ class ClientRecord(models.Model):
     reminder_text = models.CharField(max_length=500, blank=True, default="")
     reminder_date = models.DateField(null=True, blank=True)
     reminder_time = models.TimeField(null=True, blank=True)
+    reminder_sent = models.BooleanField(default=False)
+    reminder_sent_at = models.DateTimeField(null=True, blank=True)
     loyalty_points_added = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
 

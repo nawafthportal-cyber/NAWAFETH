@@ -16,8 +16,9 @@
     </div>
 
     <div id="order-content" class="hidden order-detail-shell">
-      <header class="order-page-top">
+      <header class="order-page-top order-detail-hero">
         <div class="order-page-title-wrap">
+          <span class="order-page-kicker">متابعة الطلب</span>
           <h1>تفاصيل الطلب</h1>
           <p>راجع حالة الطلب، التفاصيل، وعروض الأسعار من المزودين في مكان واحد.</p>
         </div>
@@ -49,21 +50,23 @@
           <div id="order-meta" class="order-meta"></div>
         </section>
 
-        <section class="order-detail-card order-edit-card">
-          <div class="order-field-head">
-            <h2>عنوان الطلب</h2>
-            <button type="button" class="btn-sm hidden" id="btn-toggle-title">تعديل</button>
-          </div>
-          <input id="order-title" class="form-input" disabled>
-        </section>
+        <div class="order-primary-grid">
+          <section class="order-detail-card order-edit-card">
+            <div class="order-field-head">
+              <h2>عنوان الطلب</h2>
+              <button type="button" class="btn-sm hidden" id="btn-toggle-title">تعديل</button>
+            </div>
+            <input id="order-title" class="form-input" disabled>
+          </section>
 
-        <section class="order-detail-card order-edit-card">
-          <div class="order-field-head">
-            <h2>تفاصيل الطلب</h2>
-            <button type="button" class="btn-sm hidden" id="btn-toggle-desc">تعديل</button>
-          </div>
-          <textarea id="order-description" class="form-textarea" disabled></textarea>
-        </section>
+          <section class="order-detail-card order-edit-card order-description-card">
+            <div class="order-field-head">
+              <h2>تفاصيل الطلب</h2>
+              <button type="button" class="btn-sm hidden" id="btn-toggle-desc">تعديل</button>
+            </div>
+            <textarea id="order-description" class="form-textarea" disabled></textarea>
+          </section>
+        </div>
 
         <section class="order-detail-card order-files-card">
           <h2>المرفقات</h2>
@@ -214,5 +217,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/orderDetailPage.js' %}?v=20260418-provider-inputs-approval1"></script>
+<script src="{% static 'mobile_web/js/orderDetailPage.js' %}?v=20260420-client-detail-polish1"></script>
 {% endblock %}

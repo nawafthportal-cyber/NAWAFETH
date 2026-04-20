@@ -19,8 +19,15 @@
   body.page-add-service .container.asv2-shell {
     width: min(1180px, 100%);
     margin: 0 auto;
+  }
+
+  body.page-add-service #add-service-client-content:not(.hidden) {
     display: grid;
     gap: 14px;
+  }
+
+  body.page-add-service #add-service-client-content.hidden {
+    display: none;
   }
 
   body.page-add-service .asv2-hero {
@@ -114,7 +121,7 @@
     color: #0f172a;
     font-size: clamp(30px, 4.6vw, 46px);
     line-height: 1.05;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
 
   body.page-add-service .asv2-hero-main p {
@@ -187,6 +194,10 @@
     padding: 14px;
     background: rgba(255, 255, 255, 0.92);
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  body.page-add-service .asv2-categories-panel {
+    overflow: hidden;
   }
 
   body.page-add-service .asv2-panel-head {
@@ -294,17 +305,56 @@
     justify-content: center;
   }
 
-  body.page-add-service .asv2-categories-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+  body.page-add-service .asv2-categories-viewport {
+    position: relative;
+    overflow: hidden;
+    margin-inline: -14px;
+    padding: 2px 0 4px;
+    direction: ltr;
+  }
+
+  body.page-add-service .asv2-categories-viewport::before,
+  body.page-add-service .asv2-categories-viewport::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 54px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  body.page-add-service .asv2-categories-viewport::before {
+    left: 0;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.96), transparent);
+  }
+
+  body.page-add-service .asv2-categories-viewport::after {
+    right: 0;
+    background: linear-gradient(270deg, rgba(255, 255, 255, 0.96), transparent);
+  }
+
+  body.page-add-service .asv2-categories-grid,
+  body.page-add-service .asv2-categories-track {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    width: max-content;
+  }
+
+  body.page-add-service .asv2-categories-track.is-ready {
+    animation: asv2-category-marquee 34s linear infinite;
   }
 
   body.page-add-service .asv2-categories-grid .cat-item {
-    border-radius: 14px;
+    flex: 0 0 184px;
+    width: 184px;
+    min-height: 142px;
+    direction: rtl;
+    border-radius: 18px;
     border: 1px solid rgba(15, 23, 42, 0.09);
     background: linear-gradient(160deg, #ffffff 0%, #f7fbff 100%);
-    padding: 12px 10px;
+    padding: 14px 12px;
     text-decoration: none;
     color: inherit;
     display: flex;
@@ -369,7 +419,8 @@
   }
 
   body.page-add-service .add-service-cats-message {
-    grid-column: 1 / -1;
+    width: calc(100vw - 48px);
+    max-width: 100%;
     border: 1px dashed rgba(15, 23, 42, 0.16);
     border-radius: 14px;
     background: rgba(248, 250, 252, 0.9);
@@ -389,12 +440,17 @@
     100% { background-position: -200% 0; }
   }
 
+  @keyframes asv2-category-marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
   @media (min-width: 768px) {
     body.page-add-service .page-content {
       padding: 24px 20px 32px;
     }
 
-    body.page-add-service .container.asv2-shell {
+    body.page-add-service #add-service-client-content:not(.hidden) {
       gap: 16px;
     }
 
@@ -411,21 +467,23 @@
       gap: 12px;
     }
 
-    body.page-add-service .asv2-categories-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+    body.page-add-service .asv2-categories-grid .cat-item {
+      flex-basis: 204px;
+      width: 204px;
     }
   }
 
   @media (min-width: 1100px) {
-    body.page-add-service .container.asv2-shell {
-      grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
+    body.page-add-service #add-service-client-content:not(.hidden) {
+      grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
       align-items: start;
+      gap: 18px;
     }
 
     body.page-add-service .asv2-hero {
-      grid-column: 1 / -1;
+      min-height: 100%;
       padding: 24px;
+      align-content: space-between;
     }
 
     body.page-add-service .asv2-hero-main h1 {
@@ -452,8 +510,19 @@
       grid-template-columns: 1fr;
     }
 
-    body.page-add-service .asv2-categories-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+    body.page-add-service .asv2-categories-panel {
+      grid-column: 1 / -1;
+      padding-block: 18px;
+    }
+
+    body.page-add-service .asv2-categories-viewport {
+      margin-inline: -16px;
+    }
+
+    body.page-add-service .asv2-categories-grid .cat-item {
+      flex-basis: 220px;
+      width: 220px;
+      min-height: 152px;
     }
   }
 
@@ -507,8 +576,9 @@
       display: none;
     }
 
-    body.page-add-service .asv2-categories-grid {
-      grid-template-columns: 1fr;
+    body.page-add-service .asv2-categories-grid .cat-item {
+      flex-basis: 170px;
+      width: 170px;
     }
   }
 </style>
@@ -600,16 +670,19 @@
       </div>
     </section>
 
-    <section class="asv2-panel">
+    <section class="asv2-panel asv2-categories-panel">
       <div class="asv2-panel-head">
         <h2>التصنيفات</h2>
         <span class="asv2-count" id="cats-count">0</span>
       </div>
-      <div class="categories-grid asv2-categories-grid" id="cats-grid">
-        <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
-        <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
-        <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
-        <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
+      <div class="asv2-categories-viewport" aria-label="التصنيفات المتاحة">
+        <div class="categories-grid asv2-categories-grid asv2-categories-track" id="cats-grid">
+          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
+          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
+          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
+          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
+          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
+        </div>
       </div>
     </section>
     </div>
@@ -618,5 +691,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/addServicePage.js' %}?v=20260413-as-redesign-1"></script>
+<script src="{% static 'mobile_web/js/addServicePage.js' %}?v=20260420-desktop-marquee1"></script>
 {% endblock %}

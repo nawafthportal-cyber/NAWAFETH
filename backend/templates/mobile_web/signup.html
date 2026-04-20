@@ -18,6 +18,8 @@ body.page-signup {
 }
 
 body.page-signup .page-content {
+  padding: 0;
+  overflow-x: clip;
   background:
     radial-gradient(circle at 12% 12%, rgba(73, 191, 210, 0.14), transparent 24%),
     radial-gradient(circle at 90% 4%, rgba(77, 41, 151, 0.16), transparent 28%),
@@ -25,14 +27,25 @@ body.page-signup .page-content {
     linear-gradient(180deg, #f8f4ff 0%, #fcfbfe 40%, #f8fbff 100%);
 }
 
+body.page-signup #top-navbar,
+body.page-signup #site-footer,
+body.page-signup #bottom-nav {
+  display: none !important;
+}
+
 body.page-signup .signup-premium-page {
-  min-height: calc(100vh - var(--navbar-height));
-  padding: 24px 16px 42px;
+  min-height: 100svh;
+  width: 100%;
+  padding: clamp(14px, 3.8vw, 28px) clamp(12px, 3.6vw, 20px) clamp(28px, 7vw, 56px);
+  align-items: center;
+  justify-content: flex-start;
 }
 
 body.page-signup .signup-shell {
   position: relative;
-  max-width: min(980px, calc(100vw - 24px));
+  width: min(100%, 980px);
+  max-width: none;
+  padding: 0;
   display: grid;
   gap: 20px;
 }
@@ -207,6 +220,8 @@ body.page-signup .signup-showcase-tag {
 }
 
 body.page-signup .signup-card {
+  width: 100%;
+  max-width: 100%;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(247, 242, 255, 0.95)),
     radial-gradient(circle at top right, rgba(73, 191, 210, 0.1), transparent 40%);
@@ -393,6 +408,8 @@ body.page-signup .form-label {
 
 body.page-signup .form-input,
 body.page-signup .form-select {
+  width: 100%;
+  min-width: 0;
   min-height: 54px;
   border-radius: 18px;
   border-color: rgba(111, 97, 148, 0.2);
@@ -556,6 +573,7 @@ body.page-signup .terms-check a {
 body.page-signup .signup-submit-btn {
   min-height: 56px;
   border-radius: 20px;
+  white-space: normal;
   box-shadow: 0 18px 34px rgba(77, 41, 151, 0.22);
   background: linear-gradient(135deg, var(--signup-brand), var(--signup-brand-2));
   font-size: 15px;
@@ -576,6 +594,7 @@ body.page-signup .signup-submit-btn {
 body.page-signup .signup-skip-btn {
   min-height: 56px;
   min-width: 156px;
+  max-width: 100%;
   padding: 0 18px;
   border-radius: 20px;
   border: 1px solid rgba(77, 41, 151, 0.14);
@@ -808,18 +827,47 @@ body.page-signup .signup-general-error:not(.hidden) {
   }
 }
 
+@media (max-width: 720px) {
+  body.page-signup .auth-grid-2,
+  body.page-signup .signup-location-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 640px) {
   body.page-signup .signup-premium-page {
-    padding-inline: 10px;
+    padding: 12px 10px 34px;
+  }
+
+  body.page-signup .signup-shell::before,
+  body.page-signup .signup-shell::after,
+  body.page-signup .auth-header::before,
+  body.page-signup .auth-header::after {
+    display: none;
   }
 
   body.page-signup .signup-showcase,
   body.page-signup .signup-card {
-    border-radius: 24px;
+    border-radius: 22px;
+    box-shadow: 0 16px 34px rgba(28, 20, 55, 0.09);
   }
 
   body.page-signup .auth-title {
-    font-size: 26px;
+    font-size: 24px;
+    line-height: 1.35;
+  }
+
+  body.page-signup .auth-desc {
+    font-size: 13px;
+    line-height: 1.75;
+  }
+
+  body.page-signup .signup-card-inner {
+    gap: 14px;
+  }
+
+  body.page-signup .signup-form-grid {
+    gap: 12px;
   }
 
   body.page-signup .signup-actions {
@@ -828,6 +876,7 @@ body.page-signup .signup-general-error:not(.hidden) {
 
   body.page-signup .signup-skip-btn {
     width: 100%;
+    min-width: 0;
   }
 }
 
@@ -843,22 +892,45 @@ body.page-signup .signup-general-error:not(.hidden) {
 
   body.page-signup .signup-showcase,
   body.page-signup .signup-card {
-    padding: 18px 14px;
+    padding: 14px 12px;
     border-radius: 20px;
   }
 
   body.page-signup .auth-header {
-    padding: 18px 14px;
-    border-radius: 22px;
+    padding: 16px 12px;
+    border-radius: 18px;
   }
 
-  body.page-signup .signup-soft-panel,
-  body.page-signup .terms-check {
+  body.page-signup .signup-soft-panel {
     grid-template-columns: 1fr;
   }
 
+  body.page-signup .terms-check {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 12px;
+    border-radius: 18px;
+  }
+
   body.page-signup .terms-check input {
-    margin-top: 0;
+    margin-top: 5px;
+  }
+
+  body.page-signup .form-input,
+  body.page-signup .form-select {
+    min-height: 50px;
+    border-radius: 15px;
+    font-size: 13px;
+  }
+
+  body.page-signup .signup-location-callout {
+    padding: 12px;
+  }
+
+  body.page-signup .signup-soft-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
   }
 }
 

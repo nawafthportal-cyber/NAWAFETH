@@ -79,7 +79,10 @@ class BulkMessageForm(forms.Form):
 
 class FinanceSettingsForm(forms.Form):
     bank_name = forms.CharField(label="اسم البنك", required=False, max_length=120)
+    account_holder_first_name = forms.CharField(label="الاسم الأول", required=False, max_length=60)
+    account_holder_last_name = forms.CharField(label="الاسم الثاني", required=False, max_length=60)
     account_name = forms.CharField(label="اسم الحساب", required=False, max_length=120)
+    account_number = forms.CharField(label="رقم الحساب", required=False, max_length=30)
     iban = forms.CharField(label="IBAN", required=False, max_length=34)
     qr_image = forms.FileField(label="QR", required=False)
 

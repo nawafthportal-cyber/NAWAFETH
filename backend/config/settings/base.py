@@ -300,6 +300,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(hours=6),
         "args": (500,),
     },
+    "extras-portal-process-due-client-reminders": {
+        "task": "extras_portal.process_due_client_reminders",
+        "schedule": timedelta(minutes=1),
+        "args": (500,),
+    },
     "verification-expire-badges": {
         "task": "verification.expire_badges_and_sync",
         "schedule": timedelta(hours=1),
