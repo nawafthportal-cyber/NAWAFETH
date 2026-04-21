@@ -1416,6 +1416,7 @@ const HomePage = (() => {
       const media = UI.el('div', { className: 'showcase-media' });
       const thumbUrl = ApiClient.mediaUrl(item.thumbnail_url || item.file_url);
       if (thumbUrl) {
+        media.style.setProperty('--showcase-bg-image', 'url("' + thumbUrl + '")');
         const img = UI.el('img', { alt: item.caption || 'مشروع ممول', loading: 'lazy' });
         img.src = thumbUrl;
         media.appendChild(img);
