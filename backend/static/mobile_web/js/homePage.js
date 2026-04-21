@@ -22,6 +22,9 @@ const HomePage = (() => {
   const CAROUSEL_IMAGE_ROTATE_MS = 3000;
   const CAROUSEL_VIDEO_FALLBACK_ROTATE_MS = 30000;
   const BANNER_SYNC_INTERVAL_MS = 60000;
+  const FEATURED_SPECIALISTS_LIMIT = 10;
+  const FEATURED_SPECIALISTS_ROTATE_MS = 5000;
+  const PORTFOLIO_SHOWCASE_LIMIT = 10;
   const PROVIDERS_RESUME_DELAY_MS = 3000;
 
   // DOM refs
@@ -579,15 +582,16 @@ const HomePage = (() => {
     if (_isLoading) return;
     _isLoading = true;
 
-    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, snapshotPromoRes, popupRes, promoMessageRes] = await Promise.allSettled([
+    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, portfolioFeedRes, snapshotPromoRes, popupRes, promoMessageRes] = await Promise.allSettled([
       ApiClient.get('/api/content/public/'),
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
       ApiClient.get('/api/promo/banners/home/'),
       ApiClient.get('/api/promo/home-carousel/?limit=10'),
       ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
-      ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=10'),
-      ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=10'),
+      ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=' + FEATURED_SPECIALISTS_LIMIT),
+      ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=' + PORTFOLIO_SHOWCASE_LIMIT),
+      ApiClient.get('/api/providers/portfolio/feed/?limit=' + PORTFOLIO_SHOWCASE_LIMIT),
       ApiClient.get('/api/promo/active/?service_type=snapshots&limit=16'),
       ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
       ApiClient.get('/api/promo/active/?service_type=promo_messages&limit=1'),
@@ -615,37 +619,51 @@ const HomePage = (() => {
       _renderCategoriesEmpty();
     }
 
-    // Featured providers (paid promotion)
+    let featuredPlacements = [];
     if (featuredRes.status === 'fulfilled' && featuredRes.value.ok && featuredRes.value.data) {
-      const placements = Array.isArray(featuredRes.value.data)
+      featuredPlacements = Array.isArray(featuredRes.value.data)
         ? featuredRes.value.data
         : (featuredRes.value.data.results || []);
-      NwCache.set(CACHE_FEATURED_SPECIALISTS, placements, TTL);
-      _renderFeaturedSpecialists(placements);
-    } else if (!NwCache.get(CACHE_FEATURED_SPECIALISTS)) {
-      _renderFeaturedSpecialists([]);
     }
 
-    // Providers count (kept for hero subtitle only)
+    let providerRows = [];
     if (provsRes.status === 'fulfilled' && provsRes.value.ok && provsRes.value.data) {
-      const list = Array.isArray(provsRes.value.data)
+      providerRows = Array.isArray(provsRes.value.data)
         ? provsRes.value.data
         : (provsRes.value.data.results || []);
-      NwCache.set(CACHE_PROVIDERS, list, TTL);
-      _updateSubtitle(list.length);
+      NwCache.set(CACHE_PROVIDERS, providerRows, TTL);
+      _updateSubtitle(providerRows.length);
     } else if (!NwCache.get(CACHE_PROVIDERS)) {
       _updateSubtitle(0);
     }
 
-    // Sponsored portfolio showcase
-    if (portfolioRes.status === 'fulfilled' && portfolioRes.value.ok && portfolioRes.value.data) {
-      const placements = Array.isArray(portfolioRes.value.data)
-        ? portfolioRes.value.data
-        : (portfolioRes.value.data.results || []);
-      _renderPortfolioShowcase(placements);
-    } else {
-      _renderPortfolioShowcase([]);
+    // Featured providers: sponsored placements + top rated providers.
+    const mergedFeaturedSpecialists = _mergeFeaturedSpecialists(
+      featuredPlacements,
+      providerRows,
+      FEATURED_SPECIALISTS_LIMIT
+    );
+    if (mergedFeaturedSpecialists.length) {
+      NwCache.set(CACHE_FEATURED_SPECIALISTS, mergedFeaturedSpecialists, TTL);
+      _renderFeaturedSpecialists(mergedFeaturedSpecialists);
+    } else if (!NwCache.get(CACHE_FEATURED_SPECIALISTS)) {
+      _renderFeaturedSpecialists([]);
     }
+
+    // Portfolio showcase: sponsored placements + latest works from newest providers.
+    const portfolioPlacements = (portfolioRes.status === 'fulfilled' && portfolioRes.value.ok && portfolioRes.value.data)
+      ? (Array.isArray(portfolioRes.value.data)
+        ? portfolioRes.value.data
+        : (portfolioRes.value.data.results || []))
+      : [];
+    const portfolioFeedItems = (portfolioFeedRes.status === 'fulfilled' && portfolioFeedRes.value.ok && portfolioFeedRes.value.data)
+      ? (Array.isArray(portfolioFeedRes.value.data)
+        ? portfolioFeedRes.value.data
+        : (portfolioFeedRes.value.data.results || []))
+      : [];
+    _renderPortfolioShowcase(
+      _mergePortfolioShowcaseLists(portfolioPlacements, portfolioFeedItems, PORTFOLIO_SHOWCASE_LIMIT)
+    );
 
     // Banners
     const promoBanners = (promoBansRes.status === 'fulfilled' && promoBansRes.value.ok && promoBansRes.value.data)
@@ -991,29 +1009,67 @@ const HomePage = (() => {
      RENDER: FEATURED SPECIALISTS
      Compact paid strip: avatar + verification + rating.
    ---------------------------------------------------------- */
-  function _normalizeFeaturedSpecialist(rawPromo) {
-    if (!rawPromo || typeof rawPromo !== 'object') return null;
-    const providerId = _readBannerInt(rawPromo.target_provider_id);
+  function _normalizeFeaturedSpecialist(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const providerId = _readBannerInt(raw.provider_id || raw.target_provider_id || raw.id);
     if (!providerId) return null;
-    const badges = Array.isArray(rawPromo.target_provider_excellence_badges)
-      ? rawPromo.target_provider_excellence_badges.filter(item => item && typeof item === 'object')
-      : [];
+    const badges = Array.isArray(raw.excellence_badges)
+      ? raw.excellence_badges.filter(item => item && typeof item === 'object')
+      : (Array.isArray(raw.target_provider_excellence_badges)
+        ? raw.target_provider_excellence_badges.filter(item => item && typeof item === 'object')
+        : []);
     return {
-      id: _readBannerInt(rawPromo.item_id || rawPromo.id || providerId),
+      id: _readBannerInt(raw.id || raw.item_id || providerId),
       provider_id: providerId,
-      display_name: _readBannerString(rawPromo.target_provider_display_name) || 'مختص',
-      profile_image: _readBannerString(rawPromo.target_provider_profile_image),
+      display_name: _readBannerString(raw.display_name || raw.target_provider_display_name) || 'مختص',
+      profile_image: _readBannerString(raw.profile_image || raw.target_provider_profile_image),
       city: UI.formatCityDisplay(
-        _readBannerString(rawPromo.target_provider_city_display) || _readBannerString(rawPromo.target_provider_city),
-        _readBannerString(rawPromo.target_provider_region)
+        _readBannerString(raw.city || raw.target_provider_city_display || raw.target_provider_city),
+        _readBannerString(raw.region || raw.target_provider_region)
       ),
-      redirect_url: _readBannerString(rawPromo.redirect_url),
-      is_verified_blue: !!rawPromo.target_provider_is_verified_blue,
-      is_verified_green: !!rawPromo.target_provider_is_verified_green,
-      rating_avg: _readPromoFloat(rawPromo.target_provider_rating_avg),
-      rating_count: _readBannerInt(rawPromo.target_provider_rating_count),
+      redirect_url: _readBannerString(raw.redirect_url),
+      is_verified_blue: !!(raw.is_verified_blue || raw.target_provider_is_verified_blue),
+      is_verified_green: !!(raw.is_verified_green || raw.target_provider_is_verified_green),
+      rating_avg: _readPromoFloat(raw.rating_avg || raw.target_provider_rating_avg),
+      rating_count: _readBannerInt(raw.rating_count || raw.target_provider_rating_count),
       excellence_badges: badges,
     };
+  }
+
+  function _sortTopRatedProviders(rows) {
+    return (Array.isArray(rows) ? rows : [])
+      .slice()
+      .sort((a, b) => {
+        const ratingDiff = _readPromoFloat(b && b.rating_avg) - _readPromoFloat(a && a.rating_avg);
+        if (Math.abs(ratingDiff) > 0.0001) return ratingDiff;
+        const countDiff = _readBannerInt(b && b.rating_count) - _readBannerInt(a && a.rating_count);
+        if (countDiff) return countDiff;
+        return _readBannerInt(b && b.id) - _readBannerInt(a && a.id);
+      });
+  }
+
+  function _mergeFeaturedSpecialists(placements, providers, limit) {
+    const cap = Math.max(1, _readBannerInt(limit) || FEATURED_SPECIALISTS_LIMIT);
+    const seenProviderIds = new Set();
+    const merged = [];
+
+    (Array.isArray(placements) ? placements : [])
+      .map(_normalizeFeaturedSpecialist)
+      .forEach((item) => {
+        if (!item || !item.provider_id || seenProviderIds.has(item.provider_id) || merged.length >= cap) return;
+        seenProviderIds.add(item.provider_id);
+        merged.push(item);
+      });
+
+    _sortTopRatedProviders(providers)
+      .map(_normalizeFeaturedSpecialist)
+      .forEach((item) => {
+        if (!item || !item.provider_id || seenProviderIds.has(item.provider_id) || merged.length >= cap) return;
+        seenProviderIds.add(item.provider_id);
+        merged.push(item);
+      });
+
+    return merged;
   }
 
   function _renderFeaturedSpecialists(placements) {
@@ -1203,7 +1259,7 @@ const HomePage = (() => {
       const next = $providersList.scrollLeft + step;
       const target = next >= maxScroll - 2 ? 0 : next;
       $providersList.scrollTo({ left: target, behavior: 'smooth' });
-    }, 3000);
+    }, FEATURED_SPECIALISTS_ROTATE_MS);
   }
 
   function _stopProvidersAutoRotate() {
@@ -1223,24 +1279,24 @@ const HomePage = (() => {
       ? rawPromo.portfolio_item
       : null;
     const fileUrl = _readBannerString(
-      nested ? nested.file_url : rawPromo.target_portfolio_item_file
+      nested ? nested.file_url : (rawPromo.file_url || rawPromo.target_portfolio_item_file)
     );
     if (!fileUrl) return null;
     return {
-      id: _readBannerInt(nested ? nested.id : rawPromo.target_portfolio_item_id),
-      provider_id: _readBannerInt(nested ? nested.provider_id : rawPromo.target_provider_id),
+      id: _readBannerInt(nested ? nested.id : (rawPromo.id || rawPromo.target_portfolio_item_id)),
+      provider_id: _readBannerInt(nested ? nested.provider_id : (rawPromo.provider_id || rawPromo.target_provider_id)),
       provider_display_name: _readBannerString(
-        nested ? nested.provider_display_name : rawPromo.target_provider_display_name
+        nested ? nested.provider_display_name : (rawPromo.provider_display_name || rawPromo.target_provider_display_name)
       ) || 'مقدم خدمة',
       provider_profile_image: _readBannerString(
-        nested ? nested.provider_profile_image : rawPromo.target_provider_profile_image
+        nested ? nested.provider_profile_image : (rawPromo.provider_profile_image || rawPromo.target_provider_profile_image)
       ),
       file_type: _readBannerString(
-        nested ? nested.file_type : rawPromo.target_portfolio_item_file_type
+        nested ? nested.file_type : (rawPromo.file_type || rawPromo.target_portfolio_item_file_type)
       ) || 'image',
       file_url: fileUrl,
-      thumbnail_url: _readBannerString(nested ? nested.thumbnail_url : ''),
-      caption: _readBannerString(nested ? nested.caption : rawPromo.title) || 'مشروع ممول',
+      thumbnail_url: _readBannerString(nested ? nested.thumbnail_url : rawPromo.thumbnail_url),
+      caption: _readBannerString(nested ? nested.caption : (rawPromo.caption || rawPromo.title)) || 'مشروع',
       redirect_url: _readBannerString(rawPromo.redirect_url),
       likes_count: _readBannerInt(nested ? nested.likes_count : 0),
       saves_count: _readBannerInt(nested ? nested.saves_count : 0),
@@ -1248,6 +1304,29 @@ const HomePage = (() => {
       is_saved: !!(nested && nested.is_saved),
       source: 'portfolio',
     };
+  }
+
+  function _mergePortfolioShowcaseLists(promoItems, feedItems, limit) {
+    const merged = [];
+    const seenKeys = new Set();
+    const maxItems = Math.max(1, Number(limit) || PORTFOLIO_SHOWCASE_LIMIT);
+
+    function pushItem(raw) {
+      const item = _normalizePortfolioShowcaseItem(raw);
+      if (!item) return;
+      const key = [
+        String(item.provider_id || ''),
+        String(item.file_url || item.thumbnail_url || ''),
+        String(item.id || 0),
+      ].join('|');
+      if (!key || seenKeys.has(key)) return;
+      seenKeys.add(key);
+      merged.push(raw);
+    }
+
+    (Array.isArray(promoItems) ? promoItems : []).forEach(pushItem);
+    (Array.isArray(feedItems) ? feedItems : []).forEach(pushItem);
+    return merged.slice(0, maxItems);
   }
 
   function _normalizeSnapshotPromoItem(rawPromo) {
@@ -1360,6 +1439,11 @@ const HomePage = (() => {
               redirect_url: item.redirect_url || '',
             },
           });
+        }
+        const redirect = _readBannerString(item.redirect_url);
+        if (redirect && /^https?:\/\//i.test(redirect)) {
+          window.open(redirect, '_blank', 'noopener');
+          return;
         }
         if (item.provider_id) {
           window.location.href = '/provider/' + encodeURIComponent(String(item.provider_id)) + '/';
@@ -1796,14 +1880,24 @@ const HomePage = (() => {
       // Click → open SpotlightViewer at this index
       reel.addEventListener('click', () => {
         if (typeof SpotlightViewer !== 'undefined') {
-          SpotlightViewer.open(_reelsData, idx);
+          SpotlightViewer.open(_reelsData, idx, {
+            source: 'spotlight',
+            label: 'لمحة',
+            immersive: true,
+            tiktokMode: true,
+          });
         }
       });
       reel.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           if (typeof SpotlightViewer !== 'undefined') {
-            SpotlightViewer.open(_reelsData, idx);
+            SpotlightViewer.open(_reelsData, idx, {
+              source: 'spotlight',
+              label: 'لمحة',
+              immersive: true,
+              tiktokMode: true,
+            });
           }
         }
       });
@@ -1860,9 +1954,17 @@ const HomePage = (() => {
 
     if (options.scroll === false) return;
     const activeReel = reels[normalized];
-    if (activeReel && typeof activeReel.scrollIntoView === 'function') {
-      activeReel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
+    _scrollReelInline(activeReel, { behavior: 'smooth' });
+  }
+
+  function _scrollReelInline(reelEl, options = {}) {
+    if (!$reelsTrack || !reelEl) return;
+    const behavior = options.behavior || 'smooth';
+    const containerRect = $reelsTrack.getBoundingClientRect();
+    const reelRect = reelEl.getBoundingClientRect();
+    const deltaX = (reelRect.left - containerRect.left) - ((containerRect.width - reelRect.width) / 2);
+    const targetLeft = $reelsTrack.scrollLeft + deltaX;
+    $reelsTrack.scrollTo({ left: Math.max(0, targetLeft), behavior });
   }
 
   function _bindReelsInteraction() {

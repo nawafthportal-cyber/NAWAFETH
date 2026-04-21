@@ -83,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _featuredSpecialistsAutoPaused = false;
   static const Duration _reelsResumeDelay = Duration(seconds: 3);
   static const Duration _featuredSpecialistsResumeDelay = Duration(seconds: 3);
+  static const Duration _featuredSpecialistsRotateDelay = Duration(seconds: 5);
 
   static const _reelFallbackLogos = [
     'assets/images/32.jpeg',
@@ -98,13 +99,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<FeaturedSpecialistModel> get _visibleFeaturedSpecialists {
-    if (_featuredSpecialists.isNotEmpty) return _featuredSpecialists;
-    if (_providers.isEmpty) return const <FeaturedSpecialistModel>[];
-    return _providers
-        .where((provider) => provider.id > 0)
-        .take(10)
-        .map(_providerToFeaturedSpecialist)
-        .toList(growable: false);
+    final seenProviderIds = <int>{};
+    final merged = <FeaturedSpecialistModel>[];
+
+    for (final specialist in _featuredSpecialists) {
+      if (specialist.providerId <= 0 ||
+          !seenProviderIds.add(specialist.providerId)) {
+        continue;
+      }
+      merged.add(specialist);
+      if (merged.length >= 10) {
+        return merged;
+      }
+    }
+
+    for (final provider in _topRatedProviders(_providers)) {
+      if (provider.id <= 0 || !seenProviderIds.add(provider.id)) {
+        continue;
+      }
+      merged.add(_providerToFeaturedSpecialist(provider));
+      if (merged.length >= 10) {
+        break;
+      }
+    }
+
+    return merged;
   }
 
   @override
@@ -367,25 +386,103 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadPromoPortfolioShowcase() async {
     try {
-      final res = await ApiClient.get(
+      final promoRes = await ApiClient.get(
         '/api/promo/active/?service_type=portfolio_showcase&limit=10',
       );
-      if (!mounted || !res.isSuccess) return;
-      final items = _promoMapItemsFromResponse(res);
-      final media = <MediaItemModel>[];
-      final placements = <Map<String, dynamic>>[];
-      for (final placement in items) {
+      final feedRes =
+          await ApiClient.get('/api/providers/portfolio/feed/?limit=10');
+      if (!mounted) return;
+
+      final promoItems = promoRes.isSuccess
+          ? _promoMapItemsFromResponse(promoRes)
+          : const <Map<String, dynamic>>[];
+      final feedItems = feedRes.isSuccess
+          ? _promoMapItemsFromResponse(feedRes)
+          : const <Map<String, dynamic>>[];
+
+      final promoMedia = <MediaItemModel>[];
+      final promoPlacements = <Map<String, dynamic>>[];
+      for (final placement in promoItems) {
         final parsed = _portfolioItemFromPromoPlacement(placement);
         if (parsed == null) continue;
-        media.add(parsed);
-        placements.add(placement);
+        promoMedia.add(parsed);
+        promoPlacements.add(placement);
       }
+
+      final organicMedia = <MediaItemModel>[];
+      for (final row in feedItems) {
+        try {
+          organicMedia.add(
+            MediaItemModel.fromJson(
+              row,
+              source: MediaItemSource.portfolio,
+            ),
+          );
+        } catch (_) {
+          // Ignore malformed row and continue rendering other items.
+        }
+      }
+
+      final merged = _mergePortfolioShowcaseSources(
+        promoMedia: promoMedia,
+        promoPlacements: promoPlacements,
+        organicMedia: organicMedia,
+        limit: 10,
+      );
       if (!mounted) return;
       setState(() {
-        _portfolioShowcasePlacements = placements;
-        _portfolioShowcase = media;
+        _portfolioShowcasePlacements = merged.placements;
+        _portfolioShowcase = merged.media;
       });
     } catch (_) {}
+  }
+
+  _PortfolioShowcaseMergeResult _mergePortfolioShowcaseSources({
+    required List<MediaItemModel> promoMedia,
+    required List<Map<String, dynamic>> promoPlacements,
+    required List<MediaItemModel> organicMedia,
+    int limit = 10,
+  }) {
+    final mergedMedia = <MediaItemModel>[];
+    final mergedPlacements = <Map<String, dynamic>>[];
+    final seenKeys = <String>{};
+    final maxItems = limit < 1 ? 1 : limit;
+
+    void push({
+      required MediaItemModel media,
+      required Map<String, dynamic> placement,
+    }) {
+      if (mergedMedia.length >= maxItems) return;
+      final key =
+          '${media.providerId}|${media.fileUrl ?? media.thumbnailUrl ?? ''}|${media.id}';
+      if (seenKeys.contains(key)) return;
+      seenKeys.add(key);
+      mergedMedia.add(media);
+      mergedPlacements.add(placement);
+    }
+
+    for (var i = 0; i < promoMedia.length; i += 1) {
+      final media = promoMedia[i];
+      final placement =
+          i < promoPlacements.length ? promoPlacements[i] : <String, dynamic>{};
+      push(media: media, placement: placement);
+    }
+
+    for (final media in organicMedia) {
+      push(
+        media: media,
+        placement: <String, dynamic>{
+          'target_provider_id': media.providerId,
+          'target_provider_display_name': media.providerDisplayName,
+          'redirect_url': '',
+        },
+      );
+    }
+
+    return _PortfolioShowcaseMergeResult(
+      media: mergedMedia,
+      placements: mergedPlacements,
+    );
   }
 
   Future<void> _loadPromoMessages() async {
@@ -441,7 +538,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted || !_featuredSpecialistsScroll.hasClients) return;
       _featuredSpecialistsTimer?.cancel();
       _featuredSpecialistsTimer = Timer.periodic(
-        const Duration(seconds: 3),
+        _featuredSpecialistsRotateDelay,
         (_) {
           if (!mounted ||
               !_featuredSpecialistsScroll.hasClients ||
@@ -2677,6 +2774,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<ProviderPublicModel> _topRatedProviders(
+    List<ProviderPublicModel> providers,
+  ) {
+    final sorted = providers
+        .where((provider) => provider.id > 0)
+        .toList();
+    sorted.sort((a, b) {
+      final byRating = b.ratingAvg.compareTo(a.ratingAvg);
+      if (byRating != 0) return byRating;
+      final byCount = b.ratingCount.compareTo(a.ratingCount);
+      if (byCount != 0) return byCount;
+      return b.id.compareTo(a.id);
+    });
+    return sorted;
+  }
+
   Widget _gradientPlaceholder() {
     return Container(
       decoration: BoxDecoration(
@@ -3052,6 +3165,16 @@ class _SlidingGradientTransform extends GradientTransform {
   Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
     return Matrix4.translationValues(slideX, 0, 0);
   }
+}
+
+class _PortfolioShowcaseMergeResult {
+  final List<MediaItemModel> media;
+  final List<Map<String, dynamic>> placements;
+
+  const _PortfolioShowcaseMergeResult({
+    required this.media,
+    required this.placements,
+  });
 }
 
 class HomeScreenContent {

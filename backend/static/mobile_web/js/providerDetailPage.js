@@ -1226,6 +1226,8 @@ const ProviderDetailPage = (() => {
             source: 'spotlight',
             label: 'لمحة',
             eventName: 'nw:spotlight-engagement-update',
+            immersive: true,
+            tiktokMode: true,
             modeContext: _mode || 'client',
           });
         }

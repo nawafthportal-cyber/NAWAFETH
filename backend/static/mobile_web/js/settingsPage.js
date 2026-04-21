@@ -146,6 +146,7 @@ const SettingsPage = (() => {
     }
 
     const avatarEl = document.getElementById('settings-avatar');
+    const previousAvatarSrc = avatarEl ? avatarEl.getAttribute('src') || '' : '';
     if (avatarEl) {
       avatarEl.src = URL.createObjectURL(file);
     }
@@ -155,11 +156,20 @@ const SettingsPage = (() => {
 
     _hideSuccess();
     _hideError();
-    const res = await ApiClient.request('/api/accounts/me/', {
-      method: 'PATCH',
-      body: formData,
-      formData: true,
-    });
+    _setAvatarUploading(true, 'جاري رفع الصورة الشخصية...');
+    let res;
+    try {
+      res = await ApiClient.request('/api/accounts/me/', {
+        method: 'PATCH',
+        body: formData,
+        formData: true,
+      });
+    } catch (_) {
+      res = { ok: false, data: null };
+    } finally {
+      _setAvatarUploading(false);
+      if (e && e.target) e.target.value = '';
+    }
 
     if (res.ok) {
       if (Auth.clearProfileCache) {
@@ -170,7 +180,20 @@ const SettingsPage = (() => {
       return;
     }
 
+    if (avatarEl) avatarEl.src = previousAvatarSrc;
     _showError(_firstErrorMessage(res.data) || 'تعذر رفع الصورة');
+  }
+
+  function _setAvatarUploading(loading, message) {
+    const trigger = document.getElementById('settings-avatar-upload-trigger');
+    const input = document.getElementById('avatar-file-input');
+    const status = document.getElementById('settings-avatar-upload-status');
+    if (trigger) trigger.classList.toggle('is-uploading', !!loading);
+    if (input) input.disabled = !!loading;
+    if (status) {
+      status.classList.toggle('hidden', !loading);
+      status.textContent = loading ? (message || 'جاري الرفع...') : '';
+    }
   }
 
   /* ---- Feedback ---- */

@@ -637,6 +637,79 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 		return qs
 
 
+class ProviderPortfolioFeedView(generics.ListAPIView):
+	"""Public home portfolio feed: sponsored items + latest works from newest providers."""
+
+	serializer_class = ProviderPortfolioItemSerializer
+	permission_classes = [permissions.AllowAny]
+
+	def get_queryset(self):
+		from django.utils import timezone
+		from apps.promo.models import PromoAdType, PromoRequestItem, PromoRequestStatus, PromoServiceType
+
+		qs = (
+			ProviderPortfolioItem.objects.select_related("provider", "provider__user")
+			.filter(provider__user__is_active=True)
+			.annotate(likes_count=Count("likes", distinct=True))
+			.annotate(saves_count=Count("saves", distinct=True))
+		)
+
+		now = timezone.now()
+		active_portfolio_promos = PromoRequestItem.objects.filter(
+			request__status=PromoRequestStatus.ACTIVE,
+			request__ad_type=PromoAdType.BUNDLE,
+			service_type=PromoServiceType.PORTFOLIO_SHOWCASE,
+			start_at__lte=now,
+			end_at__gte=now,
+		).filter(
+			Q(target_portfolio_item_id=OuterRef("pk"))
+			| (
+				Q(target_portfolio_item__isnull=True)
+				& (
+					Q(target_provider_id=OuterRef("provider_id"))
+					| Q(
+						target_provider__isnull=True,
+						request__requester__provider_profile__id=OuterRef("provider_id"),
+					)
+				)
+			)
+		)
+		qs = qs.annotate(_promo_portfolio=Exists(active_portfolio_promos))
+
+		# Include latest works from newest providers to keep the strip fresh even
+		# when sponsored inventory is low.
+		newest_provider_ids = ProviderProfile.objects.filter(user__is_active=True).order_by("-id").values("id")[:60]
+		qs = qs.filter(Q(_promo_portfolio=True) | Q(provider_id__in=newest_provider_ids))
+
+		user = self.request.user
+		if user.is_authenticated:
+			role = get_active_role(self.request)
+			qs = qs.annotate(
+				_is_liked=Exists(
+					ProviderPortfolioLike.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+				_is_saved=Exists(
+					ProviderPortfolioSave.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+			)
+
+		qs = qs.order_by("-_promo_portfolio", "-provider_id", "-created_at", "-id")
+
+		limit_raw = (self.request.query_params.get("limit") or "").strip()
+		if limit_raw.isdigit():
+			limit = max(1, min(int(limit_raw), 100))
+			return qs[:limit]
+		return qs
+
+
 class MyProviderSpotlightListCreateView(generics.ListCreateAPIView):
 	"""Spotlight items for the authenticated provider (list + add)."""
 

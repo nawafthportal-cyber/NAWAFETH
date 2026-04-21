@@ -105,6 +105,7 @@ const ProviderDashboardPage = (() => {
     if (input) input.disabled = !!isLocked;
     if (trigger) {
       trigger.classList.toggle('is-disabled', !!isLocked);
+      trigger.setAttribute('aria-disabled', isLocked ? 'true' : 'false');
       trigger.title = isLocked ? 'يتطلب رفع الأضواء اشتراكًا فعالًا' : 'إضافة فيديو';
     }
     if (note) {
@@ -112,6 +113,100 @@ const ProviderDashboardPage = (() => {
       note.textContent = isLocked
         ? 'رفع الريلز والأضواء متاح بعد تفعيل إحدى الباقات. الباقة الأساسية المجانية كافية لتفعيل هذه الميزة.'
         : '';
+    }
+  }
+
+  function _setSpotlightUploadState(isUploading, options = {}) {
+    const row = document.getElementById('reels-row');
+    const trigger = document.getElementById('spotlight-upload-trigger');
+    const status = document.getElementById('spotlight-upload-status');
+    if (!row || !trigger) return;
+
+    const pendingId = 'spotlight-upload-pending';
+    let pending = document.getElementById(pendingId);
+    row.classList.toggle('is-uploading', !!isUploading);
+    row.setAttribute('aria-busy', isUploading ? 'true' : 'false');
+    trigger.classList.toggle('is-uploading', !!isUploading);
+    trigger.setAttribute(
+      'aria-disabled',
+      (isUploading || trigger.classList.contains('is-disabled')) ? 'true' : 'false'
+    );
+
+    if (status) {
+      status.classList.toggle('hidden', !isUploading);
+      status.classList.toggle('is-uploading', !!isUploading);
+      status.textContent = isUploading
+        ? (options.statusText || 'جاري رفع الريل، انتظر قليلًا حتى يكتمل.')
+        : '';
+    }
+
+    if (!isUploading) {
+      if (pending) {
+        if (pending.dataset.previewUrl) {
+          try {
+            URL.revokeObjectURL(pending.dataset.previewUrl);
+          } catch (_) {
+            // Ignore revoke failures for stale object URLs.
+          }
+        }
+        pending.remove();
+      }
+      if (!trigger.classList.contains('is-disabled')) {
+        trigger.title = 'إضافة فيديو';
+      }
+      return;
+    }
+
+    if (!pending) {
+      pending = document.createElement('div');
+      pending.id = pendingId;
+      pending.className = 'pd-reel-thumb pd-reel-thumb-uploading';
+      pending.setAttribute('role', 'status');
+      pending.setAttribute('aria-live', 'polite');
+      if (trigger.nextSibling) {
+        row.insertBefore(pending, trigger.nextSibling);
+      } else {
+        row.appendChild(pending);
+      }
+    }
+
+    pending.dataset.previewUrl = options.previewUrl || '';
+    pending.style.backgroundImage = options.previewUrl ? `url('${options.previewUrl}')` : '';
+    pending.replaceChildren();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'pd-reel-upload-overlay';
+
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner-inline pd-reel-upload-spinner';
+    spinner.setAttribute('aria-hidden', 'true');
+
+    const label = document.createElement('span');
+    label.className = 'pd-reel-upload-label';
+    label.textContent = options.label || 'جاري الرفع';
+
+    overlay.appendChild(spinner);
+    overlay.appendChild(label);
+    pending.appendChild(overlay);
+    trigger.title = 'جاري رفع الريل';
+  }
+
+  function _setProfileMediaUploadState(kind, isUploading, message) {
+    const isCover = kind === 'cover';
+    const trigger = document.getElementById(isCover ? 'pd-cover-upload-trigger' : 'pd-avatar-upload-trigger');
+    const input = document.getElementById(isCover ? 'cover-upload' : 'avatar-upload');
+    const status = document.getElementById(isCover ? 'pd-cover-upload-status' : 'pd-avatar-upload-status');
+    const target = document.getElementById(isCover ? 'pd-cover' : 'pd-avatar');
+
+    if (trigger) {
+      trigger.classList.toggle('is-uploading', !!isUploading);
+      trigger.setAttribute('aria-disabled', isUploading ? 'true' : 'false');
+    }
+    if (input) input.disabled = !!isUploading;
+    if (target) target.setAttribute('aria-busy', isUploading ? 'true' : 'false');
+    if (status) {
+      status.classList.toggle('hidden', !isUploading);
+      status.textContent = isUploading ? (message || 'جاري الرفع...') : '';
     }
   }
 
@@ -448,6 +543,7 @@ const ProviderDashboardPage = (() => {
         if (!file) return;
         const fd = new FormData();
         fd.append('cover_image', file);
+        _setProfileMediaUploadState('cover', true, 'جاري رفع صورة الغلاف...');
         try {
           const res = await ApiClient.request('/api/providers/me/profile/', { method: 'PATCH', body: fd, formData: true });
           if (res.ok) {
@@ -458,6 +554,9 @@ const ProviderDashboardPage = (() => {
           }
         } catch (_) {
           alert('تعذر رفع صورة الغلاف، حاول مرة أخرى');
+        } finally {
+          _setProfileMediaUploadState('cover', false);
+          e.target.value = '';
         }
       });
     }
@@ -474,6 +573,7 @@ const ProviderDashboardPage = (() => {
         }
         const fd = new FormData();
         fd.append('profile_image', file);
+        _setProfileMediaUploadState('avatar', true, 'جاري رفع الصورة الشخصية...');
         try {
           const res = await ApiClient.request('/api/providers/me/profile/', { method: 'PATCH', body: fd, formData: true });
           if (res.ok) {
@@ -484,6 +584,9 @@ const ProviderDashboardPage = (() => {
           }
         } catch (_) {
           alert('تعذر رفع الصورة الشخصية، حاول مرة أخرى');
+        } finally {
+          _setProfileMediaUploadState('avatar', false);
+          e.target.value = '';
         }
       });
     }
@@ -504,15 +607,35 @@ const ProviderDashboardPage = (() => {
         fd.append('file', file);
         fd.append('file_type', fileType);
         const input = e.target;
+        const previewUrl = URL.createObjectURL(file);
+        let shouldResetUploadUi = true;
+        let errorMessage = '';
         input.disabled = true;
-        const res = await ApiClient.request('/api/providers/me/spotlights/', { method: 'POST', body: fd, formData: true });
-        input.disabled = false;
-        input.value = '';
-        if (res.ok) {
-          location.reload();
-          return;
+        _setSpotlightUploadState(true, {
+          previewUrl,
+          label: 'جاري الرفع',
+          statusText: 'جاري رفع الريل، سيظهر هنا تلقائيًا بعد اكتمال التحميل.',
+        });
+        try {
+          const res = await ApiClient.request('/api/providers/me/spotlights/', { method: 'POST', body: fd, formData: true });
+          if (res.ok) {
+            shouldResetUploadUi = false;
+            location.reload();
+            return;
+          }
+          errorMessage = _apiErrorMessage(res, 'تعذر رفع الريلز الآن.');
+        } catch (_) {
+          errorMessage = 'تعذر رفع الريلز الآن، حاول مرة أخرى.';
+        } finally {
+          input.disabled = false;
+          input.value = '';
+          if (shouldResetUploadUi) {
+            _setSpotlightUploadState(false);
+          }
         }
-        alert(_apiErrorMessage(res, 'تعذر رفع الريلز الآن.'));
+        if (errorMessage) {
+          alert(errorMessage);
+        }
       });
     }
   }

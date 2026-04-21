@@ -1027,7 +1027,19 @@ var ProviderProfileEditPage = (function () {
     var fileInput = document.getElementById("pe-avatar-file");
     if (!uploadBtn || !fileInput) return;
 
+    function setAvatarUploadState(loading, message) {
+      var status = document.getElementById("pe-avatar-upload-status");
+      uploadBtn.classList.toggle("is-uploading", !!loading);
+      uploadBtn.disabled = !!loading;
+      fileInput.disabled = !!loading;
+      if (status) {
+        status.classList.toggle("hidden", !loading);
+        status.textContent = loading ? (message || "جاري رفع الصورة...") : "";
+      }
+    }
+
     uploadBtn.addEventListener("click", function () {
+      if (uploadBtn.disabled) return;
       fileInput.value = "";
       fileInput.click();
     });
@@ -1048,8 +1060,7 @@ var ProviderProfileEditPage = (function () {
         return;
       }
 
-      uploadBtn.style.opacity = "0.5";
-      uploadBtn.style.pointerEvents = "none";
+      setAvatarUploadState(true, "جاري رفع صورة الملف الشخصي...");
 
       var fd = new FormData();
       fd.append("profile_image", file);
@@ -1088,8 +1099,7 @@ var ProviderProfileEditPage = (function () {
       }).catch(function (err) {
         alert((err && err.message) || "تعذر رفع الصورة، حاول مرة أخرى");
       }).finally(function () {
-        uploadBtn.style.opacity = "";
-        uploadBtn.style.pointerEvents = "";
+        setAvatarUploadState(false);
       });
     });
   }

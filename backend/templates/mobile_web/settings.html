@@ -6,6 +6,63 @@
 {% block bnav_profile %}active{% endblock %}
 {% block body_class %}page-settings{% endblock %}
 
+{% block extra_css %}
+<style>
+  body.page-settings .avatar-upload-btn {
+    position: relative;
+    overflow: hidden;
+  }
+
+  body.page-settings .avatar-upload-btn.is-uploading {
+    pointer-events: none;
+    opacity: 0.8;
+  }
+
+  body.page-settings .avatar-upload-btn.is-uploading svg {
+    opacity: 0;
+  }
+
+  body.page-settings .settings-avatar-upload-spinner {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.34);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: settings-avatar-spin 0.8s linear infinite;
+    display: none;
+  }
+
+  body.page-settings .avatar-upload-btn.is-uploading .settings-avatar-upload-spinner {
+    display: block;
+  }
+
+  body.page-settings .settings-avatar-upload-status {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(99, 102, 241, 0.14);
+    background: rgba(99, 102, 241, 0.08);
+    color: #3949ab;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  body.page-settings .settings-avatar-upload-status.hidden {
+    display: none;
+  }
+
+  @keyframes settings-avatar-spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="page-content">
   <div class="container">
@@ -35,7 +92,8 @@
       <div class="settings-profile-header">
         <div class="settings-avatar-wrap">
           <img class="settings-avatar" id="settings-avatar" src="" alt="avatar">
-          <label class="avatar-upload-btn" for="avatar-file-input">
+          <label class="avatar-upload-btn" id="settings-avatar-upload-trigger" for="avatar-file-input">
+            <span class="settings-avatar-upload-spinner" aria-hidden="true"></span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
           </label>
           <input type="file" id="avatar-file-input" accept="image/*" hidden>
@@ -43,6 +101,7 @@
         <div class="settings-profile-info">
           <div class="settings-name" id="settings-name"></div>
           <div class="settings-email" id="settings-email"></div>
+          <div class="settings-avatar-upload-status hidden" id="settings-avatar-upload-status" role="status" aria-live="polite"></div>
         </div>
       </div>
 
@@ -131,5 +190,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/settingsPage.js' %}?v=20260419-account-messages"></script>
+<script src="{% static 'mobile_web/js/settingsPage.js' %}?v=20260421-avatar-upload-feedback"></script>
 {% endblock %}

@@ -8,7 +8,7 @@
 {% block bnav_profile %}active{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'mobile_web/css/provider-dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'mobile_web/css/provider-dashboard.css' %}?v=20260421-reel-upload-loading">
 <style>
   body.page-provider-dashboard.page-provider-dashboard-remix {
     --pdx-ink: #0f172a;
@@ -420,13 +420,15 @@
 
 
           <div class="pv2-cover-bar">
-            <label class="pv2-mini-btn" title="تغيير صورة الغلاف">
+            <label class="pv2-mini-btn" id="pd-cover-upload-trigger" title="تغيير صورة الغلاف">
               <input type="file" accept="image/*" id="cover-upload" hidden>
+              <span class="pd-inline-upload-spinner" aria-hidden="true"></span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 15.2l3.2-3.2H14V8h-4v4H8.8L12 15.2zM20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h4.05l1.83-2h4.24l1.83 2H20v12z"/><circle cx="12" cy="12" r="3.2"/></svg>
             </label>
           </div>
 
         </div>
+        <p id="pd-cover-upload-status" class="provider-panel-desc pd-upload-status hidden" role="status" aria-live="polite"></p>
 
         <div class="pv2-avatar-wrap provider-avatar-wrap">
           <div class="pv2-avatar provider-avatar" id="pd-avatar"></div>
@@ -445,11 +447,13 @@
           <span class="provider-avatar-badge provider-avatar-badge-excellence hidden" id="pd-avatar-badge-excellence" aria-label="شارة تميز" title="شارة تميز">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17.27L18.18 21 16.54 13.97 22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
           </span>
-          <label class="provider-avatar-upload" title="تغيير الصورة الشخصية">
+          <label class="provider-avatar-upload" id="pd-avatar-upload-trigger" title="تغيير الصورة الشخصية">
             <input type="file" accept="image/*" id="avatar-upload" hidden>
+            <span class="pd-inline-upload-spinner" aria-hidden="true"></span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9z"/></svg>
           </label>
         </div>
+        <p id="pd-avatar-upload-status" class="provider-panel-desc pd-upload-status hidden" role="status" aria-live="polite"></p>
 
         <h1 class="pv2-name" id="pd-name"></h1>
         <p class="pv2-username" id="pd-handle"></p>
@@ -559,6 +563,7 @@
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="#663D90"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
                       </label>
                     </div>
+                    <p id="spotlight-upload-status" class="provider-panel-desc hidden" role="status" aria-live="polite"></p>
                     <p id="spotlight-note" class="provider-panel-desc hidden"></p>
                   </section>
                 </div>
@@ -658,5 +663,5 @@
 
 {% block extra_js %}
 <script src="{% static 'mobile_web/js/profileQr.js' %}"></script>
-<script src="{% static 'mobile_web/js/providerDashboardPage.js' %}?v=20260418-authswitch2"></script>
+<script src="{% static 'mobile_web/js/providerDashboardPage.js' %}?v=20260421-mediauploadfeedback"></script>
 {% endblock %}

@@ -2265,6 +2265,10 @@ body.home-mobile-layout .section-reels {
   background: #000;
 }
 
+.sv-overlay.sv-tiktok {
+  background: #000;
+}
+
 @keyframes svFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -2290,6 +2294,16 @@ body.home-mobile-layout .section-reels {
 
 .sv-close:hover {
   background: rgba(0,0,0,0.7);
+}
+
+.sv-overlay.sv-tiktok .sv-close {
+  top: max(14px, env(safe-area-inset-top, 14px));
+  left: 14px;
+  width: 44px;
+  height: 44px;
+  background: rgba(18,18,24,0.34);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(12px);
 }
 
 /* Badge "لمحة" top-right */
@@ -2333,6 +2347,11 @@ body.home-mobile-layout .section-reels {
   font-size: 13px;
   font-weight: 600;
   font-family: 'Cairo', sans-serif;
+}
+
+.sv-overlay.sv-tiktok .sv-counter,
+.sv-overlay.sv-tiktok .sv-nav {
+  display: none !important;
 }
 
 .sv-nav {
@@ -2385,6 +2404,11 @@ body.home-mobile-layout .section-reels {
   isolation: isolate;
 }
 
+.sv-overlay.sv-tiktok .sv-media,
+.sv-overlay.sv-tiktok .sv-media-frame {
+  touch-action: pan-y;
+}
+
 .sv-media-backdrop {
   position: absolute;
   inset: -8%;
@@ -2416,6 +2440,44 @@ body.home-mobile-layout .section-reels {
   justify-content: center;
 }
 
+.sv-feed-frame.sv-enter-next {
+  animation: svFeedEnterNext 0.22s cubic-bezier(0.2, 0.82, 0.2, 1);
+}
+
+.sv-feed-frame.sv-enter-prev {
+  animation: svFeedEnterPrev 0.22s cubic-bezier(0.2, 0.82, 0.2, 1);
+}
+
+.sv-feed-frame.sv-enter-fade {
+  animation: svFeedEnterFade 0.16s ease-out;
+}
+
+.sv-media-backdrop.sv-enter-next,
+.sv-media-backdrop.sv-enter-prev,
+.sv-media-backdrop.sv-enter-fade {
+  animation: svBackdropRefresh 0.22s ease-out;
+}
+
+@keyframes svFeedEnterNext {
+  from { transform: translate3d(0, 7%, 0); opacity: 0.7; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+@keyframes svFeedEnterPrev {
+  from { transform: translate3d(0, -7%, 0); opacity: 0.7; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+@keyframes svFeedEnterFade {
+  from { opacity: 0.72; }
+  to { opacity: 1; }
+}
+
+@keyframes svBackdropRefresh {
+  from { opacity: 0; }
+  to { opacity: 0.92; }
+}
+
 .sv-media-frame.is-image {
   background:
     linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03)),
@@ -2444,6 +2506,35 @@ body.home-mobile-layout .section-reels {
   height: 100%;
   object-fit: contain;
   background: #000;
+}
+
+.sv-overlay.sv-tiktok .sv-media-frame {
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100vw;
+  border-radius: 0;
+  box-shadow: none;
+  background: #000;
+}
+
+.sv-overlay.sv-tiktok .sv-media-backdrop {
+  inset: 0;
+  filter: blur(28px) brightness(0.48);
+  transform: scale(1.08);
+}
+
+.sv-overlay.sv-tiktok .sv-video {
+  object-fit: cover;
+}
+
+.sv-overlay.sv-tiktok .sv-image-shell {
+  padding: 0;
+}
+
+.sv-overlay.sv-tiktok .sv-image {
+  object-fit: cover;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .sv-play-toggle,
@@ -2480,6 +2571,12 @@ body.home-mobile-layout .section-reels {
   width: 42px;
   height: 42px;
   border-radius: 50%;
+}
+
+.sv-overlay.sv-tiktok .sv-mute-btn {
+  top: max(14px, env(safe-area-inset-top, 14px));
+  left: auto;
+  right: 14px;
 }
 
 .sv-media-error {
@@ -2597,6 +2694,10 @@ body.home-mobile-layout .section-reels {
   z-index: 5;
 }
 
+.sv-overlay.sv-tiktok .sv-bottom {
+  display: none !important;
+}
+
 .sv-overlay.sv-immersive .sv-bottom {
   right: 86px;
   padding-bottom: max(22px, env(safe-area-inset-bottom, 22px));
@@ -2702,6 +2803,11 @@ body.home-mobile-layout .section-reels {
   gap: 16px;
 }
 
+.sv-overlay.sv-tiktok .sv-side {
+  right: 14px;
+  bottom: max(96px, env(safe-area-inset-bottom, 96px));
+}
+
 .sv-overlay.sv-immersive .sv-side {
   right: 14px;
 }
@@ -2787,6 +2893,38 @@ body.home-mobile-layout .section-reels {
 .sv-toast.show {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+.sv-speed-pill {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.92);
+  z-index: 14;
+  min-width: 68px;
+  min-height: 68px;
+  padding: 0 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11,11,17,0.58);
+  border: 1px solid rgba(255,255,255,0.16);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  font-family: 'Cairo', sans-serif;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 20px 42px rgba(0,0,0,0.28);
+  opacity: 0;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  pointer-events: none;
+}
+
+.sv-speed-pill.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 /* Desktop SpotlightViewer — constrain to phone-like frame */

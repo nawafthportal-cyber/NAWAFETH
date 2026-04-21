@@ -11,9 +11,16 @@ const SpotlightViewer = (() => {
   let _items = [];
   let _currentIndex = 0;
   let _options = {};
+  let _touchStartX = 0;
   let _touchStartY = 0;
+  let _touchStartTs = 0;
   let _swiping = false;
   let _currentVideo = null;
+  let _navDirection = 0;
+  let _speedHoldTimer = null;
+  let _speedBoostActive = false;
+  let _skipNextPlaybackToggle = false;
+  const _preloadedVideoPool = new Map();
 
   /* ----------------------------------------------------------
      PUBLIC: open viewer
@@ -36,6 +43,7 @@ const SpotlightViewer = (() => {
      PUBLIC: close viewer
   ---------------------------------------------------------- */
   function close() {
+    _cancelSpeedHold({ restoreRate: true });
     if (_currentVideo) {
       try {
         _currentVideo.pause();
@@ -52,9 +60,15 @@ const SpotlightViewer = (() => {
     }
     document.removeEventListener('keydown', _onKeyDown);
     document.body.style.overflow = '';
+    _releasePreloadedVideos();
     _items = [];
     _currentIndex = 0;
     _options = {};
+    _navDirection = 0;
+  }
+
+  function _isTikTokMode() {
+    return !!(_options && _options.tiktokMode);
   }
 
   /* ----------------------------------------------------------
@@ -66,6 +80,7 @@ const SpotlightViewer = (() => {
     _overlay = document.createElement('div');
     _overlay.className = 'sv-overlay';
     if (_options && _options.immersive) _overlay.classList.add('sv-immersive');
+    if (_isTikTokMode()) _overlay.classList.add('sv-tiktok');
     _overlay.setAttribute('role', 'dialog');
     _overlay.setAttribute('aria-label', 'عارض اللمحات');
 
@@ -75,16 +90,6 @@ const SpotlightViewer = (() => {
     closeBtn.setAttribute('aria-label', 'إغلاق');
     closeBtn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>';
     closeBtn.addEventListener('click', close);
-
-    // Badge "لمحة" (top-right)
-    const badge = document.createElement('div');
-    badge.className = 'sv-badge';
-    badge.textContent = _options.label || 'لمحة';
-
-    const modeBadge = document.createElement('div');
-    modeBadge.className = 'sv-mode-badge';
-    modeBadge.textContent = 'وضع ' + _getModeLabel();
-    modeBadge.setAttribute('data-mode', String(_options.modeContext || 'client'));
 
     // Counter
     const counter = document.createElement('div');
@@ -112,10 +117,6 @@ const SpotlightViewer = (() => {
     media.className = 'sv-media';
     media.id = 'sv-media';
 
-    const thumbs = document.createElement('div');
-    thumbs.className = 'sv-thumbs';
-    thumbs.id = 'sv-thumbs';
-
     // Bottom info
     const bottom = document.createElement('div');
     bottom.className = 'sv-bottom';
@@ -126,16 +127,20 @@ const SpotlightViewer = (() => {
     side.className = 'sv-side';
     side.id = 'sv-side';
 
+    const speedPill = document.createElement('div');
+    speedPill.className = 'sv-speed-pill';
+    speedPill.id = 'sv-speed-pill';
+    speedPill.hidden = true;
+    speedPill.textContent = '2x';
+
     _overlay.appendChild(closeBtn);
-    _overlay.appendChild(badge);
-    _overlay.appendChild(modeBadge);
     _overlay.appendChild(counter);
     _overlay.appendChild(prevBtn);
     _overlay.appendChild(nextBtn);
     _overlay.appendChild(media);
-    _overlay.appendChild(thumbs);
     _overlay.appendChild(bottom);
     _overlay.appendChild(side);
+    _overlay.appendChild(speedPill);
 
     // Event listeners
     _overlay.addEventListener('touchstart', _onTouchStart, { passive: true });
@@ -166,17 +171,20 @@ const SpotlightViewer = (() => {
 
     // Counter
     const counter = document.getElementById('sv-counter');
-    if (counter) counter.textContent = (_currentIndex + 1) + ' / ' + _items.length;
+    if (counter) {
+      counter.textContent = (_currentIndex + 1) + ' / ' + _items.length;
+      counter.hidden = _isTikTokMode() || _items.length <= 1;
+    }
 
     const prevBtn = document.getElementById('sv-nav-prev');
     if (prevBtn) {
       prevBtn.disabled = _currentIndex <= 0;
-      prevBtn.hidden = _items.length <= 1;
+      prevBtn.hidden = _items.length <= 1 || _isTikTokMode();
     }
     const nextBtn = document.getElementById('sv-nav-next');
     if (nextBtn) {
       nextBtn.disabled = _currentIndex >= (_items.length - 1);
-      nextBtn.hidden = _items.length <= 1;
+      nextBtn.hidden = _items.length <= 1 || _isTikTokMode();
     }
 
     // Media
@@ -196,7 +204,15 @@ const SpotlightViewer = (() => {
       const frame = document.createElement('div');
       frame.className = 'sv-media-frame';
       frame.classList.add(isVideo ? 'is-video' : 'is-image');
+      if (_isTikTokMode()) frame.classList.add('sv-feed-frame');
+      if (_navDirection > 0) frame.classList.add('sv-enter-next');
+      else if (_navDirection < 0) frame.classList.add('sv-enter-prev');
+      else frame.classList.add('sv-enter-fade');
       mediaEl.appendChild(frame);
+
+      if (_navDirection > 0) backdrop.classList.add('sv-enter-next');
+      else if (_navDirection < 0) backdrop.classList.add('sv-enter-prev');
+      else backdrop.classList.add('sv-enter-fade');
 
       if (isVideo) {
         mediaEl.classList.add('is-video');
@@ -215,6 +231,7 @@ const SpotlightViewer = (() => {
         video.setAttribute('playsinline', 'playsinline');
         video.setAttribute('webkit-playsinline', 'webkit-playsinline');
         video.setAttribute('disablepictureinpicture', '');
+        video.playbackRate = 1;
         video.addEventListener('error', () => {
           video.style.display = 'none';
           const errIcon = document.createElement('div');
@@ -255,7 +272,11 @@ const SpotlightViewer = (() => {
         video.addEventListener('play', () => playToggle.classList.add('hidden'));
         video.addEventListener('pause', () => playToggle.classList.remove('hidden'));
 
-        frame.addEventListener('click', () => _togglePlayback(video, playToggle));
+        if (_isTikTokMode()) {
+          _bindTikTokVideoGestures(frame, video, playToggle);
+        } else {
+          frame.addEventListener('click', () => _togglePlayback(video, playToggle));
+        }
       } else {
         _currentVideo = null;
         mediaEl.classList.add('is-image');
@@ -280,6 +301,9 @@ const SpotlightViewer = (() => {
         }
       }
     }
+
+    _primeAdjacentVideos();
+    _navDirection = 0;
 
     const thumbsEl = document.getElementById('sv-thumbs');
     if (thumbsEl) {
@@ -496,6 +520,8 @@ const SpotlightViewer = (() => {
   ---------------------------------------------------------- */
   function _goNext() {
     if (_currentIndex < _items.length - 1) {
+      _cancelSpeedHold({ restoreRate: true });
+      _navDirection = 1;
       _currentIndex++;
       _renderCurrent();
     }
@@ -503,6 +529,8 @@ const SpotlightViewer = (() => {
 
   function _goPrev() {
     if (_currentIndex > 0) {
+      _cancelSpeedHold({ restoreRate: true });
+      _navDirection = -1;
       _currentIndex--;
       _renderCurrent();
     }
@@ -510,24 +538,45 @@ const SpotlightViewer = (() => {
 
   function _goToIndex(index) {
     if (index < 0 || index >= _items.length || index === _currentIndex) return;
+    _cancelSpeedHold({ restoreRate: true });
+    _navDirection = index > _currentIndex ? 1 : -1;
     _currentIndex = index;
     _renderCurrent();
   }
 
   function _onTouchStart(e) {
+    _touchStartX = e.touches[0].clientX;
     _touchStartY = e.touches[0].clientY;
+    _touchStartTs = Date.now();
     _swiping = true;
+    _beginSpeedHold(e.target);
   }
 
   function _onTouchMove(e) {
-    // intentionally empty — we track in touchend
+    if (!_swiping) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = Math.abs(touch.clientX - _touchStartX);
+    const dy = Math.abs(touch.clientY - _touchStartY);
+    if (dx > 10 || dy > 10) {
+      _cancelSpeedHold({ restoreRate: false });
+    }
   }
 
   function _onTouchEnd(e) {
     if (!_swiping) return;
     _swiping = false;
-    const dy = e.changedTouches[0].clientY - _touchStartY;
-    if (Math.abs(dy) > 60) {
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - _touchStartX;
+    const dy = touch.clientY - _touchStartY;
+    const elapsed = Date.now() - _touchStartTs;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    const isVerticalSwipe = absDy > absDx * 1.15;
+    const isQuickFlick = elapsed < 240 && absDy > 26;
+    const isCommittedSwipe = absDy > 54;
+    _cancelSpeedHold({ restoreRate: true });
+    if (isVerticalSwipe && (isQuickFlick || isCommittedSwipe)) {
       if (dy < 0) _goNext();   // swipe up → next
       else _goPrev();          // swipe down → prev
     }
@@ -690,6 +739,104 @@ const SpotlightViewer = (() => {
     }
     video.pause();
     if (toggleBtn) toggleBtn.classList.remove('hidden');
+  }
+
+  function _bindTikTokVideoGestures(frame, video, toggleBtn) {
+    frame.addEventListener('click', () => {
+      if (_skipNextPlaybackToggle) {
+        _skipNextPlaybackToggle = false;
+        return;
+      }
+      _togglePlayback(video, toggleBtn);
+    });
+
+    const cancelSpeed = () => _cancelSpeedHold({ restoreRate: true });
+    frame.addEventListener('pointerup', cancelSpeed);
+    frame.addEventListener('pointercancel', cancelSpeed);
+    frame.addEventListener('pointerleave', cancelSpeed);
+  }
+
+  function _beginSpeedHold(target) {
+    if (!_isTikTokMode() || !_currentVideo) return;
+    if (target && target.closest && target.closest('.sv-close, .sv-mute-btn, .sv-side, .sv-action, .sv-side-avatar')) return;
+    _cancelSpeedHold({ restoreRate: false });
+    _speedHoldTimer = window.setTimeout(() => {
+      if (!_currentVideo || _currentVideo.paused) return;
+      _speedBoostActive = true;
+      _skipNextPlaybackToggle = true;
+      _currentVideo.playbackRate = 2;
+      _setSpeedPillVisible(true);
+    }, 220);
+  }
+
+  function _cancelSpeedHold(options = {}) {
+    if (_speedHoldTimer) {
+      window.clearTimeout(_speedHoldTimer);
+      _speedHoldTimer = null;
+    }
+    if (options.restoreRate && _currentVideo) {
+      _currentVideo.playbackRate = 1;
+    }
+    if (_speedBoostActive) {
+      _speedBoostActive = false;
+      _setSpeedPillVisible(false);
+    }
+  }
+
+  function _setSpeedPillVisible(visible) {
+    const pill = document.getElementById('sv-speed-pill');
+    if (!pill) return;
+    pill.hidden = !visible;
+    pill.classList.toggle('show', !!visible);
+  }
+
+  function _primeAdjacentVideos() {
+    const keepUrls = new Set();
+    [_currentIndex - 1, _currentIndex + 1].forEach((index) => {
+      if (index < 0 || index >= _items.length) return;
+      const item = _items[index];
+      if (!_isVideo(item)) return;
+      const url = _resolveUrl(item.file_url);
+      if (!url) return;
+      keepUrls.add(url);
+      if (_preloadedVideoPool.has(url)) return;
+      const probe = document.createElement('video');
+      probe.preload = 'metadata';
+      probe.muted = true;
+      probe.playsInline = true;
+      probe.src = url;
+      probe.load();
+      _preloadedVideoPool.set(url, probe);
+    });
+
+    Array.from(_preloadedVideoPool.keys()).forEach((url) => {
+      if (!keepUrls.has(url)) {
+        const probe = _preloadedVideoPool.get(url);
+        if (probe) {
+          try {
+            probe.pause();
+            probe.removeAttribute('src');
+            probe.load();
+          } catch (_) {
+            // no-op
+          }
+        }
+        _preloadedVideoPool.delete(url);
+      }
+    });
+  }
+
+  function _releasePreloadedVideos() {
+    _preloadedVideoPool.forEach((probe) => {
+      try {
+        probe.pause();
+        probe.removeAttribute('src');
+        probe.load();
+      } catch (_) {
+        // no-op
+      }
+    });
+    _preloadedVideoPool.clear();
   }
 
   function _soundIcon(isMuted) {
