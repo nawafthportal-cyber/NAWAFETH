@@ -1,0 +1,1375 @@
+/* ===================================================================
+   Nawafeth Web — mobile-sm.css  v1.0
+   Fine-grained Mobile Optimisation Layer
+   Targets: ≤430px · ≤390px · ≤375px · ≤360px · ≤320px
+   Loaded LAST — highest specificity wins.
+   ===================================================================
+   Principles:
+   • Information-dense but readable (Apple HIG & Material You density)
+   • Minimum 44px touch targets preserved everywhere
+   • Max font-size hierarchy: page-title 18px → body 13px → hint 11px
+   • Card padding compressed from 20px → 12-14px on small screens
+   • Border-radius scaled down proportionally (glass → tight)
+   • Native safe-area insets honoured on all edge elements
+   =================================================================== */
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 1 — GLOBAL CONTAINER & SPACING (≤430px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  .container {
+    padding-inline: 12px;
+  }
+
+  /* Main page wrapper */
+  .page-shell {
+    padding: 12px 10px;
+  }
+
+  /* Core card defaults tightened */
+  .detail-card,
+  .card,
+  .mw-form-card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  /* Form card spacing */
+  .form-card {
+    padding: 14px;
+    border-radius: 16px;
+    margin-bottom: 12px;
+  }
+  .form-card-title {
+    font-size: 14px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+
+  /* Modal / bottom-sheet */
+  .modal-sheet {
+    border-radius: 18px 18px 0 0;
+  }
+  .modal-header,
+  .modal-body {
+    padding-inline: 14px;
+  }
+  .modal-header {
+    padding-block: 12px;
+  }
+  .modal-header h2 {
+    font-size: 16px;
+  }
+
+  /* Tabs */
+  .tabs-row {
+    gap: 6px;
+  }
+  .tab-btn {
+    padding: 7px 10px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  /* Chip / pill filters */
+  .chip {
+    min-height: 36px;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 2 — TOPBAR (≤430px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  .navbar-inner-global {
+    min-height: 58px;
+    padding: 8px 0;
+  }
+
+  /* Logo mark slightly smaller on compact phones */
+  .topbar-brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    font-size: 16px;
+  }
+
+  .topbar-sponsor-media {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
+
+  /* Notification / chat action buttons */
+  .nav-icon-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
+  .nav-icon-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Menu button */
+  .nav-menu-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
+
+  .topbar-section {
+    gap: 6px;
+    min-width: 76px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 3 — BOTTOM NAVIGATION (≤430px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  :root {
+    --bottom-nav-height: 62px;
+  }
+
+  #bottom-nav {
+    height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+    padding-inline: 4px;
+  }
+
+  .bnav-item {
+    font-size: 9px;
+    gap: 3px;
+    padding: 6px 2px;
+    min-height: 52px;
+  }
+
+  .bnav-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .bnav-label {
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 4 — HOME PAGE (≤430px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  body.home-mobile-layout {
+    --home-hero-min-height: clamp(240px, 58vw, 310px);
+    --home-section-gap: 12px;
+  }
+
+  /* Hero bottom fade — shorter on small screens */
+  body.home-mobile-layout .home-hero-fade {
+    height: 72px;
+  }
+
+  /* Section shells — tighter padding and radius */
+  body.home-mobile-layout .home-section-shell {
+    padding: 14px 12px 12px;
+    border-radius: 22px;
+  }
+
+  body.home-mobile-layout .home-section-shell::after {
+    border-radius: 20px;
+  }
+
+  /* Section heading size */
+  body.home-mobile-layout .home-section-title-static,
+  body.home-mobile-layout .home-section-shell .section-title {
+    font-size: 17px;
+  }
+
+  body.home-mobile-layout .home-section-kicker {
+    min-height: 26px;
+    padding-inline: 10px;
+    font-size: 10.5px;
+  }
+
+  body.home-mobile-layout .home-section-note {
+    font-size: 11.5px;
+    line-height: 1.65;
+  }
+
+  body.home-mobile-layout .home-section-header {
+    margin-bottom: 10px;
+  }
+
+  /* Reels track */
+  .reel-item {
+    width: 66px;
+  }
+  .reel-ring {
+    width: 66px;
+    height: 66px;
+  }
+  .reel-caption {
+    max-width: 66px;
+    font-size: 10px;
+  }
+
+  /* Category items */
+  .cat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 13px;
+  }
+  .cat-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+  .cat-name {
+    font-size: 11px;
+  }
+
+  /* Sections stack gap */
+  body.home-mobile-layout .home-sections-stack {
+    gap: 12px;
+    margin-top: -14px;
+    padding-bottom: calc(var(--bottom-nav-height, 62px) + env(safe-area-inset-bottom, 0px) + 24px);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 5 — PAGE HEADERS & TOPBARS (all pages ≤430px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  /* Generic page-header used in new-pages.css */
+  .page-header {
+    margin-bottom: 14px;
+  }
+  .page-header h1 {
+    font-size: 17px;
+  }
+
+  /* mw-page-topbar (orders, provider, etc.) */
+  .mw-page-topbar {
+    padding: 12px 10px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+
+  .mw-page-title {
+    font-size: 17px !important;
+  }
+
+  .mw-page-topbar p,
+  .orders-topbar p {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  /* Icon button inside topbar */
+  .mw-page-menu-btn {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 10px !important;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 6 — ORDERS PAGE (≤430px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  body.page-orders .orders-hero-panel {
+    padding: 14px 12px;
+    border-radius: 18px;
+    gap: 12px;
+  }
+
+  body.page-orders .orders-hero-copy h2 {
+    font-size: 16px;
+  }
+
+  body.page-orders .orders-hero-copy p {
+    font-size: 11.5px;
+    line-height: 1.65;
+  }
+
+  body.page-orders .orders-hero-stats {
+    gap: 8px;
+  }
+
+  body.page-orders .orders-hero-stat {
+    padding: 10px 12px;
+    border-radius: 14px;
+  }
+
+  body.page-orders .orders-hero-value {
+    font-size: 22px;
+  }
+
+  body.page-orders .orders-hero-label {
+    font-size: 10.5px;
+  }
+
+  body.page-orders .orders-hero-note {
+    font-size: 10px;
+  }
+
+  body.page-orders .orders-mobile-sheet {
+    padding: 14px 12px;
+    border-radius: 18px;
+  }
+
+  body.page-orders .orders-filter-head h3 {
+    font-size: 15px;
+  }
+
+  body.page-orders .orders-results-count {
+    font-size: 11px;
+  }
+
+  /* Search */
+  body.page-orders .orders-search-wrap {
+    border-radius: 12px;
+  }
+
+  body.page-orders .orders-search-input {
+    font-size: 13px;
+  }
+
+  /* Tabs */
+  body.page-orders .tabs-row {
+    gap: 5px;
+  }
+
+  body.page-orders .tab-btn {
+    padding: 6px 9px;
+    font-size: 11.5px;
+    border-radius: 9px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 7 — AUTH PAGES (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  body.page-login .auth-page.auth-page-login {
+    padding: 12px;
+  }
+
+  body.page-login .auth-card.auth-card-login {
+    border-radius: 22px;
+    padding: 18px 14px;
+  }
+
+  body.page-login .auth-title {
+    font-size: 28px;
+  }
+
+  body.page-login .auth-logo {
+    font-size: 36px;
+  }
+
+  body.page-twofa .auth-page.auth-page-twofa {
+    padding: 12px;
+  }
+
+  body.page-twofa .auth-card.auth-card-twofa {
+    border-radius: 22px;
+    padding: 18px 12px;
+  }
+
+  body.page-twofa .auth-title {
+    font-size: 26px;
+  }
+
+  body.page-twofa .auth-twofa-logo {
+    font-size: 36px;
+  }
+
+  /* OTP boxes — fit 4 boxes on 390px screens */
+  body.page-twofa .otp-box,
+  .otp-box {
+    width: calc(23vw - 6px);
+    max-width: 56px;
+    min-width: 44px;
+    height: 58px;
+    border-radius: 14px;
+    font-size: 22px;
+  }
+
+  body.page-twofa .otp-boxes,
+  .otp-boxes {
+    gap: 7px;
+  }
+
+  body.page-twofa .twofa-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+  }
+
+  body.page-twofa .otp-info-phone {
+    font-size: 17px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 8 — AUTH GATE (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  .auth-gate.auth-gate-unified {
+    min-height: clamp(280px, 50vh, 380px);
+    padding: 18px 12px;
+    gap: 10px;
+    border-radius: 20px;
+  }
+
+  .auth-gate.auth-gate-unified .auth-gate-unified-icon {
+    width: 68px;
+    height: 68px;
+  }
+
+  .auth-gate.auth-gate-unified .auth-gate-unified-title {
+    font-size: 20px;
+  }
+
+  .auth-gate.auth-gate-unified .auth-gate-unified-desc {
+    font-size: 13px;
+    line-height: 1.75;
+  }
+
+  .auth-gate.auth-gate-unified .auth-gate-unified-btn {
+    min-width: 160px;
+    min-height: 48px;
+    font-size: 14px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 9 — FORM INPUTS & BUTTONS (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  /* Form inputs — keep 44px touch target, reduce visual padding */
+  .form-input,
+  .form-select,
+  .form-textarea,
+  textarea.form-input {
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+
+  .form-label {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  .form-group {
+    margin-bottom: 12px;
+  }
+
+  .form-hint,
+  .form-error,
+  .form-success,
+  .form-char-count {
+    font-size: 11px;
+  }
+
+  /* Buttons */
+  .btn,
+  .btn-primary,
+  .btn-primary-lg,
+  .btn-outlined,
+  .btn-orange,
+  .btn-secondary,
+  .btn-danger,
+  .btn-danger-outline {
+    min-height: 44px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+
+  .btn-primary-lg {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
+  .btn-outlined {
+    padding: 10px 18px;
+  }
+
+  /* Success card */
+  .success-card {
+    padding: 24px 16px;
+    border-radius: 20px;
+  }
+
+  .success-icon {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 14px;
+  }
+
+  .success-title {
+    font-size: 18px;
+  }
+
+  .success-msg {
+    font-size: 13px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 10 — PROVIDER DETAIL, ORDERS, CHATS (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  /* Provider cover image height */
+  .provider-cover {
+    height: 80px;
+  }
+
+  .provider-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .provider-name {
+    font-size: 12px;
+  }
+
+  .provider-city,
+  .provider-stat {
+    font-size: 10px;
+  }
+
+  /* Detail cards */
+  .detail-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  /* Badge pills */
+  .badge {
+    font-size: 11px;
+    padding: 3px 9px;
+  }
+
+  /* page-shell generic */
+  .page-shell {
+    padding: 10px 10px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 11 — SEARCH & DISCOVERY PAGE (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  body.page-search.page-search-providers .search-discovery-hero-inner {
+    padding: 14px 12px;
+    border-radius: 20px;
+    gap: 12px;
+  }
+
+  body.page-search.page-search-providers .search-back-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 12 — HOME SECTION SHELLS (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  body.home-mobile-layout {
+    --home-hero-min-height: clamp(220px, 54vw, 285px);
+  }
+
+  body.home-mobile-layout .home-section-shell {
+    padding: 12px 10px 10px;
+    border-radius: 20px;
+  }
+
+  body.home-mobile-layout .home-section-title-static,
+  body.home-mobile-layout .home-section-shell .section-title {
+    font-size: 16px;
+  }
+
+  body.home-mobile-layout .home-section-kicker {
+    min-height: 24px;
+    font-size: 10px;
+    padding-inline: 9px;
+  }
+
+  body.home-mobile-layout .home-section-note {
+    font-size: 11px;
+  }
+
+  /* Featured specialist cards (providers scroll) */
+  .featured-specialist-card {
+    min-width: 100px;
+    padding: 10px 8px;
+    border-radius: 14px;
+  }
+
+  .featured-specialist-avatar {
+    width: 54px;
+    height: 54px;
+  }
+
+  .featured-specialist-name {
+    font-size: 11px;
+  }
+
+  .featured-specialist-rating {
+    font-size: 10px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 13 — SMALL PHONE DENSITY (≤375px)
+   Optimise specifically for iPhone SE 3rd gen, iPhone 13 mini
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 375px) {
+  /* Tighter container */
+  .container {
+    padding-inline: 10px;
+  }
+
+  /* Topbar compact */
+  .navbar-inner-global {
+    min-height: 54px;
+    padding: 7px 0;
+  }
+
+  .topbar-brand-mark,
+  .topbar-sponsor-media {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .nav-icon-btn,
+  .nav-menu-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  /* Bottom nav */
+  :root {
+    --bottom-nav-height: 60px;
+  }
+
+  .bnav-item {
+    gap: 2px;
+    min-height: 50px;
+    font-size: 8.5px;
+  }
+
+  .bnav-item svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  /* Section shells */
+  body.home-mobile-layout .home-section-shell {
+    padding: 11px 9px 9px;
+  }
+
+  /* Reel items */
+  .reel-item {
+    width: 60px;
+  }
+  .reel-ring {
+    width: 60px;
+    height: 60px;
+  }
+  .reel-caption {
+    max-width: 60px;
+    font-size: 9.5px;
+  }
+
+  /* OTP boxes */
+  body.page-twofa .otp-box,
+  .otp-box {
+    width: calc(22vw - 4px);
+    max-width: 52px;
+    min-width: 42px;
+    height: 54px;
+    font-size: 20px;
+    border-radius: 13px;
+  }
+
+  body.page-twofa .otp-boxes,
+  .otp-boxes {
+    gap: 6px;
+  }
+
+  /* Page shell */
+  .page-shell {
+    padding: 10px 8px;
+  }
+
+  /* Cards */
+  .detail-card,
+  .card,
+  .mw-form-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  /* Section title */
+  body.home-mobile-layout .home-section-title-static,
+  body.home-mobile-layout .home-section-shell .section-title {
+    font-size: 15px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 14 — VERY SMALL PHONES (≤360px)
+   Galaxy A series, some Xiaomi, legacy devices
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 360px) {
+  /* Container */
+  .container {
+    padding-inline: 9px;
+  }
+
+  /* Topbar */
+  .navbar-inner-global {
+    min-height: 52px;
+  }
+
+  /* Bottom nav */
+  :root {
+    --bottom-nav-height: 58px;
+  }
+
+  .bnav-item {
+    font-size: 8px;
+    min-height: 48px;
+    padding: 5px 1px;
+  }
+
+  .bnav-item svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Home hero shorter */
+  body.home-mobile-layout {
+    --home-hero-min-height: clamp(200px, 50vw, 265px);
+  }
+
+  /* Section shells */
+  body.home-mobile-layout .home-section-shell {
+    padding: 10px 8px 8px;
+    border-radius: 18px;
+  }
+
+  body.home-mobile-layout .home-section-title-static,
+  body.home-mobile-layout .home-section-shell .section-title {
+    font-size: 14.5px;
+  }
+
+  body.home-mobile-layout .home-section-kicker {
+    min-height: 22px;
+    font-size: 9.5px;
+    padding-inline: 8px;
+  }
+
+  /* Cards */
+  .detail-card,
+  .card,
+  .mw-form-card,
+  .form-card {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  /* Page shell */
+  .page-shell {
+    padding: 8px;
+  }
+
+  /* Page header */
+  .page-header h1,
+  .mw-page-title {
+    font-size: 15px !important;
+  }
+
+  /* Auth */
+  body.page-login .auth-card.auth-card-login,
+  body.page-twofa .auth-card.auth-card-twofa {
+    border-radius: 18px;
+    padding: 16px 12px;
+  }
+
+  body.page-login .auth-title {
+    font-size: 24px;
+  }
+
+  body.page-twofa .auth-title {
+    font-size: 22px;
+  }
+
+  body.page-login .auth-logo,
+  body.page-twofa .auth-twofa-logo {
+    font-size: 32px;
+  }
+
+  /* OTP boxes */
+  body.page-twofa .otp-box,
+  .otp-box {
+    width: calc(21.5vw - 4px);
+    max-width: 50px;
+    min-width: 40px;
+    height: 52px;
+    font-size: 19px;
+    border-radius: 12px;
+  }
+
+  /* Buttons */
+  .btn,
+  .btn-primary,
+  .btn-primary-lg,
+  .btn-outlined,
+  .btn-orange,
+  .btn-secondary,
+  .btn-danger,
+  .btn-danger-outline {
+    min-height: 44px;
+    font-size: 12.5px;
+    border-radius: 11px;
+  }
+
+  /* Form inputs */
+  .form-input,
+  .form-select,
+  .form-textarea,
+  textarea.form-input {
+    min-height: 44px;
+    padding: 9px 10px;
+    font-size: 12.5px;
+    border-radius: 11px;
+  }
+
+  .form-label {
+    font-size: 11.5px;
+  }
+
+  /* Category icon */
+  .cat-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+  }
+
+  .cat-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .cat-name {
+    font-size: 10px;
+  }
+
+  /* Reel items */
+  .reel-item {
+    width: 56px;
+  }
+  .reel-ring {
+    width: 56px;
+    height: 56px;
+  }
+  .reel-caption {
+    max-width: 56px;
+    font-size: 9px;
+  }
+
+  /* Auth gate */
+  .auth-gate.auth-gate-unified {
+    padding: 14px 10px;
+    gap: 8px;
+    border-radius: 16px;
+  }
+
+  .auth-gate.auth-gate-unified .auth-gate-unified-icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  .auth-gate.auth-gate-unified .auth-gate-unified-title {
+    font-size: 18px;
+  }
+
+  .auth-gate.auth-gate-unified .auth-gate-unified-desc {
+    font-size: 12px;
+  }
+
+  .auth-gate.auth-gate-unified .auth-gate-unified-btn {
+    min-width: 140px;
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  /* Tabs */
+  .tab-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+
+  /* Chips */
+  .chip {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: min(320px, 96vw);
+  }
+
+  .sidebar-header {
+    min-height: 110px;
+    padding-block-end: 14px;
+  }
+
+  .sidebar-name {
+    font-size: 15px;
+  }
+
+  .sidebar-link {
+    padding: 10px 14px;
+    min-height: 46px;
+    font-size: 13px;
+    margin: 1px var(--space-xs);
+  }
+
+  .sidebar-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+  }
+
+  /* Toast */
+  .global-toast {
+    padding: 10px 12px;
+    border-radius: 14px;
+    gap: 10px;
+  }
+
+  .global-toast-copy strong {
+    font-size: 13px;
+  }
+
+  .global-toast-copy span {
+    font-size: 12px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 15 — ULTRA-SMALL (≤320px — iPhone SE 1st gen)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 320px) {
+  .container {
+    padding-inline: 8px;
+  }
+
+  :root {
+    --bottom-nav-height: 56px;
+  }
+
+  body.home-mobile-layout {
+    --home-hero-min-height: clamp(180px, 46vw, 240px);
+  }
+
+  body.home-mobile-layout .home-section-shell {
+    padding: 9px 7px 7px;
+    border-radius: 16px;
+  }
+
+  body.home-mobile-layout .home-section-title-static,
+  body.home-mobile-layout .home-section-shell .section-title {
+    font-size: 14px;
+  }
+
+  .page-header h1,
+  .mw-page-title {
+    font-size: 14px !important;
+  }
+
+  .detail-card,
+  .card,
+  .mw-form-card,
+  .form-card {
+    padding: 9px;
+    border-radius: 11px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea,
+  textarea.form-input {
+    min-height: 44px;
+    padding: 8px 9px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  .btn,
+  .btn-primary,
+  .btn-primary-lg,
+  .btn-outlined,
+  .btn-orange,
+  .btn-secondary,
+  .btn-danger,
+  .btn-danger-outline {
+    min-height: 44px;
+    font-size: 12px;
+    border-radius: 10px;
+  }
+
+  body.page-twofa .otp-box,
+  .otp-box {
+    width: calc(21vw - 3px);
+    min-width: 38px;
+    height: 48px;
+    font-size: 17px;
+    border-radius: 11px;
+  }
+
+  .reel-item { width: 52px; }
+  .reel-ring { width: 52px; height: 52px; }
+  .reel-caption { max-width: 52px; font-size: 8.5px; }
+
+  .cat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+  }
+  .cat-icon svg { width: 18px; height: 18px; }
+  .cat-name { font-size: 9.5px; }
+
+  .sidebar {
+    width: min(300px, 98vw);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 16 — PRO-UI OVERRIDES FOR MOBILE (≤430px)
+   Ensure pro-ui.css rules scale down properly on phones
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  body.mobile-web-parity .form-input,
+  body.mobile-web-parity .form-select,
+  body.mobile-web-parity .form-textarea,
+  body.mobile-web-parity textarea.form-input {
+    min-height: 46px;
+    padding-inline: 12px;
+    border-radius: 12px;
+  }
+
+  body.mobile-web-parity .btn,
+  body.mobile-web-parity .btn-primary,
+  body.mobile-web-parity .btn-primary-lg,
+  body.mobile-web-parity .btn-outlined,
+  body.mobile-web-parity .btn-orange,
+  body.mobile-web-parity .btn-secondary {
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  body.mobile-web-parity .detail-card,
+  body.mobile-web-parity .card,
+  body.mobile-web-parity .auth-card,
+  body.mobile-web-parity .mw-form-card {
+    border-radius: 16px;
+  }
+
+  body.mobile-web-parity .chip {
+    min-height: 36px;
+    font-size: 12px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 17 — SUBMIT OVERLAY (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  .nw-submit-overlay {
+    padding: 12px;
+  }
+
+  .nw-submit-overlay-card {
+    padding: 14px;
+    border-radius: 18px;
+    gap: 12px;
+  }
+
+  .nw-submit-overlay-spinner-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+  }
+
+  .nw-submit-overlay-title {
+    font-size: 14px;
+  }
+
+  .nw-submit-overlay-message {
+    font-size: 12px;
+    line-height: 1.7;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 18 — GLOBAL TOAST (≤430px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  .global-toast {
+    width: min(400px, calc(100vw - 20px));
+    padding: 11px 13px;
+    border-radius: 15px;
+    gap: 10px;
+  }
+
+  .global-toast-copy strong {
+    font-size: 13px;
+  }
+
+  .global-toast-copy span {
+    font-size: 12px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 19 — ONBOARDING PAGE (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  body.page-onboarding .onboarding-card,
+  .onboarding-content-card {
+    padding: 18px 14px;
+    border-radius: 20px;
+  }
+
+  body.page-onboarding .onboarding-title {
+    font-size: 20px;
+  }
+
+  body.page-onboarding .onboarding-subtitle {
+    font-size: 13px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 20 — NOTIFICATIONS PAGE (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  .notification-item {
+    padding: 10px 12px;
+    border-radius: 12px;
+    gap: 10px;
+  }
+
+  .notification-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+  }
+
+  .notification-title {
+    font-size: 13px;
+  }
+
+  .notification-body {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .notification-time {
+    font-size: 10.5px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 21 — SPONSOR MODAL (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  .topbar-sponsor-modal {
+    padding: 10px;
+  }
+
+  .topbar-sponsor-modal-card {
+    border-radius: 20px;
+    padding: 16px 12px 12px;
+    gap: 10px;
+  }
+
+  .topbar-sponsor-modal-close {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    top: 12px;
+    inset-inline-start: 12px;
+  }
+
+  .topbar-sponsor-modal-hero {
+    padding: 12px 10px 10px;
+    gap: 10px;
+    border-radius: 18px;
+  }
+
+  .topbar-sponsor-modal-media {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+  }
+
+  .topbar-sponsor-modal h3 {
+    font-size: 17px;
+  }
+
+  .topbar-sponsor-modal-body {
+    font-size: 13px;
+    padding: 14px 12px 14px 16px;
+    border-radius: 18px;
+    max-height: min(44dvh, 250px);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 22 — PROVIDER DASHBOARD (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  body.page-provider-dashboard .dashboard-hero-panel,
+  body.page-provider-dashboard .pdb-hero {
+    padding: 14px 12px;
+    border-radius: 18px;
+  }
+
+  body.page-provider-dashboard .pdb-stat-value,
+  body.page-provider-dashboard .dashboard-stat-value {
+    font-size: 20px;
+  }
+
+  body.page-provider-dashboard .pdb-stat-label,
+  body.page-provider-dashboard .dashboard-stat-label {
+    font-size: 10px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 23 — PLANS / SUBSCRIPTION (≤390px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 390px) {
+  .plan-card {
+    padding: 14px 12px;
+    border-radius: 16px;
+  }
+
+  .plan-card-title {
+    font-size: 16px;
+  }
+
+  .plan-price {
+    font-size: 22px;
+  }
+
+  .plan-period {
+    font-size: 12px;
+  }
+
+  .plan-feature-item {
+    font-size: 12px;
+    gap: 6px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 24 — TYPOGRAPHY SCALE RESET (≤360px)
+   Global text size harmonisation for very small screens
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 360px) {
+  /* Reduce all main text by ~1-2px to give room on 360px viewport */
+  body {
+    font-size: 14px;
+  }
+
+  .section-title {
+    font-size: 15px;
+  }
+
+  .page-subtitle {
+    font-size: 12px;
+  }
+
+  /* Footer adjustments */
+  .footer-logo {
+    font-size: 22px;
+  }
+
+  .footer-desc {
+    font-size: 12px;
+  }
+
+  /* Any inline text labels */
+  .text-muted {
+    font-size: 11.5px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 25 — SCROLL & OVERFLOW SAFETY (all mobile)
+   Prevents horizontal overflow on any screen size
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Prevent any fixed-width element from causing overflow */
+  .home-section-shell,
+  .detail-card,
+  .card,
+  .auth-card,
+  .mw-form-card,
+  .form-card,
+  .page-shell {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Ensure images inside cards don't overflow */
+  .detail-card img,
+  .card img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Horizontal scroll sections — clean snap */
+  .reels-track,
+  .categories-scroll,
+  .providers-scroll,
+  .featured-specialists-scroll,
+  .showcase-scroll {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .reels-track::-webkit-scrollbar,
+  .categories-scroll::-webkit-scrollbar,
+  .providers-scroll::-webkit-scrollbar,
+  .featured-specialists-scroll::-webkit-scrollbar,
+  .showcase-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Snap children */
+  .reel-item,
+  .cat-item,
+  .featured-specialist-card {
+    scroll-snap-align: start;
+  }
+}

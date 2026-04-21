@@ -29,8 +29,7 @@
 <link rel="stylesheet" href="{% static 'mobile_web/css/pages.css' %}">
 <link rel="stylesheet" href="{% static 'mobile_web/css/desktop-parity.css' %}">
 <link rel="stylesheet" href="{% static 'mobile_web/css/new-pages.css' %}">
-<link rel="stylesheet" href="{% static 'mobile_web/css/pro-ui.css' %}?v=20260404-desktop-dock">
-{% if page_structured_data_json %}<script type="application/ld+json">{{ page_structured_data_json|safe }}</script>{% endif %}
+<link rel="stylesheet" href="{% static 'mobile_web/css/pro-ui.css' %}?v=20260404-desktop-dock">    <link rel="stylesheet" href="{% static 'mobile_web/css/mobile-sm.css' %}?v=20260421-mobile-optimize">{% if page_structured_data_json %}<script type="application/ld+json">{{ page_structured_data_json|safe }}</script>{% endif %}
 {% block extra_css %}{% endblock %}
 <style id="global-desktop-bottom-dock">
 @media (min-width: 769px) {
