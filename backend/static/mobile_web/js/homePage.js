@@ -25,7 +25,10 @@ const HomePage = (() => {
   const FEATURED_SPECIALISTS_LIMIT = 10;
   const FEATURED_SPECIALISTS_ROTATE_MS = 5000;
   const PORTFOLIO_SHOWCASE_LIMIT = 10;
+  const PORTFOLIO_SHOWCASE_FETCH_LIMIT = 40;
   const PROVIDERS_RESUME_DELAY_MS = 3000;
+  const REELS_IMAGE_ROTATE_MS = 3500;
+  const REELS_VIDEO_FALLBACK_ROTATE_MS = 30000;
 
   // DOM refs
   let $categoriesList, $providersList, $bannersList, $bannersSection;
@@ -41,6 +44,8 @@ const HomePage = (() => {
   let _reelsPaused = false;      // pause while user is touching/dragging
   let _reelsBound = false;       // bind track interaction handlers once
   let _reelsActiveIdx = 0;       // active reel index for sequential preview
+  let _reelsActiveVideoEl = null;
+  let _reelsActiveVideoEndedHandler = null;
   let _carouselItems = [];       // carousel banner data
   let _carouselIdx = 0;          // current slide index
   let _carouselTimer = null;     // auto-rotate timer
@@ -590,8 +595,8 @@ const HomePage = (() => {
       ApiClient.get('/api/promo/home-carousel/?limit=10'),
       ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
       ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=' + FEATURED_SPECIALISTS_LIMIT),
-      ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=' + PORTFOLIO_SHOWCASE_LIMIT),
-      ApiClient.get('/api/providers/portfolio/feed/?limit=' + PORTFOLIO_SHOWCASE_LIMIT),
+      ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
+      ApiClient.get('/api/providers/portfolio/feed/?limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
       ApiClient.get('/api/promo/active/?service_type=snapshots&limit=16'),
       ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
       ApiClient.get('/api/promo/active/?service_type=promo_messages&limit=1'),
@@ -1310,8 +1315,9 @@ const HomePage = (() => {
     const merged = [];
     const seenKeys = new Set();
     const maxItems = Math.max(1, Number(limit) || PORTFOLIO_SHOWCASE_LIMIT);
+    const sponsoredCap = Math.max(1, Math.ceil(maxItems * 0.4));
 
-    function pushItem(raw) {
+    function pushItem(raw, source) {
       const item = _normalizePortfolioShowcaseItem(raw);
       if (!item) return;
       const key = [
@@ -1321,12 +1327,82 @@ const HomePage = (() => {
       ].join('|');
       if (!key || seenKeys.has(key)) return;
       seenKeys.add(key);
-      merged.push(raw);
+      merged.push({ raw, source });
     }
 
-    (Array.isArray(promoItems) ? promoItems : []).forEach(pushItem);
-    (Array.isArray(feedItems) ? feedItems : []).forEach(pushItem);
-    return merged.slice(0, maxItems);
+    (Array.isArray(promoItems) ? promoItems : []).forEach((raw) => pushItem(raw, 'promo'));
+    (Array.isArray(feedItems) ? feedItems : []).forEach((raw) => pushItem(raw, 'feed'));
+
+    const shuffle = (list) => {
+      const shuffled = list.slice();
+      for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = shuffled[i];
+        shuffled[i] = shuffled[j];
+        shuffled[j] = tmp;
+      }
+      return shuffled;
+    };
+
+    const sponsored = shuffle(merged.filter((row) => row.source === 'promo'));
+    const organic = shuffle(merged.filter((row) => row.source !== 'promo'));
+    const result = [];
+
+    let s = 0;
+    let o = 0;
+    let sponsoredUsed = 0;
+    let organicUsed = 0;
+    let preferOrganic = Math.random() >= 0.5;
+
+    while (result.length < maxItems && (s < sponsored.length || o < organic.length)) {
+      if (preferOrganic) {
+        if (o < organic.length) {
+          result.push(organic[o++]);
+          organicUsed += 1;
+        } else if (s < sponsored.length && sponsoredUsed < sponsoredCap) {
+          result.push(sponsored[s++]);
+          sponsoredUsed += 1;
+        } else if (s < sponsored.length && organicUsed === 0) {
+          // Fallback when only sponsored items are available.
+          result.push(sponsored[s++]);
+          sponsoredUsed += 1;
+        }
+      } else {
+        if (s < sponsored.length && sponsoredUsed < sponsoredCap) {
+          result.push(sponsored[s++]);
+          sponsoredUsed += 1;
+        } else if (o < organic.length) {
+          result.push(organic[o++]);
+          organicUsed += 1;
+        } else if (s < sponsored.length && organicUsed === 0) {
+          result.push(sponsored[s++]);
+          sponsoredUsed += 1;
+        }
+      }
+      preferOrganic = !preferOrganic;
+    }
+
+    while (result.length < maxItems && o < organic.length) {
+      result.push(organic[o++]);
+    }
+    while (result.length < maxItems && s < sponsored.length && sponsoredUsed < sponsoredCap) {
+      result.push(sponsored[s++]);
+      sponsoredUsed += 1;
+    }
+    while (result.length < maxItems && s < sponsored.length && organicUsed === 0) {
+      // If there are no organic rows at all, do not block rendering.
+      result.push(sponsored[s++]);
+    }
+
+    // Final tiny shuffle for rows with same mix weight.
+    const finalRows = result.slice();
+    for (let i = finalRows.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = finalRows[i];
+      finalRows[i] = finalRows[j];
+      finalRows[j] = tmp;
+    }
+    return finalRows.slice(0, maxItems).map((row) => row.raw);
   }
 
   function _normalizeSnapshotPromoItem(rawPromo) {
@@ -1371,6 +1447,14 @@ const HomePage = (() => {
     const merged = [];
     const seenKeys = new Set();
     const maxItems = Math.max(1, Number(limit) || 16);
+    const sortedFeed = (Array.isArray(feedItems) ? feedItems : [])
+      .slice()
+      .sort((a, b) => {
+        const aTime = Date.parse(String((a && a.created_at) || '')) || 0;
+        const bTime = Date.parse(String((b && b.created_at) || '')) || 0;
+        if (bTime !== aTime) return bTime - aTime;
+        return Number((b && b.id) || 0) - Number((a && a.id) || 0);
+      });
 
     function pushItem(item) {
       if (!item || typeof item !== 'object') return;
@@ -1385,7 +1469,7 @@ const HomePage = (() => {
     }
 
     (Array.isArray(promoItems) ? promoItems : []).forEach(pushItem);
-    (Array.isArray(feedItems) ? feedItems : []).forEach(pushItem);
+    sortedFeed.forEach(pushItem);
     return merged.slice(0, maxItems);
   }
 
@@ -1862,7 +1946,7 @@ const HomePage = (() => {
         preview.src = mediaUrl;
         preview.muted = true;   // explicit DOM property — required for some browsers
         preview.volume = 0;     // belt-and-suspenders: zero volume before any play()
-        preview.loop = true;
+        preview.loop = false;
         preview.setAttribute('playsinline', '');
         preview.setAttribute('disablepictureinpicture', '');
         if (thumb) preview.poster = thumb;
@@ -1910,7 +1994,7 @@ const HomePage = (() => {
     $reelsTrack.appendChild(frag);
     _setActiveReel(0, { scroll: false });
 
-    // Start sequential previews
+    // Start sequential previews (active center reel only).
     _startAutoScroll();
   }
 
@@ -1925,8 +2009,16 @@ const HomePage = (() => {
   }
 
   /* ----------------------------------------------------------
-     REELS AUTO-PREVIEW (sequential every 3s)
+     REELS AUTO-PREVIEW (play active center reel, advance on end)
    ---------------------------------------------------------- */
+  function _detachReelVideoEndedHook() {
+    if (_reelsActiveVideoEl && _reelsActiveVideoEndedHandler) {
+      _reelsActiveVideoEl.removeEventListener('ended', _reelsActiveVideoEndedHandler);
+    }
+    _reelsActiveVideoEl = null;
+    _reelsActiveVideoEndedHandler = null;
+  }
+
   function _setActiveReel(index, options = {}) {
     if (!$reelsTrack) return;
     const reels = Array.from($reelsTrack.querySelectorAll('.reel-item'));
@@ -1982,24 +2074,63 @@ const HomePage = (() => {
     $reelsTrack.addEventListener('mouseleave', resume, { passive: true });
   }
 
+  function _advanceReelToNext() {
+    if (!$reelsTrack) return;
+    const count = $reelsTrack.querySelectorAll('.reel-item').length;
+    if (count <= 1) return;
+    _setActiveReel(_reelsActiveIdx + 1);
+    _startAutoScroll();
+  }
+
   function _startAutoScroll() {
     _stopAutoScroll();
     if (!$reelsTrack) return;
     const count = $reelsTrack.querySelectorAll('.reel-item').length;
     if (count <= 1) return;
     _reelsPaused = false;
+    _detachReelVideoEndedHook();
 
-    _reelsAutoTimer = setInterval(() => {
-      if (_reelsPaused || !$reelsTrack) return;
-      _setActiveReel(_reelsActiveIdx + 1);
-    }, 3000);
+    const reels = Array.from($reelsTrack.querySelectorAll('.reel-item'));
+    const activeReel = reels[_reelsActiveIdx] || null;
+    const activeVideo = activeReel ? activeReel.querySelector('video.reel-preview-video') : null;
+
+    if (!activeVideo) {
+      _reelsAutoTimer = setTimeout(() => {
+        if (_reelsPaused) {
+          _startAutoScroll();
+          return;
+        }
+        _advanceReelToNext();
+      }, REELS_IMAGE_ROTATE_MS);
+      return;
+    }
+
+    const handleEnded = () => {
+      if (_reelsPaused) {
+        _reelsAutoTimer = setTimeout(handleEnded, 350);
+        return;
+      }
+      _advanceReelToNext();
+    };
+
+    _reelsActiveVideoEl = activeVideo;
+    _reelsActiveVideoEndedHandler = handleEnded;
+    activeVideo.addEventListener('ended', handleEnded, { once: true });
+
+    const durationMs = Number.isFinite(activeVideo.duration) && activeVideo.duration > 0
+      ? Math.max(1000, Math.round(activeVideo.duration * 1000))
+      : REELS_VIDEO_FALLBACK_ROTATE_MS;
+
+    // Safety fallback in case `ended` does not fire.
+    _reelsAutoTimer = setTimeout(handleEnded, durationMs + 1000);
   }
 
   function _stopAutoScroll() {
     if (_reelsAutoTimer) {
-      clearInterval(_reelsAutoTimer);
+      clearTimeout(_reelsAutoTimer);
       _reelsAutoTimer = null;
     }
+    _detachReelVideoEndedHook();
   }
 
   /* ----------------------------------------------------------
