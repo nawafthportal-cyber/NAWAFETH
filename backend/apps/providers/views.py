@@ -58,7 +58,7 @@ from .serializers import (
 	UserPublicSerializer,
 )
 from .location_formatter import provider_city_query_values
-from .media_thumbnails import ensure_video_thumbnail
+from .media_thumbnails import ensure_media_thumbnail
 
 
 def _handle_storage_error(exc):
@@ -498,7 +498,7 @@ class MyProviderPortfolioListCreateView(generics.ListCreateAPIView):
 		if not pp:
 			raise NotFound("provider_profile_not_found")
 		item = serializer.save(provider=pp)
-		ensure_video_thumbnail(item)
+		ensure_media_thumbnail(item)
 
 	def create(self, request, *args, **kwargs):
 		try:
@@ -736,7 +736,7 @@ class MyProviderSpotlightListCreateView(generics.ListCreateAPIView):
 		if not pp:
 			raise NotFound("provider_profile_not_found")
 		item = serializer.save(provider=pp)
-		ensure_video_thumbnail(item)
+		ensure_media_thumbnail(item)
 
 	def create(self, request, *args, **kwargs):
 		try:

@@ -8,7 +8,7 @@ from typing import Optional
 
 from django.core.files.base import ContentFile
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 
 def _thumbnail_filename(original_name: str) -> str:
@@ -97,14 +97,46 @@ def _build_fallback_video_poster() -> bytes:
     return out.getvalue()
 
 
-def ensure_video_thumbnail(instance, *, force: bool = False) -> bool:
-    """Best-effort thumbnail generation for ProviderPortfolio/Spotlight video items.
+def _image_thumb_dimensions(instance) -> tuple[int, int]:
+    model_name = str(getattr(getattr(instance, "_meta", None), "model_name", "") or "").strip().lower()
+    if model_name == "providerspotlightitem":
+        return (720, 1280)  # 9:16 for spotlight/reels surfaces.
+    return (800, 1000)  # 4:5 for portfolio showcase cards.
+
+
+def _build_image_cover_thumbnail(file_field, *, width: int, height: int) -> Optional[bytes]:
+    if not file_field:
+        return None
+    source_handle = None
+    try:
+        source_handle = file_field.open("rb")
+        with Image.open(source_handle) as source_image:
+            prepared = ImageOps.exif_transpose(source_image).convert("RGB")
+            resampling_attr = getattr(Image, "Resampling", None)
+            resample = resampling_attr.LANCZOS if resampling_attr else getattr(Image, "LANCZOS", Image.BICUBIC)
+            fitted = ImageOps.fit(prepared, (int(width), int(height)), method=resample, centering=(0.5, 0.5))
+            out = io.BytesIO()
+            fitted.save(out, format="JPEG", quality=86, optimize=True, progressive=True)
+            return out.getvalue()
+    except Exception:
+        return None
+    finally:
+        if source_handle is not None:
+            try:
+                source_handle.close()
+            except Exception:
+                pass
+
+
+def ensure_media_thumbnail(instance, *, force: bool = False) -> bool:
+    """Best-effort thumbnail generation for portfolio/spotlight image and video items.
 
     Returns True when a thumbnail is saved, otherwise False.
     Never raises to avoid breaking upload flows.
     """
     try:
-        if getattr(instance, "file_type", None) != "video":
+        file_type = str(getattr(instance, "file_type", "") or "").strip().lower()
+        if file_type not in {"image", "video"}:
             return False
         if not getattr(instance, "file", None):
             return False
@@ -119,13 +151,18 @@ def ensure_video_thumbnail(instance, *, force: bool = False) -> bool:
             except Exception:
                 return False
 
-        src_path = None
-        try:
-            src_path = instance.file.path
-        except Exception:
+        payload = None
+        if file_type == "image":
+            width, height = _image_thumb_dimensions(instance)
+            payload = _build_image_cover_thumbnail(getattr(instance, "file", None), width=width, height=height)
+        else:
             src_path = None
+            try:
+                src_path = instance.file.path
+            except Exception:
+                src_path = None
+            payload = _try_extract_frame_with_ffmpeg(src_path) or _build_fallback_video_poster()
 
-        payload = _try_extract_frame_with_ffmpeg(src_path) or _build_fallback_video_poster()
         if not payload:
             return False
 
@@ -140,3 +177,12 @@ def ensure_video_thumbnail(instance, *, force: bool = False) -> bool:
         return True
     except Exception:
         return False
+
+
+def ensure_video_thumbnail(instance, *, force: bool = False) -> bool:
+    """Best-effort thumbnail generation for ProviderPortfolio/Spotlight video items.
+
+    Returns True when a thumbnail is saved, otherwise False.
+    Never raises to avoid breaking upload flows.
+    """
+    return ensure_media_thumbnail(instance, force=force) if getattr(instance, "file_type", None) == "video" else False
