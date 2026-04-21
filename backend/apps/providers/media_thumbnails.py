@@ -8,7 +8,7 @@ from typing import Optional
 
 from django.core.files.base import ContentFile
 
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 
 def _thumbnail_filename(original_name: str) -> str:
@@ -114,9 +114,21 @@ def _build_image_cover_thumbnail(file_field, *, width: int, height: int) -> Opti
             prepared = ImageOps.exif_transpose(source_image).convert("RGB")
             resampling_attr = getattr(Image, "Resampling", None)
             resample = resampling_attr.LANCZOS if resampling_attr else getattr(Image, "LANCZOS", Image.BICUBIC)
-            fitted = ImageOps.fit(prepared, (int(width), int(height)), method=resample, centering=(0.5, 0.5))
+            canvas_w, canvas_h = int(width), int(height)
+
+            # Keep the full media visible: foreground uses contain (no crop).
+            contained = ImageOps.contain(prepared, (canvas_w, canvas_h), method=resample)
+
+            # Fill remaining space using a blurred version of the same image.
+            background = ImageOps.fit(prepared, (canvas_w, canvas_h), method=resample, centering=(0.5, 0.5))
+            background = background.filter(ImageFilter.GaussianBlur(radius=18))
+            background = Image.blend(background, Image.new("RGB", (canvas_w, canvas_h), (18, 20, 26)), alpha=0.16)
+
+            offset_x = (canvas_w - contained.width) // 2
+            offset_y = (canvas_h - contained.height) // 2
+            background.paste(contained, (offset_x, offset_y))
             out = io.BytesIO()
-            fitted.save(out, format="JPEG", quality=86, optimize=True, progressive=True)
+            background.save(out, format="JPEG", quality=86, optimize=True, progressive=True)
             return out.getvalue()
     except Exception:
         return None
