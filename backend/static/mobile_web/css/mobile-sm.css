@@ -1324,6 +1324,519 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────
+   SECTION 27 — PLANS PAGE (≤430px / ≤390px / ≤360px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  /* Page shell */
+  body.page-plans .page-shell {
+    padding: 10px 10px calc(var(--bottom-nav-height, 62px) + env(safe-area-inset-bottom, 0px) + 12px);
+  }
+
+  /* Header */
+  body.page-plans .subs-compare-head {
+    gap: 8px;
+  }
+
+  body.page-plans .subs-compare-user-pill {
+    font-size: 12.5px;
+    padding: 5px 12px;
+    min-height: 34px;
+  }
+
+  body.page-plans .subs-compare-head-bottom h1 {
+    font-size: 19px;
+  }
+
+  body.page-plans .subs-compare-head-bottom p {
+    font-size: 12.5px;
+    line-height: 1.65;
+  }
+
+  /* Comparison board */
+  body.page-plans .subs-compare-board {
+    padding: 8px;
+    border-radius: 16px;
+  }
+
+  /* Plan header cells */
+  body.page-plans .subs-plan-head,
+  body.page-plans .subs-plan-head-inner {
+    min-height: 76px;
+  }
+
+  body.page-plans .subs-plan-title {
+    font-size: 16px;
+  }
+
+  body.page-plans .plan-status {
+    font-size: 11px;
+    min-height: 26px;
+    padding: 3px 8px;
+  }
+
+  /* Table cells */
+  body.page-plans .subs-compare-feature,
+  body.page-plans .subs-compare-value {
+    font-size: 11.5px;
+  }
+
+  body.page-plans .subs-compare-feature-head {
+    font-size: 13px;
+    padding-inline: 12px;
+  }
+
+  /* Subscription action buttons */
+  body.page-plans .subs-plan-action {
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  /* Empty / retry state */
+  body.page-plans #plans-state.empty-state {
+    padding: 16px 12px;
+  }
+
+  body.page-plans .plans-retry-btn {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 390px) {
+  body.page-plans .subs-compare-head-bottom h1 {
+    font-size: 17px;
+  }
+
+  body.page-plans .subs-compare-user-pill {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+
+  body.page-plans .subs-plan-title {
+    font-size: 15px;
+  }
+
+  body.page-plans .subs-compare-feature,
+  body.page-plans .subs-compare-value {
+    font-size: 11px;
+  }
+
+  body.page-plans .subs-plan-action {
+    font-size: 12.5px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 28 — PROVIDER PROFILE EDIT (≤430px / ≤390px / ≤360px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  /* Page shell padding */
+  body.page-provider-profile-edit .pe-page-shell {
+    padding: 8px 10px calc(var(--bottom-nav-height, 62px) + env(safe-area-inset-bottom, 0px) + 12px);
+  }
+
+  /* Page header */
+  body.page-provider-profile-edit .pe-page-title {
+    font-size: 18px !important;
+  }
+
+  body.page-provider-profile-edit.page-provider-profile-edit-premium .pe-page-subtitle {
+    font-size: 11.5px;
+    line-height: 1.65;
+  }
+
+  /* Identity card */
+  body.page-provider-profile-edit .pe-identity-card {
+    padding: 16px 14px;
+    border-radius: 20px;
+    gap: 10px;
+  }
+
+  body.page-provider-profile-edit .pe-identity-main {
+    gap: 12px;
+  }
+
+  body.page-provider-profile-edit .pe-avatar-wrap {
+    width: 70px !important;
+    height: 70px !important;
+    border-radius: 18px !important;
+  }
+
+  body.page-provider-profile-edit .pe-avatar-fallback {
+    font-size: 24px;
+  }
+
+  body.page-provider-profile-edit .pe-display-name {
+    font-size: 17px !important;
+  }
+
+  body.page-provider-profile-edit .pe-identity-subtitle {
+    font-size: 12px;
+    line-height: 1.65;
+  }
+
+  body.page-provider-profile-edit .pe-congrats-banner {
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+
+  /* Tabs — tighter horizontal scroll cards */
+  body.page-provider-profile-edit.page-provider-profile-edit-premium #pe-tabs .tab {
+    min-width: 120px !important;
+    min-height: 50px !important;
+    padding: 7px 8px !important;
+  }
+
+  body.page-provider-profile-edit.page-provider-profile-edit-premium #pe-tabs .tab .pe-tab-main {
+    font-size: 11.5px !important;
+  }
+
+  /* Workflow card */
+  body.page-provider-profile-edit.page-provider-profile-edit-premium .pe-workflow-title {
+    font-size: 14px;
+  }
+
+  body.page-provider-profile-edit.page-provider-profile-edit-premium .pe-workflow-step {
+    min-height: 46px;
+    border-radius: 12px;
+  }
+
+  body.page-provider-profile-edit.page-provider-profile-edit-premium .pe-workflow-tip strong {
+    font-size: 12px;
+  }
+
+  body.page-provider-profile-edit.page-provider-profile-edit-premium .pe-workflow-tip p {
+    font-size: 11.5px;
+  }
+
+  /* Helper / section cards */
+  body.page-provider-profile-edit .pe-helper-title {
+    font-size: 17px;
+  }
+
+  body.page-provider-profile-edit .pe-helper-desc {
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  body.page-provider-profile-edit .pe-section-heading {
+    font-size: 18px;
+  }
+
+  body.page-provider-profile-edit .pe-section-intro {
+    font-size: 12.5px;
+    line-height: 1.75;
+  }
+
+  /* Portfolio / link cards */
+  body.page-provider-profile-edit .pe-portfolio-link {
+    border-radius: 16px;
+  }
+
+  body.page-provider-profile-edit .pe-portfolio-copy strong {
+    font-size: 14px;
+  }
+
+  body.page-provider-profile-edit .pe-portfolio-copy .text-muted {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  /* Field cards */
+  body.page-provider-profile-edit .pe-field {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  body.page-provider-profile-edit .pe-field-label {
+    font-size: 15px !important;
+  }
+
+  body.page-provider-profile-edit .pe-field-display {
+    font-size: 14px !important;
+  }
+
+  body.page-provider-profile-edit .pe-field[data-key="fullName"] .pe-field-display {
+    font-size: 16px !important;
+  }
+
+  body.page-provider-profile-edit .pe-field[data-key="accountType"] .pe-field-display {
+    font-size: 15px !important;
+  }
+
+  /* Prevent iOS auto-zoom on form inputs */
+  body.page-provider-profile-edit .pe-field input,
+  body.page-provider-profile-edit .pe-field select,
+  body.page-provider-profile-edit .pe-field textarea {
+    font-size: 16px !important;
+  }
+
+  /* Summary cards */
+  body.page-provider-profile-edit .pe-summary-card {
+    padding: 14px 16px;
+    border-radius: 18px;
+  }
+
+  body.page-provider-profile-edit .pe-summary-title {
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+
+  body.page-provider-profile-edit .pe-summary-value {
+    font-size: 13px;
+  }
+
+  /* Language chips */
+  body.page-provider-profile-edit .pe-language-chip {
+    min-width: 90px;
+    min-height: 44px;
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  /* Map */
+  body.page-provider-profile-edit .pe-service-map {
+    min-height: 260px;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 390px) {
+  body.page-provider-profile-edit .pe-page-title {
+    font-size: 16px !important;
+  }
+
+  body.page-provider-profile-edit .pe-identity-card {
+    padding: 14px 12px;
+  }
+
+  body.page-provider-profile-edit .pe-avatar-wrap {
+    width: 62px !important;
+    height: 62px !important;
+    border-radius: 16px !important;
+  }
+
+  body.page-provider-profile-edit .pe-display-name {
+    font-size: 15px !important;
+  }
+
+  body.page-provider-profile-edit .pe-field {
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  body.page-provider-profile-edit .pe-field-label {
+    font-size: 14px !important;
+  }
+
+  body.page-provider-profile-edit .pe-helper-title {
+    font-size: 15px;
+  }
+
+  body.page-provider-profile-edit .pe-section-heading {
+    font-size: 16px;
+  }
+
+  body.page-provider-profile-edit.page-provider-profile-edit-premium #pe-tabs .tab {
+    min-width: 108px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  body.page-provider-profile-edit .pe-page-title {
+    font-size: 15px !important;
+  }
+
+  body.page-provider-profile-edit .pe-field {
+    padding: 10px 12px;
+  }
+
+  body.page-provider-profile-edit .pe-field-label {
+    font-size: 13px !important;
+  }
+
+  body.page-provider-profile-edit .pe-language-chip {
+    min-width: 80px;
+    font-size: 12px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   SECTION 26 — ADDITIONAL SERVICES PAGE (≤430px / ≤390px / ≤360px)
+   ────────────────────────────────────────────────────────────────── */
+@media (max-width: 430px) {
+  /* Hero section */
+  body.page-additional-services .as-hero h2 {
+    font-size: 16px;
+  }
+
+  body.page-additional-services .as-hero p {
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+
+  body.page-additional-services .as-hero-badge {
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+
+  /* Provider strip */
+  body.page-additional-services .as-provider-label {
+    font-size: 11.5px;
+  }
+
+  body.page-additional-services .as-provider-value {
+    font-size: 13px;
+  }
+
+  /* Wizard card header */
+  body.page-additional-services .as-wizard-head h3 {
+    font-size: 15px;
+  }
+
+  body.page-additional-services .as-wizard-head p {
+    font-size: 12px;
+  }
+
+  /* Main section tabs — restore 3-column grid on phones.
+     The 720px breakpoint in new-pages.css stacks them to 1 column,
+     but phone-width screens can handle 3 compact tabs. */
+  body.page-additional-services .as-main-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  body.page-additional-services .as-main-card {
+    min-height: 60px;
+    padding: 8px 6px;
+    border-radius: 12px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+  }
+
+  body.page-additional-services .as-main-card-title {
+    font-size: 11.5px;
+    line-height: 1.2;
+  }
+
+  body.page-additional-services .as-main-card-count {
+    min-width: 26px;
+    height: 26px;
+    font-size: 11px;
+  }
+
+  /* Section panels */
+  body.page-additional-services .as-section-panel {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  body.page-additional-services .as-summary-panel {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  body.page-additional-services .as-section-head {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  body.page-additional-services .as-enable-toggle {
+    font-size: 12.5px;
+  }
+
+  /* Block head */
+  body.page-additional-services .as-block-head h3 {
+    font-size: 14px;
+  }
+
+  /* Wizard action buttons — 44 px touch target */
+  body.page-additional-services .as-wizard-actions {
+    gap: 8px;
+  }
+
+  body.page-additional-services .as-wizard-actions .btn-primary,
+  body.page-additional-services .as-wizard-actions .btn-outline {
+    min-height: 44px;
+    font-size: 13px;
+    border-radius: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Prevent iOS auto-zoom on form inputs (font-size < 16 px triggers zoom) */
+  body.page-additional-services .as-inline-fields input,
+  body.page-additional-services .as-notes-field textarea {
+    font-size: 16px;
+  }
+
+  /* Success modal — tighter padding */
+  body.page-additional-services .as-success-modal {
+    padding: 12px;
+  }
+
+  body.page-additional-services .as-success-dialog {
+    padding: 12px 12px 16px;
+  }
+
+  body.page-additional-services .as-success-dialog-head {
+    padding: 10px 8px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 390px) {
+  body.page-additional-services .as-hero h2 {
+    font-size: 15px;
+  }
+
+  body.page-additional-services .as-main-card {
+    min-height: 54px;
+    padding: 6px 4px;
+  }
+
+  body.page-additional-services .as-main-card-title {
+    font-size: 11px;
+  }
+
+  body.page-additional-services .as-main-card-count {
+    min-width: 24px;
+    height: 24px;
+    font-size: 10.5px;
+  }
+
+  body.page-additional-services .as-success-dialog {
+    padding: 10px 10px 14px;
+  }
+
+  body.page-additional-services .as-success-dialog-head {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 360px) {
+  body.page-additional-services .as-hero h2 {
+    font-size: 14px;
+  }
+
+  body.page-additional-services .as-main-card-title {
+    font-size: 10.5px;
+  }
+
+  body.page-additional-services .as-enable-toggle {
+    font-size: 12px;
+  }
+
+  body.page-additional-services .as-wizard-head h3 {
+    font-size: 14px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────
    SECTION 25 — SCROLL & OVERFLOW SAFETY (all mobile)
    Prevents horizontal overflow on any screen size
    ────────────────────────────────────────────────────────────────── */

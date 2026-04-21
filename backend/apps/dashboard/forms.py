@@ -325,13 +325,13 @@ class ContentFirstTimeForm(forms.Form):
     )
     intro_body = forms.CharField(
         label="وصف الشريحة الأولى",
-        max_length=300,
+        max_length=110,
         required=False,
         widget=forms.Textarea(
             attrs={
                 "class": "input-control",
                 "rows": 3,
-                "maxlength": 300,
+                "maxlength": 110,
                 "placeholder": "نص محدود يظهر مع صورة الشريحة الأولى.",
             }
         ),
@@ -349,12 +349,12 @@ class ContentFirstTimeForm(forms.Form):
     )
     client_body = forms.CharField(
         label="وصف الشريحة الثانية",
-        max_length=300,
+        max_length=110,
         widget=forms.Textarea(
             attrs={
                 "class": "input-control",
                 "rows": 3,
-                "maxlength": 300,
+                "maxlength": 110,
                 "placeholder": "نص محدود يظهر مع صورة الشريحة الثانية.",
             }
         ),
@@ -372,25 +372,25 @@ class ContentFirstTimeForm(forms.Form):
     )
     provider_body = forms.CharField(
         label="وصف الشريحة الثالثة",
-        max_length=300,
+        max_length=110,
         widget=forms.Textarea(
             attrs={
                 "class": "input-control",
                 "rows": 3,
-                "maxlength": 300,
+                "maxlength": 110,
                 "placeholder": "نص محدود يظهر مع صورة الشريحة الثالثة.",
             }
         ),
     )
 
     def clean_intro_body(self):
-        return (self.cleaned_data.get("intro_body") or "").strip()[:300]
+        return (self.cleaned_data.get("intro_body") or "").strip()[:110]
 
     def clean_client_body(self):
-        return (self.cleaned_data.get("client_body") or "").strip()[:300]
+        return (self.cleaned_data.get("client_body") or "").strip()[:110]
 
     def clean_provider_body(self):
-        return (self.cleaned_data.get("provider_body") or "").strip()[:300]
+        return (self.cleaned_data.get("provider_body") or "").strip()[:110]
 
 
 class ContentDesignUploadForm(forms.Form):
