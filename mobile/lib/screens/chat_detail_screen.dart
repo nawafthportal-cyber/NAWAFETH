@@ -15,7 +15,10 @@ import '../services/messaging_service.dart';
 import '../services/auth_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/api_client.dart';
+import '../services/app_logger.dart';
 import '../services/marketplace_service.dart';
+import '../services/providers_api_service.dart';
+import '../constants/app_theme.dart';
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
 import 'notifications_screen.dart';
@@ -233,22 +236,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     });
   }
 
-  int? _toIntOrNull(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim());
-    return null;
-  }
-
   Future<void> _initAccountContext() async {
     final isProvider = await AccountModeService.isProviderMode();
-    int? providerId;
-    if (isProvider) {
-      final meRes = await ApiClient.get('/api/accounts/me/?mode=provider');
-      if (meRes.isSuccess && meRes.dataAsMap != null) {
-        providerId = _toIntOrNull(meRes.dataAsMap!['provider_profile_id']);
-      }
-    }
+    final providerId = isProvider
+        ? await ProvidersApiService.fetchCurrentProviderProfileId()
+        : null;
     if (!mounted) return;
     setState(() {
       _isProviderAccount = isProvider;
@@ -264,7 +256,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       try {
         _resolvedThreadId = await MessagingService.getOrCreateDirectThread(
             widget.peerProviderId!);
-      } catch (_) {
+      } catch (error, stackTrace) {
+        AppLogger.warn(
+          'ChatDetailScreen._initChat getOrCreateDirectThread failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
         if (!mounted) return;
         setState(() {
           _isLoading = false;
@@ -309,7 +306,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           _peerNameOverride = _systemSenderLabel.trim();
         }
       });
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'ChatDetailScreen._loadThreadState failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   void _syncPeerLabelFromMessages(List<ChatMessage> messages) {
@@ -608,7 +611,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       if (_playerInitialized && _player.isPlaying) {
         await _player.stopPlayer();
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'ChatDetailScreen._stopAudioPlayback failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
 
     if (refreshUi && mounted) {
       setState(() => _playingMessageId = null);
@@ -808,40 +817,40 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(26),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1F0F172A),
-                blurRadius: 24,
-                offset: Offset(0, 12),
-              ),
-            ],
+            color: Theme.of(sheetContext).brightness == Brightness.dark
+                ? AppColors.cardDark
+                : AppColors.cardLight,
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            boxShadow: AppShadows.elevated,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'إضافة مرفق',
                 style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 16,
+                  fontSize: AppTextStyles.h2,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
+                  color: Theme.of(sheetContext).brightness == Brightness.dark
+                      ? AppTextStyles.textPrimaryDark
+                      : AppTextStyles.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'اختر نوع المرفق الذي تريد إرساله ضمن نفس المحادثة.',
                 style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 11.5,
+                  fontSize: AppTextStyles.caption,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF667085),
+                  color: Theme.of(sheetContext).brightness == Brightness.dark
+                      ? AppTextStyles.textSecondaryDark
+                      : AppTextStyles.textSecondary,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _buildSheetActionItem(
                 icon: Icons.image_outlined,
                 label: 'اختيار صورة من المعرض',
@@ -903,15 +912,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(26),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1F0F172A),
-                blurRadius: 24,
-                offset: Offset(0, 12),
-              ),
-            ],
+            color: Theme.of(sheetContext).brightness == Brightness.dark
+                ? AppColors.cardDark
+                : AppColors.cardLight,
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            boxShadow: AppShadows.elevated,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -919,24 +924,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             children: [
               Text(
                 _memberName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 16,
+                  fontSize: AppTextStyles.h2,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
+                  color: Theme.of(sheetContext).brightness == Brightness.dark
+                      ? AppTextStyles.textPrimaryDark
+                      : AppTextStyles.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 _peerSubtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 11.5,
+                  fontSize: AppTextStyles.caption,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF667085),
+                  color: Theme.of(sheetContext).brightness == Brightness.dark
+                      ? AppTextStyles.textSecondaryDark
+                      : AppTextStyles.textSecondary,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _buildSheetActionItem(
                 icon: Icons.mark_chat_read_rounded,
                 label: 'اجعلها مقروءة',
@@ -1152,7 +1161,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                       );
                     },
               style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               child: isSending
                   ? const SizedBox(
                       height: 16,
@@ -1293,13 +1302,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       _ServiceRequestPayload payload, bool isMe, Color textColor) {
     final bg = isMe
         ? Colors.white.withValues(alpha: 0.15)
-        : Colors.deepPurple.withValues(alpha: 0.07);
+        : AppColors.primary.withValues(alpha: 0.07);
     final border = isMe
         ? Colors.white.withValues(alpha: 0.25)
-        : Colors.deepPurple.withValues(alpha: 0.22);
+        : AppColors.primary.withValues(alpha: 0.22);
     final iconBg = isMe
         ? Colors.white.withValues(alpha: 0.2)
-        : Colors.deepPurple.withValues(alpha: 0.12);
+        : AppColors.primarySurface;
     final subTextColor = isMe ? Colors.white70 : Colors.black54;
 
     return InkWell(
@@ -1544,7 +1553,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                       child:
-                          CircularProgressIndicator(color: Colors.deepPurple),
+                          CircularProgressIndicator(color: AppColors.primary),
                     );
                   }
 
@@ -1590,7 +1599,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                           children: [
                             const Icon(
                               Icons.assignment_outlined,
-                              color: Colors.deepPurple,
+                              color: AppColors.primary,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -1746,15 +1755,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(26),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1F0F172A),
-                blurRadius: 24,
-                offset: Offset(0, 12),
-              ),
-            ],
+            color: Theme.of(sheetContext).brightness == Brightness.dark
+                ? AppColors.cardDark
+                : AppColors.cardLight,
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            boxShadow: AppShadows.elevated,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1762,11 +1767,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             children: [
               Text(
                 isMe ? 'خيارات رسالتك' : 'خيارات الرسالة',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 16,
+                  fontSize: AppTextStyles.h2,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
+                  color: Theme.of(sheetContext).brightness == Brightness.dark
+                      ? AppTextStyles.textPrimaryDark
+                      : AppTextStyles.textPrimary,
                 ),
               ),
               const SizedBox(height: 4),
@@ -1778,14 +1785,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                         : 'رسالة بمرفق'),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 11.5,
+                  fontSize: AppTextStyles.caption,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF667085),
+                  color: Theme.of(sheetContext).brightness == Brightness.dark
+                      ? AppTextStyles.textSecondaryDark
+                      : AppTextStyles.textSecondary,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               if (msg.body.isNotEmpty)
                 _buildSheetActionItem(
                   icon: Icons.copy_rounded,
@@ -1834,21 +1843,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   // ✅ فقاعة الرسائل
   Widget _buildMessageBubble(ChatMessage msg) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMe = msg.senderId == _myUserId;
     final systemLabel = msg.senderTeamName.trim().isNotEmpty
         ? msg.senderTeamName.trim()
         : msg.senderName.trim();
 
-    final accent = isMe ? const Color(0xFF5B3FD0) : const Color(0xFF22577A);
+    final accent = isMe ? AppColors.primaryDark : AppColors.teal;
     final bubbleColor = isMe
-        ? const Color(0xFF5B3FD0)
+        ? AppColors.primary
         : (msg.isSystemGenerated
-            ? const Color(0xFFF6F1FF)
-            : const Color(0xFFFFFFFF));
-    final textColor = isMe ? Colors.white : const Color(0xFF0F172A);
+            ? (isDark ? AppColors.cardDark : const Color(0xFFF6F1FF))
+            : (isDark ? AppColors.cardDark : Colors.white));
+    final textColor = isMe
+        ? Colors.white
+        : (isDark ? AppTextStyles.textPrimaryDark : AppTextStyles.textPrimary);
     final metaColor = isMe
         ? Colors.white.withValues(alpha: 0.76)
-        : const Color(0xFF667085);
+        : (isDark ? AppTextStyles.textSecondaryDark : AppTextStyles.textSecondary);
 
     Widget content;
 
@@ -1904,7 +1916,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 decoration: BoxDecoration(
                   color: isMe
                       ? Colors.white.withValues(alpha: 0.14)
-                      : const Color(0xFFF7FAFC),
+                      : (isDark ? AppColors.bgDark : const Color(0xFFF7FAFC)),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -1914,7 +1926,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                       isPlayingThisMessage
                           ? Icons.stop_circle
                           : Icons.play_circle_fill,
-                      color: isMe ? Colors.white : Colors.deepPurple,
+                      color: isMe ? Colors.white : AppColors.primary,
                       size: 32,
                     ),
                     const SizedBox(width: 8),
@@ -2061,8 +2073,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                   ? null
                   : Border.all(
                       color: msg.isSystemGenerated
-                          ? const Color(0xFFE4D7FF)
-                          : const Color(0xFFE4EBF1),
+                          ? (isDark ? AppColors.borderDark : const Color(0xFFE4D7FF))
+                          : (isDark ? AppColors.borderDark : AppColors.borderLight),
                     ),
               boxShadow: [
                 BoxShadow(
@@ -2134,8 +2146,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     );
   }
 
-  // ✅ معاينة قبل الإرسال
-  Widget _buildPreview() {
+  Widget _buildPreview(bool isDark) {
     if (_hasPendingAttachment) {
       final fileName = _pendingFile is File
           ? (_pendingFile as File).path.split('/').last
@@ -2149,58 +2160,67 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                   : Icons.insert_drive_file_outlined;
 
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F9FC),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFDCE6ED)),
+          color: isDark ? AppColors.bgDark : AppColors.grey50,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight),
         ),
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
-                color: const Color(0xFFE9F2F7),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.primarySurface,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
-              child: Icon(icon, color: const Color(0xFF22577A), size: 20),
+              child: Icon(icon, color: AppColors.primary, size: 18),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     _pendingAttachmentTitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Cairo',
-                      fontSize: 12,
+                      fontSize: AppTextStyles.bodySm,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
+                      color: isDark
+                          ? AppTextStyles.textPrimaryDark
+                          : AppTextStyles.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     fileName,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Cairo',
-                      fontSize: 10.8,
+                      fontSize: AppTextStyles.micro,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF667085),
+                      color: isDark
+                          ? AppTextStyles.textSecondaryDark
+                          : AppTextStyles.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.close_rounded, color: Color(0xFFB42318)),
+              icon: const Icon(Icons.close_rounded, color: AppColors.error),
               onPressed: () => setState(() {
                 _pendingType = null;
                 _pendingFile = null;
                 _pendingDuration = null;
               }),
+              iconSize: 18,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
             ),
           ],
         ),
@@ -2212,20 +2232,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       enabled: !_isReplyRestricted,
       minLines: 1,
       maxLines: 5,
-      style: const TextStyle(
+      style: TextStyle(
         fontFamily: 'Cairo',
-        fontSize: 13,
+        fontSize: AppTextStyles.bodyLg,
         fontWeight: FontWeight.w700,
+        color: isDark ? AppTextStyles.textPrimaryDark : AppTextStyles.textPrimary,
       ),
       decoration: InputDecoration(
-        hintText: _isReplyRestricted ? _replyRestrictionMessage : 'اكتب رسالة...',
-        hintStyle: const TextStyle(
+        hintText:
+            _isReplyRestricted ? _replyRestrictionMessage : 'اكتب رسالة...',
+        hintStyle: TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 12,
+          fontSize: AppTextStyles.bodyMd,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF98A2B3),
+          color: isDark ? AppTextStyles.textTertiaryDark : AppTextStyles.textTertiary,
         ),
         border: InputBorder.none,
+        isDense: true,
+        contentPadding: EdgeInsets.zero,
       ),
       onChanged: (_) => setState(() => _pendingType = 'text'),
     );
@@ -2252,32 +2276,45 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   }
 
   Widget _buildDayDivider(DateTime date) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Expanded(child: Container(height: 1, color: const Color(0xFFE5E7EB))),
+          Expanded(
+              child: Container(
+                  height: 1,
+                  color: isDark ? AppColors.borderDark : AppColors.grey200)),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: const Color(0xFFE4EBF1)),
+                color: isDark ? AppColors.cardDark : AppColors.grey50,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                border: Border.all(
+                    color: isDark
+                        ? AppColors.borderDark
+                        : AppColors.borderLight),
               ),
               child: Text(
                 _formatMessageDay(date),
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 10.5,
+                  fontSize: AppTextStyles.micro,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF667085),
+                  color: isDark
+                      ? AppTextStyles.textSecondaryDark
+                      : AppTextStyles.textSecondary,
                 ),
               ),
             ),
           ),
-          Expanded(child: Container(height: 1, color: const Color(0xFFE5E7EB))),
+          Expanded(
+              child: Container(
+                  height: 1,
+                  color: isDark ? AppColors.borderDark : AppColors.grey200)),
         ],
       ),
     );
@@ -2290,314 +2327,246 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     required VoidCallback onTap,
     bool danger = false,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Container(
-        width: 40,
-        height: 40,
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
-          color: danger ? const Color(0xFFFFF1F1) : const Color(0xFFF4F8FB),
-          borderRadius: BorderRadius.circular(12),
+          color: danger ? AppColors.errorSurface : AppColors.primarySurface,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         child: Icon(
           icon,
-          color: danger ? const Color(0xFFB42318) : const Color(0xFF22577A),
-          size: 20,
+          color: danger ? AppColors.error : AppColors.primary,
+          size: 19,
         ),
       ),
       title: Text(
         label,
         style: TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 13,
+          fontSize: AppTextStyles.bodyLg,
           fontWeight: FontWeight.w800,
-          color: danger ? const Color(0xFFB42318) : const Color(0xFF0F172A),
+          color: danger
+              ? AppColors.error
+              : (isDark
+                  ? AppTextStyles.textPrimaryDark
+                  : AppTextStyles.textPrimary),
         ),
       ),
       subtitle: caption == null
           ? null
           : Text(
               caption,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 10.8,
+                fontSize: AppTextStyles.micro,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF667085),
+                color: isDark
+                    ? AppTextStyles.textSecondaryDark
+                    : AppTextStyles.textSecondary,
               ),
             ),
       onTap: onTap,
     );
   }
 
-  Widget _buildHeroCard(bool isDark) {
-    final headerActions = <Widget>[
-      if (_canShowProviderClientActions)
-        _buildHeroActionButton(
-          icon: Icons.assignment_outlined,
-          label: 'طلبات العميل',
-          onTap: _showClientRequestsSheet,
-        ),
-      if (_canShowProviderClientActions)
-        _buildHeroActionButton(
-          icon: Icons.send_outlined,
-          label: 'رابط الطلب',
-          onTap: _sendServiceRequestLink,
-        ),
-      if (!_isAutomatedPlatformThread)
-        _buildHeroActionButton(
-          icon: Icons.more_horiz_rounded,
-          label: 'خيارات',
-          onTap: _showChatOptions,
-        ),
-    ];
-
+  // ── Compact peer header (replaces old gradient hero card) ────────────────
+  Widget _buildPeerHeader(bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF183B64), Color(0xFF22577A), Color(0xFF0F766E)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
+        color: isDark ? AppColors.cardDark : AppColors.cardLight,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: 0.16),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-          ),
-        ],
+        boxShadow: AppShadows.card,
       ),
-      child: Stack(
+      child: Row(
         children: [
-          Positioned(
-            top: -42,
-            left: -18,
-            child: Container(
-              width: 136,
-              height: 136,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.10),
+          // Avatar
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.primaryDark, AppColors.primaryLight],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Center(
+              child: Text(
+                _memberName.isNotEmpty ? _memberName[0] : 'م',
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
-          Positioned(
-            bottom: -54,
-            right: -22,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    height: 54,
-                    width: 54,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                    ),
-                    child: Center(
+          const SizedBox(width: 10),
+          // Name + subtitle
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Flexible(
                       child: Text(
-                        _memberName.isNotEmpty ? _memberName[0] : 'م',
-                        style: const TextStyle(
+                        _memberName,
+                        style: TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 24,
+                          fontSize: AppTextStyles.h2,
                           fontWeight: FontWeight.w900,
-                          color: Colors.white,
+                          color: isDark
+                              ? AppTextStyles.textPrimaryDark
+                              : AppTextStyles.textPrimary,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _isChatConnected
+                            ? AppColors.success
+                            : AppColors.error,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _peerSubtitle,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: AppTextStyles.caption,
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? AppTextStyles.textSecondaryDark
+                        : AppTextStyles.textSecondary,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _memberName,
-                          style: const TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 21,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _peerSubtitle,
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 11.5,
-                            height: 1.8,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white.withValues(alpha: 0.84),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildHeroChip(
-                    icon: Icons.wifi_tethering_rounded,
-                    label: _connectionStatusText,
-                  ),
-                  if (!_isAutomatedPlatformThread)
-                    _buildHeroChip(
-                      icon: Icons.phone_outlined,
-                      label: _memberPhone,
-                    ),
-                  if (!_isAutomatedPlatformThread)
-                    _buildHeroChip(
-                      icon: Icons.location_on_outlined,
-                      label: _memberCity,
-                    ),
-                  if (_isAutomatedPlatformThread)
-                    _buildHeroChip(
-                      icon: Icons.shield_outlined,
-                      label: 'رسائل آلية',
-                    ),
-                ],
-              ),
-              if (headerActions.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: headerActions,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeroChip({required IconData icon, required String label}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 10.8,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
             ),
           ),
+          // Action buttons
+          if (_canShowProviderClientActions) ...[
+            const SizedBox(width: 6),
+            _buildHeaderIconBtn(
+                Icons.assignment_outlined, _showClientRequestsSheet, isDark),
+            const SizedBox(width: 5),
+            _buildHeaderIconBtn(
+                Icons.send_outlined, _sendServiceRequestLink, isDark),
+          ],
+          if (!_isAutomatedPlatformThread) ...[
+            const SizedBox(width: 5),
+            _buildHeaderIconBtn(
+                Icons.more_horiz_rounded, _showChatOptions, isDark),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildHeroActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.white,
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
-        backgroundColor: Colors.white.withValues(alpha: 0.08),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      icon: Icon(icon, size: 16),
-      label: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Cairo',
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
+  Widget _buildHeaderIconBtn(
+      IconData icon, VoidCallback onTap, bool isDark) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.borderDark : AppColors.primarySurface,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        child: Icon(
+          icon,
+          size: 17,
+          color: isDark ? AppColors.grey200 : AppColors.primary,
         ),
       ),
     );
   }
 
-  Widget _buildStatusBanner() {
-    Color background = const Color(0xFFEAF7F9);
-    Color border = const Color(0xFFCCE0F8);
-    Color foreground = const Color(0xFF22577A);
-    IconData icon = Icons.info_outline_rounded;
-    String text = _composerSupportText;
-
-    if (_isReplyRestricted) {
-      background = const Color(0xFFFFF4E5);
-      border = const Color(0xFFF4C27A);
-      foreground = const Color(0xFF9A5A00);
-      icon = Icons.lock_outline_rounded;
-      text = _replyRestrictionMessage;
-    } else if (!_isChatConnected) {
-      background = const Color(0xFFFFF1F1);
-      border = const Color(0xFFF3C0C4);
-      foreground = const Color(0xFFB42318);
-      icon = Icons.cloud_off_rounded;
-      text = _isReconnecting
-          ? 'جاري إعادة الاتصال بالمحادثة...'
-          : 'الاتصال بالمحادثة غير مستقر حالياً.';
-    } else if (_isRecording) {
-      background = const Color(0xFFFFF1F1);
-      border = const Color(0xFFF3C0C4);
-      foreground = const Color(0xFFB42318);
-      icon = Icons.mic_rounded;
+  Widget _buildStatusBanner(bool isDark) {
+    // Only show when there's something meaningful to communicate
+    if (!_isReplyRestricted && _isChatConnected && !_isRecording) {
+      return const SizedBox.shrink();
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: foreground),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 11.5,
-                height: 1.7,
-                fontWeight: FontWeight.w800,
-                color: foreground,
+    Color background;
+    Color borderColor;
+    Color fg;
+    IconData icon;
+    String text;
+
+    if (_isReplyRestricted) {
+      background = AppColors.warningSurface;
+      borderColor = AppColors.warning;
+      fg = AppColors.warning;
+      icon = Icons.lock_outline_rounded;
+      text = _replyRestrictionMessage;
+    } else if (_isRecording) {
+      background = AppColors.errorSurface;
+      borderColor = AppColors.error;
+      fg = AppColors.error;
+      icon = Icons.mic_rounded;
+      text = 'جارٍ تسجيل رسالة صوتية لمدة ${_formatDuration(_recordSeconds)}';
+    } else {
+      background = AppColors.errorSurface;
+      borderColor = AppColors.error;
+      fg = AppColors.error;
+      icon = Icons.cloud_off_rounded;
+      text = _isReconnecting
+          ? 'جارٍ إعادة الاتصال بالمحادثة...'
+          : 'الاتصال بالمحادثة غير مستقر حالياً.';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.cardDark : background,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+              color: borderColor.withValues(alpha: isDark ? 0.35 : 0.55)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 15, color: fg),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: AppTextStyles.caption,
+                  height: 1.5,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? fg.withValues(alpha: 0.9) : fg,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2605,7 +2574,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   Widget _buildMessagesSurface(bool isDark) {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF22577A)),
+        child: CircularProgressIndicator(color: AppColors.primary),
       );
     }
 
@@ -2616,27 +2585,31 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade400),
+              Icon(Icons.error_outline_rounded,
+                  size: 48, color: AppColors.error),
               const SizedBox(height: 12),
               Text(
                 _errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 12.5,
+                  fontSize: AppTextStyles.bodyMd,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF667085),
+                  color: isDark
+                      ? AppTextStyles.textSecondaryDark
+                      : AppTextStyles.textSecondary,
                 ),
               ),
               const SizedBox(height: 14),
               ElevatedButton.icon(
                 onPressed: _loadMessages,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF22577A),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
                 ),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
@@ -2662,15 +2635,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.chat_bubble_outline_rounded,
-                  size: 62, color: Colors.grey.shade400),
+                  size: 58, color: isDark ? AppColors.borderDark : AppColors.grey300),
               const SizedBox(height: 14),
               Text(
                 'لا توجد رسائل بعد',
                 style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 16,
+                  fontSize: AppTextStyles.h2,
                   fontWeight: FontWeight.w900,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  color: isDark
+                      ? AppTextStyles.textPrimaryDark
+                      : AppTextStyles.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
@@ -2679,10 +2654,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 11.5,
+                  fontSize: AppTextStyles.bodySm,
                   height: 1.8,
                   fontWeight: FontWeight.w700,
-                  color: isDark ? const Color(0xFF92A6BA) : const Color(0xFF52637A),
+                  color: isDark
+                      ? AppTextStyles.textSecondaryDark
+                      : AppTextStyles.textSecondary,
                 ),
               ),
             ],
@@ -2730,22 +2707,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   Widget _buildComposer(bool isDark) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(24),
+        color: isDark ? AppColors.cardDark : AppColors.cardLight,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0x220E5E85),
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2754,42 +2723,51 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             _composerSupportText,
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 10.8,
+              fontSize: AppTextStyles.micro,
               fontWeight: FontWeight.w800,
               color: _isReplyRestricted
-                  ? const Color(0xFFB42318)
-                  : (isDark ? const Color(0xFFB8C7D9) : const Color(0xFF52637A)),
+                  ? AppColors.error
+                  : (isDark
+                      ? AppTextStyles.textSecondaryDark
+                      : AppTextStyles.textSecondary),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               _buildComposerRoundButton(
                 icon: Icons.attach_file_rounded,
-                background: const Color(0xFFEAF7F9),
-                foreground: const Color(0xFF22577A),
-                onPressed: _isReplyRestricted ? null : _showAttachmentOptions,
+                background: AppColors.primarySurface,
+                foreground: AppColors.primary,
+                onPressed:
+                    _isReplyRestricted ? null : _showAttachmentOptions,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF102231) : const Color(0xFFF7FAFC),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: const Color(0xFFDCE6ED)),
+                    color: isDark ? AppColors.bgDark : AppColors.grey50,
+                    borderRadius: BorderRadius.circular(AppRadius.xl),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.borderDark
+                          : AppColors.borderLight,
+                    ),
                   ),
                   child: _isRecording
                       ? Row(
                           children: [
-                            const Icon(Icons.mic_rounded, color: Color(0xFFB42318)),
+                            const Icon(Icons.mic_rounded,
+                                color: AppColors.error),
                             const SizedBox(width: 8),
                             Expanded(
                               child: LinearProgressIndicator(
                                 value: (_recordSeconds % 10) / 10,
-                                color: const Color(0xFFB42318),
-                                backgroundColor: const Color(0xFFFEE4E2),
+                                color: AppColors.error,
+                                backgroundColor: AppColors.errorSurface,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -2798,28 +2776,34 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                               style: const TextStyle(
                                 fontFamily: 'Cairo',
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFFB42318),
+                                color: AppColors.error,
                               ),
                             ),
                           ],
                         )
-                      : _buildPreview(),
+                      : _buildPreview(isDark),
                 ),
               ),
               const SizedBox(width: 8),
               _buildComposerRoundButton(
-                icon: _isRecording ? Icons.stop_rounded : Icons.mic_none_rounded,
-                background: _isRecording ? const Color(0xFFB42318) : const Color(0xFF5B3FD0),
+                icon: _isRecording
+                    ? Icons.stop_rounded
+                    : Icons.mic_none_rounded,
+                background:
+                    _isRecording ? AppColors.error : AppColors.primaryDark,
                 foreground: Colors.white,
-                onPressed: _isRecording ? _stopRecording : (_isReplyRestricted ? null : _startRecording),
+                onPressed: _isRecording
+                    ? _stopRecording
+                    : (_isReplyRestricted ? null : _startRecording),
               ),
               const SizedBox(width: 8),
               _buildComposerRoundButton(
                 icon: Icons.send_rounded,
-                background: const Color(0xFF22577A),
+                background: AppColors.primary,
                 foreground: Colors.white,
                 isLoading: _isSending,
-                onPressed: (_isReplyRestricted || _isSending) ? null : _sendMessage,
+                onPressed:
+                    (_isReplyRestricted || _isSending) ? null : _sendMessage,
               ),
             ],
           ),
@@ -2901,11 +2885,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
+      backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
       appBar: PlatformTopBar(
         pageLabel: 'الرسائل',
         showBackButton: Navigator.of(context).canPop(),
@@ -2914,76 +2897,45 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         onNotificationsTap: () async {
           await Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const NotificationsScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
           );
           await UnreadBadgeService.refresh(force: true);
         },
         trailingActions: const [],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? const LinearGradient(
-                  colors: [Color(0xFF0E1726), Color(0xFF122235), Color(0xFF17293D)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                )
-              : const LinearGradient(
-                  colors: [Color(0xFFEEF5FB), Color(0xFFF4F7FB), Color(0xFFF7F8FC)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                child: _buildEntrance(0, _buildHeroCard(isDark)),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: _buildEntrance(1, _buildStatusBanner()),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                  child: _buildEntrance(
-                    2,
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF132637)
-                            : Colors.white.withValues(alpha: 0.94),
-                        borderRadius: BorderRadius.circular(26),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.06)
-                              : const Color(0x220E5E85),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF0C223D)
-                                .withValues(alpha: isDark ? 0.10 : 0.06),
-                            blurRadius: 18,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: _buildEntrance(0, _buildPeerHeader(isDark)),
+            ),
+            _buildStatusBanner(isDark),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: _buildEntrance(
+                  1,
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.cardDark : AppColors.cardLight,
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                      border: Border.all(
+                        color: isDark ? AppColors.borderDark : AppColors.borderLight,
                       ),
-                      child: _buildMessagesSurface(isDark),
+                      boxShadow: AppShadows.card,
                     ),
+                    child: _buildMessagesSurface(isDark),
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                child: _buildEntrance(3, _buildComposer(isDark)),
-              ),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: _buildEntrance(2, _buildComposer(isDark)),
+            ),
+          ],
         ),
       ),
     );

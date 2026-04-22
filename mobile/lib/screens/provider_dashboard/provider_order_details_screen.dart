@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../models/service_request_model.dart';
 import '../../services/api_client.dart';
 import '../../services/marketplace_service.dart';
+import '../../constants/app_theme.dart';
 import '../../widgets/platform_top_bar.dart';
 import '../notifications_screen.dart';
 
@@ -30,9 +31,9 @@ class ProviderOrderDetailsScreen extends StatefulWidget {
 class _ProviderOrderDetailsScreenState
     extends State<ProviderOrderDetailsScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _mainColor = Color(0xFF0F766E);
+  static const Color _mainColor = AppColors.teal;
   static const Color _accentColor = Color(0xFF115E59);
-  static const Color _inkColor = Color(0xFF0F172A);
+  static const Color _inkColor = AppTextStyles.textPrimary;
   late final AnimationController _entranceController;
 
   ServiceRequest? _order;
@@ -385,13 +386,13 @@ class _ProviderOrderDetailsScreenState
   Color _statusColor(String sg) {
     switch (sg) {
       case 'completed':
-        return Colors.green;
+        return AppColors.success;
       case 'cancelled':
-        return Colors.red;
+        return AppColors.error;
       case 'in_progress':
-        return Colors.orange;
+        return AppColors.warning;
       case 'new':
-        return Colors.amber.shade800;
+        return AppColors.warning;
       default:
         return Colors.grey;
     }
@@ -1325,7 +1326,7 @@ class _ProviderOrderDetailsScreenState
                         fontWeight: FontWeight.bold,
                         color: Colors.white)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.success,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),

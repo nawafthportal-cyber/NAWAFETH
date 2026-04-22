@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 
 class ProviderMediaGrid extends StatefulWidget {
   const ProviderMediaGrid({super.key});

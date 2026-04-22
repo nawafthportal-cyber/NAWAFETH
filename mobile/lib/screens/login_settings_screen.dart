@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../models/user_profile.dart';
-import '../services/api_client.dart';
+import '../services/account_settings_service.dart';
 import '../services/auth_api_service.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
@@ -170,10 +170,7 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
     }
 
     setState(() => _saving = true);
-    final response = await ApiClient.post(
-      '/api/accounts/change-username/',
-      body: {'username': normalized},
-    );
+    final response = await AccountSettingsService.changeUsername(normalized);
     if (!mounted) return;
     setState(() => _saving = false);
 
@@ -198,13 +195,10 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
     }
 
     setState(() => _saving = true);
-    final response = await ApiClient.post(
-      '/api/accounts/change-password/',
-      body: {
-        'current_password': currentPassword,
-        'new_password': newPassword,
-        'new_password_confirm': confirmPassword,
-      },
+    final response = await AccountSettingsService.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+      confirmPassword: confirmPassword,
     );
     if (!mounted) return;
     setState(() => _saving = false);

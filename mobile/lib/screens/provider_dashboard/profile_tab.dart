@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'package:nawafeth/constants/app_theme.dart';
 import 'package:nawafeth/constants/saudi_cities.dart';
 import 'package:nawafeth/models/excellence_badge_model.dart';
 import 'package:nawafeth/models/provider_profile_model.dart';
@@ -18,7 +19,7 @@ class ProfileTab extends StatefulWidget {
 }
 
 class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
-  final Color mainColor = Colors.deepPurple;
+  final Color mainColor = AppColors.primary;
   late TabController _tabController;
 
   // ────── حالة التحميل ──────
@@ -286,7 +287,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
             ),
           ],
         ),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? AppColors.error : AppColors.success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 3),
@@ -495,7 +496,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
                       : IconButton(
                           icon: Icon(
                             editing ? Icons.check_circle : Icons.edit,
-                            color: editing ? Colors.green : mainColor,
+                            color: editing ? AppColors.success : mainColor,
                           ),
                           onPressed: () {
                             if (editing) {
@@ -790,7 +791,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
         backgroundColor: const Color(0xFFF4F4F4),
         body: _isLoading
             ? const Center(
-                child: CircularProgressIndicator(color: Colors.deepPurple),
+                child: CircularProgressIndicator(color: AppColors.primary),
               )
             : (_errorMessage != null && _providerProfile == null)
                 ? _buildErrorState()

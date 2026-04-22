@@ -1,10 +1,13 @@
 /* ===================================================================
-   Nawafeth Web — home-mobile-layout.css  v3.0
+   Nawafeth Web — home-mobile-layout.css  v4.0
    1:1 match with Flutter home_screen.dart layout.
    Mobile-first: horizontal scroll carousels.
    Desktop: graceful grid expansion.
+   Supports: dark mode (data-theme=dark + prefers-color-scheme),
+             dynamic viewport (dvh/svh), safe-area insets, 2026 devices.
    =================================================================== */
 
+/* ── Modern viewport & safe area ── */
 body.home-mobile-layout {
   --home-hero-min-height: clamp(320px, 72vw, 420px);
   --hero-banner-safe-top: clamp(56px, 14vw, 104px);
@@ -12,8 +15,160 @@ body.home-mobile-layout {
   --hero-banner-safe-inline: clamp(12px, 4vw, 36px);
   --home-desktop-header-height: 76px;
   --home-section-gap: clamp(16px, 3vw, 24px);
+  /* 2026: use dvh so browser chrome doesn't affect scroll area */
+  min-height: 100dvh;
   overflow-x: hidden;
+  /* enable momentum scroll on iOS ≥ 15 */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
+
+/* ── Dark mode — section shell ── */
+[data-theme="dark"] body.home-mobile-layout .home-section-shell,
+body.home-mobile-layout [data-theme="dark"] .home-section-shell {
+  --section-surface-a: rgba(30, 24, 45, 0.98);
+  --section-surface-b: rgba(22, 16, 34, 0.98);
+  --section-border: rgba(255,255,255,0.07);
+  --section-shadow: 0 22px 44px rgba(0,0,0,0.32);
+  --section-glow: rgba(157,116,255,0.14);
+}
+[data-theme="dark"] body.home-mobile-layout .home-section-shell::after,
+body.home-mobile-layout [data-theme="dark"] .home-section-shell::after {
+  border-color: rgba(255,255,255,0.06);
+  background: linear-gradient(135deg,rgba(255,255,255,0.04),transparent 38%);
+}
+
+[data-theme="dark"] body.home-mobile-layout .home-section-kicker,
+body.home-mobile-layout [data-theme="dark"] .home-section-kicker {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.1);
+  color: #c4a3f0;
+}
+
+[data-theme="dark"] body.home-mobile-layout .home-section-title-static,
+body.home-mobile-layout [data-theme="dark"] .home-section-title-static,
+[data-theme="dark"] body.home-mobile-layout .home-section-shell .section-title,
+body.home-mobile-layout [data-theme="dark"] .home-section-shell .section-title {
+  color: #f0eaf8;
+}
+
+[data-theme="dark"] body.home-mobile-layout .home-section-note,
+body.home-mobile-layout [data-theme="dark"] .home-section-note {
+  color: rgba(240,234,248,0.6);
+}
+
+/* ── Dark mode — individual sections ── */
+[data-theme="dark"] body.home-mobile-layout .home-section--categories .home-section-shell,
+body.home-mobile-layout [data-theme="dark"] .home-section--categories .home-section-shell {
+  --section-surface-a: rgba(18, 30, 28, 0.98);
+  --section-surface-b: rgba(14, 24, 22, 0.98);
+  --section-border: rgba(80,213,181,0.1);
+}
+[data-theme="dark"] body.home-mobile-layout .home-section--categories .home-section-kicker,
+body.home-mobile-layout [data-theme="dark"] .home-section--categories .home-section-kicker {
+  color: #4dd0c4;
+}
+
+[data-theme="dark"] body.home-mobile-layout .home-section--providers .home-section-shell,
+body.home-mobile-layout [data-theme="dark"] .home-section--providers .home-section-shell {
+  --section-surface-a: rgba(26, 18, 40, 0.98);
+  --section-surface-b: rgba(20, 14, 32, 0.98);
+  --section-border: rgba(151,111,255,0.1);
+}
+[data-theme="dark"] body.home-mobile-layout .home-section--providers .home-section-kicker,
+body.home-mobile-layout [data-theme="dark"] .home-section--providers .home-section-kicker {
+  color: #c084fc;
+}
+
+[data-theme="dark"] body.home-mobile-layout .home-section--portfolio .home-section-shell,
+body.home-mobile-layout [data-theme="dark"] .home-section--portfolio .home-section-shell {
+  --section-surface-a: rgba(14, 20, 38, 0.98);
+  --section-surface-b: rgba(10, 16, 30, 0.98);
+  --section-border: rgba(67,120,255,0.12);
+}
+[data-theme="dark"] body.home-mobile-layout .home-section--portfolio .home-section-kicker,
+body.home-mobile-layout [data-theme="dark"] .home-section--portfolio .home-section-kicker {
+  color: #818cf8;
+}
+
+[data-theme="dark"] body.home-mobile-layout .home-section--promo .home-section-shell,
+body.home-mobile-layout [data-theme="dark"] .home-section--promo .home-section-shell {
+  --section-surface-a: rgba(34, 24, 8, 0.98);
+  --section-surface-b: rgba(26, 18, 4, 0.98);
+  --section-border: rgba(214,146,28,0.14);
+}
+[data-theme="dark"] body.home-mobile-layout .home-section--promo .home-section-kicker,
+body.home-mobile-layout [data-theme="dark"] .home-section--promo .home-section-kicker {
+  color: #fbbf24;
+}
+
+/* ── Dark mode — view-all button ── */
+[data-theme="dark"] body.home-mobile-layout .view-all-btn,
+body.home-mobile-layout [data-theme="dark"] .view-all-btn {
+  color: #c084fc;
+  background: rgba(192,132,252,0.08);
+  border: 1px solid rgba(192,132,252,0.18);
+}
+[data-theme="dark"] body.home-mobile-layout .view-all-btn:hover,
+body.home-mobile-layout [data-theme="dark"] .view-all-btn:hover {
+  background: rgba(192,132,252,0.14);
+}
+
+/* ── Dark mode — categories / providers cards ── */
+[data-theme="dark"] body.home-mobile-layout .cat-item,
+body.home-mobile-layout [data-theme="dark"] .cat-item {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.06);
+  color: rgba(240,234,248,0.85);
+}
+[data-theme="dark"] body.home-mobile-layout .cat-name,
+body.home-mobile-layout [data-theme="dark"] .cat-name {
+  color: rgba(240,234,248,0.82);
+}
+
+/* ── prefers-color-scheme: dark fallback (no JS / no data-theme) ── */
+@media (prefers-color-scheme: dark) {
+  :not([data-theme="light"]) body.home-mobile-layout .home-section-shell {
+    --section-surface-a: rgba(30, 24, 45, 0.98);
+    --section-surface-b: rgba(22, 16, 34, 0.98);
+    --section-border: rgba(255,255,255,0.07);
+    --section-shadow: 0 22px 44px rgba(0,0,0,0.32);
+  }
+  :not([data-theme="light"]) body.home-mobile-layout .home-section-title-static,
+  :not([data-theme="light"]) body.home-mobile-layout .home-section-shell .section-title { color: #f0eaf8; }
+  :not([data-theme="light"]) body.home-mobile-layout .home-section-kicker {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.1);
+    color: #c4a3f0;
+  }
+  :not([data-theme="light"]) body.home-mobile-layout .home-section-note { color: rgba(240,234,248,0.6); }
+}
+
+/* ── View-all button: updated base style ── */
+body.home-mobile-layout .view-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 800;
+  font-family: 'Cairo', sans-serif;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(103,58,183,0.16);
+  background: rgba(103,58,183,0.07);
+  color: #6b21a8;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms ease, transform 100ms ease;
+  -webkit-tap-highlight-color: transparent;
+  /* 2026: ensure 44dp touch target */
+  min-height: 44px;
+}
+body.home-mobile-layout .view-all-btn:hover { background: rgba(103,58,183,0.13); }
+body.home-mobile-layout .view-all-btn:active { transform: scale(0.95); }
+
+
 
 /* ── Hero Media Background ── */
 body.home-mobile-layout .hero-video {
@@ -2161,6 +2316,30 @@ body.home-mobile-layout .section-reels {
     scroll-snap-type: none;
   }
 
+  /* Featured specialists: always a horizontal scroll strip, never a grid */
+  .providers-scroll.featured-specialists-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    grid-template-columns: none;
+    gap: 14px;
+    padding: 0 4px 10px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    cursor: grab;
+  }
+  .providers-scroll.featured-specialists-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .providers-scroll.featured-specialists-scroll .featured-specialist-card {
+    flex: 0 0 132px;
+    width: 132px;
+    min-width: 0;
+  }
+
   .featured-specialists-scroll {
     padding: 0;
   }
@@ -2260,6 +2439,14 @@ body.home-mobile-layout .section-reels {
 
   .providers-scroll {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  /* Keep featured specialists as horizontal scroll strip at all wide breakpoints */
+  .providers-scroll.featured-specialists-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    grid-template-columns: none;
   }
 
   .showcase-scroll,

@@ -27,20 +27,20 @@ const TwofaPage = (() => {
   };
 
   function init() {
-    if (Auth.isLoggedIn()) {
-      const next = _resolveNext();
-      window.location.href = Auth.needsCompletion && Auth.needsCompletion()
-        ? '/signup/?next=' + encodeURIComponent(next)
-        : next;
-      return;
-    }
-
     const qs = new URLSearchParams(window.location.search);
     _phone = _normalizePhone05(qs.get('phone') || _sessionGet('nw_auth_phone') || '');
     _next = (qs.get('next') || '/').trim() || '/';
     _cleanSensitiveQuery(qs);
 
-    if (!_phone || !_isValidPhone05(_phone)) {
+    const hasPendingPhone = !!(_phone && _isValidPhone05(_phone));
+    if (!hasPendingPhone) {
+      if (Auth.isLoggedIn()) {
+        const next = _resolveNext();
+        window.location.href = Auth.needsCompletion && Auth.needsCompletion()
+          ? '/signup/?next=' + encodeURIComponent(next)
+          : next;
+        return;
+      }
       window.location.href = '/login/?next=' + encodeURIComponent(_next);
       return;
     }
@@ -66,11 +66,7 @@ const TwofaPage = (() => {
 
   function _sessionGet(key) {
     try {
-      const sessionValue = sessionStorage.getItem(key);
-      if (sessionValue) return sessionValue;
-    } catch (_) {}
-    try {
-      return localStorage.getItem(key);
+      return sessionStorage.getItem(key);
     } catch (_) {}
     return null;
   }
@@ -85,6 +81,12 @@ const TwofaPage = (() => {
     try {
       sessionStorage.removeItem(key);
     } catch (_) {}
+  }
+
+  function _clearOtpFlowState() {
+    _sessionRemove('nw_auth_phone');
+    _sessionRemove('nw_auth_dev_code');
+    _sessionRemove('nw_auth_otp_cooldown');
   }
 
   function _cleanSensitiveQuery(qs) {
@@ -206,7 +208,7 @@ const TwofaPage = (() => {
       user_id: res.data.user_id,
       role_state: res.data.role_state,
     });
-    _sessionRemove('nw_auth_dev_code');
+    _clearOtpFlowState();
 
     if (!res.data.needs_completion) {
       _queueWelcomeBackToast(res.data);
@@ -439,8 +441,7 @@ const TwofaPage = (() => {
         role_state: res.data.role_state,
       });
 
-      _sessionSet('nw_auth_phone', phone);
-      _sessionRemove('nw_auth_dev_code');
+      _clearOtpFlowState();
 
       if (!res.data.needs_completion) {
         _queueWelcomeBackToast(res.data);

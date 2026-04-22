@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 import '../services/verification_service.dart';
 import '../widgets/platform_top_bar.dart';
 
@@ -410,7 +410,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [Colors.green.shade400, Colors.green.shade700],
+                    colors: [AppColors.success.withValues(alpha: 0.7), AppColors.success],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

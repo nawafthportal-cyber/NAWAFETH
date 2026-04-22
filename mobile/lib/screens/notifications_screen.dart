@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../constants/app_theme.dart';
 import '../models/notification_model.dart';
 import '../services/api_client.dart';
 import '../services/notification_service.dart';
@@ -573,206 +574,206 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   // ─── كارت الإشعار ───
   Widget _notificationCard(NotificationModel notif, int index) {
-    final bool isUrgent = notif.isUrgent;
+    final bool isUrgent    = notif.isUrgent;
     final bool isImportant = notif.isFollowUp;
-    final bool isPinned = notif.isPinned;
-    final bool isRead = notif.isRead;
-    final Color accent = _colorForKind(notif.kind);
-    final Color background = isUrgent
-        ? const Color(0xFFFFF1F1)
+    final bool isPinned    = notif.isPinned;
+    final bool isRead      = notif.isRead;
+    final Color accent     = _colorForKind(notif.kind);
+
+    final cardColor = isUrgent
+        ? AppColors.errorSurface.withValues(alpha: 0.5)
         : isImportant
-            ? const Color(0xFFFFF9E8)
-            : isRead
-                ? const Color(0xFFF9FBFD)
-                : Colors.white;
-    final Color border = isUrgent
-        ? const Color(0xFFF3C0C4)
+            ? AppColors.warningSurface.withValues(alpha: 0.5)
+            : !isRead
+                ? AppColors.cardLight
+                : AppColors.grey50;
+
+    final borderColor = isUrgent
+        ? AppColors.error.withValues(alpha: 0.22)
         : isImportant
-            ? const Color(0xFFF2D28D)
-            : isRead
-                ? const Color(0xFFE4EBF1)
-                : accent.withValues(alpha: 0.20);
+            ? AppColors.warning.withValues(alpha: 0.22)
+            : !isRead
+                ? accent.withValues(alpha: 0.18)
+                : AppColors.grey200;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: border, width: isImportant ? 1.4 : 1),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        color: cardColor,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: borderColor),
+        boxShadow: isRead ? [] : AppShadows.card,
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () async {
-          // تمييز كمقروء عند النقر
-          if (!notif.isRead) {
-            await NotificationService.markRead(notif.id, mode: _activeMode);
-            if (!mounted) return;
-            setState(() {
-              _notifications[index] = notif.copyWith(isRead: true);
-            });
-            unawaited(UnreadBadgeService.refresh(force: true));
-          }
-          await _openNotification(notif);
-        },
+      clipBehavior: Clip.hardEdge,
+      child: IntrinsicHeight(
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ── accent left bar ──────────────────────────────────────────
             Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: accent.withValues(alpha: 0.11),
-              ),
-              child: Icon(
-                _iconForKind(notif.kind),
-                color: accent,
-                size: 24,
-              ),
+              width: 3,
+              color: isRead ? AppColors.grey200 : accent,
             ),
-            const SizedBox(width: 12),
+            // ── main content ─────────────────────────────────────────────
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          notif.title,
-                          style: TextStyle(
-                            fontFamily: "Cairo",
-                            fontWeight: isRead ? FontWeight.w700 : FontWeight.w900,
-                            fontSize: 14,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                      ),
-                      if (isPinned)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: Icon(Icons.push_pin,
-                              color: accent, size: 16),
-                        ),
-                      if (!isRead)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: accent,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      if (isUrgent) _buildFlagChip('عاجل', const Color(0xFFB42318), const Color(0xFFFEE4E2)),
-                      if (isImportant) _buildFlagChip('متابعة', const Color(0xFF9A6700), const Color(0xFFFFF4CC)),
-                      if (isPinned) _buildFlagChip('مثبت', accent, accent.withValues(alpha: 0.12)),
-                      if (!isRead) _buildFlagChip('جديد', accent, accent.withValues(alpha: 0.12)),
-                    ],
-                  ),
-                  if (isUrgent || isImportant || isPinned || !isRead)
-                    const SizedBox(height: 6),
-                  Text(
-                    notif.body,
-                    style: TextStyle(
-                      fontFamily: "Cairo",
-                      fontSize: 11.5,
-                      height: 1.8,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF52637A),
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatTime(notif.createdAt),
-                    style: TextStyle(
-                      fontFamily: "Cairo",
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF7A8797),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // قائمة الخيارات
-            PopupMenuButton<String>(
-              icon: Icon(
-                Icons.more_vert,
-                color: const Color(0xFF708093),
-              ),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              onSelected: (value) async {
-                if (value == 'follow') {
-                  final newVal = await NotificationService.toggleFollowUp(
-                      notif.id,
-                      mode: _activeMode);
-                  setState(() {
-                    _notifications[index] = notif.copyWith(isFollowUp: newVal);
-                  });
-                } else if (value == 'pin' || value == 'unpin') {
-                  final newVal = await NotificationService.togglePin(notif.id,
-                      mode: _activeMode);
-                  setState(() {
-                    _notifications[index] = notif.copyWith(isPinned: newVal);
-                  });
-                } else if (value == 'read') {
-                  await NotificationService.markRead(notif.id,
-                      mode: _activeMode);
-                  setState(() {
-                    _notifications[index] = notif.copyWith(isRead: true);
-                  });
-                  unawaited(UnreadBadgeService.refresh(force: true));
-                } else if (value == 'delete') {
-                  final success = await NotificationService.deleteNotification(
-                      notif.id,
-                      mode: _activeMode);
-                  if (success) {
+              child: InkWell(
+                onTap: () async {
+                  if (!notif.isRead) {
+                    await NotificationService.markRead(notif.id, mode: _activeMode);
+                    if (!mounted) return;
                     setState(() {
-                      _notifications.removeAt(index);
-                      if (_totalCount > 0) {
-                        _totalCount -= 1;
-                      }
+                      _notifications[index] = notif.copyWith(isRead: true);
                     });
                     unawaited(UnreadBadgeService.refresh(force: true));
                   }
-                }
-              },
-              itemBuilder: (context) => [
-                if (!notif.isRead)
-                  const PopupMenuItem(
-                      value: 'read', child: Text("✓ تمييز كمقروء")),
-                PopupMenuItem(
-                  value: 'follow',
-                  child: Text(notif.isFollowUp
-                      ? "⭐ إزالة التمييز"
-                      : "⭐ تمييز مهم للمتابعة"),
+                  await _openNotification(notif);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 11, 6, 11),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // icon box
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Icon(_iconForKind(notif.kind), size: 16, color: accent),
+                      ),
+                      const SizedBox(width: 10),
+                      // text area
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    notif.title,
+                                    style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontWeight: isRead ? FontWeight.w700 : FontWeight.w900,
+                                      fontSize: AppTextStyles.bodyLg,
+                                      color: AppTextStyles.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                if (isPinned)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2, right: 4),
+                                    child: Icon(Icons.push_pin, color: accent, size: 13),
+                                  ),
+                                if (!isRead)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 5, right: 4),
+                                    child: Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: BoxDecoration(
+                                        color: accent,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (isUrgent || isImportant) ...[
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 4,
+                                runSpacing: 3,
+                                children: [
+                                  if (isUrgent)
+                                    _buildFlagChip('عاجل', const Color(0xFFB42318), const Color(0xFFFEE4E2)),
+                                  if (isImportant)
+                                    _buildFlagChip('متابعة', const Color(0xFF9A6700), const Color(0xFFFFF4CC)),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 4),
+                            Text(
+                              notif.body,
+                              style: const TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: AppTextStyles.bodySm,
+                                height: 1.6,
+                                fontWeight: FontWeight.w500,
+                                color: AppTextStyles.textSecondary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _formatTime(notif.createdAt),
+                              style: const TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: AppTextStyles.caption,
+                                fontWeight: FontWeight.w600,
+                                color: AppTextStyles.textTertiary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // options menu
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, color: AppColors.grey400, size: 18),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        onSelected: (value) async {
+                          if (value == 'follow') {
+                            final newVal = await NotificationService.toggleFollowUp(
+                                notif.id, mode: _activeMode);
+                            setState(() {
+                              _notifications[index] = notif.copyWith(isFollowUp: newVal);
+                            });
+                          } else if (value == 'pin' || value == 'unpin') {
+                            final newVal = await NotificationService.togglePin(
+                                notif.id, mode: _activeMode);
+                            setState(() {
+                              _notifications[index] = notif.copyWith(isPinned: newVal);
+                            });
+                          } else if (value == 'read') {
+                            await NotificationService.markRead(notif.id, mode: _activeMode);
+                            setState(() {
+                              _notifications[index] = notif.copyWith(isRead: true);
+                            });
+                            unawaited(UnreadBadgeService.refresh(force: true));
+                          } else if (value == 'delete') {
+                            final success = await NotificationService.deleteNotification(
+                                notif.id, mode: _activeMode);
+                            if (success) {
+                              setState(() {
+                                _notifications.removeAt(index);
+                                if (_totalCount > 0) _totalCount -= 1;
+                              });
+                              unawaited(UnreadBadgeService.refresh(force: true));
+                            }
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          if (!notif.isRead)
+                            const PopupMenuItem(value: 'read', child: Text('✓ تمييز كمقروء')),
+                          PopupMenuItem(
+                            value: 'follow',
+                            child: Text(notif.isFollowUp ? '⭐ إزالة التمييز' : '⭐ تمييز للمتابعة'),
+                          ),
+                          notif.isPinned
+                              ? const PopupMenuItem(value: 'unpin', child: Text('❌ إلغاء التثبيت'))
+                              : const PopupMenuItem(value: 'pin', child: Text('📌 تثبيت')),
+                          const PopupMenuItem(value: 'delete', child: Text('🗑 حذف')),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-                notif.isPinned
-                    ? const PopupMenuItem(
-                        value: 'unpin', child: Text("❌ إلغاء التثبيت"))
-                    : const PopupMenuItem(
-                        value: 'pin', child: Text("📌 تثبيت بالأعلى")),
-                const PopupMenuItem(value: 'delete', child: Text("🗑 حذف")),
-              ],
+              ),
             ),
           ],
         ),
@@ -798,7 +799,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
+        backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
         appBar: PlatformTopBar(
           pageLabel: 'الإشعارات',
           showBackButton: canPop,
@@ -851,153 +852,49 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             ),
           ],
         ),
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: isDark
-                ? const LinearGradient(
-                    colors: [Color(0xFF0E1726), Color(0xFF122235), Color(0xFF17293D)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  )
-                : const LinearGradient(
-                    colors: [Color(0xFFEEF5FB), Color(0xFFF4F7FB), Color(0xFFF7F8FC)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                child: _buildEntrance(0, _buildHeroCard(isDark)),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: _buildEntrance(1, _buildControlPanel(isDark)),
-              ),
-              Expanded(
-                child: _isLoading
-                    ? _buildLoadingState(isDark)
-                    : _errorMessage != null
-                        ? _buildErrorState(isDark)
-                        : _notifications.isEmpty
-                            ? _buildEmptyState(isDark)
-                            : RefreshIndicator(
-                                onRefresh: _loadNotifications,
-                                color: const Color(0xFF0E7490),
-                                child: ListView.builder(
-                                  controller: _scrollController,
-                                  padding: const EdgeInsets.fromLTRB(12, 14, 12, 20),
-                                  itemCount:
-                                      _notifications.length + (_isLoadingMore ? 1 : 0),
-                                  itemBuilder: (context, index) {
-                                    if (index == _notifications.length) {
-                                      return const Center(
-                                        child: Padding(
-                                          padding: EdgeInsets.all(16),
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Color(0xFF0E7490),
-                                          ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: _buildEntrance(0, _buildControlPanel(isDark)),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? _buildLoadingState(isDark)
+                  : _errorMessage != null
+                      ? _buildErrorState(isDark)
+                      : _notifications.isEmpty
+                          ? _buildEmptyState(isDark)
+                          : RefreshIndicator(
+                              onRefresh: _loadNotifications,
+                              color: AppColors.primary,
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+                                itemCount:
+                                    _notifications.length + (_isLoadingMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index == _notifications.length) {
+                                    return const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.primary,
                                         ),
-                                      );
-                                    }
-                                    return _notificationCard(_notifications[index], index);
-                                  },
-                                ),
+                                      ),
+                                    );
+                                  }
+                                  return _buildEntrance(
+                                    index + 1,
+                                    _notificationCard(_notifications[index], index),
+                                  );
+                                },
                               ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeroCard(bool isDark) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0F766E), Color(0xFF0E7490), Color(0xFF1D4ED8)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: 0.16),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -42,
-            left: -18,
-            child: Container(
-              width: 134,
-              height: 134,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
+                            ),
             ),
-          ),
-          Positioned(
-            bottom: -54,
-            right: -20,
-            child: Container(
-              width: 156,
-              height: 156,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeaderBadge(_modeLabel),
-              const SizedBox(height: 12),
-              const Text(
-                'الإشعارات',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'تابع آخر التحديثات والعروض والرسائل في مكان واحد، مع وصول أسرع للأهم أولاً وإدارة أوضح للحالات المقروءة.',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11.5,
-                  height: 1.9,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.88),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildStatChip('الإجمالي', '$_totalCount'),
-                  _buildStatChip('غير المقروء', '$_unreadCount'),
-                  _buildStatChip('للمتابعة', '$_followUpCount'),
-                  _buildStatChip('مثبت', '$_pinnedCount'),
-                ],
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1005,70 +902,64 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   Widget _buildControlPanel(bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(24),
+        color: isDark ? AppColors.cardDark : AppColors.cardLight,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0x220E5E85),
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'لوحة التحكم',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'إعدادات سريعة لإدارة كل الإشعارات، تمييز المقروء، وتنظيف السجل القديم.',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 11,
-              height: 1.8,
-              fontWeight: FontWeight.w700,
-              color: isDark ? const Color(0xFF92A6BA) : const Color(0xFF52637A),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          // ── header row: mode badge + stats ─────────────────────────────
+          Row(
             children: [
-              _buildActionButton(
-                label: 'إعدادات الإشعارات',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationSettingsScreen(),
-                    ),
-                  );
-                },
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySurface,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
+                child: Text(
+                  _modeLabel,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
               ),
-              _buildActionButton(
+              const Spacer(),
+              if (_unreadCount > 0) ...[
+                _NotifStatPill(value: '$_unreadCount', label: 'غير مقروء', isDark: isDark),
+                const SizedBox(width: 6),
+              ],
+              if (_totalCount > 0)
+                _NotifStatPill(value: '$_totalCount', label: 'إشعار', isDark: isDark),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // ── quick action chips ──────────────────────────────────────────
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _NotifActionChip(
                 label: 'تمييز الكل كمقروء',
+                icon: Icons.done_all_rounded,
                 onTap: _markAllRead,
+                isDark: isDark,
               ),
-              _buildActionButton(
+              _NotifActionChip(
                 label: 'حذف القديم',
+                icon: Icons.delete_sweep_rounded,
                 onTap: _deleteOld,
                 danger: true,
+                isDark: isDark,
               ),
             ],
           ),
@@ -1233,87 +1124,6 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     );
   }
 
-  Widget _buildActionButton({
-    required String label,
-    required VoidCallback onTap,
-    bool danger = false,
-  }) {
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: danger ? Colors.red.shade700 : const Color(0xFF0E7490),
-        side: BorderSide(
-          color: danger ? const Color(0xFFF3C0C4) : const Color(0xFFCCE0F8),
-        ),
-        backgroundColor: danger ? const Color(0xFFFFF3F4) : const Color(0xFFF4F8FF),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Cairo',
-          fontSize: 11.5,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderBadge(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: 'Cairo',
-          fontSize: 10.5,
-          fontWeight: FontWeight.w900,
-          color: Colors.white.withValues(alpha: 0.94),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatChip(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: Colors.white.withValues(alpha: 0.74),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildFlagChip(String label, Color color, Color background) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -1349,6 +1159,106 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           end: Offset.zero,
         ).animate(animation),
         child: child,
+      ),
+    );
+  }
+}
+
+// ─── helper widgets (notifications) ─────────────────────────────────────────
+
+class _NotifStatPill extends StatelessWidget {
+  const _NotifStatPill({required this.value, required this.label, required this.isDark});
+  final String value;
+  final String label;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.borderDark : AppColors.primarySurface,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: value,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: isDark ? AppColors.grey200 : AppColors.primaryDark,
+              ),
+            ),
+            TextSpan(
+              text: ' $label',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppColors.grey400 : AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotifActionChip extends StatelessWidget {
+  const _NotifActionChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.isDark,
+    this.danger = false,
+  });
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isDark;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final fgColor = danger
+        ? AppColors.error
+        : (isDark ? AppColors.grey200 : AppColors.primary);
+    final bgColor = danger
+        ? AppColors.errorSurface
+        : (isDark ? AppColors.cardDark : AppColors.primarySurface);
+    final borderColor = danger
+        ? AppColors.error.withValues(alpha: 0.22)
+        : (isDark ? AppColors.borderDark : AppColors.borderLight);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: fgColor),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10.5,
+                fontWeight: FontWeight.w900,
+                color: fgColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../services/marketplace_service.dart';
+import '../constants/app_theme.dart';
 import '../constants/saudi_cities.dart';
 import '../widgets/platform_top_bar.dart';
 
@@ -31,10 +32,10 @@ class ServiceRequestFormScreen extends StatefulWidget {
 
 class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   with SingleTickerProviderStateMixin {
-  static const Color _mainColor = Colors.deepPurple;
-  static const Color _accentColor = Color(0xFF0F766E);
-  static const Color _surfaceColor = Color(0xFFF8FBFF);
-  static const Color _inkColor = Color(0xFF0F172A);
+  static const Color _mainColor = AppColors.primary;
+  static const Color _accentColor = AppColors.teal;
+  static const Color _surfaceColor = AppColors.bgLight;
+  static const Color _inkColor = AppTextStyles.textPrimary;
 
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
@@ -350,7 +351,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
           textDirection: TextDirection.rtl,
           child: AlertDialog(
             title: const Row(children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 30),
+              Icon(Icons.check_circle, color: AppColors.success, size: 30),
               SizedBox(width: 10),
               Text('تم إرسال الطلب'),
             ]),
@@ -675,11 +676,11 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFDC2626)),
+          borderSide: const BorderSide(color: AppColors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.2),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.2),
         ),
       );
 
@@ -1257,7 +1258,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   Widget _buildSectionCard({
     required IconData icon,
     required String title,
-    String? description,
     required Widget child,
   }) {
     return Container(

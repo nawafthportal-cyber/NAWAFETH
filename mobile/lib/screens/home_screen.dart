@@ -1,14 +1,17 @@
 // ignore_for_file: unused_field, unused_element
 import 'dart:async';
+import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../constants/app_theme.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import '../services/api_client.dart';
 import '../services/analytics_service.dart';
+import '../services/app_logger.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
 import '../models/banner_model.dart';
@@ -65,22 +68,28 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _bannerAutoTimer;
   Timer? _bannersSyncTimer;
   int _bannerCurrentPage = 0;
-  static const Duration _imageBannerRotateDelay = Duration(seconds: 3);
-  static const Duration _videoBannerFallbackRotateDelay = Duration(seconds: 30);
+  static const Duration _imageBannerRotateDelay = Duration(seconds: 5);
   static const Duration _bannerSyncInterval = Duration(minutes: 1);
 
   // -- Reels auto scroll --
+  final ScrollController _categoriesScroll = ScrollController();
   final ScrollController _reelsScroll = ScrollController();
   final ScrollController _featuredSpecialistsScroll = ScrollController();
+  Timer? _categoriesAutoTimer;
+  Timer? _categoriesResumeTimer;
   Timer? _reelsTimer;
   Timer? _reelsResumeTimer;
   Timer? _featuredSpecialistsTimer;
   Timer? _featuredSpecialistsResumeTimer;
   ValueListenable<UnreadBadges>? _badgeListenable;
+  double _categoriesPos = 0;
   double _reelsPos = 0;
   double _featuredSpecialistsPos = 0;
+  bool _categoriesAutoPaused = false;
   bool _reelsAutoPaused = false;
   bool _featuredSpecialistsAutoPaused = false;
+  static const Duration _categoriesTickInterval = Duration(milliseconds: 30);
+  static const Duration _categoriesResumeDelay = Duration(milliseconds: 2500);
   static const Duration _reelsResumeDelay = Duration(seconds: 3);
   static const Duration _featuredSpecialistsResumeDelay = Duration(seconds: 3);
   static const Duration _featuredSpecialistsRotateDelay = Duration(seconds: 5);
@@ -134,6 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadHomeContent();
     _loadData(showLoader: !seeded);
     _startBannerSync();
+    _startCategoriesAutoScroll();
     _startReelsScroll();
     _badgeListenable = UnreadBadgeService.acquire();
     _badgeListenable!.addListener(_handleBadgeChange);
@@ -217,6 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _categories = categories;
         _isCategoriesLoading = false;
       });
+      _startCategoriesAutoScroll();
     }).catchError((_) {
       if (!mounted) return;
       setState(() => _isCategoriesLoading = false);
@@ -261,7 +272,12 @@ class _HomeScreenState extends State<HomeScreen> {
         _isFeaturedLoading = false;
       });
       _startFeaturedSpecialistsAutoRotate();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'HomeScreen failed while loading featured specialists',
+        error: error,
+        stackTrace: stackTrace,
+      );
       if (!mounted) return;
       setState(() => _isFeaturedLoading = false);
     }
@@ -325,21 +341,22 @@ class _HomeScreenState extends State<HomeScreen> {
           surface: 'flutter.home.hero_auto_sync',
         );
       }
-    } catch (_) {
-      // Keep current banners on transient refresh failures.
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'HomeScreen banner sync failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
   }
 
   Future<void> _loadPromoPopup() async {
     try {
-      final res =
-          await ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1');
-      if (!mounted || !res.isSuccess || res.data == null) return;
-      final items = res.data is List
-          ? res.data as List
-          : (res.data['results'] as List?) ?? [];
-      if (items.isEmpty) return;
-      final promo = items[0] as Map<String, dynamic>;
+      final promo = await HomeService.fetchPromoByAdType(
+        adType: 'popup_home',
+        limit: 1,
+      );
+      if (!mounted || promo == null) return;
       final assets = (promo['assets'] as List?) ?? [];
       final asset =
           assets.isNotEmpty ? assets[0] as Map<String, dynamic> : null;
@@ -381,24 +398,23 @@ class _HomeScreenState extends State<HomeScreen> {
         providerId: providerId,
         providerName: providerName,
       );
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'HomeScreen failed to load popup promo',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Future<void> _loadPromoPortfolioShowcase() async {
     try {
-      final promoRes = await ApiClient.get(
-        '/api/promo/active/?service_type=portfolio_showcase&limit=10',
+      final promoItems = await HomeService.fetchPromoActiveRows(
+        serviceType: 'portfolio_showcase',
+        limit: 10,
       );
-      final feedRes =
-          await ApiClient.get('/api/providers/portfolio/feed/?limit=10');
+      final feedItems = await HomeService.fetchPortfolioFeedRows(limit: 10);
       if (!mounted) return;
-
-      final promoItems = promoRes.isSuccess
-          ? _promoMapItemsFromResponse(promoRes)
-          : const <Map<String, dynamic>>[];
-      final feedItems = feedRes.isSuccess
-          ? _promoMapItemsFromResponse(feedRes)
-          : const <Map<String, dynamic>>[];
 
       final promoMedia = <MediaItemModel>[];
       final promoPlacements = <Map<String, dynamic>>[];
@@ -418,8 +434,12 @@ class _HomeScreenState extends State<HomeScreen> {
               source: MediaItemSource.portfolio,
             ),
           );
-        } catch (_) {
-          // Ignore malformed row and continue rendering other items.
+        } catch (error, stackTrace) {
+          AppLogger.warn(
+            'HomeScreen skipped malformed portfolio feed row',
+            error: error,
+            stackTrace: stackTrace,
+          );
         }
       }
 
@@ -434,7 +454,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _portfolioShowcasePlacements = merged.placements;
         _portfolioShowcase = merged.media;
       });
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'HomeScreen failed to load portfolio showcase',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   _PortfolioShowcaseMergeResult _mergePortfolioShowcaseSources({
@@ -443,29 +469,34 @@ class _HomeScreenState extends State<HomeScreen> {
     required List<MediaItemModel> organicMedia,
     int limit = 10,
   }) {
-    final mergedMedia = <MediaItemModel>[];
-    final mergedPlacements = <Map<String, dynamic>>[];
+    final random = Random();
+    final mergedRows = <Map<String, dynamic>>[];
     final seenKeys = <String>{};
-    final maxItems = limit < 1 ? 1 : limit;
+    final normalizedLimit = limit == 0 ? 10 : limit;
+    final maxItems = max(1, normalizedLimit);
+    final sponsoredCap = max(1, (maxItems * 0.4).ceil());
 
     void push({
       required MediaItemModel media,
       required Map<String, dynamic> placement,
+      required String source,
     }) {
-      if (mergedMedia.length >= maxItems) return;
       final key =
           '${media.providerId}|${media.fileUrl ?? media.thumbnailUrl ?? ''}|${media.id}';
       if (seenKeys.contains(key)) return;
       seenKeys.add(key);
-      mergedMedia.add(media);
-      mergedPlacements.add(placement);
+      mergedRows.add({
+        'media': media,
+        'placement': placement,
+        'source': source,
+      });
     }
 
     for (var i = 0; i < promoMedia.length; i += 1) {
       final media = promoMedia[i];
       final placement =
           i < promoPlacements.length ? promoPlacements[i] : <String, dynamic>{};
-      push(media: media, placement: placement);
+      push(media: media, placement: placement, source: 'promo');
     }
 
     for (final media in organicMedia) {
@@ -476,8 +507,80 @@ class _HomeScreenState extends State<HomeScreen> {
           'target_provider_display_name': media.providerDisplayName,
           'redirect_url': '',
         },
+        source: 'feed',
       );
     }
+
+    final sponsored = mergedRows
+        .where((row) => (row['source'] as String? ?? '') == 'promo')
+        .toList(growable: true)
+      ..shuffle(random);
+    final organic = mergedRows
+        .where((row) => (row['source'] as String? ?? '') != 'promo')
+        .toList(growable: true)
+      ..shuffle(random);
+
+    final resultRows = <Map<String, dynamic>>[];
+    var s = 0;
+    var o = 0;
+    var sponsoredUsed = 0;
+    var organicUsed = 0;
+    var preferOrganic = random.nextBool();
+
+    while (resultRows.length < maxItems &&
+        (s < sponsored.length || o < organic.length)) {
+      if (preferOrganic) {
+        if (o < organic.length) {
+          resultRows.add(organic[o++]);
+          organicUsed += 1;
+        } else if (s < sponsored.length && sponsoredUsed < sponsoredCap) {
+          resultRows.add(sponsored[s++]);
+          sponsoredUsed += 1;
+        } else if (s < sponsored.length && organicUsed == 0) {
+          resultRows.add(sponsored[s++]);
+          sponsoredUsed += 1;
+        }
+      } else {
+        if (s < sponsored.length && sponsoredUsed < sponsoredCap) {
+          resultRows.add(sponsored[s++]);
+          sponsoredUsed += 1;
+        } else if (o < organic.length) {
+          resultRows.add(organic[o++]);
+          organicUsed += 1;
+        } else if (s < sponsored.length && organicUsed == 0) {
+          resultRows.add(sponsored[s++]);
+          sponsoredUsed += 1;
+        }
+      }
+      preferOrganic = !preferOrganic;
+    }
+
+    while (resultRows.length < maxItems && o < organic.length) {
+      resultRows.add(organic[o++]);
+    }
+    while (resultRows.length < maxItems &&
+        s < sponsored.length &&
+        sponsoredUsed < sponsoredCap) {
+      resultRows.add(sponsored[s++]);
+      sponsoredUsed += 1;
+    }
+    while (resultRows.length < maxItems &&
+        s < sponsored.length &&
+        organicUsed == 0) {
+      resultRows.add(sponsored[s++]);
+    }
+
+    final finalRows = List<Map<String, dynamic>>.from(resultRows)
+      ..shuffle(random);
+    final selectedRows = finalRows.take(maxItems).toList(growable: false);
+    final mergedMedia = selectedRows
+        .map((row) => row['media'])
+        .whereType<MediaItemModel>()
+        .toList(growable: false);
+    final mergedPlacements = selectedRows
+        .map((row) => row['placement'])
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
 
     return _PortfolioShowcaseMergeResult(
       media: mergedMedia,
@@ -487,16 +590,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadPromoMessages() async {
     try {
-      final res = await ApiClient.get(
-        '/api/promo/active/?service_type=promo_messages&limit=1',
+      final items = await HomeService.fetchPromoActiveRows(
+        serviceType: 'promo_messages',
+        limit: 1,
       );
-      if (!mounted || !res.isSuccess) return;
-      final items = _promoMapItemsFromResponse(res);
       if (!mounted) return;
       setState(() {
         _promoMessagePlacement = items.isNotEmpty ? items.first : null;
       });
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'HomeScreen failed to load promo messages',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Future<void> _loadHomeContent({bool forceRefresh = false}) async {
@@ -509,26 +617,13 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _content = HomeScreenContent.fromBlocks(blocks);
       });
-    } catch (_) {
-      // Keep current content on transient failures.
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'HomeScreen failed to load home content',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
-  }
-
-  List<dynamic> _promoItemsFromResponse(dynamic response) {
-    final data = response?.data;
-    if (data is List) return data;
-    if (data is Map<String, dynamic>) {
-      final results = data['results'];
-      if (results is List) return results;
-    }
-    return const [];
-  }
-
-  List<Map<String, dynamic>> _promoMapItemsFromResponse(dynamic response) {
-    return _promoItemsFromResponse(response)
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
   }
 
   void _startFeaturedSpecialistsAutoRotate() {
@@ -552,7 +647,10 @@ class _HomeScreenState extends State<HomeScreen> {
             _featuredSpecialistsPos = 0;
             return;
           }
-          const step = 110.0;
+          final viewport = position.viewportDimension;
+          final step = viewport > 0
+              ? (viewport * 0.42).clamp(96.0, 220.0).toDouble()
+              : 110.0;
           final next = _featuredSpecialistsPos + step;
           final target = next >= max - 4 ? 0.0 : next;
           _featuredSpecialistsScroll.animateTo(
@@ -622,13 +720,46 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<bool> _openExternalPromoUrl(String rawUrl) async {
+  Uri? _resolvePromoUri(String rawUrl) {
     final trimmed = rawUrl.trim();
-    if (trimmed.isEmpty) return false;
-    final uri = Uri.tryParse(trimmed);
-    if (uri == null || !uri.isAbsolute) return false;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-    return true;
+    if (trimmed.isEmpty) return null;
+
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed == null) return null;
+    if (parsed.isAbsolute) return parsed;
+
+    try {
+      return Uri.parse(ApiClient.baseUrl).resolveUri(parsed);
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'HomeScreen failed to resolve promo URI',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
+
+  Future<bool> _openExternalPromoUrl(String rawUrl) async {
+    final uri = _resolvePromoUri(rawUrl);
+    if (uri == null) return false;
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Uri? _resolveStrictExternalPromoUri(String rawUrl) {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return null;
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed == null || !parsed.isAbsolute) return null;
+    final scheme = parsed.scheme.toLowerCase();
+    if (scheme != 'http' && scheme != 'https') return null;
+    return parsed;
+  }
+
+  Future<bool> _openStrictExternalPromoUrl(String rawUrl) async {
+    final uri = _resolveStrictExternalPromoUri(rawUrl);
+    if (uri == null) return false;
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Future<void> _openPromoPlacement({
@@ -827,6 +958,50 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _startCategoriesAutoScroll() {
+    _categoriesAutoTimer?.cancel();
+    if (_categories.length <= 1) return;
+    _categoriesAutoPaused = false;
+    _categoriesAutoTimer = Timer.periodic(_categoriesTickInterval, (_) {
+      if (!mounted || !_categoriesScroll.hasClients || _categoriesAutoPaused) {
+        return;
+      }
+      _syncCategoriesPositionFromController();
+      _categoriesPos += 1.0;
+      final max = _categoriesScroll.position.maxScrollExtent;
+      if (max <= 0) {
+        _categoriesPos = 0;
+        return;
+      }
+      if (_categoriesPos >= max - 1) {
+        _categoriesScroll.jumpTo(0);
+        _categoriesPos = 0;
+      } else {
+        _categoriesScroll.jumpTo(_categoriesPos);
+      }
+    });
+  }
+
+  void _syncCategoriesPositionFromController() {
+    if (!_categoriesScroll.hasClients) return;
+    final max = _categoriesScroll.position.maxScrollExtent;
+    final current = _categoriesScroll.offset;
+    _categoriesPos = current.clamp(0.0, max).toDouble();
+  }
+
+  void _pauseCategoriesAutoScroll({bool resumeLater = false}) {
+    _categoriesAutoPaused = true;
+    _categoriesResumeTimer?.cancel();
+    if (!resumeLater) {
+      return;
+    }
+    _categoriesResumeTimer = Timer(_categoriesResumeDelay, () {
+      if (!mounted) return;
+      _syncCategoriesPositionFromController();
+      _categoriesAutoPaused = false;
+    });
+  }
+
   void _syncReelsPositionFromController() {
     if (!_reelsScroll.hasClients) return;
     final max = _reelsScroll.position.maxScrollExtent;
@@ -849,6 +1024,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _categoriesAutoTimer?.cancel();
+    _categoriesResumeTimer?.cancel();
     _reelsTimer?.cancel();
     _reelsResumeTimer?.cancel();
     _featuredSpecialistsTimer?.cancel();
@@ -858,6 +1035,7 @@ class _HomeScreenState extends State<HomeScreen> {
     UnreadBadgeService.release();
     _bannerAutoTimer?.cancel();
     _bannerPageController.dispose();
+    _categoriesScroll.dispose();
     _reelsScroll.dispose();
     _featuredSpecialistsScroll.dispose();
     super.dispose();
@@ -1005,6 +1183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       _buildHeroContentOverlay(),
+                      if (_heroBanners.length > 1) _buildHeroNavigationArrows(),
                     ],
                   ),
                 ),
@@ -1085,126 +1264,118 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeroContentOverlay() {
-    final visibleFeaturedSpecialists = _visibleFeaturedSpecialists;
+    final heroBanners = _heroBanners;
+    final hasBanners = heroBanners.isNotEmpty;
+    final safeIndex = hasBanners
+        ? _bannerCurrentPage.clamp(0, heroBanners.length - 1).toInt()
+        : 0;
+    final activeBanner = hasBanners ? heroBanners[safeIndex] : null;
+    final title = (activeBanner?.title ?? '').trim();
+    final provider = (activeBanner?.providerDisplayName ?? '').trim();
+    final sectionTitle = _content.bannersTitle.trim().isNotEmpty &&
+            _content.bannersTitle.trim() != '...'
+        ? _content.bannersTitle.trim()
+        : 'عروض ترويجية';
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Align(
-            alignment: Alignment.topLeft,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.18),
-                ),
-              ),
-              child: const Text(
-                'نوافذ',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontFamily: 'Cairo',
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-          const Spacer(),
-          const Text(
-            'اكتشف المختص المناسب\nبواجهة أسرع للجوال',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              height: 1.35,
-              fontFamily: 'Cairo',
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'تصميم أخف، معلومات أوضح، وتنقل سريع بين اللمحات والتصنيفات وأبرز المختصين.',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.88),
-              fontSize: 10.5,
-              height: 1.7,
-              fontFamily: 'Cairo',
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildHeroMetricChip(
-                icon: Icons.grid_view_rounded,
-                label: 'تصنيف',
-                value: _categories.length,
-                isLoading: _isCategoriesLoading && _categories.isEmpty,
-              ),
-              _buildHeroMetricChip(
-                icon: Icons.workspace_premium_rounded,
-                label: 'مختص',
-                value: visibleFeaturedSpecialists.length,
-                isLoading:
-                    _isFeaturedLoading && visibleFeaturedSpecialists.isEmpty,
-              ),
-              _buildHeroMetricChip(
-                icon: Icons.play_circle_outline_rounded,
-                label: 'لمحة',
-                value: _spotlights.length,
-                isLoading: _isSpotlightsLoading && _spotlights.isEmpty,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _buildHeroPrimaryAction(
-                  label: 'ابدأ البحث',
-                  icon: Icons.search_rounded,
-                  onTap: _openSearchHome,
-                  filled: true,
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Text(
+                  sectionTitle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildHeroPrimaryAction(
-                  label: 'التصنيفات',
-                  icon: Icons.widgets_rounded,
-                  onTap: _openSearchHome,
-                  filled: false,
+              const Spacer(),
+              if (heroBanners.length > 1)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.28),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                    ),
+                  ),
+                  child: Text(
+                    '${(safeIndex + 1).toString().padLeft(2, '0')} / ${heroBanners.length.toString().padLeft(2, '0')}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const Spacer(),
+          if (title.isNotEmpty || provider.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: Colors.black.withValues(alpha: 0.34),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.14),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildHeroInfoPill(
-                icon: Icons.auto_awesome_rounded,
-                label: 'واجهة مناسبة لكل الجوالات',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (title.isNotEmpty)
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  if (provider.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      provider,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.84),
+                        fontSize: 10.5,
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              _buildHeroInfoPill(
-                icon: Icons.flash_on_rounded,
-                label: 'بحث سريع',
-              ),
-              _buildHeroInfoPill(
-                icon: Icons.verified_rounded,
-                label: 'مختصون موثقون',
-              ),
-            ],
-          ),
-          if (_heroBanners.length > 1) ...[
-            const SizedBox(height: 12),
+            ),
+          if (heroBanners.length > 1) ...[
+            const SizedBox(height: 10),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_heroBanners.length, (index) {
                 final isActive = index == _bannerCurrentPage;
                 return AnimatedContainer(
@@ -1223,6 +1394,48 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeroNavigationArrows() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          _heroNavButton(
+            icon: Icons.chevron_left_rounded,
+            onTap: _goToPreviousHeroBanner,
+          ),
+          const Spacer(),
+          _heroNavButton(
+            icon: Icons.chevron_right_rounded,
+            onTap: _goToNextHeroBanner,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroNavButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          ),
+          child: Icon(icon, size: 22, color: Colors.white),
+        ),
       ),
     );
   }
@@ -1375,7 +1588,6 @@ class _HomeScreenState extends State<HomeScreen> {
     required String? mediaUrl,
     required bool isActive,
   }) {
-    final shouldLoopSingleVideo = banner.isVideo && _heroBanners.length <= 1;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -1386,13 +1598,11 @@ class _HomeScreenState extends State<HomeScreen> {
             isVideo: banner.isVideo,
             isActive: isActive,
             autoplay: true,
-            loopVideo: shouldLoopSingleVideo,
-            onVideoEnded: banner.isVideo && isActive && !shouldLoopSingleVideo
-                ? () => _handleHeroBannerVideoEnded(banner.id)
-                : null,
+            loopVideo: banner.isVideo,
+            onVideoEnded: null,
             borderRadius: 0,
             stretchToParent: true,
-            mediaFit: BoxFit.contain,
+            mediaFit: BoxFit.cover,
             mediaOverlayOpacity: 0,
             contentPadding: EdgeInsets.zero,
             showBackdrop: true,
@@ -1528,7 +1738,11 @@ class _HomeScreenState extends State<HomeScreen> {
       isDark: isDark,
       margin: const EdgeInsets.fromLTRB(14, 2, 14, 4),
       child: _buildSectionAnimatedContent(
-        stateKey: _isSpotlightsLoading && !hasData ? 'reels-loading' : hasData ? 'reels-ready' : 'reels-empty',
+        stateKey: _isSpotlightsLoading && !hasData
+            ? 'reels-loading'
+            : hasData
+                ? 'reels-ready'
+                : 'reels-empty',
         child: _isSpotlightsLoading && !hasData
             ? _buildReelsSkeleton(isDark)
             : !hasData
@@ -1550,7 +1764,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 102,
                     child: Listener(
                       onPointerDown: (_) => _pauseReelsAutoScroll(),
-                      onPointerUp: (_) => _pauseReelsAutoScroll(resumeLater: true),
+                      onPointerUp: (_) =>
+                          _pauseReelsAutoScroll(resumeLater: true),
                       onPointerCancel: (_) =>
                           _pauseReelsAutoScroll(resumeLater: true),
                       child: ListView.builder(
@@ -1561,7 +1776,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemBuilder: (context, index) {
                           final item = _spotlights[index];
                           final thumb = _spotlightThumbUrl(item);
-                          final caption = (item.caption ?? '').trim();
+                          final caption = item.sponsoredBadgeOnly
+                              ? ((item.sectionTitle ?? '').trim().isNotEmpty
+                                  ? (item.sectionTitle ?? '').trim()
+                                  : 'ترويج ممول')
+                              : (item.caption ?? '').trim();
 
                           return GestureDetector(
                             onTap: () => _openSpotlightViewer(index),
@@ -1611,27 +1830,15 @@ class _HomeScreenState extends State<HomeScreen> {
     EdgeInsets margin = const EdgeInsets.fromLTRB(14, 8, 14, 4),
     Widget? trailing,
   }) {
+    // 2026 minimal-UI section: rely on spacing instead of borders/shadows.
     return Padding(
       padding: margin,
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1B1623) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : const Color(0xFFE9DDF7),
-          ),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: const Color(0xFF3C1B5F).withValues(alpha: 0.06),
-                    blurRadius: 24,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
+          color: isDark ? AppColors.cardDark : AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: isDark ? null : AppShadows.card,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1652,56 +1859,50 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSectionHeader({
-    required String kicker,
+    required String kicker, // kept for API compat; rendered as subtle eyebrow
     required String title,
     String? note,
     required bool isDark,
     Widget? trailing,
   }) {
+    final hasNote = note != null && note.trim().isNotEmpty;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        Container(
+          width: 3,
+          height: hasNote ? 32 : 18,
+          margin: const EdgeInsetsDirectional.only(end: 10),
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8B3D8F).withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  kicker,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'Cairo',
-                    color: Color(0xFF8B3D8F),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
+                  fontSize: AppTextStyles.h2,
+                  fontWeight: FontWeight.w800,
                   fontFamily: 'Cairo',
-                  color: isDark ? Colors.white : const Color(0xFF24182F),
+                  height: 1.2,
+                  color: isDark ? Colors.white : AppColors.grey900,
                 ),
               ),
-              if (note != null && note.trim().isNotEmpty) ...[
-                const SizedBox(height: 4),
+              if (hasNote) ...[
+                const SizedBox(height: 2),
                 Text(
-                  note,
+                  note!,
                   style: TextStyle(
-                    fontSize: 10,
-                    height: 1.6,
+                    fontSize: AppTextStyles.caption,
+                    height: 1.4,
                     fontFamily: 'Cairo',
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white60 : const Color(0xFF796A8A),
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white60 : AppColors.grey500,
                   ),
                 ),
               ],
@@ -1720,26 +1921,35 @@ class _HomeScreenState extends State<HomeScreen> {
     required String label,
     required VoidCallback onTap,
   }) {
+    // Minimal text-link style action with 44px touch target.
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF6EFFC),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: const Color(0xFFE7D8F8)),
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
-              fontFamily: 'Cairo',
-              color: Color(0xFF7B2E87),
-            ),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: AppTextStyles.bodySm,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Cairo',
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(
+                Icons.chevron_left_rounded,
+                size: 16,
+                color: AppColors.primary,
+              ),
+            ],
           ),
         ),
       ),
@@ -2004,88 +2214,115 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   )
-                : SizedBox(
-                    height: 98,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final cat = _categories[index];
-                        final icon = _categoryIcon(cat.name);
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => SearchProviderScreen(
-                                  initialCategoryId: cat.id > 0 ? cat.id : null,
-                                ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            width: 84,
-                            margin: const EdgeInsetsDirectional.only(end: 10),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.04)
-                                  : const Color(0xFFF9F5FD),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.06)
-                                    : const Color(0xFFECDDFA),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
+                : Column(
+                    children: [
+                      SizedBox(
+                        height: 98,
+                        child: Listener(
+                          onPointerDown: (_) => _pauseCategoriesAutoScroll(),
+                          onPointerUp: (_) =>
+                              _pauseCategoriesAutoScroll(resumeLater: true),
+                          onPointerCancel: (_) =>
+                              _pauseCategoriesAutoScroll(resumeLater: true),
+                          child: ListView.builder(
+                            controller: _categoriesScroll,
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: _categories.length,
+                            itemBuilder: (context, index) {
+                              final cat = _categories[index];
+                              final icon = _categoryIcon(cat.name);
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => SearchProviderScreen(
+                                        initialCategoryId:
+                                            cat.id > 0 ? cat.id : null,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  width: 84,
+                                  margin:
+                                      const EdgeInsetsDirectional.only(end: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 10,
+                                  ),
                                   decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        const Color(0xFF8E37A3)
-                                            .withValues(alpha: 0.15),
-                                        const Color(0xFFF08B46)
-                                            .withValues(alpha: 0.18),
-                                      ],
-                                      begin: Alignment.topRight,
-                                      end: Alignment.bottomLeft,
-                                    ),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: Icon(icon, size: 20, color: purple),
-                                ),
-                                const SizedBox(height: 8),
-                                Expanded(
-                                  child: Text(
-                                    cat.name,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.45,
-                                      fontFamily: 'Cairo',
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.04)
+                                        : const Color(0xFFF9F5FD),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
                                       color: isDark
-                                          ? Colors.white70
-                                          : Colors.black87,
+                                          ? Colors.white.withValues(alpha: 0.06)
+                                          : const Color(0xFFECDDFA),
                                     ),
                                   ),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              const Color(0xFF8E37A3)
+                                                  .withValues(alpha: 0.15),
+                                              const Color(0xFFF08B46)
+                                                  .withValues(alpha: 0.18),
+                                            ],
+                                            begin: Alignment.topRight,
+                                            end: Alignment.bottomLeft,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                        ),
+                                        child:
+                                            Icon(icon, size: 20, color: purple),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Expanded(
+                                        child: Text(
+                                          cat.name,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.45,
+                                            fontFamily: 'Cairo',
+                                            color: isDark
+                                                ? Colors.white70
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'اسحب أو مرر',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w700,
+                          color:
+                              isDark ? Colors.white54 : const Color(0xFF8C7A9F),
+                        ),
+                      ),
+                    ],
                   ),
       ),
     );
@@ -2116,27 +2353,34 @@ class _HomeScreenState extends State<HomeScreen> {
             ? _buildProvidersSkeleton(isDark)
             : visibleFeaturedSpecialists.isEmpty
                 ? SizedBox(
-                    height: 92,
+                    height: 120,
                     child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 20,
-                            color: isDark
-                                ? Colors.white24
-                                : Colors.grey.shade300,
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySurface,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.workspace_premium_outlined,
+                              size: 22,
+                              color: AppColors.primary,
+                            ),
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 10),
                           Text(
                             'لا يوجد مختصون مميزون حالياً',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: AppTextStyles.bodySm,
                               fontFamily: 'Cairo',
+                              fontWeight: FontWeight.w600,
                               color: isDark
-                                  ? Colors.white30
-                                  : Colors.grey.shade400,
+                                  ? Colors.white54
+                                  : AppColors.grey500,
                             ),
                           ),
                         ],
@@ -2144,14 +2388,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   )
                 : SizedBox(
-                    height: 182,
+                    height: 208,
                     child: Listener(
                       onPointerDown: (_) =>
                           _pauseFeaturedSpecialistsAutoRotate(),
-                      onPointerUp: (_) =>
-                          _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
+                      onPointerUp: (_) => _pauseFeaturedSpecialistsAutoRotate(
+                          resumeLater: true),
                       onPointerCancel: (_) =>
-                          _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
+                          _pauseFeaturedSpecialistsAutoRotate(
+                              resumeLater: true),
                       child: ListView.builder(
                         controller: _featuredSpecialistsScroll,
                         scrollDirection: Axis.horizontal,
@@ -2203,25 +2448,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () => _openPortfolioShowcasePlacement(index),
       child: Container(
-        width: 188,
-        margin: const EdgeInsetsDirectional.only(end: 12),
+        width: 168,
+        margin: const EdgeInsetsDirectional.only(end: 10),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.06)
-                : const Color(0xFFEBDCF8),
+                : AppColors.borderLight,
           ),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: const Color(0xFF34104E).withValues(alpha: 0.07),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+          boxShadow: isDark ? null : AppShadows.card,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2232,14 +2469,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(22),
+                      top: Radius.circular(AppRadius.md),
                     ),
                     child: thumbUrl != null
                         ? CachedNetworkImage(
                             imageUrl: thumbUrl,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) =>
-                                _gradientPlaceholder(),
+                            errorWidget: (_, __, ___) => _gradientPlaceholder(),
                           )
                         : _gradientPlaceholder(),
                   ),
@@ -2287,28 +2523,29 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 16,
+                    radius: 14,
                     backgroundColor: purple.withValues(alpha: 0.12),
-                    backgroundImage:
-                        profileUrl != null ? CachedNetworkImageProvider(profileUrl) : null,
+                    backgroundImage: profileUrl != null
+                        ? CachedNetworkImageProvider(profileUrl)
+                        : null,
                     child: profileUrl == null
                         ? Text(
                             item.providerDisplayName.isNotEmpty
                                 ? item.providerDisplayName[0]
                                 : '؟',
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: AppTextStyles.micro,
                               fontWeight: FontWeight.w700,
                               color: purple,
                             ),
                           )
                         : null,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 7),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2320,8 +2557,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
+                            fontSize: AppTextStyles.bodySm,
+                            fontWeight: FontWeight.w700,
                             fontFamily: 'Cairo',
                             color: isDark ? Colors.white : Colors.black87,
                           ),
@@ -2374,8 +2611,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final providerIdRaw = placement['target_provider_id'];
     final providerId =
         providerIdRaw is int ? providerIdRaw : int.tryParse('$providerIdRaw');
+    final redirectUrl = (placement['redirect_url'] as String?)?.trim() ?? '';
+    if (redirectUrl.isNotEmpty) {
+      final opened = await _openStrictExternalPromoUrl(redirectUrl);
+      if (opened) return;
+    }
     await _openPromoPlacement(
-      redirectUrl: placement['redirect_url'] as String?,
+      redirectUrl: null,
       providerId: providerId ?? item.providerId,
       providerName: (placement['target_provider_display_name'] as String?) ??
           item.providerDisplayName,
@@ -2388,13 +2630,26 @@ class _HomeScreenState extends State<HomeScreen> {
     Color purple,
   ) {
     final profileUrl = ApiClient.buildMediaUrl(specialist.profileImage);
-    const cardWidth = 146.0;
+    const cardWidth = 132.0;
 
     return GestureDetector(
       onTap: () async {
+        AnalyticsService.trackFireAndForget(
+          eventName: 'promo.featured_specialist_click',
+          surface: 'flutter.home.featured_specialists',
+          sourceApp: 'promo',
+          objectType: 'ProviderProfile',
+          objectId: specialist.providerId.toString(),
+          payload: {
+            'rating_avg': specialist.ratingAvg,
+            'rating_count': specialist.ratingCount,
+            'redirect_url': specialist.redirectUrl ?? '',
+          },
+        );
+
         final externalUrl = specialist.redirectUrl?.trim() ?? '';
         if (externalUrl.isNotEmpty) {
-          final opened = await _openExternalPromoUrl(externalUrl);
+          final opened = await _openStrictExternalPromoUrl(externalUrl);
           if (opened) return;
         }
         if (!mounted) return;
@@ -2416,156 +2671,136 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Container(
         width: cardWidth,
-        margin: const EdgeInsetsDirectional.only(end: 12),
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        margin: const EdgeInsetsDirectional.only(end: 10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF221B2E) : const Color(0xFFFCFAFE),
-          borderRadius: BorderRadius.circular(22),
+          color: isDark ? AppColors.cardDark : AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.06)
-                : const Color(0xFFE8DDF5),
+                : AppColors.borderLight,
           ),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: const Color(0xFF3D195E).withValues(alpha: 0.06),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+          boxShadow: isDark ? null : AppShadows.card,
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
+            // ── Excellence badge (or fixed-height spacer for uniform layout) ──
+            if (specialist.excellenceBadges.isNotEmpty)
+              _buildProviderMetaPill(
+                label: 'متميز',
+                background: AppColors.accentSurface,
+                foreground: AppColors.warning,
+              )
+            else
+              const SizedBox(height: 20),
+            const SizedBox(height: 10),
+            // ── Avatar with subtle tinted ring + verified badge overlay ──
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
               children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      if (specialist.excellenceBadges.isNotEmpty)
-                        _buildProviderMetaPill(
-                          label: 'متميز',
-                          background: const Color(0xFFFFF0D9),
-                          foreground: const Color(0xFFB56A00),
-                        ),
-                      if (specialist.locationDisplay.trim().isNotEmpty)
-                        _buildProviderMetaPill(
-                          label: specialist.locationDisplay.trim(),
-                          background: const Color(0xFFF3EEFB),
-                          foreground: const Color(0xFF7A2B74),
-                        ),
-                    ],
+                Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : AppColors.primarySurface,
+                  ),
+                  child: CircleAvatar(
+                    radius: 30,
+                    backgroundColor:
+                        isDark ? AppColors.surfaceDark : Colors.white,
+                    backgroundImage: profileUrl != null
+                        ? CachedNetworkImageProvider(profileUrl)
+                        : null,
+                    child: profileUrl == null
+                        ? Text(
+                            specialist.displayName.isNotEmpty
+                                ? specialist.displayName[0]
+                                : '؟',
+                            style: const TextStyle(
+                              fontSize: AppTextStyles.h1,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Cairo',
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : null,
                   ),
                 ),
                 if (specialist.isVerified)
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: VerifiedBadgeView(
-                      isVerifiedBlue: specialist.isVerifiedBlue,
-                      isVerifiedGreen: specialist.isVerifiedGreen,
-                      iconSize: 15,
-                      enableTap: false,
+                  Positioned(
+                    bottom: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppColors.cardDark
+                            : Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: VerifiedBadgeView(
+                        isVerifiedBlue: specialist.isVerifiedBlue,
+                        isVerifiedGreen: specialist.isVerifiedGreen,
+                        iconSize: 14,
+                        enableTap: false,
+                      ),
                     ),
                   ),
               ],
             ),
             const SizedBox(height: 10),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFF59E0B), Color(0xFFB13AC7)],
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 34,
-                  backgroundColor:
-                      isDark ? const Color(0xFF221B31) : Colors.white,
-                  backgroundImage:
-                      profileUrl != null ? CachedNetworkImageProvider(profileUrl) : null,
-                  child: profileUrl == null
-                      ? Text(
-                          specialist.displayName.isNotEmpty
-                              ? specialist.displayName[0]
-                              : '؟',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            fontFamily: 'Cairo',
-                            color: purple,
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
+            // ── Name — centered, up to 2 lines ──
             Text(
               specialist.displayName,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w800,
+                fontSize: AppTextStyles.bodyMd,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
                 fontFamily: 'Cairo',
-                color: isDark ? Colors.white : const Color(0xFF24182F),
+                color: isDark ? Colors.white : AppColors.grey900,
               ),
             ),
-            const SizedBox(height: 6),
+            const Spacer(),
+            // ── Rating — centered minimal pill ──
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF8D2A7A).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        size: 12,
-                        color: Color(0xFFF59E0B),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        specialist.ratingLabel,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'Cairo',
-                          color: Color(0xFF7A2B74),
-                        ),
-                      ),
-                    ],
-                  ),
+                const Icon(
+                  Icons.star_rounded,
+                  size: 14,
+                  color: AppColors.accent,
                 ),
-                const Spacer(),
+                const SizedBox(width: 3),
                 Text(
-                  specialist.ratingCount > 0
-                      ? '${specialist.ratingCount} تقييم'
-                      : 'جديد',
+                  specialist.ratingLabel,
                   style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
+                    fontSize: AppTextStyles.bodySm,
+                    fontWeight: FontWeight.w800,
                     fontFamily: 'Cairo',
-                    color: isDark ? Colors.white54 : const Color(0xFF8B7A9B),
+                    color: isDark ? Colors.white : AppColors.grey900,
                   ),
                 ),
+                if (specialist.ratingCount > 0) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    '(${specialist.ratingCount})',
+                    style: TextStyle(
+                      fontSize: AppTextStyles.micro,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Cairo',
+                      color: isDark ? Colors.white54 : AppColors.grey500,
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
@@ -2654,7 +2889,7 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           return Container(
             width: 84,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.04)
@@ -2667,11 +2902,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _SkeletonBox(
-                  width: 44,
-                  height: 44,
-                  radius: 14,
+                  width: 38,
+                  height: 38,
+                  radius: 12,
                   baseColor: isDark
                       ? const Color(0x33FFFFFF)
                       : const Color(0xFFEFE8F8),
@@ -2679,17 +2915,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? const Color(0x66FFFFFF)
                       : const Color(0xFFF8F4FC),
                 ),
-                const SizedBox(height: 8),
-                const _SkeletonBox(
-                  width: 52,
-                  height: 10,
-                  radius: 6,
-                ),
                 const SizedBox(height: 5),
                 const _SkeletonBox(
-                  width: 42,
-                  height: 10,
-                  radius: 6,
+                  width: 48,
+                  height: 9,
+                  radius: 5,
+                ),
+                const SizedBox(height: 4),
+                const _SkeletonBox(
+                  width: 38,
+                  height: 9,
+                  radius: 5,
                 ),
               ],
             ),
@@ -2701,23 +2937,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildProvidersSkeleton(bool isDark) {
     return SizedBox(
-      height: 182,
+      height: 208,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 3,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           return Container(
-            width: 146,
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            width: 132,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF221B2E) : const Color(0xFFFCFAFE),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(AppRadius.lg),
               border: Border.all(
                 color: isDark
                     ? Colors.white.withValues(alpha: 0.06)
-                    : const Color(0xFFE8DDF5),
+                    : AppColors.borderLight,
               ),
             ),
             child: Column(
@@ -2777,9 +3013,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ProviderPublicModel> _topRatedProviders(
     List<ProviderPublicModel> providers,
   ) {
-    final sorted = providers
-        .where((provider) => provider.id > 0)
-        .toList();
+    final sorted = providers.where((provider) => provider.id > 0).toList();
     sorted.sort((a, b) {
       final byRating = b.ratingAvg.compareTo(a.ratingAvg);
       if (byRating != 0) return byRating;
@@ -2808,20 +3042,31 @@ class _HomeScreenState extends State<HomeScreen> {
   //  PROMO BANNERS — Full-width auto-rotating carousel
   // =============================================
 
-  Duration _resolveBannerRotateDelay(BannerModel banner) {
-    if (!banner.isVideo) return _imageBannerRotateDelay;
-    final seconds = banner.durationSeconds;
-    if (seconds == null || seconds <= 0) {
-      return _videoBannerFallbackRotateDelay;
+  void _goToPreviousHeroBanner() {
+    final heroBanners = _heroBanners;
+    if (!mounted ||
+        !_bannerPageController.hasClients ||
+        heroBanners.length <= 1) {
+      return;
     }
-    return Duration(seconds: seconds);
+    final current = _bannerCurrentPage.clamp(0, heroBanners.length - 1).toInt();
+    final prev = (current - 1 + heroBanners.length) % heroBanners.length;
+    _bannerPageController.animateToPage(
+      prev,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _goToNextHeroBanner() {
-    if (!mounted || !_bannerPageController.hasClients || _banners.length <= 1) {
+    final heroBanners = _heroBanners;
+    if (!mounted ||
+        !_bannerPageController.hasClients ||
+        heroBanners.length <= 1) {
       return;
     }
-    final next = (_bannerCurrentPage + 1) % _banners.length;
+    final current = _bannerCurrentPage.clamp(0, heroBanners.length - 1).toInt();
+    final next = (current + 1) % heroBanners.length;
     _bannerPageController.animateToPage(
       next,
       duration: const Duration(milliseconds: 400),
@@ -2830,14 +3075,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleHeroBannerVideoEnded(int bannerId) {
-    if (!mounted || _banners.length <= 1 || !_bannerPageController.hasClients) {
+    final heroBanners = _heroBanners;
+    if (!mounted ||
+        heroBanners.length <= 1 ||
+        !_bannerPageController.hasClients) {
       return;
     }
     final safeIndex =
-        _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
-            ? _bannerCurrentPage
-            : 0;
-    final currentBanner = _banners[safeIndex];
+        _bannerCurrentPage.clamp(0, heroBanners.length - 1).toInt();
+    final currentBanner = heroBanners[safeIndex];
     if (currentBanner.id != bannerId || !currentBanner.isVideo) {
       return;
     }
@@ -2846,30 +3092,32 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _scheduleNextBannerAutoRotate() {
+    final heroBanners = _heroBanners;
     _bannerAutoTimer?.cancel();
-    if (!mounted || _banners.length <= 1 || !_bannerPageController.hasClients) {
+    if (!mounted ||
+        heroBanners.length <= 1 ||
+        !_bannerPageController.hasClients) {
       return;
     }
     final safeIndex =
-        _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
-            ? _bannerCurrentPage
-            : 0;
-    final currentBanner = _banners[safeIndex];
+        _bannerCurrentPage.clamp(0, heroBanners.length - 1).toInt();
+    final currentBanner = heroBanners[safeIndex];
+    // الفيديو ينتقل فقط بعد اكتمال التشغيل عبر onVideoEnded.
+    if (currentBanner.isVideo) {
+      return;
+    }
     final expectedBannerId = currentBanner.id;
-    final delay = currentBanner.isVideo
-        ? _resolveBannerRotateDelay(currentBanner)
-        : _imageBannerRotateDelay;
+    final delay = _imageBannerRotateDelay;
     _bannerAutoTimer = Timer(delay, () {
+      final liveHeroBanners = _heroBanners;
       if (!mounted ||
           !_bannerPageController.hasClients ||
-          _banners.length <= 1) {
+          liveHeroBanners.length <= 1) {
         return;
       }
       final activeIndex =
-          _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
-              ? _bannerCurrentPage
-              : 0;
-      final activeBanner = _banners[activeIndex];
+          _bannerCurrentPage.clamp(0, liveHeroBanners.length - 1).toInt();
+      final activeBanner = liveHeroBanners[activeIndex];
       if (activeBanner.id != expectedBannerId) {
         return;
       }
@@ -2878,14 +3126,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startBannerAutoRotate() {
+    final heroBanners = _heroBanners;
     _bannerAutoTimer?.cancel();
-    if (_banners.length <= 1) return;
+    if (heroBanners.length <= 1) return;
     if (_bannerPageController.hasClients) {
       _scheduleNextBannerAutoRotate();
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _banners.length <= 1) return;
+      if (!mounted || _heroBanners.length <= 1) return;
       _scheduleNextBannerAutoRotate();
     });
   }
@@ -3025,14 +3274,30 @@ class _HomeScreenState extends State<HomeScreen> {
   // =============================================
 
   Widget _sectionTitle(String title, bool isDark) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w800,
-        fontFamily: 'Cairo',
-        color: isDark ? Colors.white : Colors.black87,
-      ),
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 18,
+          margin: const EdgeInsetsDirectional.only(end: 10),
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        Flexible(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: AppTextStyles.h2,
+              fontWeight: FontWeight.w800,
+              fontFamily: 'Cairo',
+              height: 1.2,
+              color: isDark ? Colors.white : AppColors.grey900,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

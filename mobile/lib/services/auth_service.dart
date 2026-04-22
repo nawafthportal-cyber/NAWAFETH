@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_logger.dart';
 
 typedef AuthLogoutListener = void Function();
 
@@ -194,7 +195,13 @@ class AuthService {
       scheduleMicrotask(() {
         try {
           listener();
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          AppLogger.warn(
+            'AuthService.logout listener failed',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
       });
     }
   }

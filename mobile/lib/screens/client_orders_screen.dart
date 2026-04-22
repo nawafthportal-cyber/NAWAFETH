@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
+import '../constants/app_theme.dart';
 import '../models/service_request_model.dart';
 import '../services/account_mode_service.dart';
 import '../services/marketplace_service.dart';
@@ -24,7 +25,7 @@ class ClientOrdersScreen extends StatefulWidget {
 
 class _ClientOrdersScreenState extends State<ClientOrdersScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _mainColor = Colors.deepPurple;
+  static const Color _mainColor = AppColors.primary;
   static const Color _accentColor = Color(0xFF22577A);
 
   final TextEditingController _searchController = TextEditingController();
@@ -176,24 +177,24 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? _mainColor.withAlpha(30) : Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
+          color: selected ? _mainColor.withAlpha(22) : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
           border: Border.all(
-            color: selected ? _mainColor : Colors.grey.shade300,
+            color: selected ? _mainColor : AppColors.grey300,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontFamily: 'Cairo',
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: selected ? _mainColor : Colors.black54,
+            fontSize: AppTextStyles.bodyMd,
+            fontWeight: FontWeight.w600,
+            color: selected ? _mainColor : AppTextStyles.textSecondary,
           ),
         ),
       ),
@@ -242,7 +243,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[100],
+        backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
         appBar: PlatformTopBar(
           pageLabel: 'طلباتي',
           showBackButton: Navigator.of(context).canPop(),
@@ -332,22 +333,16 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
 
     return InkWell(
       onTap: () => _openDetails(order),
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.97),
-          borderRadius: BorderRadius.circular(24),
+          color: isDark ? const Color(0xFF132637) : AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
-            color: isDark ? Colors.white10 : const Color(0xFFE4EBF1),
+            color: isDark ? AppColors.borderDark : AppColors.borderLight,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          boxShadow: isDark ? null : AppShadows.card,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,10 +379,10 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: 6,
+              runSpacing: 6,
               children: [
                 _buildOrderChip(
                   label: order.displayId,
@@ -406,34 +401,34 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                   ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               order.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                fontSize: AppTextStyles.h2,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : AppTextStyles.textPrimary,
               ),
             ),
             if (order.description.trim().isNotEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 order.description.trim(),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 11.5,
-                  height: 1.8,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? const Color(0xFFB8C7D9) : const Color(0xFF52637A),
+                  fontSize: AppTextStyles.bodySm,
+                  height: 1.7,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? const Color(0xFFB8C7D9) : AppTextStyles.textSecondary,
                 ),
               ),
             ],
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
               children: [
                 if (order.providerName != null && order.providerName!.isNotEmpty)

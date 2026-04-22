@@ -1,7 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 import '../constants/app_texts.dart';
 import '../screens/home_screen.dart';
 import '../screens/login_settings_screen.dart';
@@ -115,7 +115,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           const SnackBar(
             content: Text('تم حذف الحساب بنجاح',
                 style: TextStyle(fontFamily: 'Cairo')),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
 
@@ -130,7 +130,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           SnackBar(
             content: Text(result.error ?? 'حدث خطأ أثناء حذف الحساب',
                 style: const TextStyle(fontFamily: 'Cairo')),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -141,7 +141,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
         const SnackBar(
           content:
               Text('حدث خطأ في الاتصال', style: TextStyle(fontFamily: 'Cairo')),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -170,8 +170,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
             ),
             decoration: BoxDecoration(
               color: isDark
-                  ? Colors.deepPurple.withValues(alpha: 0.15)
-                  : Colors.deepPurple.withValues(alpha: 0.05),
+                  ? AppColors.primary.withValues(alpha: 0.15)
+                  : AppColors.primary.withValues(alpha: 0.05),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -396,7 +396,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         text: _isDeleting
                             ? 'جارٍ الحذف...'
                             : AppTexts.getText(context, "delete"),
-                        color: Colors.red.shade600,
+                        color: AppColors.error,
                         onPressed: _isDeleting
                             ? () {}
                             : () => _showDeleteConfirmDialog(context),
@@ -504,7 +504,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
             style: TextStyle(
               fontFamily: 'Cairo',
               fontWeight: FontWeight.bold,
-              color: Colors.red,
+              color: AppColors.error,
             ),
           ),
           content: const Text(
@@ -518,7 +518,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
               onPressed: () => Navigator.pop(ctx),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
               child: const Text(
                 "تأكيد الحذف",
                 style: TextStyle(color: Colors.white, fontFamily: 'Cairo'),

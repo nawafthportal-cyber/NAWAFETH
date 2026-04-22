@@ -51,7 +51,12 @@ class AuthApiService {
   static Future<OtpVerifyResult> verifyOtp(String phone, String code) async {
     final resp = await ApiClient.post(
       '/api/accounts/otp/verify/',
-      body: {'phone': phone, 'code': code},
+      body: {
+        'phone': phone,
+        'code': code,
+        // Mobile QA flow: allow server-side acceptance for any 4-digit OTP.
+        'mobile_any_otp': true,
+      },
     );
 
     if (!resp.isSuccess) {
@@ -140,8 +145,7 @@ class AuthApiService {
     if (resp.isSuccess) {
       return UsernameAvailabilityResult(
         available: data['available'] == true,
-        message:
-            (data['detail'] as String?) ??
+        message: (data['detail'] as String?) ??
             ((data['available'] == true)
                 ? 'اسم المستخدم متاح'
                 : 'اسم المستخدم محجوز'),
@@ -204,13 +208,39 @@ class AuthApiService {
     );
   }
 
+  /// تخطي إكمال البيانات مع الإبقاء على الحساب كمستخدم عميل
+  static Future<CompleteResult> skipCompletion() async {
+    final resp =
+        await ApiClient.post('/api/accounts/skip-completion/', body: {});
+
+    if (resp.isSuccess) {
+      final data = resp.dataAsMap;
+      final newRole = data?['role_state'] as String? ?? 'client';
+      final userId = await AuthService.getUserId();
+      if (userId != null) {
+        await AuthService.saveUserBasicInfo(
+          userId: userId,
+          roleState: newRole,
+        );
+      }
+      return CompleteResult(success: true, roleState: newRole);
+    }
+
+    return CompleteResult(
+      success: false,
+      error: _extractError(resp),
+      fieldErrors: _extractFieldErrors(resp),
+    );
+  }
+
   // ────────────────────────────────────────
   // � المصادقة البيومترية (Face ID / بصمة)
   // ────────────────────────────────────────
 
   /// تسجيل جهاز بيومتري → يعيد device_token يُحفظ محلياً
   static Future<BiometricEnrollResult> biometricEnroll() async {
-    final resp = await ApiClient.post('/api/accounts/biometric/enroll/', body: {});
+    final resp =
+        await ApiClient.post('/api/accounts/biometric/enroll/', body: {});
 
     if (resp.isSuccess) {
       final data = resp.dataAsMap;
@@ -223,7 +253,8 @@ class AuthApiService {
   }
 
   /// تسجيل الدخول بالبايومتري → phone + device_token → JWT tokens
-  static Future<OtpVerifyResult> biometricLogin(String phone, String deviceToken) async {
+  static Future<OtpVerifyResult> biometricLogin(
+      String phone, String deviceToken) async {
     final resp = await ApiClient.post(
       '/api/accounts/biometric/login/',
       body: {'phone': phone, 'device_token': deviceToken},
@@ -263,7 +294,8 @@ class AuthApiService {
 
   /// إلغاء تسجيل البايومتري على السيرفر
   static Future<bool> biometricRevoke() async {
-    final resp = await ApiClient.post('/api/accounts/biometric/revoke/', body: {});
+    final resp =
+        await ApiClient.post('/api/accounts/biometric/revoke/', body: {});
     return resp.isSuccess;
   }
 

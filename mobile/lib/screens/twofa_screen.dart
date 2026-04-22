@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
 
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 import '../services/auth_api_service.dart';
 import '../services/auth_service.dart';
 import '../services/content_service.dart';
@@ -266,7 +266,7 @@ class _TwoFAScreenState extends State<TwoFAScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(text, style: const TextStyle(fontFamily: 'Cairo')),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.success,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -505,6 +505,7 @@ class _TwoFAScreenState extends State<TwoFAScreen>
     );
   }
 
+  // ignore: unused_element
   Widget _buildShowcaseCard() {
     return Container(
       width: double.infinity,
@@ -1011,6 +1012,7 @@ class _TwoFAScreenState extends State<TwoFAScreen>
     );
   }
 
+  // ignore: unused_element
   Widget _buildSoftPanel({
     required IconData icon,
     required String title,

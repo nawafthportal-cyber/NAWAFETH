@@ -54,7 +54,7 @@ class FeaturedSpecialistModel {
   bool get isVerified => isVerifiedBlue || isVerifiedGreen;
   String get locationDisplay => SaudiCities.formatCityDisplay(cityDisplay ?? city);
 
-  String get ratingLabel => ratingAvg > 0 ? ratingAvg.toStringAsFixed(1) : 'جديد';
+  String get ratingLabel => ratingAvg > 0 ? ratingAvg.toStringAsFixed(1) : '0.0';
 
   static String? _parseString(dynamic value) {
     if (value == null) return null;

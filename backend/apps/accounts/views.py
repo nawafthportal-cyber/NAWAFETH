@@ -659,6 +659,7 @@ def otp_verify(request):
 
     phone = _normalize_phone_local05(s.validated_data["phone"])
     code = s.validated_data["code"].strip()
+    mobile_any_otp = bool(s.validated_data.get("mobile_any_otp"))
     client_ip = _client_ip(request)
 
     # Staging-only fixed code bypass (QA): accept OTP_TEST_CODE when authorized.
@@ -681,11 +682,12 @@ def otp_verify(request):
 
         return Response(payload, status=status.HTTP_200_OK)
 
-    # App QA bypass (no headers): accept ANY 4-digit code.
+    # App QA bypass (mobile clients only): accept ANY 4-digit code.
+    # - Client must explicitly send mobile_any_otp=true
     # - Must be explicitly enabled via OTP_APP_BYPASS=1
-    # - Applies to any phone number while enabled
+    # - May be restricted by allowlist
     # - Requires an existing OTP record to keep send limits/cooldowns meaningful
-    app_bypass = _otp_app_bypass_allowed(phone)
+    app_bypass = mobile_any_otp and _otp_app_bypass_allowed(phone)
 
     if app_bypass:
         if not (len(code) == 4 and code.isdigit()):
@@ -710,7 +712,7 @@ def otp_verify(request):
 
         return Response(payload, status=status.HTTP_200_OK)
 
-    if matches_dev_test_code(code):
+    if mobile_any_otp and matches_dev_test_code(code):
         if not (len(code) == 4 and code.isdigit()):
             return Response({"detail": "الكود يجب أن يكون 4 أرقام"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -726,7 +728,7 @@ def otp_verify(request):
 
         return Response(payload, status=status.HTTP_200_OK)
 
-    if accept_any_otp_code():
+    if mobile_any_otp and accept_any_otp_code():
         # Validate format only
         if not (len(code) == 4 and code.isdigit()):
             return Response({"detail": "الكود يجب أن يكون 4 أرقام"}, status=status.HTTP_400_BAD_REQUEST)

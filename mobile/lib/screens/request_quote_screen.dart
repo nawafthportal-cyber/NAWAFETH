@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import '../services/api_client.dart';
 import '../services/home_service.dart';
 import '../services/marketplace_service.dart';
 import '../services/account_mode_service.dart';
-import '../services/api_client.dart';
+import '../services/geo_catalog_service.dart';
+import '../services/app_logger.dart';
 import '../models/category_model.dart';
 import '../constants/saudi_cities.dart';
+import '../constants/app_theme.dart';
 import '../widgets/bottom_nav.dart';
 import 'orders_hub_screen.dart';
 
@@ -21,8 +24,8 @@ class RequestQuoteScreen extends StatefulWidget {
 
 class _RequestQuoteScreenState extends State<RequestQuoteScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _mainColor = Color(0xFF0F766E);
-  static const Color _inkColor = Color(0xFF0F172A);
+  static const Color _mainColor = AppColors.teal;
+  static const Color _inkColor = AppTextStyles.textPrimary;
   final _titleCtrl = TextEditingController();
   final _detailsCtrl = TextEditingController();
   late final AnimationController _entranceController;
@@ -95,46 +98,19 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
           _loadingCats = false;
         });
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'RequestQuoteScreen._loadReferenceData failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       if (mounted) setState(() => _loadingCats = false);
     }
   }
 
   Future<List<SaudiRegionCatalogEntry>> _fetchRegionCatalog() async {
-    final response = await ApiClient.get('/api/providers/geo/regions-cities/');
-    final parsed = _normalizeRegionCatalog(response.data);
-    if (response.isSuccess && parsed.isNotEmpty) return parsed;
-    return List<SaudiRegionCatalogEntry>.from(SaudiCities.regionCatalogFallback);
-  }
-
-  List<SaudiRegionCatalogEntry> _normalizeRegionCatalog(dynamic data) {
-    final rawList = data is List
-        ? data
-        : (data is Map && data['results'] is List ? data['results'] as List : const []);
-    final normalized = <SaudiRegionCatalogEntry>[];
-    for (final item in rawList) {
-      if (item is! Map) continue;
-      final map = Map<String, dynamic>.from(item);
-      final name = (map['name_ar'] ?? map['name'] ?? map['region'] ?? '').toString().trim();
-      if (name.isEmpty) continue;
-      final cities = <String>[];
-      final citiesRaw = map['cities'];
-      if (citiesRaw is List) {
-        for (final city in citiesRaw) {
-          final value = city is Map
-              ? (city['name_ar'] ?? city['name'] ?? city['city'])
-              : city;
-          final cityName = value.toString().trim();
-          if (cityName.isNotEmpty && !cities.contains(cityName)) {
-            cities.add(cityName);
-          }
-        }
-      }
-      if (cities.isNotEmpty) {
-        normalized.add(SaudiRegionCatalogEntry(nameAr: name, cities: cities));
-      }
-    }
-    return normalized;
+    final result = await GeoCatalogService.fetchRegionCatalogWithFallback();
+    return result.catalog;
   }
 
   Future<void> _pickImages() async {
@@ -235,7 +211,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg, style: const TextStyle(fontFamily: 'Cairo', fontSize: 11)),
-          backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating),
+          backgroundColor: AppColors.error, behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -495,7 +471,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle_rounded, size: 48, color: Colors.green),
+            const Icon(Icons.check_circle_rounded, size: 48, color: AppColors.success),
             const SizedBox(height: 12),
             Text('تم إرسال الطلب بنجاح', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
                 fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87)),

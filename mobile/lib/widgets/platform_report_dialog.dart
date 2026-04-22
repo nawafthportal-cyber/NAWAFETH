@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 
 typedef PlatformReportSubmit = Future<void> Function({
   required String reason,
@@ -241,7 +241,7 @@ Future<void> showPlatformReportDialog({
                           'تم إرسال البلاغ للإدارة. شكراً لك',
                           style: TextStyle(fontFamily: 'Cairo'),
                         ),
-                        backgroundColor: Colors.green,
+                        backgroundColor: AppColors.success,
                       ),
                     );
                   },

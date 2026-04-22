@@ -380,7 +380,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
   Widget _buildBody(BuildContext context) {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: Colors.deepPurple),
+        child: CircularProgressIndicator(color: Color(0xFF5E35B1)),
       );
     }
 
@@ -388,135 +388,183 @@ class _ReviewsTabState extends State<ReviewsTab> {
       return _buildErrorState();
     }
 
-    final content = Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ⭐ التقييم العام
-          Center(
-            child: Column(
-              children: [
-                Text(
-                  overallRating.toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontSize: 60,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                _buildStars(overallRating, size: 34),
-                const SizedBox(height: 6),
-                Text(
-                  "بناءً على $totalReviews مراجعة",
-                  style: const TextStyle(color: Colors.black54, fontSize: 14),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor = isDark
+        ? Colors.white.withValues(alpha: 0.07)
+        : Colors.white;
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : const Color(0xFFE2E8F0);
+    final secondaryTextColor =
+        isDark ? Colors.grey[400] : Colors.grey[600];
 
-          if (totalReviews > 0)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'تفصيل البنود',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Cairo',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildCriteriaRow('سرعة الاستجابة', responseSpeedAvg),
-                  _buildCriteriaRow('القيمة مقابل السعر', costValueAvg),
-                  _buildCriteriaRow('جودة العمل', qualityAvg),
-                  _buildCriteriaRow('المصداقية', credibilityAvg),
-                  _buildCriteriaRow('الالتزام بالمواعيد', onTimeAvg),
-                ],
-              ),
-            ),
-
-          const SizedBox(height: 20),
-          const Text(
-            'مراجعات العملاء',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'Cairo',
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _sortOption,
-                isExpanded: true,
-                borderRadius: BorderRadius.circular(12),
-                items: const [
-                  DropdownMenuItem(value: 'الأحدث', child: Text('الأحدث')),
-                  DropdownMenuItem(
-                    value: 'الأعلى تقييماً',
-                    child: Text('الأعلى تقييماً'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'الأقل تقييماً',
-                    child: Text('الأقل تقييماً'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _sortOption = value;
-                      _applySorting();
-                    });
-                  }
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          if (_reviews.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Icon(Icons.reviews_outlined, size: 64, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      'لا توجد مراجعات بعد',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 16,
-                        color: Colors.black54,
-                      ),
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── ملخص التقييم المضغوط ──
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: borderColor),
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: const Color(0xFF5E35B1).withValues(alpha: 0.07),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
                     ),
                   ],
+          ),
+          child: Row(
+            children: [
+              // الرقم + نجوم
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    overallRating.toStringAsFixed(1),
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 38,
+                      fontWeight: FontWeight.w900,
+                      color: isDark
+                          ? Colors.white
+                          : const Color(0xFF5E35B1),
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  _buildStars(overallRating, size: 18),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$totalReviews تقييم',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 10,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              // الفاصل
+              Container(
+                width: 1,
+                height: 72,
+                color: borderColor,
+              ),
+              const SizedBox(width: 16),
+              // بنود التقييم
+              if (totalReviews > 0)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildCriteriaRow('الاستجابة', responseSpeedAvg,
+                          isDark: isDark),
+                      _buildCriteriaRow('القيمة', costValueAvg,
+                          isDark: isDark),
+                      _buildCriteriaRow('الجودة', qualityAvg,
+                          isDark: isDark),
+                      _buildCriteriaRow('المصداقية', credibilityAvg,
+                          isDark: isDark),
+                      _buildCriteriaRow('المواعيد', onTimeAvg,
+                          isDark: isDark),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // ── شريط الترتيب ──
+        Row(
+          children: [
+            Text(
+              'مراجعات العملاء',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: isDark ? Colors.white : const Color(0xFF12082E),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: surfaceColor,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: borderColor),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _sortOption,
+                  isDense: true,
+                  borderRadius: BorderRadius.circular(12),
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'الأحدث', child: Text('الأحدث')),
+                    DropdownMenuItem(
+                        value: 'الأعلى تقييماً',
+                        child: Text('الأعلى تقييماً')),
+                    DropdownMenuItem(
+                        value: 'الأقل تقييماً',
+                        child: Text('الأقل تقييماً')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _sortOption = value;
+                        _applySorting();
+                      });
+                    }
+                  },
                 ),
               ),
-            )
-          else
-            ..._reviews.map((review) => _buildReviewTile(review)),
-        ],
-      ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 10),
+
+        if (_reviews.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 28),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.reviews_outlined,
+                      size: 42, color: Colors.grey.shade400),
+                  const SizedBox(height: 10),
+                  Text(
+                    'لا توجد مراجعات بعد',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 13,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          ..._reviews.map((review) => _buildReviewTile(review)),
+      ],
     );
 
     if (widget.embedded) {
@@ -525,39 +573,50 @@ class _ReviewsTabState extends State<ReviewsTab> {
 
     return RefreshIndicator(
       onRefresh: () => _loadData(silent: true),
-      color: Colors.deepPurple,
+      color: const Color(0xFF5E35B1),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
         child: content,
       ),
     );
   }
 
-  // 📊 بند تقييم فردي
-  Widget _buildCriteriaRow(String title, double rating) {
+  // 📊 بند تقييم فردي — مضغوط
+  Widget _buildCriteriaRow(String title, double rating,
+      {bool isDark = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
       child: Row(
         children: [
           Expanded(
             child: Text(
               title,
-              style:
-                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.grey[300] : Colors.grey[700],
+              ),
             ),
           ),
-          _buildStars(rating, size: 18),
-          const SizedBox(width: 6),
+          _buildStars(rating, size: 12),
+          const SizedBox(width: 4),
           Text(
             rating.toStringAsFixed(1),
-            style: const TextStyle(fontSize: 13, color: Colors.black54),
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
           ),
         ],
       ),
     );
   }
 
-  // 💬 مراجعة عميل (من API)
+  // 💬 مراجعة عميل (من API) — مضغوطة
   Widget _buildReviewTile(Map<String, dynamic> review) {
     final reviewId = review['id'] as int;
     final reviewKey = reviewId.toString();
@@ -572,6 +631,16 @@ class _ReviewsTabState extends State<ReviewsTab> {
     final createdAt = review['created_at'] as String?;
 
     _replyControllers.putIfAbsent(reviewKey, () => TextEditingController());
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surfaceColor =
+        isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white;
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : const Color(0xFFE2E8F0);
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subtitleColor = isDark ? Colors.grey[400] : Colors.grey[600];
+    const mainColor = Color(0xFF5E35B1);
 
     // تنسيق تاريخ
     String dateLabel = '';
@@ -596,120 +665,148 @@ class _ReviewsTabState extends State<ReviewsTab> {
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        border: Border.all(color: borderColor),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: mainColor.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14.0),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── رأس المراجعة ──
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 CircleAvatar(
-                  backgroundColor: Colors.deepPurple.shade100,
+                  radius: 17,
+                  backgroundColor: mainColor.withValues(alpha: 0.14),
                   child: Text(
-                    clientName.isNotEmpty ? clientName.characters.first : '?',
+                    clientName.isNotEmpty
+                        ? clientName.characters.first
+                        : '؟',
                     style: const TextStyle(
-                      color: Colors.deepPurple,
+                      color: mainColor,
                       fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      fontFamily: 'Cairo',
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         clientName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                        style: TextStyle(
                           fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                          color: textColor,
                         ),
                       ),
-                      Text(
-                        dateLabel,
-                        style: const TextStyle(
-                          color: Colors.black45,
-                          fontSize: 12,
+                      if (dateLabel.isNotEmpty)
+                        Text(
+                          dateLabel,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 10,
+                            color: subtitleColor,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
-                _buildStars(rating, size: 18),
+                _buildStars(rating, size: 13),
               ],
             ),
+
+            // ── نص التعليق ──
             if (comment.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(comment,
-                  style: const TextStyle(fontSize: 14, height: 1.4)),
+              const SizedBox(height: 8),
+              Text(
+                comment,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  height: 1.55,
+                  color: isDark ? Colors.grey[300] : Colors.black87,
+                ),
+              ),
             ],
 
+            // ── أزرار الإجراءات (مضغوطة) ──
             if (_canReply) ...[
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Row(
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: (_isActionLoading['like_$reviewId'] ?? false)
-                        ? null
-                        : () => _toggleLike(review),
-                    icon: Icon(
-                      providerLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                      size: 18,
-                      color: providerLiked ? Colors.green : Colors.deepPurple,
+                  _actionChip(
+                    icon: providerLiked
+                        ? Icons.thumb_up
+                        : Icons.thumb_up_outlined,
+                    label: providerLiked ? 'معجب' : 'إعجاب',
+                    active: providerLiked,
+                    loading:
+                        _isActionLoading['like_$reviewId'] ?? false,
+                    onTap: () => _toggleLike(review),
+                    isDark: isDark,
+                  ),
+                  const SizedBox(width: 6),
+                  _actionChip(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    label: 'شات',
+                    loading:
+                        _isActionLoading['chat_$reviewId'] ?? false,
+                    onTap: () => _openReviewChat(review),
+                    isDark: isDark,
+                  ),
+                  if (requestId != null) ...[
+                    const SizedBox(width: 6),
+                    _actionChip(
+                      icon: Icons.assignment_outlined,
+                      label: 'الطلب',
+                      onTap: () => _openClientRequest(review),
+                      isDark: isDark,
                     ),
-                    label: Text(providerLiked ? 'تم الإعجاب' : 'إعجاب'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: (_isActionLoading['chat_$reviewId'] ?? false)
-                        ? null
-                        : () => _openReviewChat(review),
-                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                    label: const Text('فتح الشات'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: requestId == null
-                        ? null
-                        : () => _openClientRequest(review),
-                    icon: const Icon(Icons.assignment_outlined, size: 18),
-                    label: const Text('عرض الطلب'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: (_isActionLoading['report_$reviewId'] ?? false)
-                        ? null
-                        : () => _reportReview(review),
-                    icon: const Icon(Icons.flag_outlined, size: 18),
-                    label: const Text('إبلاغ'),
+                  ],
+                  const Spacer(),
+                  _actionChip(
+                    icon: Icons.flag_outlined,
+                    label: 'إبلاغ',
+                    loading:
+                        _isActionLoading['report_$reviewId'] ?? false,
+                    onTap: () => _reportReview(review),
+                    isDark: isDark,
+                    isDestructive: true,
                   ),
                 ],
               ),
             ],
 
-            // عرض الرد الحالي (من API)
+            // ── الرد الحالي ──
             if (providerReply.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
+                  color: mainColor.withValues(alpha: isDark ? 0.12 : 0.06),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Colors.deepPurple.withValues(alpha: 0.2),
-                    width: 1,
+                    color: mainColor.withValues(alpha: 0.18),
                   ),
                 ),
                 child: Column(
@@ -718,24 +815,25 @@ class _ReviewsTabState extends State<ReviewsTab> {
                     Row(
                       children: [
                         const Icon(Icons.verified,
-                            size: 16, color: Colors.deepPurple),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'رد من مقدم الخدمة',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Colors.deepPurple,
+                            size: 13, color: mainColor),
+                        const SizedBox(width: 5),
+                        Text(
+                          'رد مقدم الخدمة',
+                          style: const TextStyle(
                             fontFamily: 'Cairo',
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            color: mainColor,
                           ),
                         ),
                         if (isEdited) ...[
-                          const SizedBox(width: 6),
-                          const Text(
+                          const SizedBox(width: 5),
+                          Text(
                             '(معدّل)',
                             style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.black45,
+                              fontFamily: 'Cairo',
+                              fontSize: 9.5,
+                              color: subtitleColor,
                             ),
                           ),
                         ],
@@ -743,20 +841,22 @@ class _ReviewsTabState extends State<ReviewsTab> {
                         if (providerReplyAt != null)
                           Text(
                             _formatDate(providerReplyAt),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.black45,
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 9.5,
+                              color: subtitleColor,
                             ),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
                     Text(
                       providerReply,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        height: 1.4,
-                        color: Colors.black87,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 11,
+                        height: 1.5,
+                        color: textColor,
                       ),
                     ),
                   ],
@@ -764,33 +864,56 @@ class _ReviewsTabState extends State<ReviewsTab> {
               ),
             ],
 
+            // ── زر/نموذج الرد ──
             if (_canReply) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => _toggleReply(reviewKey),
-                  icon: const Icon(Icons.reply,
-                      size: 18, color: Colors.deepPurple),
-                  label: Text(
-                    providerReply.isEmpty ? "رد" : "تعديل الرد",
-                    style: const TextStyle(color: Colors.deepPurple),
+                child: GestureDetector(
+                  onTap: () => _toggleReply(reviewKey),
+                  child: Text(
+                    providerReply.isEmpty ? '+ رد' : '• تعديل الرد',
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: mainColor,
+                    ),
                   ),
                 ),
               ),
               if (_isReplying[reviewKey] ?? false) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 TextField(
                   controller: _replyControllers[reviewKey],
                   decoration: InputDecoration(
-                    hintText: "اكتب ردك هنا...",
-                    hintStyle: const TextStyle(fontFamily: 'Cairo'),
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                    hintText: 'اكتب ردك هنا...',
+                    hintStyle: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      color: subtitleColor,
                     ),
+                    filled: true,
+                    fillColor: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.grey.shade50,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          BorderSide(color: borderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide:
+                          BorderSide(color: borderColor),
+                    ),
+                  ),
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12,
+                    color: textColor,
                   ),
                   maxLines: 3,
                 ),
@@ -799,23 +922,29 @@ class _ReviewsTabState extends State<ReviewsTab> {
                   alignment: Alignment.centerRight,
                   child: _isReplySending
                       ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: mainColor),
                         )
-                      : ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.deepPurple,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                      : GestureDetector(
+                          onTap: () => _submitReply(reviewId, reviewKey),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: mainColor,
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                          ),
-                          onPressed: () =>
-                              _submitReply(reviewId, reviewKey),
-                          child: const Text(
-                            "إرسال",
-                            style: TextStyle(
-                                color: Colors.white, fontFamily: 'Cairo'),
+                            child: const Text(
+                              'إرسال',
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                 ),
@@ -823,6 +952,66 @@ class _ReviewsTabState extends State<ReviewsTab> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _actionChip({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool isDark,
+    bool active = false,
+    bool loading = false,
+    bool isDestructive = false,
+  }) {
+    const mainColor = Color(0xFF5E35B1);
+    final fgColor = isDestructive
+        ? Colors.red.shade400
+        : (active ? mainColor : (isDark ? Colors.grey[300]! : Colors.grey[700]!));
+    final bgColor = active
+        ? mainColor.withValues(alpha: isDark ? 0.22 : 0.10)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.grey.shade100);
+    final borderCol = active
+        ? mainColor.withValues(alpha: 0.28)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.10)
+            : Colors.grey.shade300);
+
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: borderCol),
+        ),
+        child: loading
+            ? SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                    strokeWidth: 1.5, color: fgColor),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 12, color: fgColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: fgColor,
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

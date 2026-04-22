@@ -50,7 +50,7 @@ class _ServiceDetailsStepState extends State<ServiceDetailsStep> {
     final results = await Future.wait([
       ProfileService.fetchProviderProfile(),
       ProviderServicesService.fetchMyServices(),
-      ApiClient.get('/api/providers/me/subcategories/'),
+      ProviderServicesService.fetchMySubcategories(),
     ]);
     if (!mounted) return;
 

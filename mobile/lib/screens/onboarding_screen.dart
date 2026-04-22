@@ -2,7 +2,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 import '../services/api_client.dart';
 import '../services/content_service.dart';
 import '../services/auth_service.dart';
@@ -48,7 +48,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   int _currentPage = 0;
   bool _showAppPreview = false;
-  bool _isLoggedIn = false;
   bool _isLoading = true;
   String? _loadError;
   List<OnboardItem> _slides = const [];
@@ -57,7 +56,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    _primeAuthState();
     _loadContentFromApi();
   }
 
@@ -67,12 +65,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  Future<void> _primeAuthState() async {
-    final isLoggedIn = await AuthService.isLoggedIn();
-    if (!mounted) return;
-    setState(() => _isLoggedIn = isLoggedIn);
-  }
-
   Future<void> _loadContentFromApi() async {
     setState(() {
       _isLoading = true;
@@ -80,7 +72,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     });
 
     try {
-      final result = await ContentService.fetchPublicContent(forceRefresh: true);
+      final result =
+          await ContentService.fetchPublicContent(forceRefresh: true);
       if (!mounted) return;
 
       if (!result.isSuccess || result.dataAsMap == null) {
@@ -91,7 +84,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         return;
       }
 
-      final blocks = (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
+      final blocks =
+          (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
       final slides = <OnboardItem>[];
 
       for (var index = 0; index < _orderedKeys.length; index++) {
@@ -141,7 +135,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }) {
     final title = (block['title_ar'] as String?)?.trim() ?? '';
     final body = (block['body_ar'] as String?)?.trim() ?? '';
-    if (title.isEmpty && body.isEmpty) {
+    if (title.isEmpty || body.isEmpty) {
       return null;
     }
 
@@ -159,17 +153,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   OnboardItem? _buildAppPreviewItem(Map<String, dynamic> block) {
+    final title = (block['title_ar'] as String?)?.trim() ?? '';
+    final body = (block['body_ar'] as String?)?.trim() ?? '';
     final mediaUrl = ApiClient.buildMediaUrl(block['media_url']?.toString());
     final mediaType = (block['media_type'] as String?)?.trim() ?? '';
-    if ((mediaUrl ?? '').isEmpty) {
+    if (title.isEmpty && body.isEmpty && (mediaUrl ?? '').isEmpty) {
       return null;
     }
 
     return OnboardItem(
       key: _appPreviewKey,
       icon: const SizedBox.shrink(),
-      title: '',
-      desc: '',
+      title: title,
+      desc: body,
       mediaUrl: mediaUrl,
       mediaType: mediaType,
       previewOnly: true,
@@ -270,7 +266,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         footer: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildGhostButton(label: 'إعادة المحاولة', onPressed: _loadContentFromApi),
+            _buildGhostButton(
+                label: 'إعادة المحاولة', onPressed: _loadContentFromApi),
             const SizedBox(height: 10),
             TextButton(
               onPressed: _finishOnboarding,
@@ -300,7 +297,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   },
                   itemBuilder: (context, index) {
                     final item = _slides[index];
-                    return _buildPage(item: item, isActive: index == _currentPage);
+                    return _buildPage(
+                        item: item, isActive: index == _currentPage);
                   },
                 ),
         ),
@@ -420,31 +418,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Column(
                   children: [
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5EEFF),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: RichText(
-                          textDirection: TextDirection.ltr,
-                          text: TextSpan(
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5EEFF),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            'الشاشة ${_currentPage + 1}',
                             style: const TextStyle(
                               fontFamily: 'Cairo',
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: AppColors.deepPurple,
                             ),
-                            children: [
-                              TextSpan(text: (_currentPage + 1).toString().padLeft(2, '0')),
-                              const TextSpan(text: ' / '),
-                              TextSpan(text: _slides.length.toString()),
-                            ],
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _currentPage >= _slides.length - 1
+                                ? 'جاهز للانطلاق'
+                                : 'جولة تعريفية سريعة',
+                            textAlign: TextAlign.end,
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF7B678F),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     SizedBox(height: isSmall ? 8 : 14),
                     BounceInDown(
@@ -471,7 +479,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             borderRadius: BorderRadius.circular(999),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.deepPurple.withValues(alpha: 0.16),
+                                color: AppColors.deepPurple
+                                    .withValues(alpha: 0.16),
                                 blurRadius: 30,
                                 offset: const Offset(0, 12),
                               ),
@@ -525,6 +534,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final size = MediaQuery.sizeOf(context);
     final sh = size.height;
     final isSmall = sh < 700;
+    final title =
+        item.title.trim().isNotEmpty ? item.title.trim() : 'تعرف على نوافذ';
+    final body = item.desc.trim().isNotEmpty
+        ? item.desc.trim()
+        : 'واجهة سريعة وواضحة تساعدك تبدأ مباشرة من التطبيق.';
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 4, vertical: isSmall ? 4 : 8),
@@ -548,24 +562,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           builder: (context, constraints) {
             return Column(
               children: [
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5EEFF),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Text(
-                      'بروفة التطبيق',
+                Row(
+                  children: const [
+                    Text(
+                      'آخر خطوة قبل تسجيل الدخول',
                       style: TextStyle(
                         fontFamily: 'Cairo',
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.deepPurple,
+                        color: Color(0xFF7B678F),
                       ),
                     ),
-                  ),
+                    Spacer(),
+                    _OnboardMetaChip(label: 'بروفة التطبيق'),
+                  ],
                 ),
                 const SizedBox(height: 14),
                 Expanded(
@@ -577,7 +587,61 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     aspectRatio: 0.78,
                     imageFit: BoxFit.contain,
                     videoFit: BoxFit.contain,
-                    fallback: const SizedBox.shrink(),
+                    fallback: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFF4EDFF),
+                            Color(0xFFECE3FF),
+                            Color(0xFFEAF2FF),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.smartphone_rounded,
+                          color: AppColors.deepPurple,
+                          size: 54,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9F4FF),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE8DBFF)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF24163C),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        body,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          height: 1.75,
+                          color: Color(0xFF6F6482),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -626,7 +690,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               label: const FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  'متابعة',
+                  'تسجيل الدخول',
                   style: TextStyle(
                     fontFamily: 'Cairo',
                     fontSize: 14,
@@ -715,7 +779,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     label: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        _currentPage == _slides.length - 1 ? 'ابدأ الآن' : 'التالي',
+                        _currentPage == _slides.length - 1
+                            ? 'ابدأ الآن'
+                            : 'التالي',
                         style: const TextStyle(
                           fontFamily: 'Cairo',
                           fontSize: 14,
@@ -754,6 +820,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           fontFamily: 'Cairo',
           fontSize: 13,
           fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardMetaChip extends StatelessWidget {
+  final String label;
+
+  const _OnboardMetaChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5EEFF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.deepPurple,
         ),
       ),
     );

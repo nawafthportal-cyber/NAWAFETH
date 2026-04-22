@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../constants/app_theme.dart';
 import '../models/chat_thread_model.dart';
 import '../services/account_mode_service.dart';
 import '../services/api_client.dart';
@@ -698,217 +699,99 @@ class _MyChatsScreenState extends State<MyChatsScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
+      backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
       drawer: const CustomDrawer(),
       appBar: const PlatformTopBar(
         pageLabel: 'محادثاتي',
         showNotificationAction: false,
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? const LinearGradient(
-                  colors: [Color(0xFF0E1726), Color(0xFF122235), Color(0xFF17293D)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                )
-              : const LinearGradient(
-                  colors: [Color(0xFFEEF5FB), Color(0xFFF4F7FB), Color(0xFFF7F8FC)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                child: _buildEntrance(0, _buildHeroCard(isDark)),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: _buildEntrance(1, _buildControlPanel(isDark, sortedChats.length)),
-              ),
-              Expanded(
-                child: _buildBody(isDark, sortedChats),
-              ),
-            ],
-          ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: _buildEntrance(0, _buildControlPanel(isDark, sortedChats.length)),
+            ),
+            Expanded(
+              child: _buildBody(isDark, sortedChats),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: const CustomBottomNav(currentIndex: -1),
     );
   }
 
-  Widget _buildHeroCard(bool isDark) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF183B64), Color(0xFF22577A), Color(0xFF0F766E)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: 0.16),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -44,
-            left: -18,
-            child: Container(
-              width: 132,
-              height: 132,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -56,
-            right: -24,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _HeroTagChip(label: _modeLabel),
-              const SizedBox(height: 12),
-              const Text(
-                'الرسائل',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'تابع رسائلك مع مزودي الخدمة وفرق المنصة في مساحة أوضح وأكثر هدوءًا، مع إبراز الرسائل الجديدة والمفضلة والعملاء.',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11.5,
-                  height: 1.9,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.88),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _HeroTagChip(label: 'رسائل مباشرة'),
-                  _HeroTagChip(label: 'فرق المنصة'),
-                  _HeroTagChip(label: 'مرفقات آمنة'),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _HeroStatChip(label: 'إجمالي المحادثات', value: '${_visibleThreads.length}'),
-                  _HeroStatChip(label: 'غير المقروء', value: '$_totalUnreadMessages'),
-                  _HeroStatChip(label: 'المفضلة', value: '$_favoriteThreadsCount'),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildControlPanel(bool isDark, int visibleCount) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(24),
+        color: isDark ? AppColors.cardDark : AppColors.cardLight,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0x220E5E85),
+          color: isDark ? AppColors.borderDark : AppColors.borderLight,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── stats row ────────────────────────────────────────────────────
           Row(
             children: [
-              Expanded(
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySurface,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
                 child: Text(
-                  'قائمة الرسائل',
-                  style: TextStyle(
+                  _modeLabel,
+                  style: const TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 16,
+                    fontSize: 10,
                     fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: AppColors.primaryDark,
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1A3347) : const Color(0xFFF4F8FB),
-                  borderRadius: BorderRadius.circular(999),
+              const Spacer(),
+              if (_totalUnreadMessages > 0) ...[
+                _ChatStatPill(
+                  value: '$_totalUnreadMessages',
+                  label: 'غير مقروء',
+                  isDark: isDark,
                 ),
-                child: Text(
-                  '$visibleCount نتيجة',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? const Color(0xFFB8C7D9) : const Color(0xFF52637A),
-                  ),
-                ),
+                const SizedBox(width: 6),
+              ],
+              _ChatStatPill(
+                value: '$visibleCount',
+                label: 'محادثة',
+                isDark: isDark,
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          // ── search ───────────────────────────────────────────────────────
           _buildSearchField(isDark),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          // ── filter chips ──────────────────────────────────────────────────
           SizedBox(
-            height: 40,
+            height: 34,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
                 _buildFilterChip('الكل'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 _buildFilterChip('غير مقروءة'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 _buildFilterChip('مفضلة'),
                 if (_isProviderAccount) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   _buildFilterChip('عملاء'),
                 ],
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 _buildFilterChip('الأحدث'),
               ],
             ),
@@ -1013,7 +896,7 @@ class _MyChatsScreenState extends State<MyChatsScreen>
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
           return _buildEntrance(
-            index + 2,
+            index + 1,
             _buildChatTile(sortedChats[index], isDark),
           );
         },
@@ -1605,6 +1488,50 @@ class _MyChatsScreenState extends State<MyChatsScreen>
   }
 }
 
+// ─── helper widgets (chats) ──────────────────────────────────────────────────
+
+class _ChatStatPill extends StatelessWidget {
+  const _ChatStatPill({required this.value, required this.label, required this.isDark});
+  final String value;
+  final String label;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.borderDark : AppColors.primarySurface,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: value,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: isDark ? AppColors.grey200 : AppColors.primaryDark,
+              ),
+            ),
+            TextSpan(
+              text: ' $label',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppColors.grey400 : AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 enum _ThreadKind { team, provider, client, member }
 
 enum _PreviewTone { team, service, defaultTone }
@@ -1615,75 +1542,6 @@ class _PreviewLabel {
   final Color foreground;
 
   const _PreviewLabel(this.text, this.background, this.foreground);
-}
-
-class _HeroTagChip extends StatelessWidget {
-  final String label;
-
-  const _HeroTagChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontFamily: 'Cairo',
-          fontSize: 10.5,
-          fontWeight: FontWeight.w900,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroStatChip extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _HeroStatChip({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
-              color: Colors.white.withValues(alpha: 0.72),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _TinyChip extends StatelessWidget {

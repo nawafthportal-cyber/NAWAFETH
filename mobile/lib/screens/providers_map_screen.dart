@@ -9,10 +9,12 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/service_provider_location.dart';
 import '../services/api_client.dart';
+import '../services/app_logger.dart';
 import '../services/home_service.dart';
+import '../services/providers_api_service.dart';
 import '../models/category_model.dart';
 import '../constants/saudi_cities.dart';
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/verified_badge_view.dart';
 import 'chat_detail_screen.dart';
@@ -42,9 +44,9 @@ class ProvidersMapScreen extends StatefulWidget {
 
 class _ProvidersMapScreenState extends State<ProvidersMapScreen>
   with SingleTickerProviderStateMixin {
-  static const Color _mainColor = Color(0xFF0F766E);
+  static const Color _mainColor = AppColors.teal;
   static const Color _accentColor = Color(0xFF115E59);
-  static const Color _inkColor = Color(0xFF0F172A);
+  static const Color _inkColor = AppTextStyles.textPrimary;
   MapController? _mapController;
   bool _isMapReady = false;
   Position? _currentPosition;
@@ -528,7 +530,13 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen>
       if (matchedCategory != null) {
         return {'category_id': matchedCategory.id.toString()};
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'ProvidersMapScreen._resolveCategoryFilters failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
 
     final q = subCategory.isNotEmpty ? '$category $subCategory'.trim() : category;
     if (q.isNotEmpty) return {'q': q};
@@ -554,12 +562,9 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen>
     }
     queryParams.addAll(await _resolveCategoryFilters());
 
-    final uri = Uri(
-      path: '/api/providers/list/',
-      queryParameters: queryParams,
+    final res = await ProvidersApiService.fetchProvidersList(
+      extraQueryParameters: queryParams,
     );
-
-    final res = await ApiClient.get(uri.toString());
     if (!res.isSuccess) return;
 
     final rawList = (res.data is List)

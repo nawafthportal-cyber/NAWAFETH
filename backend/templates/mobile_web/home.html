@@ -8,7 +8,7 @@
 {% block body_class %}home-mobile-layout{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}?v=20260421-showcase-cover">
+<link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}?v=20260422-providers-strip">
 {% endblock %}
 
 {% block content %}
@@ -76,7 +76,11 @@
     <div class="container">
       <div class="home-section-shell">
         <div class="home-section-header">
-  
+          <div class="home-section-heading">
+            <span class="home-section-kicker">اكتشف الخدمات</span>
+            <h2 class="home-section-title-static" id="categories-title">التصنيفات</h2>
+          </div>
+          <a href="/search/" class="view-all-btn" aria-label="عرض كل التصنيفات">عرض الكل</a>
         </div>
         <div class="categories-carousel">
           <button class="categories-arrow categories-arrow--prev" aria-label="السابق" type="button">
@@ -110,7 +114,10 @@
     <div class="container">
       <div class="home-section-shell">
         <div class="home-section-header">
-
+          <div class="home-section-heading">
+            <span class="home-section-kicker">ترشيحات المنصة</span>
+            <h2 class="home-section-title-static" id="providers-title">أبرز المختصين</h2>
+          </div>
         </div>
         <div class="providers-scroll featured-specialists-scroll" id="providers-list">
           <div class="featured-specialist-card skeleton-featured-specialist">
@@ -138,7 +145,8 @@
       <div class="home-section-shell">
         <div class="home-section-header">
           <div class="home-section-heading">
-             <h2 class="section-title">شريط البنرات والمشاريع</h2>
+            <span class="home-section-kicker">أعمال وبنرات</span>
+            <h2 class="section-title">شريط البنرات والمشاريع</h2>
           </div>
         </div>
         <div class="showcase-scroll" id="portfolio-showcase-list"></div>
@@ -153,5 +161,5 @@
 {% block extra_js %}
 <script src="{% static 'mobile_web/js/onboardingOverlay.js' %}"></script>
 <script src="{% static 'mobile_web/js/spotlightViewer.js' %}?v=20260421-tiktok-viewer"></script>
-<script src="{% static 'mobile_web/js/homePage.js' %}?v=20260421-reels-sponsored-recent-autoplay"></script>
+<script src="{% static 'mobile_web/js/homePage.js' %}?v=20260422-providers-strip"></script>
 {% endblock %}

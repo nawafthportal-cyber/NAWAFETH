@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'constants/app_theme.dart';
 import 'services/auth_service.dart';
 import 'services/onboarding_service.dart';
 import 'services/account_mode_service.dart';
@@ -123,33 +124,8 @@ class _NawafethAppState extends State<NawafethApp> {
 
         // ✅ إعدادات الثيم
         themeMode: _themeMode,
-        theme: ThemeData(
-          brightness: Brightness.light,
-          fontFamily: 'Cairo',
-          scaffoldBackgroundColor: Colors.white,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          useMaterial3: true,
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.deepPurple,
-            foregroundColor: Colors.white,
-            toolbarHeight: 58,
-          ),
-        ),
-        darkTheme: ThemeData(
-          brightness: Brightness.dark,
-          fontFamily: 'Cairo',
-          scaffoldBackgroundColor: const Color(0xFF121212),
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.deepPurple,
-            brightness: Brightness.dark,
-          ),
-          useMaterial3: true,
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.black87,
-            foregroundColor: Colors.white,
-            toolbarHeight: 58,
-          ),
-        ),
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
 
         // ✅ دعم تعدد اللغات
         locale: _locale,
@@ -163,7 +139,7 @@ class _NawafethAppState extends State<NawafethApp> {
         // ✅ المسارات
         initialRoute: widget.showOnboarding
           ? '/onboarding'
-          : (widget.isLoggedIn ? '/home' : '/login'),
+          : '/home',
         routes: {
           '/onboarding': (context) => const OnboardingScreen(),
           '/home': (context) => const HomeScreen(),

@@ -21,6 +21,8 @@ class OTPSendSerializer(serializers.Serializer):
 class OTPVerifySerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
     code = serializers.CharField(max_length=4)
+    # Mobile QA flag: allow accepting any 4-digit OTP when enabled by client flow.
+    mobile_any_otp = serializers.BooleanField(required=False, default=False)
 
     def validate_phone(self, value: str) -> str:
         return _validate_phone_local05(value)

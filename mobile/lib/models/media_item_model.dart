@@ -15,6 +15,8 @@ class MediaItemModel {
   final String? fileUrl;
   final String? thumbnailUrl;
   final String? caption;
+  final String? sectionTitle;
+  final bool sponsoredBadgeOnly;
   int likesCount;
   int savesCount;
   bool isLiked;
@@ -34,6 +36,8 @@ class MediaItemModel {
     this.fileUrl,
     this.thumbnailUrl,
     this.caption,
+    this.sectionTitle,
+    this.sponsoredBadgeOnly = false,
     this.likesCount = 0,
     this.savesCount = 0,
     this.isLiked = false,
@@ -106,6 +110,8 @@ class MediaItemModel {
       fileUrl: json['file_url'] as String?,
       thumbnailUrl: json['thumbnail_url'] as String?,
       caption: json['caption'] as String?,
+      sectionTitle: json['section_title'] as String?,
+      sponsoredBadgeOnly: json['sponsored_badge_only'] as bool? ?? false,
       likesCount: json['likes_count'] as int? ?? 0,
       savesCount: json['saves_count'] as int? ?? 0,
       isLiked: json['is_liked'] as bool? ?? false,

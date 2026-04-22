@@ -28,4 +28,9 @@ class ProviderServicesService {
   static Future<ApiResponse> fetchCategories() async {
     return ApiClient.get('/api/providers/categories/');
   }
+
+  /// جلب التصنيفات الفرعية المرتبطة بالمزود الحالي
+  static Future<ApiResponse> fetchMySubcategories() async {
+    return ApiClient.get('/api/providers/me/subcategories/');
+  }
 }

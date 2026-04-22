@@ -1220,7 +1220,8 @@ const HomePage = (() => {
 
   function _syncDesktopHomeBehaviors() {
     _initCategoriesCarousel();
-    if (_isDesktopHomeGrid()) {
+    const isFeaturedSpecialists = !!($providersList && $providersList.classList.contains('featured-specialists-scroll'));
+    if (_isDesktopHomeGrid() && !isFeaturedSpecialists) {
       _stopProvidersAutoRotate();
       return;
     }
@@ -1246,7 +1247,8 @@ const HomePage = (() => {
   function _startProvidersAutoRotate() {
     _stopProvidersAutoRotate();
     if (!$providersList) return;
-    if (_isDesktopHomeGrid()) return;
+    const isFeaturedSpecialists = $providersList.classList.contains('featured-specialists-scroll');
+    if (_isDesktopHomeGrid() && !isFeaturedSpecialists) return;
     const cards = $providersList.querySelectorAll('.featured-specialist-card');
     if (cards.length <= 1) return;
 

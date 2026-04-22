@@ -15,7 +15,7 @@ dependencies:
   # ============================
   # 📌 مكتبات أساسية
   # ============================
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^1.0.9
   intl: ^0.20.2
   flutter_localizations:
     sdk: flutter
@@ -23,17 +23,17 @@ dependencies:
   # ============================
   # 🎨 واجهات – أنيميشن – أيقونات
   # ============================
-  font_awesome_flutter: ^10.7.0      # أيقونات FontAwesome
-  animate_do: ^3.3.4                 # مؤثرات جاهزة (Fade, Slide..)
+  font_awesome_flutter: ^10.12.0     # أيقونات FontAwesome
+  animate_do: ^3.3.9                 # مؤثرات جاهزة (Fade, Slide..)
 
   # ============================
   # 🎥 وسائط (فيديو – صوت – صور – ملفات)
   # ============================
   cached_network_image: ^3.4.1       # تخزين مؤقت للصور من الشبكة (disk + memory)
-  video_player: ^2.9.2               # تشغيل الفيديو
-  video_thumbnail: ^0.5.3            # صورة مصغّرة للفيديو
+  video_player: ^2.11.1              # تشغيل الفيديو
+  video_thumbnail: ^0.5.6            # صورة مصغّرة للفيديو
   image_picker: ^1.1.2               # اختيار الصور من الكاميرا/المعرض
-  file_picker: ^8.1.2                # اختيار ملفات (PDF, Word...)
+  file_picker: ^8.3.7                # اختيار ملفات (PDF, Word...)
   flutter_image_compress: ^2.4.0     # ضغط الصور قبل الرفع
   flutter_sound: ^9.2.13             # تسجيل وتشغيل الصوت
   permission_handler: ^11.3.1        # إدارة الأذونات
@@ -42,11 +42,11 @@ dependencies:
   # 🔧 خدمات النظام – روابط – مشاركة
   # ============================
   url_launcher: ^6.3.1               # فتح روابط خارجية
-  geolocator: ^13.0.2                # تحديد الموقع الجغرافي
-  shared_preferences: ^2.3.3         # تخزين محلي (Login, Onboarding)
-  flutter_secure_storage: ^9.2.3     # تخزين مشفّر للتوكنات والبيانات الحساسة
+  geolocator: ^13.0.4                # تحديد الموقع الجغرافي
+  shared_preferences: ^2.5.5         # تخزين محلي (Login, Onboarding)
+  flutter_secure_storage: ^9.2.4     # تخزين مشفّر للتوكنات والبيانات الحساسة
   local_auth: ^2.3.0                 # التحقق البيومتري (بصمة / معرف الوجه)
-  share_plus: ^10.1.2                # مشاركة نصوص وملفات
+  share_plus: ^12.0.2                # مشاركة نصوص وملفات
   http: ^1.2.0                       # HTTP client للاتصال بالـ Backend API
   flutter_local_notifications: ^18.0.1 # إشعارات محلية مع صوت
 
@@ -66,7 +66,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  flutter_lints: ^5.0.0              # تحسين جودة الكود
+  flutter_lints: ^6.0.0              # تحسين جودة الكود
 
 flutter:
   uses-material-design: true

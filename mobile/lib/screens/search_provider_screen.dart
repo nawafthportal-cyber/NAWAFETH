@@ -5,7 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/analytics_service.dart';
 import '../services/api_client.dart';
+import '../services/app_logger.dart';
 import '../services/home_service.dart';
+import '../services/providers_api_service.dart';
 import '../models/category_model.dart';
 import '../models/provider_public_model.dart';
 import '../widgets/bottom_nav.dart';
@@ -83,56 +85,16 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     try {
       final selectedCategoryName = _selectedCategoryName();
       final selectedCategoryCity = '';
-      final searchPromoUri = Uri(
-        path: '/api/promo/active/',
-        queryParameters: {
-          'service_type': 'search_results',
-          'limit': '10',
-          'search_scope': selectedCategoryName.isNotEmpty
-              ? 'default,main_results,category_match'
-              : 'default,main_results',
-          if (selectedCategoryName.isNotEmpty) 'category': selectedCategoryName,
-        },
+      final bundle = await ProvidersApiService.fetchSearchPromoBundle(
+        selectedCategoryName: selectedCategoryName,
+        selectedCategoryCity: selectedCategoryCity,
       );
-      final categoryBannerFuture = selectedCategoryName.isNotEmpty
-          ? ApiClient.get(
-              Uri(
-                path: '/api/promo/active/',
-                queryParameters: {
-                  'ad_type': 'banner_category',
-                  'limit': '1',
-                  'category': selectedCategoryName,
-                  if (selectedCategoryCity.isNotEmpty) 'city': selectedCategoryCity,
-                },
-              ).toString(),
-            )
-          : Future.value(null);
-      final categoryPopupFuture = selectedCategoryName.isNotEmpty
-          ? ApiClient.get(
-              Uri(
-                path: '/api/promo/active/',
-                queryParameters: {
-                  'ad_type': 'popup_category',
-                  'limit': '1',
-                  'category': selectedCategoryName,
-                  if (selectedCategoryCity.isNotEmpty) 'city': selectedCategoryCity,
-                },
-              ).toString(),
-            )
-          : Future.value(null);
 
-      final results = await Future.wait([
-        categoryBannerFuture,
-        ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=1'),
-        categoryPopupFuture,
-        ApiClient.get(searchPromoUri.toString()),
-        ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
-      ]);
-      final categoryBannerRes = results[0];
-      final searchBannerRes = results[1];
-      final categoryPopupRes = results[2];
-      final searchRes = results[3];
-      final featuredRes = results[4];
+      final categoryBannerRes = bundle.categoryBanner;
+      final searchBannerRes = bundle.searchBanner;
+      final categoryPopupRes = bundle.categoryPopup;
+      final searchRes = bundle.searchResults;
+      final featuredRes = bundle.featuredTop5;
 
       final categoryBanner = _firstPromoMap(categoryBannerRes);
       final searchBanner = _firstPromoMap(searchBannerRes);
@@ -174,7 +136,13 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
           _providers = _applySearchPromoOrdering(_providers);
         });
       }
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'SearchProviderScreen._loadSearchPromos failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Map<String, dynamic>? _firstPromoMap(dynamic response) {
@@ -388,7 +356,12 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
           _loadingCats = false;
         });
       }
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'SearchProviderScreen._loadCategories failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       if (mounted) setState(() => _loadingCats = false);
     }
   }
@@ -425,19 +398,11 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         if (mounted) setState(() => _loadingProviders = false);
         return;
       }
-      final queryParameters = <String, String>{'page_size': '30'};
-      if (q.isNotEmpty) {
-        queryParameters['q'] = q;
-      }
-      if (_selectedCatId != null) {
-        queryParameters['category_id'] = _selectedCatId.toString();
-      }
-
-      final uri = Uri(
-        path: '/api/providers/list/',
-        queryParameters: queryParameters,
+      final res = await ProvidersApiService.fetchProvidersList(
+        pageSize: 30,
+        query: q,
+        categoryId: _selectedCatId,
       );
-      final res = await ApiClient.get(uri.toString());
       if (res.isSuccess && res.data != null) {
         final list = res.data is List
             ? res.data as List
@@ -470,6 +435,10 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         }
       }
     } catch (e) {
+      AppLogger.warn(
+        'SearchProviderScreen._searchProviders failed',
+        error: e,
+      );
       if (mounted) setState(() => _loadError = 'خطأ: $e');
     }
     if (mounted) setState(() => _loadingProviders = false);
@@ -677,7 +646,12 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
           accuracy: LocationAccuracy.high,
         ),
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'SearchProviderScreen._ensureClientPosition failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       _clientPosition = null;
     }
 

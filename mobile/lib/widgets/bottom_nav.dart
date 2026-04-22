@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/account_mode_service.dart';
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 
 class CustomBottomNav extends StatefulWidget {
   final int currentIndex;
@@ -58,7 +58,7 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
     return SafeArea(
       top: false,
       child: SizedBox(
-        height: 118 + bottomInset,
+        height: 96 + bottomInset,
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
@@ -71,18 +71,17 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
               child: ClipPath(
                 clipper: CurvedNotchClipper(),
                 child: Container(
-                  height: 82 + bottomInset,
+                  height: 62 + bottomInset,
                   padding: EdgeInsets.only(bottom: bottomInset),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha((0.08 * 255).toInt()),
-                        blurRadius: 20,
-                        spreadRadius: 4,
-                        offset: const Offset(0, -2),
+                    color: isDark ? AppColors.cardDark : AppColors.surfaceLight,
+                    border: Border(
+                      top: BorderSide(
+                        color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                        width: 0.6,
                       ),
-                    ],
+                    ),
+                    boxShadow: AppShadows.topBar,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -133,41 +132,39 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
             // ✅ زر "خدمة" العائم في المنتصف - يظهر فقط في الصفحة الرئيسية
             if (widget.currentIndex == 0)
               Positioned(
-                bottom: 24 + (bottomInset * 0.2),
+                bottom: 18 + (bottomInset * 0.2),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => _onAddServicePressed(context),
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
+                      // Subtle glow ring
                       Container(
-                        width: 110,
-                        height: 110,
-                        decoration: BoxDecoration(
+                        width: 72,
+                        height: 72,
+                        decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: const RadialGradient(
-                            colors: [
-                              Color(0x40DA52FF), // ✅ بديل withOpacity(0.25)
-                              Colors.transparent,
-                            ],
-                            radius: 0.6,
+                          gradient: RadialGradient(
+                            colors: [Color(0x2860269E), Colors.transparent],
+                            radius: 0.7,
                           ),
                         ),
                       ),
                       Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
+                        width: 52,
+                        height: 52,
+                        decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [AppColors.primaryDark, AppColors.primaryDark],
+                          gradient: LinearGradient(
+                            colors: [AppColors.primaryLight, AppColors.primary],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           boxShadow: [
-                            const BoxShadow(
-                              color: Color(0x4DFF0000), // ✅ بديل withOpacity(0.3)
-                              blurRadius: 12,
+                            BoxShadow(
+                              color: Color(0x4060269E),
+                              blurRadius: 14,
                               offset: Offset(0, 4),
                             ),
                           ],
@@ -175,13 +172,14 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
                         child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add, size: 24, color: Colors.white),
-                            SizedBox(height: 2),
+                            Icon(Icons.add_rounded, size: 20, color: Colors.white),
+                            SizedBox(height: 1),
                             Text(
                               "خدمة",
                               style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Cairo',
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
                                 color: Colors.white,
                                 height: 1,
                               ),
@@ -218,25 +216,25 @@ class IconWithLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final Color activeColor = AppColors.accentOrange;
-    final Color defaultColor = isDark ? Colors.white70 : AppColors.deepPurple;
+    final Color activeColor = AppColors.primary;
+    final Color defaultColor = isDark ? const Color(0xFF8892A4) : const Color(0xFF8892A4);
 
     final Color contentColor = selected ? activeColor : defaultColor;
 
     return InkResponse(
       onTap: onTap,
-      radius: 28,
+      radius: 24,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
         decoration: BoxDecoration(
-          color: selected ? activeColor.withAlpha(28) : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          color: selected ? activeColor.withAlpha(18) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: contentColor, size: 22),
+            Icon(icon, color: contentColor, size: 20),
             const SizedBox(height: 2),
             Text(
               label,
@@ -244,8 +242,8 @@ class IconWithLabel extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 10.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                fontSize: AppTextStyles.micro,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: contentColor,
               ),
             ),

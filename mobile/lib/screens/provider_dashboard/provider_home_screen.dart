@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:nawafeth/constants/app_theme.dart';
 import 'package:nawafeth/widgets/bottom_nav.dart';
+import 'package:nawafeth/widgets/custom_drawer.dart';
 import 'package:nawafeth/widgets/platform_top_bar.dart';
 import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/account_mode_service.dart';
@@ -40,7 +42,8 @@ class ProviderHomeScreen extends StatefulWidget {
 }
 
 class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
-  final Color mainColor = Colors.deepPurple;
+  final Color mainColor = const Color(0xFF5E35B1);
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   File? _profileImage;
   File? _coverImage;
@@ -386,7 +389,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
               : (result.error ?? 'تعذر حفظ الصورة'),
           style: const TextStyle(fontFamily: 'Cairo'),
         ),
-        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
+        backgroundColor: result.isSuccess ? AppColors.success : AppColors.error,
       ),
     );
 
@@ -451,7 +454,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
               : (result.error ?? "تعذر حفظ اللمحة"),
           style: const TextStyle(fontFamily: 'Cairo'),
         ),
-        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
+        backgroundColor: result.isSuccess ? AppColors.success : AppColors.error,
       ),
     );
 
@@ -480,7 +483,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text(
               'حذف',
-              style: TextStyle(fontFamily: 'Cairo', color: Colors.red),
+              style: TextStyle(fontFamily: 'Cairo', color: AppColors.error),
             ),
           ),
         ],
@@ -511,7 +514,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
               : (response.error ?? 'تعذر حذف اللمحة'),
           style: const TextStyle(fontFamily: 'Cairo'),
         ),
-        backgroundColor: response.isSuccess ? Colors.green : Colors.red,
+        backgroundColor: response.isSuccess ? AppColors.success : AppColors.error,
       ),
     );
 
@@ -538,6 +541,80 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const MyQrScreen()),
+    );
+  }
+
+  // ── شريط إحصائيات المزود المضغوط ──
+  Widget _buildProviderStatsStrip(bool isDark) {
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subColor = isDark ? Colors.grey[400]! : Colors.grey.shade600;
+    final divColor = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : Colors.grey.shade200;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _providerStatCell('$_followersCount', 'متابع', textColor, subColor,
+            onTap: () {}),
+        Container(width: 1, height: 28, color: divColor),
+        _providerStatCell('$_followingCount', 'يتابع', textColor, subColor,
+            onTap: () {}),
+        Container(width: 1, height: 28, color: divColor),
+        _providerStatCell('$_likesReceivedCount', 'إعجاب', textColor, subColor),
+        Container(width: 1, height: 28, color: divColor),
+        _providerStatCell('$_clientsCount', 'مكتمل', textColor, subColor),
+        Container(width: 1, height: 28, color: divColor),
+        _providerStatCell('$_savedByUsersCount', 'محفوظ', textColor, subColor),
+        Container(width: 1, height: 28, color: divColor),
+        _providerStatCell('QR', 'نافذتي', textColor, subColor,
+            icon: Icons.qr_code_2_rounded,
+            onTap: _openMyQrScreen),
+      ],
+    );
+  }
+
+  Widget _providerStatCell(
+    String value,
+    String label,
+    Color textColor,
+    Color subColor, {
+    IconData? icon,
+    VoidCallback? onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null)
+              Icon(icon, size: 15, color: const Color(0xFF5E35B1))
+            else
+              Text(
+                value,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF5E35B1),
+                  height: 1,
+                ),
+              ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                color: subColor,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -581,6 +658,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   // أزرار التنقل الثلاثة
   Widget _dashboardButton(IconData icon, String label, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const purple = Color(0xFF5E35B1);
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -588,27 +667,36 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : purple.withValues(alpha: 0.12),
+            ),
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: purple.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: mainColor),
-              const SizedBox(height: 6),
+              Icon(icon, color: purple, size: 22),
+              const SizedBox(height: 5),
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
                   fontFamily: "Cairo",
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
             ],
@@ -618,77 +706,93 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     );
   }
 
-  // كرت الباقة (ذهبي بسيط)
+  // كرت الباقة — مضغوط + dark mode
   Widget _planCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final statusLabel = _currentPlanStatusLabel;
     final endAt = _subscriptionEndAt;
     final expiryLabel = endAt == null ? null : 'ينتهي: ${_formatDate(endAt)}';
+    final detail = [statusLabel, expiryLabel]
+        .whereType<String>()
+        .where((s) => s.trim().isNotEmpty)
+        .join(' • ');
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFD54F)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.workspace_premium, color: Color(0xFFF9A825)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _currentPlanName,
-                  style: const TextStyle(
-                    fontFamily: "Cairo",
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (statusLabel != null || expiryLabel != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      [statusLabel, expiryLabel]
-                          .whereType<String>()
-                          .where((item) => item.trim().isNotEmpty)
-                          .join(' • '),
-                      style: const TextStyle(
-                        fontFamily: "Cairo",
-                        fontSize: 11,
-                        color: Colors.black54,
-                      ),
+    return GestureDetector(
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const PlansScreen())),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.amber.withValues(alpha: 0.12)
+              : const Color(0xFFFFFBF0),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark
+                ? Colors.amber.withValues(alpha: 0.28)
+                : const Color(0xFFFFD54F),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.workspace_premium_rounded,
+                color: Color(0xFFF9A825), size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _currentPlanName,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
                   ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PlansScreen()),
-              );
-            },
-            child: const Text(
-              "ترقية الباقة",
-              style: TextStyle(
-                fontFamily: "Cairo",
-                fontSize: 12,
-                color: Color(0xFFF57F17),
+                  if (detail.isNotEmpty)
+                    Text(
+                      detail,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 10,
+                        color: isDark ? Colors.grey[400] : Colors.black54,
+                      ),
+                    ),
+                ],
               ),
             ),
-          ),
-        ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9A825).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                    color: const Color(0xFFF9A825).withValues(alpha: 0.35)),
+              ),
+              child: const Text(
+                'ترقية',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFF57F17),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // ✅ كرت اكتمال الملف — كامل الكرت ينقل إلى شاشة إكمال الملف التعريفي
+  // ✅ كرت اكتمال الملف — مضغوط + dark mode
   Widget _profileCompletionCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final percent = (_profileCompletion * 100).round();
+    const mainColor = Color(0xFF5E35B1);
+
     return GestureDetector(
       onTap: () async {
         await Navigator.push(
@@ -701,59 +805,59 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
         await _loadProviderData();
       },
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFF6F4FF),
-          borderRadius: BorderRadius.circular(16),
+          color: isDark
+              ? mainColor.withValues(alpha: 0.12)
+              : const Color(0xFFF5F0FF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark
+                ? mainColor.withValues(alpha: 0.25)
+                : mainColor.withValues(alpha: 0.18),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Text(
-                  "اكتمال الملف التعريفي",
+                Text(
+                  'اكتمال الملف',
                   style: TextStyle(
-                    fontFamily: "Cairo",
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11.5,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
                 const Spacer(),
                 Text(
-                  "$percent%",
-                  style: TextStyle(
-                    fontFamily: "Cairo",
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                  '$percent%',
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
                     color: mainColor,
                   ),
                 ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: mainColor.withValues(alpha: 0.8),
-                ),
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_forward_ios_rounded,
+                    size: 12,
+                    color: mainColor.withValues(alpha: 0.8)),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 5),
             ClipRRect(
               borderRadius: BorderRadius.circular(40),
               child: LinearProgressIndicator(
                 value: _profileCompletion,
-                minHeight: 6,
-                backgroundColor: Colors.white,
-                valueColor: AlwaysStoppedAnimation<Color>(mainColor),
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              "اضغط هنا لإكمال بقية بيانات ملفك التعريفي.",
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.black54,
-                fontFamily: "Cairo",
+                minHeight: 5,
+                backgroundColor: isDark
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : Colors.white,
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(mainColor),
               ),
             ),
           ],
@@ -764,6 +868,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   // رأس الصفحة: غلاف + صورة شخصية + اسم
   Widget _buildHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final coverHeight = screenWidth < 380 ? 178.0 : 194.0;
     final avatarBottom = screenWidth < 380 ? -34.0 : -40.0;
@@ -819,30 +924,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           top: 0,
           left: 12,
           right: 12,
-          child: PlatformTopBar(
-            overlay: true,
-            height: 64,
-            notificationCount: _notificationUnread,
-            chatCount: _chatUnread,
-            onNotificationsTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const NotificationsScreen(),
-                ),
-              );
-              _loadUnreadBadges();
-            },
-            onChatsTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const MyChatsScreen(),
-                ),
-              );
-              _loadUnreadBadges();
-            },
-          ),
+          child: SizedBox(height: 64), // placeholder — top bar moved to build()
         ),
         // زر الكاميرا
         Positioned(
@@ -981,11 +1063,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 _providerDisplayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Cairo',
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
-                  color: Colors.black87,
+                  color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
               const SizedBox(height: 2),
@@ -1067,14 +1149,22 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     );
   }
 
-  /// زر التبديل بين حساب العميل وحساب مقدم الخدمة (نفس تصميم صفحة العميل)
+  /// زر التبديل بين حساب العميل وحساب مقدم الخدمة — brand purple + dark mode
   Widget _buildModeToggle() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const mainColor = Color(0xFF5E35B1);
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 40),
+      margin: const EdgeInsets.symmetric(horizontal: 32),
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: isDark ? const Color(0xFF1A1036) : const Color(0xFFF0EAFF),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : mainColor.withValues(alpha: 0.18),
+        ),
       ),
       child: Row(
         children: [
@@ -1088,7 +1178,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     SnackBar(
                       content: const Text('تم التبديل إلى حساب العميل',
                           style: TextStyle(fontFamily: 'Cairo', fontSize: 12)),
-                      backgroundColor: Colors.green,
+                      backgroundColor: AppColors.success,
                       duration: const Duration(seconds: 2),
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
@@ -1108,15 +1198,16 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.person_rounded,
-                        size: 16, color: Colors.grey.shade500),
-                    const SizedBox(width: 5),
+                        size: 15,
+                        color: isDark ? Colors.grey[500]! : Colors.grey.shade500),
+                    const SizedBox(width: 4),
                     Text(
                       'عميل',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         fontFamily: 'Cairo',
-                        color: Colors.grey.shade500,
+                        color: isDark ? Colors.grey[500]! : Colors.grey.shade500,
                       ),
                     ),
                   ],
@@ -1130,28 +1221,34 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 9),
               decoration: BoxDecoration(
-                color: Colors.white,
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [mainColor, const Color(0xFF7E57C2)]
+                      : [mainColor, const Color(0xFF7E57C2)],
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                ),
                 borderRadius: BorderRadius.circular(13),
                 boxShadow: [
                   BoxShadow(
-                    color: mainColor.withValues(alpha: 0.12),
+                    color: mainColor.withValues(alpha: 0.28),
                     blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.work_rounded, size: 16, color: mainColor),
-                  const SizedBox(width: 5),
+                  Icon(Icons.work_rounded, size: 15, color: Colors.white),
+                  SizedBox(width: 4),
                   Text(
                     'مقدم خدمة',
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
                       fontFamily: 'Cairo',
-                      color: mainColor,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -1165,6 +1262,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   // إدارة الطلبات
   Widget _ordersCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const purple = Color(0xFF5E35B1);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: GestureDetector(
@@ -1175,36 +1274,43 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           );
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : purple.withValues(alpha: 0.12),
+            ),
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: purple.withValues(alpha: 0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: mainColor.withValues(alpha: 0.1),
+                  color: purple.withValues(alpha: 0.12),
                 ),
-                child: Icon(Icons.list_alt, color: mainColor),
+                child: const Icon(Icons.list_alt, color: purple, size: 18),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
                   "إدارة الطلبات",
                   style: TextStyle(
-                    color: Colors.black87,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                     fontFamily: "Cairo",
                   ),
                 ),
@@ -1218,14 +1324,14 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade600,
+                          color: AppColors.error,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           "$_urgentOrdersCount عاجلة",
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.bold,
                             fontFamily: "Cairo",
                           ),
@@ -1236,15 +1342,15 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
+                          color: AppColors.info.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.blue.shade300),
+                          border: Border.all(color: AppColors.info.withValues(alpha: 0.5)),
                         ),
                         child: Text(
-                          "$_competitiveOrdersCount عروض أسعار",
+                          "$_competitiveOrdersCount عروض",
                           style: TextStyle(
-                            color: Colors.blue.shade800,
-                            fontSize: 11,
+                            color: AppColors.info,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
                             fontFamily: "Cairo",
                           ),
@@ -1261,9 +1367,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                         ),
                         child: Text(
                           "$_newOrdersCount مسندة",
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.black87,
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
                             fontFamily: "Cairo",
                           ),
@@ -1368,7 +1474,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                       : () => _deleteSpotlight(itemId),
                   child: CircleAvatar(
                     radius: 12,
-                    backgroundColor: isDeleting ? Colors.grey : Colors.red,
+                    backgroundColor: isDeleting ? AppColors.grey400 : AppColors.error,
                     child: isDeleting
                         ? const SizedBox(
                             width: 12,
@@ -1401,7 +1507,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(24),
@@ -1410,13 +1516,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 6),
+            Icon(icon, color: color, size: 16),
+            const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
                 fontFamily: "Cairo",
                 color: color,
               ),
@@ -1429,29 +1535,38 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   // الخدمات الإضافية
   Widget _extraServicesSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const purple = Color(0xFF5E35B1);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : purple.withValues(alpha: 0.12),
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: purple.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
         ),
         child: Column(
           children: [
-            const Text(
+            Text(
               "خدمات إضافية لتعزيز ظهورك:",
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : Colors.black87,
                 fontFamily: "Cairo",
               ),
             ),
@@ -1462,7 +1577,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 _servicePill(
                   Icons.campaign,
                   "ترويج",
-                  Colors.green,
+                  AppColors.success,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1476,7 +1591,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 _servicePill(
                   Icons.monetization_on,
                   "ترقية",
-                  Colors.orange,
+                  AppColors.warning,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1488,7 +1603,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 _servicePill(
                   Icons.verified,
                   "توثيق",
-                  Colors.blue,
+                  AppColors.info,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -1511,7 +1626,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade600,
+                  color: AppColors.warning,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
@@ -1520,7 +1635,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontFamily: "Cairo",
-                    fontSize: 13,
+                    fontSize: 11,
                   ),
                 ),
               ),
@@ -1532,7 +1647,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   }
 
   /// ✅ شاشة خطأ
-  Widget _buildErrorState() {
+  Widget _buildErrorState(bool isDark) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1541,33 +1656,36 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           children: [
             Icon(
               Icons.cloud_off_rounded,
-              size: 64,
+              size: 42,
               color: Colors.grey[400],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               _errorMessage ?? 'حدث خطأ',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 16,
-                color: Colors.black54,
+                fontSize: 13,
+                color: isDark ? Colors.white70 : Colors.black54,
               ),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _loadProviderData,
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              label: const Text(
-                'إعادة المحاولة',
-                style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: mainColor,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: _loadProviderData,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5E35B1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'إعادة المحاولة',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ),
@@ -1579,21 +1697,73 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF3F4F6),
+        backgroundColor: isDark ? const Color(0xFF0F0A1E) : const Color(0xFFF5F0FF),
+        key: _scaffoldKey,
+        drawer: CustomDrawer(),
         bottomNavigationBar: const CustomBottomNav(currentIndex: 3),
-        body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: Colors.deepPurple),
-              )
+        body: Column(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                child: PlatformTopBar(
+                  overlay: false,
+                  height: 62,
+                  showMenuButton: true,
+                  notificationCount: _notificationUnread,
+                  chatCount: _chatUnread,
+                  onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  onNotificationsTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen(),
+                      ),
+                    );
+                    _loadUnreadBadges();
+                  },
+                  onChatsTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MyChatsScreen(),
+                      ),
+                    );
+                    _loadUnreadBadges();
+                  },
+                ),
+              ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Color(0xFF5E35B1)),
+                    )
             : _errorMessage != null
-                ? _buildErrorState()
+                ? _buildErrorState(isDark)
                 : RefreshIndicator(
                     onRefresh: _loadProviderData,
                     color: mainColor,
-                    child: SingleChildScrollView(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: isDark
+                            ? const LinearGradient(
+                                colors: [Color(0xFF0F0A1E), Color(0xFF130E24), Color(0xFF17112A)],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              )
+                            : const LinearGradient(
+                                colors: [Color(0xFFF5F0FF), Color(0xFFF7F4FF), Color(0xFFF9F7FF)],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                              ),
+                      ),
+                      child: SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       child: Column(
                         children: [
@@ -1613,131 +1783,32 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.06)
+                                        : Colors.white,
                                     borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black12.withValues(alpha: 0.04),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
+                                    border: Border.all(
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.08)
+                                          : const Color(0xFF5E35B1)
+                                              .withValues(alpha: 0.10),
+                                    ),
+                                    boxShadow: isDark
+                                        ? null
+                                        : [
+                                            BoxShadow(
+                                              color: const Color(0xFF5E35B1)
+                                                  .withValues(alpha: 0.06),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
                                   ),
                                   child: Column(
                                     children: [
-                                      // ✅ إحصائيات المتابعين والمتابعون — من الـ API
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          GestureDetector(
-                                            onTap: () {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                const SnackBar(
-                                                  content:
-                                                      Text('قائمة المتابعين'),
-                                                ),
-                                              );
-                                            },
-                                            child: Column(
-                                              children: [
-                                                const Icon(
-                                                  Icons.groups_rounded,
-                                                  size: 18,
-                                                  color: Colors.grey,
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Text(
-                                                  '$_followersCount',
-                                                  style: const TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.black87,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 2),
-                                                const Text(
-                                                  'متابع',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: Colors.grey,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(width: 40),
-                                          GestureDetector(
-                                            onTap: () {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                const SnackBar(
-                                                  content:
-                                                      Text('قائمة المتابَعون'),
-                                                ),
-                                              );
-                                            },
-                                            child: Column(
-                                              children: [
-                                                const Icon(
-                                                  Icons
-                                                      .person_add_alt_1_rounded,
-                                                  size: 18,
-                                                  color: Colors.grey,
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Text(
-                                                  '$_followingCount',
-                                                  style: const TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.black87,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 2),
-                                                const Text(
-                                                  'يتابع',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: Colors.grey,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        children: [
-                                          _statItem(
-                                            icon: Icons.thumb_up_alt_outlined,
-                                            label: "إعجابات",
-                                            value: '$_likesReceivedCount',
-                                          ),
-                                          const SizedBox(width: 6),
-                                          _statItem(
-                                            icon: Icons.person_outline,
-                                            label: "الطلبات المكتملة",
-                                            value: '$_clientsCount',
-                                          ),
-                                          const SizedBox(width: 6),
-                                          _statItem(
-                                            icon: Icons.bookmark_border,
-                                            label: "محفوظ",
-                                            value: '$_savedByUsersCount',
-                                          ),
-                                          const SizedBox(width: 6),
-                                          _statItem(
-                                            icon: Icons.qr_code,
-                                            label: "QR نافذتي",
-                                            value: "",
-                                            onTap: _openMyQrScreen,
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
+                                      // ── إحصائيات المزود المضغوطة ──
+                                      _buildProviderStatsStrip(isDark),
+                                      const SizedBox(height: 10),
                                       _planCard(),
                                       const SizedBox(height: 10),
                                       _profileCompletionCard(),
@@ -1821,7 +1892,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                         ],
                       ),
                     ),
+                    ),
                   ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,6 @@
 // ignore_for_file: unused_field, deprecated_member_use
 import 'package:flutter/material.dart';
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
 import '../widgets/platform_top_bar.dart';

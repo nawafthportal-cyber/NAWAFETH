@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 import '../config/app_env.dart';
 import 'account_mode_service.dart';
 import 'auth_service.dart';
+import 'app_logger.dart';
 
 class ApiClient {
   static String get baseUrl => AppEnv.apiBaseUrl;
@@ -141,7 +142,12 @@ class ApiClient {
         statusCode: 0,
         error: 'تعذر الوصول إلى الخادم. تحقق من عنوان الـ API والشبكة.',
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        'ApiClient._request failed ($method $path)',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return ApiResponse(statusCode: 0, error: 'خطأ في الاتصال: $e');
     }
   }
@@ -201,7 +207,12 @@ class ApiClient {
       return const _RefreshAttemptResult(ok: false, terminal: false);
     } on SocketException {
       return const _RefreshAttemptResult(ok: false, terminal: false);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'ApiClient token refresh failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return const _RefreshAttemptResult(ok: false, terminal: false);
     }
 
@@ -220,7 +231,12 @@ class ApiClient {
       if (contentType.contains('json') || looksLikeJson) {
         try {
           data = jsonDecode(body);
-        } catch (_) {
+        } catch (error, stackTrace) {
+          AppLogger.warn(
+            'ApiClient.parseResponse json decode failed',
+            error: error,
+            stackTrace: stackTrace,
+          );
           data = null;
         }
       }
@@ -352,7 +368,12 @@ class ApiClient {
         statusCode: 0,
         error: 'تعذر الوصول إلى الخادم. تحقق من الاتصال.',
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        'ApiClient.sendMultipart failed ($method $path)',
+        error: e,
+        stackTrace: stackTrace,
+      );
       return ApiResponse(statusCode: 0, error: 'خطأ في الاتصال: $e');
     }
   }

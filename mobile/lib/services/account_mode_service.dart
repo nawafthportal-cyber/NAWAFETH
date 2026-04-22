@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_logger.dart';
 
 typedef AccountModeListener = void Function(bool isProvider);
 
@@ -30,7 +31,13 @@ class AccountModeService {
       scheduleMicrotask(() {
         try {
           listener(isProvider);
-        } catch (_) {}
+        } catch (error, stackTrace) {
+          AppLogger.warn(
+            'AccountModeService listener failed',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
       });
     }
   }

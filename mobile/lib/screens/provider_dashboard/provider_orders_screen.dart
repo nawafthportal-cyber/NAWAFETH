@@ -6,6 +6,7 @@ import 'package:nawafeth/services/unread_badge_service.dart';
 
 import '../../models/service_request_model.dart';
 import '../../services/marketplace_service.dart';
+import '../../constants/app_theme.dart';
 import '../../widgets/bottom_nav.dart';
 import '../../widgets/platform_top_bar.dart';
 import '../client_orders_screen.dart';
@@ -30,10 +31,10 @@ class ProviderOrdersScreen extends StatefulWidget {
 
 class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _mainColor = Color(0xFF0F766E);
-  static const Color _competitiveColor = Color(0xFF2563EB);
-  static const Color _urgentColor = Color(0xFFDC2626);
-  static const Color _inkColor = Color(0xFF0F172A);
+  static const Color _mainColor = AppColors.teal;
+  static const Color _competitiveColor = AppColors.info;
+  static const Color _urgentColor = AppColors.error;
+  static const Color _inkColor = AppTextStyles.textPrimary;
 
   final TextEditingController _searchController = TextEditingController();
   late final AnimationController _entranceController;
@@ -166,15 +167,15 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
   Color _statusColor(String statusGroup) {
     switch (statusGroup) {
       case 'completed':
-        return Colors.green;
+        return AppColors.success;
       case 'cancelled':
-        return Colors.red;
+        return AppColors.error;
       case 'in_progress':
-        return Colors.orange;
+        return AppColors.warning;
       case 'new':
-        return Colors.amber.shade800;
+        return AppColors.warning;
       default:
-        return Colors.grey;
+        return AppColors.grey400;
     }
   }
 

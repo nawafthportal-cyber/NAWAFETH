@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 import '../constants/saudi_cities.dart';
-import '../services/api_client.dart';
 import '../services/auth_api_service.dart';
 import '../services/content_service.dart';
+import '../services/geo_catalog_service.dart';
+import '../services/app_logger.dart';
 import '../widgets/platform_top_bar.dart';
 import 'terms_screen.dart';
 
@@ -37,6 +38,7 @@ class _SignUpScreenState extends State<SignUpScreen>
   String? _selectedCity;
   bool _agreeToTerms = false;
   bool _isLoading = false;
+  bool _isSkipLoading = false;
   bool _isRegionCatalogLoading = true;
   bool _usedRegionFallback = false;
   bool _isCheckingUsername = false;
@@ -172,11 +174,18 @@ class _SignUpScreenState extends State<SignUpScreen>
     try {
       final result = await ContentService.fetchPublicContent();
       if (!mounted || !result.isSuccess || result.dataAsMap == null) return;
-      final blocks = (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
+      final blocks =
+          (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
       setState(() {
         _content = SignupContent.fromBlocks(blocks);
       });
-    } catch (_) {}
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'SignUpScreen._loadScreenContent failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Future<void> _loadRegionCatalog() async {
@@ -187,91 +196,26 @@ class _SignUpScreenState extends State<SignUpScreen>
       });
     }
 
-    try {
-      final response = await ApiClient.get('/api/providers/geo/regions-cities/');
-      final parsed = _normalizeRegionCatalog(response.data);
-      final catalog = parsed.isNotEmpty
-          ? parsed
-          : List<SaudiRegionCatalogEntry>.from(SaudiCities.regionCatalogFallback);
+    final result = await GeoCatalogService.fetchRegionCatalogWithFallback();
+    final catalog = result.catalog;
 
-      if (!mounted) return;
-      setState(() {
-        _regionCatalog = catalog;
-        _isRegionCatalogLoading = false;
-        _usedRegionFallback = parsed.isEmpty;
-        if (_selectedRegion != null &&
-            !catalog.any((region) =>
-                region.nameAr == _selectedRegion ||
-                region.displayName == _selectedRegion)) {
-          _selectedRegion = null;
-          _selectedCity = null;
-        }
-        if (_selectedCity != null && !_availableCities.contains(_selectedCity)) {
-          _selectedCity = null;
-        }
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _regionCatalog = List<SaudiRegionCatalogEntry>.from(
-          SaudiCities.regionCatalogFallback,
-        );
-        _isRegionCatalogLoading = false;
-        _usedRegionFallback = true;
-      });
-    }
-  }
-
-  List<SaudiRegionCatalogEntry> _normalizeRegionCatalog(dynamic data) {
-    final rows = data is List
-        ? data
-        : (data is Map<String, dynamic> && data['results'] is List)
-            ? data['results'] as List
-            : const [];
-
-    final normalized = <SaudiRegionCatalogEntry>[];
-    for (final row in rows) {
-      if (row is! Map) continue;
-      final item = Map<String, dynamic>.from(row);
-      final rawName = _extractDisplayValue(item, const ['name_ar', 'name', 'region']);
-      final rawCities = item['cities'];
-      if (rawName.isEmpty || rawCities is! List) continue;
-
-      final cities = rawCities
-          .map((city) {
-            if (city is String) return city.trim();
-            if (city is Map) {
-              return _extractDisplayValue(
-                Map<String, dynamic>.from(city),
-                const ['name_ar', 'name', 'city'],
-              );
-            }
-            return '';
-          })
-          .where((city) => city.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort();
-
-      if (cities.isEmpty) continue;
-      normalized.add(SaudiRegionCatalogEntry(nameAr: rawName, cities: cities));
-    }
-
-    normalized.sort((left, right) => left.displayName.compareTo(right.displayName));
-    return normalized;
-  }
-
-  String _extractDisplayValue(
-    Map<String, dynamic> item,
-    List<String> keys,
-  ) {
-    for (final key in keys) {
-      final value = item[key];
-      if (value is String && value.trim().isNotEmpty) {
-        return value.trim();
+    if (!mounted) return;
+    setState(() {
+      _regionCatalog = catalog;
+      _isRegionCatalogLoading = false;
+      _usedRegionFallback = result.usedFallback;
+      if (_selectedRegion != null &&
+          !catalog.any((region) =>
+              region.nameAr == _selectedRegion ||
+              region.displayName == _selectedRegion)) {
+        _selectedRegion = null;
+        _selectedCity = null;
       }
-    }
-    return '';
+      if (_selectedCity != null &&
+          !_availableCities.contains(_selectedCity)) {
+        _selectedCity = null;
+      }
+    });
   }
 
   void _clearServerErrors() {
@@ -405,7 +349,7 @@ class _SignUpScreenState extends State<SignUpScreen>
             'تم إكمال التسجيل بنجاح',
             style: TextStyle(fontFamily: 'Cairo'),
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.success,
         ),
       );
 
@@ -424,6 +368,38 @@ class _SignUpScreenState extends State<SignUpScreen>
     setState(() {
       _generalError = result.error;
       _fieldErrors = result.fieldErrors;
+    });
+  }
+
+  Future<void> _onSkipPressed() async {
+    if (_isLoading || _isSkipLoading) return;
+
+    setState(() {
+      _isSkipLoading = true;
+      _generalError = null;
+      _fieldErrors = null;
+    });
+
+    final result = await AuthApiService.skipCompletion();
+    if (!mounted) return;
+
+    setState(() => _isSkipLoading = false);
+
+    if (result.success) {
+      if (widget.redirectTo != null) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => widget.redirectTo!),
+          (route) => false,
+        );
+      } else {
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      }
+      return;
+    }
+
+    setState(() {
+      _generalError = result.error ?? 'تعذر تخطي إكمال البيانات';
     });
   }
 
@@ -486,11 +462,11 @@ class _SignUpScreenState extends State<SignUpScreen>
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Colors.redAccent),
+        borderSide: const BorderSide(color: AppColors.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Colors.redAccent, width: 1.35),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.35),
       ),
     );
   }
@@ -624,10 +600,12 @@ class _SignUpScreenState extends State<SignUpScreen>
       );
     }
     if (_isUsernameAvailable == true) {
-      return const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20);
+      return const Icon(Icons.check_circle_rounded,
+          color: AppColors.success, size: 20);
     }
     if (_isUsernameAvailable == false) {
-      return const Icon(Icons.cancel_rounded, color: Colors.redAccent, size: 20);
+      return const Icon(Icons.cancel_rounded,
+          color: AppColors.error, size: 20);
     }
     return null;
   }
@@ -685,7 +663,8 @@ class _SignUpScreenState extends State<SignUpScreen>
         label: 'المنطقة الإدارية',
         icon: FontAwesomeIcons.locationDot,
         errorText: _regionError,
-        hintText: _isRegionCatalogLoading ? 'جاري تحميل المناطق...' : 'اختر المنطقة',
+        hintText:
+            _isRegionCatalogLoading ? 'جاري تحميل المناطق...' : 'اختر المنطقة',
       ),
       items: _regionCatalog
           .map(
@@ -702,7 +681,8 @@ class _SignUpScreenState extends State<SignUpScreen>
             ),
           )
           .toList(),
-      onChanged: (_isLoading || _isRegionCatalogLoading) ? null : _onRegionChanged,
+      onChanged:
+          (_isLoading || _isRegionCatalogLoading) ? null : _onRegionChanged,
     );
   }
 
@@ -733,30 +713,28 @@ class _SignUpScreenState extends State<SignUpScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: valid
-            ? const Color(0xFFECF8F2)
-            : const Color(0xFFF3F0F8),
+        color: valid ? const Color(0xFFECF8F2) : const Color(0xFFF3F0F8),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          valid ? Icons.check_circle : Icons.radio_button_unchecked,
-          size: 13,
-          color: color,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: TextStyle(
-            fontFamily: 'Cairo',
-            fontSize: 10.5,
-            fontWeight: FontWeight.w800,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            valid ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 13,
             color: color,
           ),
-        ),
-      ],
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -769,9 +747,8 @@ class _SignUpScreenState extends State<SignUpScreen>
         color: const Color(0xFFFBFAFE),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: _agreeToTerms
-              ? const Color(0xFFD7C7F0)
-              : const Color(0xFFE8E0F4),
+          color:
+              _agreeToTerms ? const Color(0xFFD7C7F0) : const Color(0xFFE8E0F4),
         ),
         boxShadow: _agreeToTerms
             ? [
@@ -855,14 +832,8 @@ class _SignUpScreenState extends State<SignUpScreen>
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Column(
-                  children: [
-                    _buildEntrance(0, _buildShowcaseCard()),
-                    const SizedBox(height: 14),
-                    _buildEntrance(1, _buildFormCard()),
-                  ],
-                ),
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: _buildEntrance(0, _buildFormCard()),
               ),
             ),
           ),
@@ -871,6 +842,7 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
+  // ignore: unused_element
   Widget _buildShowcaseCard() {
     return Container(
       width: double.infinity,
@@ -946,11 +918,14 @@ class _SignUpScreenState extends State<SignUpScreen>
                 ),
               ),
               const SizedBox(height: 14),
-              _buildShowcasePoint('بيانات أساسية منظمة تمنح الحساب انطلاقة أنظف وأكثر ثقة.'),
+              _buildShowcasePoint(
+                  'بيانات أساسية منظمة تمنح الحساب انطلاقة أنظف وأكثر ثقة.'),
               const SizedBox(height: 8),
-              _buildShowcasePoint('اختيار جغرافي مرحلي: المنطقة أولًا ثم المدينة التابعة لها.'),
+              _buildShowcasePoint(
+                  'اختيار جغرافي مرحلي: المنطقة أولًا ثم المدينة التابعة لها.'),
               const SizedBox(height: 8),
-              _buildShowcasePoint('تلميحات واضحة أثناء الكتابة للتحقق من اسم المستخدم وكلمة المرور.'),
+              _buildShowcasePoint(
+                  'تلميحات واضحة أثناء الكتابة للتحقق من اسم المستخدم وكلمة المرور.'),
               const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
@@ -968,264 +943,663 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
+  // ─── HERO HEADER ─────────────────────────────────────────────────────────────
+
+  Widget _buildHeroHeader() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(22, 26, 22, 26),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1E0E42), Color(0xFF3C216F), Color(0xFF5433A8)],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Decorative blurred circles
+            Positioned(
+              top: -36,
+              left: -36,
+              child: Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -50,
+              right: -30,
+              child: Container(
+                width: 170,
+                height: 170,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      const Color(0xFF9B6DFF).withValues(alpha: 0.22),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 12,
+              left: 60,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFD2A14C).withValues(alpha: 0.12),
+                ),
+              ),
+            ),
+            // Content
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 11, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.18)),
+                      ),
+                      child: const Text(
+                        'إكمال التسجيل',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFFFF5D8),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD2A14C).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'نوافذ',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFFFD98A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _content.title,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 24,
+                    height: 1.3,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _content.description,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12,
+                    height: 1.85,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.78),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                // Step progress indicators
+                Row(
+                  children: [
+                    _buildHeroStep('01', 'بيانات شخصية', true),
+                    _buildHeroStepLine(),
+                    _buildHeroStep('02', 'الموقع', false),
+                    _buildHeroStepLine(),
+                    _buildHeroStep('03', 'كلمة المرور', false),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroStep(String num, String label, bool active) {
+    return Column(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active
+                ? const Color(0xFFD2A14C)
+                : Colors.white.withValues(alpha: 0.15),
+            border: Border.all(
+              color: active
+                  ? const Color(0xFFD2A14C)
+                  : Colors.white.withValues(alpha: 0.22),
+              width: 1.5,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              num,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 9.5,
+                fontWeight: FontWeight.w900,
+                color: active
+                    ? const Color(0xFF1E0E42)
+                    : Colors.white.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 9.5,
+            fontWeight: FontWeight.w800,
+            color: active
+                ? const Color(0xFFFFD98A)
+                : Colors.white.withValues(alpha: 0.55),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroStepLine() {
+    return Expanded(
+      child: Container(
+        height: 1.5,
+        margin: const EdgeInsets.only(bottom: 22, left: 6, right: 6),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.25),
+              Colors.white.withValues(alpha: 0.08),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+
+  // ─── SECTION HELPERS ─────────────────────────────────────────────────────────
+
+  Widget _buildSectionHeader({
+    required IconData icon,
+    required String title,
+    required String step,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3C216F), Color(0xFF6941C6)],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF3C216F).withValues(alpha: 0.28),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Center(
+            child: FaIcon(icon, size: 15, color: Colors.white),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1F1738),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1EAFE),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            step,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF4D2997),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionDivider() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0x00E8DFF4), Color(0xFFE8DFF4), Color(0x00E8DFF4)],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorBanner(String error) {
+    return Container(
+      key: ValueKey(error),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFBB4257).withValues(alpha: 0.2),
+        ),
+        color: const Color(0xFFFFF1F4),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              size: 18, color: Color(0xFFBB4257)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              error,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFFBB4257),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── ACTION BUTTONS ───────────────────────────────────────────────────────────
+
+  Widget _buildPrimaryButton({bool fullWidth = true}) {
+    final enabled = _isAllValid && !_isLoading && !_isSkipLoading;
+    return SizedBox(
+      width: fullWidth ? double.infinity : null,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: enabled
+              ? const LinearGradient(
+                  colors: [Color(0xFF3C216F), Color(0xFF6941C6)],
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                )
+              : null,
+          boxShadow: enabled
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF3C216F).withValues(alpha: 0.35),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
+        ),
+        child: ElevatedButton(
+          onPressed: enabled ? _onRegisterPressed : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor:
+                enabled ? Colors.transparent : AppColors.deepPurple.withValues(alpha: 0.38),
+            disabledBackgroundColor:
+                AppColors.deepPurple.withValues(alpha: 0.38),
+            shadowColor: Colors.transparent,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle_outline_rounded,
+                        size: 17, color: Colors.white),
+                    const SizedBox(width: 7),
+                    Text(
+                      _content.submitLabel,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSkipButton({required bool wide}) {
+    return SizedBox(
+      width: wide ? double.infinity : null,
+      child: OutlinedButton.icon(
+        onPressed: (_isLoading || _isSkipLoading) ? null : _onSkipPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF4D2997),
+          backgroundColor: const Color(0xFFF4EEFE),
+          side: const BorderSide(color: Color(0xFFD8C7F2)),
+          padding: EdgeInsets.symmetric(
+            vertical: 14,
+            horizontal: wide ? 0 : 18,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+        ),
+        icon: _isSkipLoading
+            ? const SizedBox(
+                width: 15,
+                height: 15,
+                child: CircularProgressIndicator(
+                    strokeWidth: 1.8, color: Color(0xFF4D2997)),
+              )
+            : const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+        label: Text(
+          _isSkipLoading ? 'جارٍ التخطي...' : 'تخطي',
+          style: const TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── FORM CARD (no outer card — open layout) ──────────────────────────────────
+
   Widget _buildFormCard() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 430;
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0xFFE6DAF6)),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFFFFFF), Color(0xFFF9F5FD)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+        final stackActions = constraints.maxWidth < 540;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Hero header ─────────────────────────────────────────────────
+            _buildHeroHeader(),
+            const SizedBox(height: 24),
+
+            // ── Error banner ─────────────────────────────────────────────────
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: _generalError == null
+                  ? const SizedBox.shrink()
+                  : _buildErrorBanner(_generalError!),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1C1437).withValues(alpha: 0.08),
-                blurRadius: 28,
-                offset: const Offset(0, 14),
+            if (_generalError != null) const SizedBox(height: 16),
+
+            // ══ SECTION 01 — البيانات الشخصية ═══════════════════════════════
+            _buildSectionHeader(
+              icon: FontAwesomeIcons.userPen,
+              title: 'البيانات الشخصية',
+              step: '01',
+            ),
+            const SizedBox(height: 14),
+            _buildAdaptiveTwoColumn(
+              isWide: isWide,
+              first: _buildTextField(
+                label: 'الاسم الأول',
+                controller: _firstNameController,
+                icon: FontAwesomeIcons.user,
+                hintText: 'مثال: خالد',
+                errorText: _fieldErrors?['first_name'],
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _content.title,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF1F1738),
-                ),
+              second: _buildTextField(
+                label: 'الاسم الأخير',
+                controller: _lastNameController,
+                icon: FontAwesomeIcons.user,
+                hintText: 'مثال: العتيبي',
+                errorText: _fieldErrors?['last_name'],
               ),
-              const SizedBox(height: 6),
-              Text(
-                _content.description,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11.5,
-                  height: 1.9,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF6F6987),
-                ),
-              ),
-              const SizedBox(height: 14),
-              _buildSoftPanel(
-                icon: Icons.auto_awesome_rounded,
-                title: 'تهيئة أكثر وضوحًا',
-                body:
-                    'نجهز بيانات الحساب بخطوات مرتبة ومقروءة على الجوال، دون تضخيم للحجم أو ازدحام بصري.',
-              ),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: _generalError == null
-                    ? const SizedBox(height: 0)
-                    : Container(
-                        key: ValueKey(_generalError),
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(top: 14),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFFBB4257).withValues(alpha: 0.18),
-                          ),
-                          color: const Color(0xFFFFF1F4),
-                        ),
-                        child: Text(
-                          _generalError!,
-                          style: const TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFBB4257),
-                          ),
-                        ),
-                      ),
-              ),
-              const SizedBox(height: 14),
-              _buildAdaptiveTwoColumn(
-                isWide: isWide,
-                first: _buildTextField(
-                  label: 'الاسم الأول',
-                  controller: _firstNameController,
-                  icon: FontAwesomeIcons.user,
-                  hintText: 'مثال: خالد',
-                  errorText: _fieldErrors?['first_name'],
-                ),
-                second: _buildTextField(
-                  label: 'الاسم الأخير',
-                  controller: _lastNameController,
-                  icon: FontAwesomeIcons.user,
-                  hintText: 'مثال: العتيبي',
-                  errorText: _fieldErrors?['last_name'],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _buildTextField(
-                label: 'اسم المستخدم',
-                controller: _usernameController,
-                icon: FontAwesomeIcons.at,
-                hintText: 'username.example',
-                suffixIcon: _buildUsernameSuffix(),
-                onChanged: _onUsernameChanged,
-              ),
-              _buildUsernameStatusHint(),
-              const SizedBox(height: 12),
-              _buildTextField(
-                label: 'البريد الإلكتروني',
-                controller: _emailController,
-                icon: FontAwesomeIcons.envelope,
-                hintText: 'name@example.com',
-                keyboardType: TextInputType.emailAddress,
-                errorText: _fieldErrors?['email'],
-              ),
-              const SizedBox(height: 12),
-              _buildLocationCallout(),
-              const SizedBox(height: 12),
-              _buildAdaptiveTwoColumn(
-                isWide: isWide,
-                first: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildRegionDropdown(),
-                    _buildHintLine(
-                      _regionHintText,
-                      tone: _regionHintState == true
-                          ? _HintTone.ok
-                          : _HintTone.neutral,
-                    ),
-                  ],
-                ),
-                second: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildCityDropdown(),
-                    _buildHintLine(
-                      _cityHintText,
-                      tone: _cityHintState == true
-                          ? _HintTone.ok
-                          : _HintTone.neutral,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _buildAdaptiveTwoColumn(
-                isWide: isWide,
-                first: _buildTextField(
-                  label: 'كلمة المرور',
-                  controller: _passwordController,
-                  icon: FontAwesomeIcons.lock,
-                  hintText: '••••••••',
-                  obscure: _obscurePassword,
-                  errorText: _fieldErrors?['password'],
-                  onChanged: (_) {
-                    _clearServerErrors();
-                    _clearLocationErrors();
-                    setState(() {});
-                  },
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      size: 18,
-                    ),
-                    onPressed: () {
-                      setState(() => _obscurePassword = !_obscurePassword);
-                    },
+            ),
+            const SizedBox(height: 12),
+            _buildTextField(
+              label: 'اسم المستخدم',
+              controller: _usernameController,
+              icon: FontAwesomeIcons.at,
+              hintText: 'username.example',
+              suffixIcon: _buildUsernameSuffix(),
+              onChanged: _onUsernameChanged,
+              errorText: _fieldErrors?['username'],
+            ),
+            _buildUsernameStatusHint(),
+            const SizedBox(height: 12),
+            _buildTextField(
+              label: 'البريد الإلكتروني',
+              controller: _emailController,
+              icon: FontAwesomeIcons.envelope,
+              hintText: 'name@example.com',
+              keyboardType: TextInputType.emailAddress,
+              errorText: _fieldErrors?['email'],
+            ),
+            const SizedBox(height: 22),
+            _buildSectionDivider(),
+            const SizedBox(height: 22),
+
+            // ══ SECTION 02 — الموقع الجغرافي ════════════════════════════════
+            _buildSectionHeader(
+              icon: FontAwesomeIcons.locationDot,
+              title: 'الموقع الجغرافي',
+              step: '02',
+            ),
+            const SizedBox(height: 14),
+            _buildLocationCallout(),
+            const SizedBox(height: 12),
+            _buildAdaptiveTwoColumn(
+              isWide: isWide,
+              first: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildRegionDropdown(),
+                  _buildHintLine(
+                    _regionHintText,
+                    tone: _regionHintState == true
+                        ? _HintTone.ok
+                        : _HintTone.neutral,
                   ),
-                ),
-                second: _buildTextField(
-                  label: 'تأكيد كلمة المرور',
-                  controller: _confirmPasswordController,
-                  icon: FontAwesomeIcons.lockOpen,
-                  hintText: '••••••••',
-                  obscure: _obscureConfirmPassword,
-                  errorText: _fieldErrors?['password_confirm'],
-                  onChanged: (_) {
-                    _clearServerErrors();
-                    _clearLocationErrors();
-                    setState(() {});
+                ],
+              ),
+              second: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildCityDropdown(),
+                  _buildHintLine(
+                    _cityHintText,
+                    tone: _cityHintState == true
+                        ? _HintTone.ok
+                        : _HintTone.neutral,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+            _buildSectionDivider(),
+            const SizedBox(height: 22),
+
+            // ══ SECTION 03 — كلمة المرور والأمان ════════════════════════════
+            _buildSectionHeader(
+              icon: FontAwesomeIcons.shieldHalved,
+              title: 'كلمة المرور والأمان',
+              step: '03',
+            ),
+            const SizedBox(height: 14),
+            _buildAdaptiveTwoColumn(
+              isWide: isWide,
+              first: _buildTextField(
+                label: 'كلمة المرور',
+                controller: _passwordController,
+                icon: FontAwesomeIcons.lock,
+                hintText: '••••••••',
+                obscure: _obscurePassword,
+                errorText: _fieldErrors?['password'],
+                onChanged: (_) {
+                  _clearServerErrors();
+                  _clearLocationErrors();
+                  setState(() {});
+                },
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 18,
+                  ),
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
                   },
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmPassword
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined,
-                      size: 18,
-                    ),
-                    onPressed: () {
-                      setState(
-                        () => _obscureConfirmPassword = !_obscureConfirmPassword,
-                      );
-                    },
+                ),
+              ),
+              second: _buildTextField(
+                label: 'تأكيد كلمة المرور',
+                controller: _confirmPasswordController,
+                icon: FontAwesomeIcons.lockOpen,
+                hintText: '••••••••',
+                obscure: _obscureConfirmPassword,
+                errorText: _fieldErrors?['password_confirm'],
+                onChanged: (_) {
+                  _clearServerErrors();
+                  _clearLocationErrors();
+                  setState(() {});
+                },
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirmPassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 18,
+                  ),
+                  onPressed: () {
+                    setState(
+                      () =>
+                          _obscureConfirmPassword = !_obscureConfirmPassword,
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildPasswordValidation(),
+            const SizedBox(height: 22),
+            _buildSectionDivider(),
+            const SizedBox(height: 18),
+
+            // ── Terms ─────────────────────────────────────────────────────────
+            _buildTermsSection(),
+            if (_fieldErrors?['accept_terms'] != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, right: 4),
+                child: Text(
+                  _fieldErrors!['accept_terms']!,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFBB4257),
                   ),
                 ),
               ),
+            const SizedBox(height: 22),
+
+            // ── Action buttons ────────────────────────────────────────────────
+            if (stackActions) ...[
+              _buildPrimaryButton(),
               const SizedBox(height: 10),
-              _buildPasswordValidation(),
-              const SizedBox(height: 12),
-              _buildTermsSection(),
-              if (_fieldErrors?['accept_terms'] != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6, right: 4),
-                  child: Text(
-                    _fieldErrors!['accept_terms']!,
-                    style: const TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFBB4257),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed:
-                      (_isAllValid && !_isLoading) ? _onRegisterPressed : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.deepPurple,
-                    disabledBackgroundColor:
-                        AppColors.deepPurple.withValues(alpha: 0.42),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                          _content.submitLabel,
-                          style: const TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
+              _buildSkipButton(wide: true),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(child: _buildPrimaryButton()),
+                  const SizedBox(width: 10),
+                  _buildSkipButton(wide: false),
+                ],
               ),
-              const SizedBox(height: 14),
-              _buildSideCard(),
             ],
-          ),
+            const SizedBox(height: 12),
+            const Text(
+              'يمكنك إكمال البيانات لاحقًا، وسيبقى الحساب مفعّلًا برقم الجوال.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11,
+                height: 1.8,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF9089A8),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
         );
       },
     );
@@ -1264,9 +1638,7 @@ class _SignUpScreenState extends State<SignUpScreen>
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isReady
-              ? const Color(0xFFD8C7F0)
-              : const Color(0xFFE8DFF4),
+          color: isReady ? const Color(0xFFD8C7F0) : const Color(0xFFE8DFF4),
         ),
         gradient: LinearGradient(
           colors: isReady
@@ -1364,6 +1736,7 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
+  // ignore: unused_element
   Widget _buildSideCard() {
     return Container(
       width: double.infinity,
@@ -1401,7 +1774,8 @@ class _SignUpScreenState extends State<SignUpScreen>
           const SizedBox(height: 10),
           _buildSideListItem('كل حقل له مساحة أوضح وتلميح أقرب للفهم.'),
           const SizedBox(height: 8),
-          _buildSideListItem('اختيار المنطقة ثم المدينة يمنع الالتباس ويجعل الإدخال أدق.'),
+          _buildSideListItem(
+              'اختيار المنطقة ثم المدينة يمنع الالتباس ويجعل الإدخال أدق.'),
           const SizedBox(height: 8),
           _buildSideListItem('التصميم متوازن على الشاشات الصغيرة بنفس الجودة.'),
         ],
@@ -1409,6 +1783,7 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
+  // ignore: unused_element
   Widget _buildSoftPanel({
     required IconData icon,
     required String title,
@@ -1614,7 +1989,8 @@ class SignupContent {
   factory SignupContent.defaults() {
     return const SignupContent(
       title: 'إكمال التسجيل',
-      description: 'أكمل بياناتك مرة واحدة لتفعيل الحساب والانتقال مباشرة إلى المنصة.',
+      description:
+          'أكمل بياناتك مرة واحدة لتفعيل الحساب والانتقال مباشرة إلى المنصة.',
       submitLabel: 'إكمال التسجيل',
       termsLabelPrefix: 'أوافق على',
       termsLabelLink: 'الشروط والأحكام',

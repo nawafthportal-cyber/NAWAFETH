@@ -5,7 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../constants/colors.dart';
+import '../constants/app_theme.dart';
 import '../screens/provider_profile_screen.dart';
 import '../services/top_bar_branding_service.dart';
 
@@ -39,7 +39,7 @@ class PlatformTopBar extends StatefulWidget implements PreferredSizeWidget {
     this.onChatsTap,
     this.notificationCount = 0,
     this.chatCount = 0,
-    this.height = 62,
+    this.height = 68,
     this.trailingActions = const [],
   });
 
@@ -153,7 +153,7 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
               FilledButton(
                 onPressed: () => Navigator.of(context).pop('open'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.deepPurple,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text(
@@ -183,13 +183,15 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     final isDark = theme.brightness == Brightness.dark;
     final foreground = widget.overlay
         ? Colors.white
-        : (isDark ? Colors.white : const Color(0xFF56316D));
+        : (isDark ? Colors.white : const Color(0xFF512DA8));
     final chromeBackground = widget.overlay
         ? Colors.white.withValues(alpha: 0.14)
-        : Colors.white.withValues(alpha: isDark ? 0.08 : 0.82);
+        : Colors.white.withValues(alpha: isDark ? 0.08 : 0.96);
     final chromeBorder = widget.overlay
         ? Colors.white.withValues(alpha: 0.18)
-        : const Color(0xFFDACDED);
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : const Color(0xFFE8DEF8));
     final barDecoration = widget.overlay
         ? BoxDecoration(
             gradient: LinearGradient(
@@ -201,20 +203,20 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
               end: Alignment.bottomCenter,
             ),
           )
-        : BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFFFFFF), Color(0xFFF8F4FD)],
+        : const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFAF8FF), Color(0xFFF8F4FD)],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
             border: Border(
-              bottom: BorderSide(color: Colors.black.withValues(alpha: 0.06)),
+              bottom: BorderSide(color: Color(0x12673AB7)),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                color: Color(0x0D121224),
+                blurRadius: 32,
+                offset: Offset(0, 10),
               ),
             ],
           );
@@ -232,15 +234,15 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 380;
-                  final buttonSize = compact ? 36.0 : 38.0;
-                  final sideReserve = compact ? 104.0 : 120.0;
+                  final buttonSize = compact ? 40.0 : 44.0;
+                  final sideReserve = compact ? 120.0 : 136.0;
                   final brandMaxWidth =
                       constraints.maxWidth - (sideReserve * 2);
+                  final faceHeight = compact ? 40.0 : 44.0;
                   final faceWidth = _resolveCenterFaceWidth(
                     availableWidth: brandMaxWidth,
-                    compact: compact,
+                    faceHeight: faceHeight,
                   );
-                  final faceHeight = compact ? 36.0 : 38.0;
                   final actions = <Widget>[
                     ...widget.trailingActions,
                     if (widget.trailingActions.isNotEmpty &&
@@ -335,6 +337,8 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                               background: chromeBackground,
                               borderColor: chromeBorder,
                               buttonSize: buttonSize,
+                              isDark: isDark,
+                              overlay: widget.overlay,
                             ),
                           ),
                         ),
@@ -400,7 +404,7 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     return InkWell(
       key: key,
       onTap: sponsor == null ? null : _handleSponsorTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(14),
       child: _buildFaceShell(
         width: shellWidth,
         height: shellHeight,
@@ -434,8 +438,15 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: chromeBackground,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: chromeBorder),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Padding(
           padding: padding,
@@ -447,12 +458,10 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
 
   double _resolveCenterFaceWidth({
     required double availableWidth,
-    required bool compact,
+    required double faceHeight,
   }) {
-    const compactTargetWidth = 68.0;
-    const regularTargetWidth = 76.0;
-    final targetWidth = compact ? compactTargetWidth : regularTargetWidth;
-    return math.max(56.0, math.min(availableWidth, targetWidth));
+    // Web brand mark is square — match button dimensions
+    return math.min(availableWidth, faceHeight);
   }
 
   Widget _buildLeadingButton({
@@ -461,6 +470,8 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     required Color background,
     required Color borderColor,
     required double buttonSize,
+    required bool isDark,
+    required bool overlay,
   }) {
     if (widget.showBackButton) {
       return PlatformTopBarActionButton(
@@ -474,12 +485,23 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     }
 
     if (widget.showMenuButton) {
+      // Hamburger uses purple-tinted background — matches web nav-menu-btn
+      final menuBg = overlay
+          ? Colors.white.withValues(alpha: 0.14)
+          : (isDark
+              ? const Color(0xFF673AB7).withValues(alpha: 0.14)
+              : const Color(0x14673AB7));
+      final menuBorder = overlay
+          ? Colors.white.withValues(alpha: 0.18)
+          : (isDark
+              ? const Color(0xFF673AB7).withValues(alpha: 0.22)
+              : const Color(0x1E673AB7));
       return PlatformTopBarActionButton(
         size: buttonSize,
         icon: Icons.menu_rounded,
         foreground: foreground,
-        background: background,
-        borderColor: borderColor,
+        background: menuBg,
+        borderColor: menuBorder,
         onTap: widget.onMenuTap,
       );
     }
@@ -607,12 +629,12 @@ class _AppBadge extends StatelessWidget {
     final resolvedLogoUrl = logoUrl?.trim();
     if (resolvedLogoUrl != null && resolvedLogoUrl.isNotEmpty) {
       return Container(
-        width: 24,
-        height: 24,
+        width: 30,
+        height: 30,
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: overlay ? 0.94 : 0.98),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(9),
           border: Border.all(
             color: overlay
                 ? Colors.white.withValues(alpha: 0.22)
@@ -639,7 +661,7 @@ class _AppBadge extends StatelessWidget {
                     : const Color(0xFF5B2F88),
                 fontFamily: 'Cairo',
                 fontWeight: FontWeight.w900,
-                fontSize: 13,
+                fontSize: 16,
               ),
             ),
           ),
@@ -651,11 +673,11 @@ class _AppBadge extends StatelessWidget {
 
   Widget _buildDefaultBadge() {
     return Container(
-      width: 24,
-      height: 24,
+      width: 30,
+      height: 30,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(9),
         gradient: LinearGradient(
           colors: overlay
               ? const [Color(0xFFF1A559), Color(0xFFB788F3)]
@@ -678,7 +700,7 @@ class _AppBadge extends StatelessWidget {
           color: Colors.white,
           fontFamily: 'Cairo',
           fontWeight: FontWeight.w900,
-          fontSize: 15,
+          fontSize: 18,
         ),
       ),
     );
@@ -772,11 +794,11 @@ class _SponsorBadgeState extends State<_SponsorBadge> {
   Widget build(BuildContext context) {
     final resolvedUrl = widget.assetUrl?.trim();
     return Container(
-      width: 24,
-      height: 24,
+      width: 30,
+      height: 30,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(9),
         border: Border.all(
           color: widget.overlay
               ? const Color(0x14FFFFFF)
@@ -818,7 +840,7 @@ class _SponsorBadgeState extends State<_SponsorBadge> {
           : widget.fallbackLabel.trim().characters.first,
       style: const TextStyle(
         color: AppColors.deepPurple,
-        fontSize: 10,
+        fontSize: 13,
         fontWeight: FontWeight.w900,
         fontFamily: 'Cairo',
       ),
@@ -832,9 +854,9 @@ class _SponsorBadgeBox {
 
   const _SponsorBadgeBox._(this.width, this.height);
 
-  static const _SponsorBadgeBox square = _SponsorBadgeBox._(16, 16);
-  static const _SponsorBadgeBox wide = _SponsorBadgeBox._(18, 12);
-  static const _SponsorBadgeBox tall = _SponsorBadgeBox._(12, 18);
+  static const _SponsorBadgeBox square = _SponsorBadgeBox._(20, 20);
+  static const _SponsorBadgeBox wide = _SponsorBadgeBox._(22, 14);
+  static const _SponsorBadgeBox tall = _SponsorBadgeBox._(14, 22);
 
   static _SponsorBadgeBox fromDimensions(double width, double height) {
     if (width <= 0 || height <= 0) {

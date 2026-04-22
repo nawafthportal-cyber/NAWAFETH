@@ -10,6 +10,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../constants/app_theme.dart';
 import '../widgets/auto_scrolling_reels_row.dart';
 import '../widgets/platform_report_dialog.dart';
 import '../widgets/video_reels.dart';
@@ -70,7 +71,7 @@ class ProviderProfileScreen extends StatefulWidget {
 
 class _ProviderProfileScreenState extends State<ProviderProfileScreen>
   with SingleTickerProviderStateMixin {
-  final Color mainColor = const Color(0xFF0F766E);
+  final Color mainColor = const Color(0xFF5E35B1);
   late final AnimationController _entranceController;
 
   int _selectedTabIndex = 0;
@@ -1202,7 +1203,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                       contextValue: 'مزود خدمة',
                     );
                   },
-                  leading: const Icon(Icons.flag_outlined, color: Colors.red),
+                  leading: const Icon(Icons.flag_outlined, color: AppColors.error),
                   title: const Text('الإبلاغ عن مقدم الخدمة',
                       style: TextStyle(fontFamily: 'Cairo')),
                 ),
@@ -1500,7 +1501,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0B1A1A) : const Color(0xFFF4FBFA);
+    final bgColor = isDark ? const Color(0xFF0F0A1E) : const Color(0xFFF5F0FF);
     final textColor = isDark ? Colors.white : Colors.black;
     final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey;
 
@@ -1514,12 +1515,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                 decoration: BoxDecoration(
                   gradient: isDark
                       ? const LinearGradient(
-                          colors: [Color(0xFF0B1A1A), Color(0xFF102726), Color(0xFF163130)],
+                          colors: [Color(0xFF0F0A1E), Color(0xFF120E28), Color(0xFF180E32)],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         )
                       : const LinearGradient(
-                          colors: [Color(0xFFEFFCFA), Color(0xFFF7FFFD), Color(0xFFFFFFFF)],
+                          colors: [Color(0xFFF2ECFF), Color(0xFFF7F4FF), Color(0xFFFAF8FF)],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         ),
@@ -1591,134 +1592,126 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       avatarProvider = CachedNetworkImageProvider(providerImage);
     }
 
-    return SizedBox(
-      height: 388,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // ── Cover ──
-          Container(
-            height: 170,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: coverProvider == null
-                  ? LinearGradient(
-                      colors: isDark
-                          ? [
-                              const Color(0xFF0F3B38),
-                              const Color(0xFF0F766E),
-                            ]
-                          : [
-                              const Color(0xFF115E59),
-                              const Color(0xFF14B8A6),
-                            ],
-                      begin: Alignment.topRight,
-                      end: Alignment.bottomLeft,
-                    )
-                  : null,
-              image: coverProvider != null
-                  ? DecorationImage(image: coverProvider, fit: BoxFit.cover)
-                  : null,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Cover with avatar overlap ──
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Cover
+            Container(
+              height: 160,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: coverProvider == null
+                    ? LinearGradient(
+                        colors: isDark
+                            ? [
+                                const Color(0xFF1A0A3E),
+                                const Color(0xFF4527A0),
+                              ]
+                            : [
+                                const Color(0xFF4527A0),
+                                const Color(0xFF7E57C2),
+                              ],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                      )
+                    : null,
+                image: coverProvider != null
+                    ? DecorationImage(image: coverProvider, fit: BoxFit.cover)
+                    : null,
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: -42,
+                    left: -20,
+                    child: Container(
+                      width: 152,
+                      height: 152,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.10),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: -54,
+                    right: -16,
+                    child: Container(
+                      width: 170,
+                      height: 170,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: -42,
-                  left: -20,
-                  child: Container(
-                    width: 152,
-                    height: 152,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.10),
+            // Buttons overlay
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _headerIconBtn(
+                      _isBookmarked ? Icons.bookmark : Icons.bookmark_outline,
+                      _openFavorites,
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    _headerIconBtn(Icons.ios_share, _showShareAndReportSheet),
+                    const Spacer(),
+                    _headerIconBtn(Icons.arrow_forward_ios_rounded,
+                        () => Navigator.pop(context)),
+                  ],
                 ),
-                Positioned(
-                  bottom: -54,
-                  right: -16,
-                  child: Container(
-                    width: 170,
-                    height: 170,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.08),
-                    ),
-                  ),
-                ),
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _headerIconBtn(
-                          _isBookmarked ? Icons.bookmark : Icons.bookmark_outline,
-                          _openFavorites,
-                        ),
-                        const SizedBox(width: 8),
-                        _headerIconBtn(Icons.ios_share, _showShareAndReportSheet),
-                        const Spacer(),
-                        _headerIconBtn(Icons.arrow_forward_ios_rounded,
-                            () => Navigator.pop(context)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-
-          // ── Centered Avatar + Info ──
-          Positioned(
-            top: 110,
-            left: 0,
-            right: 0,
-            child: Column(
-              children: [
-                if (_providerDetail?.hasExcellenceBadges ?? false)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: ExcellenceBadgesWrap(
-                      badges: _providerDetail?.excellenceBadges ?? const [],
-                      alignment: WrapAlignment.center,
-                    ),
-                  ),
-                // Avatar
-                Container(
+            // Avatar centered, overlapping cover bottom
+            Positioned(
+              bottom: -46,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: bgColor, width: 3.5),
                     boxShadow: [
                       BoxShadow(
-                          color: mainColor.withValues(alpha: 0.18),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4)),
+                          color: mainColor.withValues(alpha: 0.24),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6)),
                     ],
                   ),
                   child: Stack(
                     children: [
                       CircleAvatar(
-                        radius: 40,
+                        radius: 46,
                         backgroundColor: isDark
                             ? Colors.grey.shade800
                             : Colors.grey.shade200,
                         backgroundImage: avatarProvider,
                         child: avatarProvider == null
                             ? Icon(Icons.person,
-                                size: 36,
+                                size: 40,
                                 color: isDark ? Colors.white54 : Colors.grey)
                             : null,
                       ),
                       if (providerVerified)
                         Positioned(
-                          bottom: 0,
-                          right: 0,
+                          bottom: 2,
+                          right: 2,
                           child: Container(
-                            width: 20,
-                            height: 20,
+                            width: 22,
+                            height: 22,
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
@@ -1730,7 +1723,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                               child: VerifiedBadgeView(
                                 isVerifiedBlue: providerVerifiedBlue,
                                 isVerifiedGreen: providerVerifiedGreen,
-                                iconSize: 16,
+                                iconSize: 18,
                               ),
                             ),
                           ),
@@ -1738,91 +1731,119 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                     ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                // Name
-                Text(
-                  providerName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Cairo',
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-                // Handle
-                if (providerHandle.isNotEmpty)
-                  Text(
-                    providerHandle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'Cairo',
-                      color:
-                          isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-                    ),
-                  ),
-                // Category
-                if (providerCategory.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      '$providerCategory${providerSubCategory.isNotEmpty ? ' • $providerSubCategory' : ''}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontFamily: 'Cairo',
-                        color: isDark
-                            ? Colors.grey.shade500
-                            : Colors.grey.shade600,
-                      ),
-                    ),
-                  ),
-                if (widget.showBackToMapButton)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: Icon(widget.backButtonIcon, size: 16),
-                      label: Text(
-                        widget.backButtonLabel,
-                        style: const TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: mainColor,
-                        side: BorderSide(
-                            color: mainColor.withValues(alpha: 0.35)),
-                        backgroundColor: isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 7,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 12),
-                _buildOverviewStrip(isDark),
-                const SizedBox(height: 10),
-                // ── Stats Row ──
-                _buildStatsRow(isDark),
-                const SizedBox(height: 4),
-                _buildConnectionsShortcuts(isDark),
-              ],
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 54), // space for avatar overlap (46 + 8)
+
+        // ── Excellence Badges ──
+        if (_providerDetail?.hasExcellenceBadges ?? false)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: ExcellenceBadgesWrap(
+              badges: _providerDetail?.excellenceBadges ?? const [],
+              alignment: WrapAlignment.center,
             ),
           ),
-        ],
-      ),
+
+        // ── Name ──
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            providerName,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              fontFamily: 'Cairo',
+              color: isDark ? Colors.white : const Color(0xFF12082E),
+            ),
+          ),
+        ),
+
+        // ── Handle ──
+        if (providerHandle.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              providerHandle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w700,
+                color: isDark
+                    ? Colors.grey.shade400
+                    : const Color(0xFF7860A0),
+              ),
+            ),
+          ),
+
+        // ── Category ──
+        if (providerCategory.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 3, left: 24, right: 24),
+            child: Text(
+              '$providerCategory${providerSubCategory.isNotEmpty ? ' • $providerSubCategory' : ''}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                fontFamily: 'Cairo',
+                color: isDark
+                    ? Colors.grey.shade500
+                    : const Color(0xFF625C79),
+              ),
+            ),
+          ),
+
+        if (widget.showBackToMapButton)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Center(
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(widget.backButtonIcon, size: 16),
+                label: Text(
+                  widget.backButtonLabel,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: mainColor,
+                  side: BorderSide(color: mainColor.withValues(alpha: 0.35)),
+                  backgroundColor: isDark
+                      ? Colors.white.withValues(alpha: 0.04)
+                      : Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 14),
+        _buildOverviewStrip(isDark),
+        const SizedBox(height: 10),
+        // ── Stats Row ──
+        _buildStatsRow(isDark),
+        const SizedBox(height: 6),
+        _buildConnectionsShortcuts(isDark),
+        const SizedBox(height: 4),
+      ],
     );
   }
 
@@ -1851,7 +1872,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
   // ── Stats Row (matching client design) ──
   Widget _buildStatsRow(bool isDark) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
@@ -1957,13 +1978,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       children: [
         Text(count,
             style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
                 color: mainColor,
                 fontFamily: 'Cairo')),
         Text(label,
+            textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 9.5,
+                fontSize: 10,
                 color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                 fontFamily: 'Cairo')),
       ],
@@ -2013,12 +2035,32 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       child: Row(
         children: [
           Expanded(
-            child: Container(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: !_isFollowing && !_isFollowLoading
+                    ? const LinearGradient(
+                        colors: [Color(0xFF5E35B1), Color(0xFF7E57C2)],
+                        begin: Alignment.centerRight,
+                        end: Alignment.centerLeft,
+                      )
+                    : null,
+                boxShadow: !_isFollowing && !_isFollowLoading
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF5E35B1).withValues(alpha: 0.28),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Container(
               height: 48,
               decoration: BoxDecoration(
                 color: _isFollowing
                     ? mainColor.withValues(alpha: isDark ? 0.18 : 0.12)
-                    : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: _isFollowing
@@ -2044,7 +2086,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                             ? Icons.person_remove_alt_1_rounded
                             : Icons.person_add_alt_1_rounded,
                         size: 18,
-                        color: mainColor,
+                        color: _isFollowing ? mainColor : Colors.white,
                       ),
                 label: Text(
                   _isFollowing ? 'متابَع' : 'متابعة',
@@ -2052,17 +2094,18 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                     fontFamily: 'Cairo',
                     fontSize: 11.5,
                     fontWeight: FontWeight.w800,
-                    color: mainColor,
+                    color: _isFollowing ? mainColor : Colors.white,
                   ),
                 ),
                 style: TextButton.styleFrom(
-                  foregroundColor: mainColor,
+                  foregroundColor: _isFollowing ? mainColor : Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
               ),
+            ),
             ),
           ),
           const SizedBox(width: 8),
@@ -2379,14 +2422,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'نبذة عن مقدم الخدمة',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: textColor,
-                ),
+              _sectionCardTitle(
+                icon: Icons.info_outline_rounded,
+                title: 'نبذة عن مقدم الخدمة',
+                isDark: isDark,
               ),
               const SizedBox(height: 10),
               Text(
@@ -2409,6 +2448,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           borderColor: borderColor,
           child: Column(
             children: [
+              _sectionCardTitle(
+                icon: Icons.category_outlined,
+                title: 'تصنيفات الخدمة',
+                isDark: isDark,
+              ),
+              const Divider(height: 18),
               _labeledField(
                 label: 'صفة الحساب',
                 value: providerAccountType,
@@ -2438,6 +2483,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           borderColor: borderColor,
           child: Column(
             children: [
+              _sectionCardTitle(
+                icon: Icons.contact_page_outlined,
+                title: 'بيانات التواصل',
+                isDark: isDark,
+              ),
+              const Divider(height: 18),
               _labeledField(
                 label: 'سنوات الخبرة',
                 value: providerExperienceYears,
@@ -2486,14 +2537,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'حسابات التواصل الاجتماعي',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: textColor,
-                  ),
+                _sectionCardTitle(
+                  icon: Icons.share_outlined,
+                  title: 'حسابات التواصل الاجتماعي',
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 10),
                 if (providerInstagramUrl.isNotEmpty)
@@ -2532,6 +2579,39 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     );
   }
 
+  Widget _sectionCardTitle({
+    required IconData icon,
+    required String title,
+    required bool isDark,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: mainColor.withValues(alpha: isDark ? 0.22 : 0.12),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, size: 16, color: mainColor),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : const Color(0xFF12082E),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _formCard({
     required Color cardColor,
     required Color borderColor,
@@ -2564,12 +2644,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       decoration: BoxDecoration(
         gradient: isDark
             ? const LinearGradient(
-                colors: [Color(0xFF0B1A1A), Color(0xFF102726), Color(0xFF163130)],
+                colors: [Color(0xFF0F0A1E), Color(0xFF120E28), Color(0xFF180E32)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               )
             : const LinearGradient(
-                colors: [Color(0xFFEFFCFA), Color(0xFFF7FFFD), Color(0xFFFFFFFF)],
+                colors: [Color(0xFFF2ECFF), Color(0xFFF7F4FF), Color(0xFFFAF8FF)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -2579,7 +2659,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           margin: const EdgeInsets.symmetric(horizontal: 24),
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF102726) : Colors.white,
+            color: isDark ? const Color(0xFF120E28) : Colors.white,
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
@@ -2592,7 +2672,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           child: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: Color(0xFF0F766E)),
+              CircularProgressIndicator(color: Color(0xFF5E35B1)),
               SizedBox(height: 16),
               Text(
                 'جار تحميل ملف مقدم الخدمة...',
@@ -2623,7 +2703,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
 
   Widget _buildOverviewStrip(bool isDark) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
@@ -2711,12 +2791,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
   Widget _buildTabsBar(bool isDark) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
-        borderRadius: BorderRadius.circular(22),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.07)
+            : Colors.white.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.10)
+              : const Color(0xFFE2E8F0),
         ),
         boxShadow: [
           BoxShadow(
@@ -2726,63 +2810,74 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           ),
         ],
       ),
-      child: SizedBox(
-        height: 64,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: tabs.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (context, index) {
-            final isSelected = _selectedTabIndex == index;
-            return GestureDetector(
+      child: Row(
+        children: List.generate(tabs.length, (index) {
+          final isSelected = _selectedTabIndex == index;
+          return Expanded(
+            child: GestureDetector(
               onTap: () => setState(() => _selectedTabIndex = index),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeInOut,
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? mainColor.withValues(alpha: 0.12)
-                      : (isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC)),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isSelected
-                        ? mainColor.withValues(alpha: 0.35)
-                        : (isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : Colors.grey.shade200),
-                  ),
+                  borderRadius: BorderRadius.circular(15),
+                  gradient: isSelected
+                      ? const LinearGradient(
+                          colors: [Color(0xFF5E35B1), Color(0xFF7E57C2)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF5E35B1)
+                                .withValues(alpha: 0.32),
+                            blurRadius: 12,
+                            offset: const Offset(0, 5),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       tabs[index]['icon'],
-                      size: 18,
+                      size: 17,
                       color: isSelected
-                          ? mainColor
-                          : (isDark ? Colors.grey[300] : Colors.grey.shade600),
+                          ? Colors.white
+                          : (isDark
+                              ? Colors.grey[400]
+                              : Colors.grey.shade500),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       tabs[index]['title'],
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontFamily: 'Cairo',
-                        fontSize: 10.5,
+                        fontSize: 9.5,
                         height: 1.1,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: isSelected
+                            ? FontWeight.w900
+                            : FontWeight.w600,
                         color: isSelected
-                            ? mainColor
-                            : (isDark ? Colors.white70 : Colors.black87),
+                            ? Colors.white
+                            : (isDark
+                                ? Colors.white60
+                                : Colors.grey.shade600),
                       ),
                     ),
                   ],
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -3014,37 +3109,30 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _servicesIntroCard(isDark),
-        const SizedBox(height: 12),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _servicesData.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final service = _servicesData[index];
-            final title = (service["title"] ?? '').toString().trim();
-            final description =
-                (service["description"] ?? '').toString().trim();
-            final serviceTitle = title.isNotEmpty ? title : 'خدمة بدون اسم';
-            final categoryLabel = _serviceCategoryFromService(service);
-            final subCategoryLabel = _serviceSubCategoryFromService(service);
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _servicesData.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final service = _servicesData[index];
+        final title = (service["title"] ?? '').toString().trim();
+        final description =
+            (service["description"] ?? '').toString().trim();
+        final serviceTitle = title.isNotEmpty ? title : 'خدمة بدون اسم';
+        final categoryLabel = _serviceCategoryFromService(service);
+        final subCategoryLabel = _serviceSubCategoryFromService(service);
 
-            return _serviceCard(
-              index: index + 1,
-              title: serviceTitle,
-              description: description,
-              priceLabel: _servicePriceLabel(service),
-              priceUnitLabel: _serviceUnitLabel(service),
-              categoryLabel: categoryLabel,
-              subCategoryLabel: subCategoryLabel,
-            );
-          },
-        ),
-      ],
+        return _serviceCard(
+          index: index + 1,
+          title: serviceTitle,
+          description: description,
+          priceLabel: _servicePriceLabel(service),
+          priceUnitLabel: _serviceUnitLabel(service),
+          categoryLabel: categoryLabel,
+          subCategoryLabel: subCategoryLabel,
+        );
+      },
     );
   }
 
@@ -3259,7 +3347,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: mainColor.withValues(alpha: 0.14),
+                        gradient: LinearGradient(
+                          colors: [
+                            mainColor.withValues(alpha: isDark ? 0.35 : 0.18),
+                            mainColor.withValues(alpha: isDark ? 0.20 : 0.08),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(
@@ -3268,7 +3363,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                           style: TextStyle(
                             fontFamily: 'Cairo',
                             fontSize: 11,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w900,
                             color: mainColor,
                           ),
                         ),
@@ -3380,7 +3475,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.only(top: 10),
@@ -3392,15 +3487,22 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                 ),
               ),
             ),
-            child: Text(
-              'للتفاهم حول هذه الخدمة استخدم أزرار المتابعة أو المحادثة أو الاتصال أعلى الصفحة.',
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: footnoteColor,
-                height: 1.6,
-              ),
+            child: Row(
+              children: [
+                Icon(Icons.chat_bubble_outline_rounded,
+                    size: 13, color: mainColor.withValues(alpha: 0.7)),
+                const SizedBox(width: 6),
+                Text(
+                  'للاستفسار استخدم زر المحادثة أو الاتصال أعلى الصفحة',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: footnoteColor,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -3465,44 +3567,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: mainColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.photo_library, color: mainColor, size: 24),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'معرض خدماتي',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
-                      ),
-                    ),
-                    Text(
-                      'المحتوى المرئي الذي أضافه مقدم الخدمة للعملاء',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 11,
-                        color: secondaryTextColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
         if (sections.isEmpty)
           _emptySectionCard(
             icon: Icons.photo_library_outlined,
@@ -3517,23 +3581,46 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                 (section['section_desc'] ?? '').toString().trim();
             return [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
-                    section['title'] as String,
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: textColor,
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: mainColor.withValues(alpha: isDark ? 0.22 : 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.layers_outlined,
+                        size: 15, color: mainColor),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      section['title'] as String,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: textColor,
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    '${sectionItems.length} محتوى',
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 11,
-                      color: secondaryTextColor,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color:
+                          mainColor.withValues(alpha: isDark ? 0.18 : 0.09),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${sectionItems.length} محتوى',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: mainColor,
+                      ),
                     ),
                   ),
                 ],

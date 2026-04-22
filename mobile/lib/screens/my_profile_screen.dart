@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/app_theme.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import '../services/auth_service.dart';
@@ -160,7 +161,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
           SnackBar(
             content: Text(result.error ?? 'تعذر حفظ الصورة',
                 style: const TextStyle(fontFamily: 'Cairo')),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -195,7 +196,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     if (_isLoading) {
       return _buildShell(theme,
           child: const Center(
-              child: CircularProgressIndicator(color: Colors.deepPurple)));
+              child: CircularProgressIndicator(color: AppColors.primary)));
     }
     if (_errorMessage != null) return _buildErrorState(theme);
 
@@ -219,12 +220,12 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   Widget _buildClientProfile(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
     final profile = _userProfile!;
-    const accent = Color(0xFF0E7490);
+    const accent = Color(0xFF5E35B1);
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor:
-          isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
+          isDark ? const Color(0xFF0F0A1E) : const Color(0xFFF5F0FF),
       drawer: const CustomDrawer(),
       bottomNavigationBar: const CustomBottomNav(currentIndex: 3),
       body: Container(
@@ -236,7 +237,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                   end: Alignment.bottomCenter,
                 )
               : const LinearGradient(
-                  colors: [Color(0xFFEEF5FB), Color(0xFFF4F7FB), Color(0xFFF7F8FC)],
+                  colors: [Color(0xFFF5F0FF), Color(0xFFF7F4FF), Color(0xFFF9F7FF)],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -247,10 +248,38 @@ class _MyProfileScreenState extends State<MyProfileScreen>
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _buildEntrance(0, _buildProfileHeadCard(profile, isDark)),
+              SliverToBoxAdapter(
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                    child: PlatformTopBar(
+                      overlay: false,
+                      height: 62,
+                      showMenuButton: true,
+                      notificationCount: _notificationUnread,
+                      chatCount: _chatUnread,
+                      onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                      onNotificationsTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationsScreen(),
+                          ),
+                        );
+                        _loadUnreadBadges();
+                      },
+                      onChatsTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MyChatsScreen(),
+                          ),
+                        );
+                        _loadUnreadBadges();
+                      },
+                    ),
+                  ),
                 ),
               ),
               SliverToBoxAdapter(
@@ -305,16 +334,16 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         border: Border.all(
           color: isDark
               ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0x330E5E85),
+              : const Color(0x335E35B1),
         ),
         gradient: isDark
             ? const LinearGradient(
-                colors: [Color(0xFF152436), Color(0xFF112131)],
+                colors: [Color(0xFF1A1036), Color(0xFF140E2E)],
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
               )
             : const LinearGradient(
-                colors: [Color(0xFFFFFFFF), Color(0xFFF3FBFF)],
+                colors: [Color(0xFFFFFFFF), Color(0xFFF5F0FF)],
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
               ),
@@ -333,8 +362,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0x3312B6A8)
-                  : const Color(0x1F0F766E),
+                  ? const Color(0x335E35B1)
+                  : const Color(0x1F5E35B1),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
@@ -343,7 +372,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                 fontFamily: 'Cairo',
                 fontSize: 10.5,
                 fontWeight: FontWeight.w900,
-                color: isDark ? const Color(0xFF9AE6D9) : const Color(0xFF0D625B),
+                color: isDark ? const Color(0xFFCDB4F4) : const Color(0xFF5E35B1),
               ),
             ),
           ),
@@ -387,7 +416,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                       border: Border.all(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0x3312B6A8),
+                            : const Color(0x335E35B1),
                       ),
                     ),
                     child: Text(
@@ -396,7 +425,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                         fontFamily: 'Cairo',
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: isDark ? const Color(0xFFC2D1E0) : const Color(0xFF155A61),
+                        color: isDark ? const Color(0xFFCDB4F4) : const Color(0xFF5E35B1),
                       ),
                     ),
                   ),
@@ -446,14 +475,14 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                   ? LinearGradient(
                       colors: isDark
                           ? [
-                              const Color(0xFF0F766E),
-                              const Color(0xFF0E7490),
-                              const Color(0xFF1D4ED8),
+                              const Color(0xFF5E35B1),
+                              const Color(0xFF7E57C2),
+                              const Color(0xFF9575CD),
                             ]
                           : [
-                              const Color(0xFF0F766E),
-                              const Color(0xFF0E7490),
-                              const Color(0xFF1D4ED8),
+                              const Color(0xFF5E35B1),
+                              const Color(0xFF7E57C2),
+                              const Color(0xFF9575CD),
                             ],
                       begin: Alignment.topRight,
                       end: Alignment.bottomLeft,
@@ -481,33 +510,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Column(
                 children: [
-                  PlatformTopBar(
-                    overlay: true,
-                    height: 64,
-                    showMenuButton: true,
-                    notificationCount: _notificationUnread,
-                    chatCount: _chatUnread,
-                    onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                    onNotificationsTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const NotificationsScreen(),
-                        ),
-                      );
-                      _loadUnreadBadges();
-                    },
-                    onChatsTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const MyChatsScreen(),
-                        ),
-                      );
-                      _loadUnreadBadges();
-                    },
-                  ),
-                  const SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: _miniIconBtn(
@@ -518,43 +520,14 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                   const Spacer(),
                   Align(
                     alignment: Alignment.bottomRight,
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 300),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isProviderRegistered ? 'واجهة موحدة للحسابين' : 'ملف شخصي أنيق ومرن',
-                            style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            profile.displayName,
-                            style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 24,
-                              height: 1.2,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            'صورة الغلاف، الحساب، والتنقل السريع كلها في مساحة واحدة أكثر وضوحاً.',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 11.5,
-                              height: 1.8,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white.withValues(alpha: 0.88),
-                            ),
-                          ),
-                        ],
+                    child: Text(
+                      profile.displayName,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 18,
+                        height: 1.1,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -692,12 +665,12 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF162638) : const Color(0xFFEAF5F8),
+        color: isDark ? const Color(0xFF1A1036) : const Color(0xFFF0EAFF),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isDark
               ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0x3312B6A8),
+              : const Color(0x335E35B1),
         ),
       ),
       child: Row(
@@ -706,7 +679,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 11),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0E7490) : Colors.white,
+                color: isDark ? const Color(0xFF5E35B1) : Colors.white,
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
@@ -798,16 +771,16 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white,
+        color: isDark ? const Color(0xFF1A1036) : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isDark
               ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0x220E5E85),
+              : const Color(0x225E35B1),
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
+            color: const Color(0xFF5E35B1).withValues(alpha: isDark ? 0.10 : 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -881,16 +854,16 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.92),
+        color: isDark ? const Color(0xFF1A1036) : Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: isDark
               ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0x220E5E85),
+              : const Color(0x225E35B1),
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
+            color: const Color(0xFF5E35B1).withValues(alpha: isDark ? 0.10 : 0.06),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -941,12 +914,12 @@ class _MyProfileScreenState extends State<MyProfileScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF16293A) : const Color(0xFFF8FCFF),
+          color: isDark ? const Color(0xFF1A1036) : const Color(0xFFF5F1FF),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.05)
-                : const Color(0x220E5E85),
+                : const Color(0x225E35B1),
           ),
         ),
         child: Column(
@@ -981,16 +954,16 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.94),
+        color: isDark ? const Color(0xFF1A1036) : Colors.white.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: isDark
               ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0x220E5E85),
+              : const Color(0x225E35B1),
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
+            color: const Color(0xFF5E35B1).withValues(alpha: isDark ? 0.10 : 0.06),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -1145,10 +1118,10 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         gradient: LinearGradient(
           colors: isDark
               ? [
-                  const Color(0xFF0F766E).withValues(alpha: 0.34),
-                  const Color(0xFF0E7490).withValues(alpha: 0.18)
+                  const Color(0xFF5E35B1).withValues(alpha: 0.28),
+                  const Color(0xFF7E57C2).withValues(alpha: 0.14)
                 ]
-              : [const Color(0xFFEAF7F9), Colors.white],
+              : [const Color(0xFFF0EAFF), Colors.white],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
@@ -1249,7 +1222,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                         color: Colors.white,
                         fontSize: 12)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: AppColors.primary,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                   shape: RoundedRectangleBorder(
@@ -1264,7 +1237,7 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                       style: TextStyle(
                           fontFamily: 'Cairo',
                           fontSize: 12,
-                          color: Colors.deepPurple,
+                          color: AppColors.primary,
                           fontWeight: FontWeight.bold)),
                 ),
               ],

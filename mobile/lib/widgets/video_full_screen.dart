@@ -2,7 +2,7 @@ import 'dart:ui'; // لمؤثر الضباب (blur)
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
-import '../constants/colors.dart'; // ✅ AppColors من ملفك
+import '../constants/app_theme.dart';
 
 class VideoFullScreenPage extends StatefulWidget {
   final List<String> videoPaths;

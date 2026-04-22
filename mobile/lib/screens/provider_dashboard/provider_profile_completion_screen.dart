@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/models/provider_profile_model.dart';
 import 'package:nawafeth/models/user_profile.dart';
-import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/profile_service.dart';
+import 'package:nawafeth/services/provider_services_service.dart';
 import 'package:nawafeth/screens/registration/steps/contact_info_step.dart';
 import 'package:nawafeth/screens/registration/steps/content_step.dart';
 import 'package:nawafeth/screens/registration/steps/language_location_step.dart';
@@ -10,7 +11,7 @@ import 'package:nawafeth/screens/registration/steps/seo_step.dart';
 import 'package:nawafeth/screens/registration/steps/service_details_step.dart';
 import 'package:nawafeth/widgets/platform_top_bar.dart';
 
-import '../../constants/colors.dart';
+import '../../constants/app_theme.dart';
 
 class ProviderProfileCompletionScreen extends StatefulWidget {
   const ProviderProfileCompletionScreen({super.key});
@@ -545,7 +546,7 @@ class _BasicInfoDetailsScreenState extends State<_BasicInfoDetailsScreen> {
     final results = await Future.wait([
       ProfileService.fetchProviderProfile(),
       ProfileService.fetchMyProfile(),
-      ApiClient.get('/api/providers/me/services/'),
+      ProviderServicesService.fetchMyServices(),
     ]);
     if (!mounted) return;
 
