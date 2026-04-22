@@ -3,7 +3,8 @@
 {% block body_class %}page-provider-orders{% endblock %}
 
 {% block content %}
-<main class="page-shell">
+<main class="page-content">
+  <div class="container">
   <div id="auth-gate" class="auth-gate auth-gate-unified" style="display:none">
     <div class="auth-gate-unified-icon" aria-hidden="true">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -17,14 +18,14 @@
   </div>
 
   <div id="porders-content" style="display:none">
-    <div class="page-header po-header">
+    <div class="mw-page-topbar po-header ux26-page-header">
       <a href="/provider-dashboard/" class="btn-back po-back-btn" aria-label="العودة للوحة المزود">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
       </a>
       <div class="po-header-copy">
         <span class="po-header-eyebrow">لوحة مزود الخدمة</span>
         <h1>إدارة الطلبات</h1>
-        <p class="po-header-subtitle">تجربة إدارة متكاملة للطلبات المسندة، عروض الأسعار، والطلبات العاجلة مع وصول سريع للتفاصيل والتنفيذ.</p>
+        <p class="po-header-subtitle">متابعة سريعة للطلبات المسندة، عروض الأسعار، والطلبات العاجلة.</p>
       </div>
       <div class="po-header-stats" aria-label="ملخص سريع للطلبات">
         <div class="po-header-stat po-header-stat-assigned">
@@ -42,7 +43,7 @@
       </div>
     </div>
 
-    <div class="po-smart-bar" aria-live="polite">
+    <div class="po-smart-bar ux26-toolbar" aria-live="polite">
       <div class="po-smart-bar-copy">
         <strong id="po-active-view-label">المسندة لي</strong>
         <span id="po-visible-count-label">0 طلب ظاهر</span>
@@ -66,7 +67,7 @@
       </div>
     </div>
 
-    <section class="po-controls-panel" aria-label="أدوات التحكم والفلترة">
+    <section class="po-controls-panel orders-mobile-sheet" aria-label="أدوات التحكم والفلترة">
       <!-- Search -->
       <div class="search-bar po-search">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -74,7 +75,7 @@
       </div>
 
       <!-- Main Tabs -->
-      <div class="status-tabs po-main-tabs" id="po-request-tabs">
+      <div class="status-tabs po-main-tabs tabs-row ux26-status-tabs" id="po-request-tabs">
         <button class="status-tab active" data-tab="assigned">
           المسندة لي
           <span class="po-tab-count" id="po-count-assigned">0</span>
@@ -90,7 +91,7 @@
       </div>
 
       <!-- Assigned Status Filters -->
-      <div class="status-tabs" id="po-status-tabs">
+      <div class="status-tabs tabs-row ux26-status-tabs" id="po-status-tabs">
         <button class="status-tab active" data-group="">الكل</button>
         <button class="status-tab" data-group="new">جديد</button>
         <button class="status-tab" data-group="in_progress">تحت التنفيذ</button>
@@ -106,12 +107,12 @@
       </div>
     </section>
 
-    <section class="po-results-board" aria-label="نتائج الطلبات">
-      <div id="po-error" class="form-error hidden"></div>
+    <section class="po-results-board orders-mobile-sheet" aria-label="نتائج الطلبات">
+      <div id="po-error" class="form-error ux26-alert ux26-alert-danger hidden"></div>
 
       <!-- Orders List -->
       <div id="po-list" class="orders-list"></div>
-      <div id="po-empty" class="empty-state po-empty-state" style="display:none">
+      <div id="po-empty" class="empty-state po-empty-state ux26-alert" style="display:none">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         <p>لا توجد طلبات</p>
         <small>جرب تغيير التبويب أو كلمات البحث لعرض نتائج أخرى.</small>
@@ -121,6 +122,7 @@
         <p>جاري تحميل الطلبات...</p>
       </div>
     </section>
+  </div>
   </div>
 </main>
 {% endblock %}

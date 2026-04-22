@@ -7,7 +7,7 @@
 
 {% block content %}
 <main class="page-shell ls-page">
-  <section class="detail-card ls-hero-card" aria-label="ملخص إعدادات الدخول">
+  <section class="detail-card ls-hero-card ux26-page-header" aria-label="ملخص إعدادات الدخول">
     <div class="ls-hero-top">
       <button type="button" class="btn-back ls-back-btn" onclick="history.back()" aria-label="رجوع">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -34,9 +34,9 @@
     </div>
   </section>
 
-  <div id="ls-inline-alert" class="ls-inline-alert hidden" aria-live="polite"></div>
+  <div id="ls-inline-alert" class="ls-inline-alert ux26-alert hidden" aria-live="polite"></div>
 
-  <section class="detail-card ls-settings-card" aria-label="بيانات تسجيل الدخول">
+  <section class="detail-card ls-settings-card ux26-form-section" aria-label="بيانات تسجيل الدخول">
     <div class="ls-section-head">
       <h2>بيانات تسجيل الدخول</h2>
       <p>يمكنك تعديل كل حقل وحفظه فورًا، مع إشعارات واضحة عند النجاح أو وجود خطأ.</p>
@@ -77,7 +77,7 @@
     </div>
   </section>
 
-  <section class="detail-card ls-security-card" aria-label="خيارات الأمان الإضافية">
+  <section class="detail-card ls-security-card ux26-form-section" aria-label="خيارات الأمان الإضافية">
     <div class="ls-section-head">
       <h2>الأمان الإضافي</h2>
       <p>فعّل وسائل حماية إضافية لحسابك على هذا الجهاز.</p>
@@ -103,9 +103,9 @@
   </section>
 </main>
 
-<div id="ls-action-modal" class="ls-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ls-modal-title">
+<div id="ls-action-modal" class="ls-modal ux26-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ls-modal-title">
   <div class="ls-modal-backdrop" data-ls-close="true"></div>
-  <section class="ls-modal-card">
+  <section class="ls-modal-card ux26-modal-card">
     <div class="ls-modal-head">
       <h3 id="ls-modal-title"></h3>
       <button type="button" class="ls-modal-close" id="ls-modal-close" aria-label="إغلاق">
@@ -114,7 +114,7 @@
     </div>
     <p id="ls-modal-desc"></p>
     <div id="ls-modal-fields"></div>
-    <div class="ls-modal-actions">
+    <div class="ls-modal-actions ux26-form-actions">
       <button type="button" class="btn btn-secondary" id="ls-modal-cancel">إلغاء</button>
       <button type="button" class="btn btn-primary" id="ls-modal-save">حفظ التغييرات</button>
     </div>

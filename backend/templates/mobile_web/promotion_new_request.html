@@ -9,7 +9,7 @@
   data-promo-requests-url="{% url 'mobile_web:promotion' %}"
   data-promo-payment-url="{% url 'mobile_web:promotion_payment' %}"
   data-provider-display-name="{{ promo_provider_display_name|default:'' }}">
-  <div class="page-header">
+  <div class="page-header ux26-page-header">
     <a href="{% url 'mobile_web:promotion' %}" class="btn-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></a>
     <h1>طلب ترويج جديد</h1>
   </div>
@@ -20,7 +20,7 @@
       <h2>اختر خدمات الترويج وأكمل التفاصيل</h2>
       <p>فعّل الخدمات المطلوبة فقط وأكمل بيانات كل خدمة، ثم راجع التكلفة قبل الإرسال.</p>
     </div>
-    <div class="promo-top-toolbar">
+    <div class="promo-top-toolbar ux26-toolbar">
       <div class="promo-top-actions">
         <button type="button" class="promo-nav-pill active" data-promo-view="composer">إعداد الترويج</button>
         <button type="button" class="promo-nav-pill" data-promo-view="pricing">الأسعار</button>
@@ -64,7 +64,7 @@
   </section>
 
   <section id="promo-composer-view">
-    <form id="promo-form" class="detail-card">
+    <form id="promo-form" class="detail-card ux26-form-shell">
       <div class="promo-composer-intro">
         <div>
           <strong>خيارات الترويج المتاحة</strong>
@@ -337,7 +337,7 @@
         </div>
       </div>
 
-      <div class="promo-submit-actions">
+      <div class="promo-submit-actions ux26-form-actions">
         <a href="{% url 'mobile_web:promotion' %}" class="btn btn-secondary">إلغاء</a>
         <button type="submit" class="btn btn-primary" id="promo-submit">استمرار</button>
       </div>
@@ -352,8 +352,8 @@
     </div>
     <p class="promo-summary-note">عرض البنود التي تم اختيارها من الصفحة السابقة وتكلفة كل بند</p>
 
-    <div class="promo-summary-table-wrap">
-      <table class="promo-summary-table">
+    <div class="promo-summary-table-wrap ux26-table-wrap">
+      <table class="promo-summary-table ux26-table">
         <thead>
           <tr>
             <th>البند</th>
@@ -369,7 +369,7 @@
     </div>
 
     <div class="promo-summary-totals-wrap">
-      <table class="promo-summary-table promo-summary-totals">
+      <table class="promo-summary-table promo-summary-totals ux26-table">
         <tbody>
           <tr>
             <th>المجموع</th>
@@ -387,7 +387,7 @@
       </table>
     </div>
 
-    <div class="promo-summary-actions">
+    <div class="promo-summary-actions ux26-form-actions">
       <button type="button" class="btn btn-secondary" id="promo-summary-cancel">إلغاء</button>
       <button type="button" class="btn btn-primary" id="promo-summary-confirm">استمرار</button>
     </div>
@@ -448,16 +448,16 @@
       </ul>
     </div>
 
-    <div class="promo-payment-actions">
+    <div class="promo-payment-actions ux26-form-actions">
       <button type="button" class="btn btn-secondary" id="promo-payment-back">رجوع</button>
       <button type="button" class="btn btn-primary" id="promo-payment-submit">المتابعة إلى صفحة الدفع</button>
     </div>
   </section>
 </main>
 
-<div id="promo-success-modal" class="promo-modal" hidden>
+<div id="promo-success-modal" class="promo-modal ux26-modal" hidden>
   <div class="promo-modal-backdrop"></div>
-  <div class="promo-modal-card promo-success-card" role="dialog" aria-modal="true">
+  <div class="promo-modal-card promo-success-card ux26-modal-card" role="dialog" aria-modal="true">
     <div class="success-code-badge" id="success-request-code">رقم الطلب: —</div>
     <div class="success-message-box">
       <strong id="success-title">تم إرسال الطلب بنجاح</strong>
@@ -467,9 +467,9 @@
   </div>
 </div>
 
-<div id="promo-modal" class="promo-modal" hidden>
+<div id="promo-modal" class="promo-modal ux26-modal" hidden>
   <div class="promo-modal-backdrop" data-close-modal="1"></div>
-  <div class="promo-modal-card" role="dialog" aria-modal="true" aria-labelledby="promo-modal-title">
+  <div class="promo-modal-card ux26-modal-card" role="dialog" aria-modal="true" aria-labelledby="promo-modal-title">
     <div class="promo-modal-head">
       <h3 id="promo-modal-title">تفاصيل الترويج</h3>
       <button type="button" class="promo-modal-close" data-close-modal="1">×</button>

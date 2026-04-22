@@ -1065,8 +1065,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor:
-          isDark ? const Color(0xFF120F18) : const Color(0xFFF7F4FB),
+      backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
       drawer: const CustomDrawer(),
       bottomNavigationBar: const CustomBottomNav(currentIndex: 0),
       body: RefreshIndicator(
@@ -1106,11 +1105,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHero() {
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFF8F3FD), Color(0xFFF1ECFA)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        color: AppColors.bgLight,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1148,37 +1143,30 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
             child: AspectRatio(
               aspectRatio: 16 / 10.8,
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF60269E).withValues(alpha: 0.14),
-                      blurRadius: 34,
-                      offset: const Offset(0, 18),
-                    ),
-                  ],
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  boxShadow: AppShadows.card,
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(30),
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
                       _buildHeroBannerBackground(),
+                      // Single soft bottom-to-top scrim for text legibility.
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              const Color(0xFF160F1F).withValues(alpha: 0.18),
-                              const Color(0xFF160F1F).withValues(alpha: 0.04),
-                              const Color(0xFF160F1F).withValues(alpha: 0.72),
+                              Colors.black.withValues(alpha: 0.55),
+                              Colors.transparent,
                             ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            stops: const [0.0, 0.4, 1.0],
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.center,
                           ),
                         ),
                       ),
@@ -1272,121 +1260,85 @@ class _HomeScreenState extends State<HomeScreen> {
     final activeBanner = hasBanners ? heroBanners[safeIndex] : null;
     final title = (activeBanner?.title ?? '').trim();
     final provider = (activeBanner?.providerDisplayName ?? '').trim();
-    final sectionTitle = _content.bannersTitle.trim().isNotEmpty &&
-            _content.bannersTitle.trim() != '...'
-        ? _content.bannersTitle.trim()
-        : 'عروض ترويجية';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
+          // Top row — only the lightweight counter when multiple banners exist.
+          if (heroBanners.length > 1)
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
+                  color: Colors.black.withValues(alpha: 0.32),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
-                  ),
                 ),
                 child: Text(
-                  sectionTitle,
+                  '${safeIndex + 1} / ${heroBanners.length}',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 10,
+                    fontSize: AppTextStyles.micro,
                     fontFamily: 'Cairo',
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              const Spacer(),
-              if (heroBanners.length > 1)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.28),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.16),
-                    ),
-                  ),
-                  child: Text(
-                    '${(safeIndex + 1).toString().padLeft(2, '0')} / ${heroBanners.length.toString().padLeft(2, '0')}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontFamily: 'Cairo',
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+            ),
           const Spacer(),
-          if (title.isNotEmpty || provider.isNotEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: Colors.black.withValues(alpha: 0.34),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.14),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (title.isNotEmpty)
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontFamily: 'Cairo',
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  if (provider.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      provider,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.84),
-                        fontSize: 10.5,
-                        fontFamily: 'Cairo',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+          // Title + provider — plain text on scrim, no glass card.
+          if (title.isNotEmpty)
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: AppTextStyles.h1,
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+                shadows: [
+                  Shadow(
+                    color: Color(0x66000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 1),
+                  ),
                 ],
               ),
             ),
+          if (provider.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              provider,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: AppTextStyles.bodySm,
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
           if (heroBanners.length > 1) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_heroBanners.length, (index) {
                 final isActive = index == _bannerCurrentPage;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
-                  margin: const EdgeInsetsDirectional.only(end: 6),
-                  width: isActive ? 22 : 7,
-                  height: 7,
+                  curve: Curves.easeOutCubic,
+                  margin: const EdgeInsetsDirectional.only(end: 5),
+                  width: isActive ? 18 : 6,
+                  height: 6,
                   decoration: BoxDecoration(
                     color: isActive
                         ? Colors.white
-                        : Colors.white.withValues(alpha: 0.38),
+                        : Colors.white.withValues(alpha: 0.45),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 );
@@ -1421,20 +1373,20 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
+    // Lighter, more refined chevron control.
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Ink(
-          width: 34,
-          height: 34,
+          width: 32,
+          height: 32,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withValues(alpha: 0.32),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
           ),
-          child: Icon(icon, size: 22, color: Colors.white),
+          child: Icon(icon, size: 20, color: Colors.white),
         ),
       ),
     );
@@ -1736,7 +1688,6 @@ class _HomeScreenState extends State<HomeScreen> {
       kicker: 'لمحات حية',
       title: 'أحدث اللمحات',
       isDark: isDark,
-      margin: const EdgeInsets.fromLTRB(14, 2, 14, 4),
       child: _buildSectionAnimatedContent(
         stateKey: _isSpotlightsLoading && !hasData
             ? 'reels-loading'
@@ -1746,19 +1697,10 @@ class _HomeScreenState extends State<HomeScreen> {
         child: _isSpotlightsLoading && !hasData
             ? _buildReelsSkeleton(isDark)
             : !hasData
-                ? SizedBox(
-                    height: 84,
-                    child: Center(
-                      child: Text(
-                        'لا توجد لمحات حالياً',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontFamily: 'Cairo',
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white70 : Colors.black54,
-                        ),
-                      ),
-                    ),
+                ? _buildEmptyState(
+                    isDark: isDark,
+                    icon: Icons.movie_filter_outlined,
+                    label: 'لا توجد لمحات حالياً',
                   )
                 : SizedBox(
                     height: 102,
@@ -1782,7 +1724,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   : 'ترويج ممول')
                               : (item.caption ?? '').trim();
 
-                          return GestureDetector(
+                          return _PressableScale(
                             onTap: () => _openSpotlightViewer(index),
                             child: SizedBox(
                               width: 76,
@@ -1896,7 +1838,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (hasNote) ...[
                 const SizedBox(height: 2),
                 Text(
-                  note!,
+                  note,
                   style: TextStyle(
                     fontSize: AppTextStyles.caption,
                     height: 1.4,
@@ -1961,12 +1903,12 @@ class _HomeScreenState extends State<HomeScreen> {
     required Widget child,
   }) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 320),
+      duration: AppDurations.normal,
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
       transitionBuilder: (child, animation) {
         final slide = Tween<Offset>(
-          begin: const Offset(0, 0.05),
+          begin: const Offset(0, 0.04),
           end: Offset.zero,
         ).animate(animation);
         return FadeTransition(
@@ -1977,6 +1919,44 @@ class _HomeScreenState extends State<HomeScreen> {
       child: KeyedSubtree(
         key: ValueKey(stateKey),
         child: child,
+      ),
+    );
+  }
+
+  // Shared empty-state used across home sections for visual consistency.
+  Widget _buildEmptyState({
+    required bool isDark,
+    required IconData icon,
+    required String label,
+  }) {
+    return SizedBox(
+      height: 112,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: AppColors.primarySurface,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 22, color: AppColors.primary),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: AppTextStyles.bodySm,
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white54 : AppColors.grey500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1999,7 +1979,6 @@ class _HomeScreenState extends State<HomeScreen> {
       kicker: 'رسالة مميزة',
       title: title,
       isDark: isDark,
-      margin: const EdgeInsets.fromLTRB(14, 6, 14, 4),
       trailing: IconButton(
         tooltip: 'إخفاء',
         onPressed: () {
@@ -2008,60 +1987,48 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         icon: const Icon(Icons.close_rounded, size: 18),
       ),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isDark
-                ? const [Color(0xFF271F34), Color(0xFF1B1623)]
-                : const [Color(0xFFFFF4EA), Color(0xFFF9EEFF)],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: purple.withValues(alpha: 0.14)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (body.trim().isNotEmpty)
-              Text(
-                body,
-                style: TextStyle(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.84)
-                      : const Color(0xFF4E3B59),
-                  fontSize: 11,
-                  height: 1.8,
-                  fontFamily: 'Cairo',
-                  fontWeight: FontWeight.w600,
-                ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (body.trim().isNotEmpty)
+            Text(
+              body,
+              style: TextStyle(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.84)
+                    : AppColors.grey700,
+                fontSize: AppTextStyles.bodyMd,
+                height: 1.7,
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w500,
               ),
-            const SizedBox(height: 12),
-            FilledButton.tonal(
-              style: FilledButton.styleFrom(
-                foregroundColor: const Color(0xFF6A246F),
-                backgroundColor: Colors.white.withValues(alpha: 0.72),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                textStyle: const TextStyle(
-                  fontSize: 10.5,
-                  fontFamily: 'Cairo',
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              onPressed: () async {
-                await _openPromoPlacement(
-                  redirectUrl: redirectUrl,
-                  providerId: providerId,
-                  providerName: providerName,
-                );
-              },
-              child: const Text('عرض التفاصيل'),
             ),
-          ],
-        ),
+          const SizedBox(height: 12),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              textStyle: const TextStyle(
+                fontSize: AppTextStyles.bodySm,
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            onPressed: () async {
+              await _openPromoPlacement(
+                redirectUrl: redirectUrl,
+                providerId: providerId,
+                providerName: providerName,
+              );
+            },
+            child: const Text('عرض التفاصيل'),
+          ),
+        ],
       ),
     );
   }
@@ -2200,24 +2167,15 @@ class _HomeScreenState extends State<HomeScreen> {
         child: _isCategoriesLoading && _categories.isEmpty
             ? _buildCategoriesSkeleton(isDark)
             : _categories.isEmpty
-                ? SizedBox(
-                    height: 76,
-                    child: Center(
-                      child: Text(
-                        'لا توجد تصنيفات متاحة حالياً',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontFamily: 'Cairo',
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white54 : Colors.black45,
-                        ),
-                      ),
-                    ),
+                ? _buildEmptyState(
+                    isDark: isDark,
+                    icon: Icons.category_outlined,
+                    label: 'لا توجد تصنيفات متاحة حالياً',
                   )
                 : Column(
                     children: [
                       SizedBox(
-                        height: 98,
+                        height: 96,
                         child: Listener(
                           onPointerDown: (_) => _pauseCategoriesAutoScroll(),
                           onPointerUp: (_) =>
@@ -2232,94 +2190,77 @@ class _HomeScreenState extends State<HomeScreen> {
                             itemBuilder: (context, index) {
                               final cat = _categories[index];
                               final icon = _categoryIcon(cat.name);
-                              return GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => SearchProviderScreen(
-                                        initialCategoryId:
-                                            cat.id > 0 ? cat.id : null,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  width: 84,
-                                  margin:
-                                      const EdgeInsetsDirectional.only(end: 10),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? Colors.white.withValues(alpha: 0.04)
-                                        : const Color(0xFFF9F5FD),
-                                    borderRadius: BorderRadius.circular(18),
-                                    border: Border.all(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.06)
-                                          : const Color(0xFFECDDFA),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              const Color(0xFF8E37A3)
-                                                  .withValues(alpha: 0.15),
-                                              const Color(0xFFF08B46)
-                                                  .withValues(alpha: 0.18),
-                                            ],
-                                            begin: Alignment.topRight,
-                                            end: Alignment.bottomLeft,
-                                          ),
-                                          borderRadius:
-                                              BorderRadius.circular(14),
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.md),
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => SearchProviderScreen(
+                                          initialCategoryId:
+                                              cat.id > 0 ? cat.id : null,
                                         ),
-                                        child:
-                                            Icon(icon, size: 20, color: purple),
                                       ),
-                                      const SizedBox(height: 8),
-                                      Expanded(
-                                        child: Text(
-                                          cat.name,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w700,
-                                            height: 1.45,
-                                            fontFamily: 'Cairo',
+                                    );
+                                  },
+                                  child: Container(
+                                    width: 78,
+                                    margin: const EdgeInsetsDirectional.only(
+                                        end: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 6,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 50,
+                                          height: 50,
+                                          decoration: BoxDecoration(
                                             color: isDark
-                                                ? Colors.white70
-                                                : Colors.black87,
+                                                ? Colors.white
+                                                    .withValues(alpha: 0.06)
+                                                : AppColors.primarySurface,
+                                            borderRadius:
+                                                BorderRadius.circular(
+                                                    AppRadius.md),
+                                          ),
+                                          child: Icon(
+                                            icon,
+                                            size: 22,
+                                            color: AppColors.primary,
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 8),
+                                        Expanded(
+                                          child: Text(
+                                            cat.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: AppTextStyles.micro,
+                                              fontWeight: FontWeight.w600,
+                                              height: 1.3,
+                                              fontFamily: 'Cairo',
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : AppColors.grey700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               );
                             },
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'اسحب أو مرر',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontFamily: 'Cairo',
-                          fontWeight: FontWeight.w700,
-                          color:
-                              isDark ? Colors.white54 : const Color(0xFF8C7A9F),
                         ),
                       ),
                     ],
@@ -2343,6 +2284,10 @@ class _HomeScreenState extends State<HomeScreen> {
       kicker: 'ترشيحات المنصة',
       title: title,
       isDark: isDark,
+      trailing: _buildSectionMiniAction(
+        label: 'عرض الكل',
+        onTap: _openSearchHome,
+      ),
       child: _buildSectionAnimatedContent(
         stateKey: _isFeaturedLoading && visibleFeaturedSpecialists.isEmpty
             ? 'providers-loading'
@@ -2352,40 +2297,10 @@ class _HomeScreenState extends State<HomeScreen> {
         child: _isFeaturedLoading && visibleFeaturedSpecialists.isEmpty
             ? _buildProvidersSkeleton(isDark)
             : visibleFeaturedSpecialists.isEmpty
-                ? SizedBox(
-                    height: 120,
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySurface,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.workspace_premium_outlined,
-                              size: 22,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'لا يوجد مختصون مميزون حالياً',
-                            style: TextStyle(
-                              fontSize: AppTextStyles.bodySm,
-                              fontFamily: 'Cairo',
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? Colors.white54
-                                  : AppColors.grey500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                ? _buildEmptyState(
+                    isDark: isDark,
+                    icon: Icons.workspace_premium_outlined,
+                    label: 'لا يوجد مختصون مميزون حالياً',
                   )
                 : SizedBox(
                     height: 208,
@@ -2445,7 +2360,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final thumbUrl = _portfolioThumbUrl(item);
     final profileUrl = ApiClient.buildMediaUrl(item.providerProfileImage);
 
-    return GestureDetector(
+    return _PressableScale(
       onTap: () => _openPortfolioShowcasePlacement(index),
       child: Container(
         width: 168,
@@ -2632,7 +2547,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final profileUrl = ApiClient.buildMediaUrl(specialist.profileImage);
     const cardWidth = 132.0;
 
-    return GestureDetector(
+    return _PressableScale(
       onTap: () async {
         AnalyticsService.trackFireAndForget(
           eventName: 'promo.featured_specialist_click',
@@ -2674,29 +2589,16 @@ class _HomeScreenState extends State<HomeScreen> {
         margin: const EdgeInsetsDirectional.only(end: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.cardDark : AppColors.surfaceLight,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.04)
+              : AppColors.bgLight,
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : AppColors.borderLight,
-          ),
-          boxShadow: isDark ? null : AppShadows.card,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // ── Excellence badge (or fixed-height spacer for uniform layout) ──
-            if (specialist.excellenceBadges.isNotEmpty)
-              _buildProviderMetaPill(
-                label: 'متميز',
-                background: AppColors.accentSurface,
-                foreground: AppColors.warning,
-              )
-            else
-              const SizedBox(height: 20),
-            const SizedBox(height: 10),
-            // ── Avatar with subtle tinted ring + verified badge overlay ──
+            const SizedBox(height: 6),
+            // ── Avatar with subtle tinted ring + overlays (verified + excellence) ──
             Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.center,
@@ -2732,9 +2634,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 if (specialist.isVerified)
-                  Positioned(
+                  PositionedDirectional(
                     bottom: -2,
-                    right: -2,
+                    end: -2,
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
@@ -2748,6 +2650,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         isVerifiedGreen: specialist.isVerifiedGreen,
                         iconSize: 14,
                         enableTap: false,
+                      ),
+                    ),
+                  ),
+                if (specialist.excellenceBadges.isNotEmpty)
+                  PositionedDirectional(
+                    top: -4,
+                    start: -6,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.cardDark : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: AppShadows.card,
+                      ),
+                      child: const Icon(
+                        Icons.workspace_premium_rounded,
+                        size: 14,
+                        color: AppColors.accent,
                       ),
                     ),
                   ),
@@ -2880,50 +2800,38 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCategoriesSkeleton(bool isDark) {
     return SizedBox(
-      height: 98,
+      height: 96,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: 4,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemCount: 5,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
-          return Container(
-            width: 84,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.04)
-                  : const Color(0xFFF9F5FD),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : const Color(0xFFECDDFA),
-              ),
-            ),
+          return SizedBox(
+            width: 78,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _SkeletonBox(
-                  width: 38,
-                  height: 38,
-                  radius: 12,
+                  width: 50,
+                  height: 50,
+                  radius: AppRadius.md,
                   baseColor: isDark
                       ? const Color(0x33FFFFFF)
-                      : const Color(0xFFEFE8F8),
+                      : AppColors.primarySurface,
                   highlightColor: isDark
                       ? const Color(0x66FFFFFF)
                       : const Color(0xFFF8F4FC),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 8),
                 const _SkeletonBox(
-                  width: 48,
+                  width: 52,
                   height: 9,
                   radius: 5,
                 ),
                 const SizedBox(height: 4),
                 const _SkeletonBox(
-                  width: 38,
+                  width: 36,
                   height: 9,
                   radius: 5,
                 ),
@@ -2946,44 +2854,26 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           return Container(
             width: 132,
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF221B2E) : const Color(0xFFFCFAFE),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : AppColors.bgLight,
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.06)
-                    : AppColors.borderLight,
-              ),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  children: const [
-                    _SkeletonBox(width: 42, height: 20, radius: 999),
-                    Spacer(),
-                    _SkeletonBox(width: 24, height: 24, radius: 999),
-                  ],
+                const SizedBox(height: 6),
+                const _SkeletonBox(
+                  width: 64,
+                  height: 64,
+                  radius: 999,
                 ),
-                const SizedBox(height: 12),
-                const Center(
-                  child: _SkeletonBox(
-                    width: 74,
-                    height: 74,
-                    radius: 999,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const _SkeletonBox(width: 96, height: 12, radius: 8),
-                const SizedBox(height: 8),
-                Row(
-                  children: const [
-                    _SkeletonBox(width: 48, height: 22, radius: 999),
-                    Spacer(),
-                    _SkeletonBox(width: 32, height: 10, radius: 6),
-                  ],
-                ),
+                const SizedBox(height: 14),
+                const _SkeletonBox(width: 92, height: 11, radius: 6),
+                const Spacer(),
+                const _SkeletonBox(width: 64, height: 12, radius: 6),
               ],
             ),
           );
@@ -3141,19 +3031,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildPromoBanners(bool isDark, Color purple) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionTitle(_content.bannersTitle, isDark),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           SizedBox(
-            height: 170,
+            height: 168,
             child: Stack(
               children: [
                 // -- PageView carousel --
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
                   child: PageView.builder(
                     controller: _bannerPageController,
                     itemCount: _banners.length,
@@ -3170,6 +3060,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (context, index) {
                       final b = _banners[index];
                       final url = ApiClient.buildMediaUrl(b.mediaUrl);
+                      final hasTitle =
+                          b.title != null && b.title!.trim().isNotEmpty;
+                      final hasProvider = b.providerDisplayName != null &&
+                          b.providerDisplayName!.trim().isNotEmpty;
                       return GestureDetector(
                         onTap: () => _openBanner(b),
                         child: Stack(
@@ -3181,55 +3075,68 @@ class _HomeScreenState extends State<HomeScreen> {
                               mediaUrl: url,
                               mediaType: b.isVideo ? 'video' : 'image',
                               borderRadius: 0,
-                              height: 170,
+                              height: 168,
                               autoplay: true,
                               isActive: index == _bannerCurrentPage,
                               showVideoBadge: b.isVideo,
                               fallback: _gradientPlaceholder(),
                             ),
-                            // Bottom overlay
-                            Positioned(
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.black.withValues(alpha: 0.65),
-                                      Colors.transparent
-                                    ],
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
+                            // Soft bottom scrim only when there's text to show.
+                            if (hasTitle || hasProvider)
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.fromLTRB(
+                                      14, 18, 14, 12),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.black.withValues(alpha: 0.55),
+                                        Colors.transparent,
+                                      ],
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                    ),
                                   ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (b.title != null && b.title!.isNotEmpty)
-                                      Text(b.title!,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (hasTitle)
+                                        Text(
+                                          b.title!.trim(),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              fontFamily: 'Cairo',
-                                              color: Colors.white)),
-                                    if (b.providerDisplayName != null)
-                                      Text(b.providerDisplayName!,
+                                            fontSize: AppTextStyles.h3,
+                                            fontWeight: FontWeight.w800,
+                                            fontFamily: 'Cairo',
+                                            color: Colors.white,
+                                            height: 1.2,
+                                          ),
+                                        ),
+                                      if (hasProvider) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          b.providerDisplayName!.trim(),
                                           maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                              fontSize: 10,
-                                              fontFamily: 'Cairo',
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.8))),
-                                  ],
+                                            fontSize: AppTextStyles.bodySm,
+                                            fontFamily: 'Cairo',
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white
+                                                .withValues(alpha: 0.85),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       );
@@ -3239,7 +3146,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 // -- Dots indicator --
                 if (_banners.length > 1)
                   Positioned(
-                    bottom: 8,
+                    bottom: 10,
                     left: 0,
                     right: 0,
                     child: Row(
@@ -3247,15 +3154,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: List.generate(_banners.length, (i) {
                         final active = i == _bannerCurrentPage;
                         return AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
                           margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: active ? 18 : 6,
-                          height: 6,
+                          width: active ? 16 : 5,
+                          height: 5,
                           decoration: BoxDecoration(
                             color: active
                                 ? Colors.white
-                                : Colors.white.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(3),
+                                : Colors.white.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(999),
                           ),
                         );
                       }),
@@ -3429,6 +3337,49 @@ class _SlidingGradientTransform extends GradientTransform {
   @override
   Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
     return Matrix4.translationValues(slideX, 0, 0);
+  }
+}
+
+/// Subtle scale-down press feedback for tappable cards.
+/// Wraps a child in a [GestureDetector] that animates to ~0.97 on press
+/// (150ms easeOut) and back on release. Preserves [onTap] semantics.
+class _PressableScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  const _PressableScale({
+    required this.child,
+    required this.onTap,
+  });
+
+  @override
+  State<_PressableScale> createState() => _PressableScaleState();
+}
+
+class _PressableScaleState extends State<_PressableScale> {
+  static const double _pressedScale = 0.97;
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) => _setPressed(false),
+      onTapCancel: () => _setPressed(false),
+      child: AnimatedScale(
+        scale: _pressed ? _pressedScale : 1.0,
+        duration: AppDurations.fast,
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
   }
 }
 

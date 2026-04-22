@@ -371,8 +371,36 @@ class _ProviderOrderDetailsScreenState
   }
 
   void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(msg, style: const TextStyle(fontFamily: 'Cairo'))));
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.grey800,
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        content: Row(children: [
+          const Icon(Icons.info_outline_rounded,
+              color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              msg,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 
   // ─── Helper widgets ───
@@ -438,18 +466,32 @@ class _ProviderOrderDetailsScreenState
 
   Widget _pill(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: color.withAlpha(20),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withAlpha(80)),
+        color: color.withAlpha(28),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: color.withAlpha(90)),
       ),
-      child: Text(text,
-          style: TextStyle(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
               color: color,
-              fontFamily: 'Cairo',
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800)),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 7),
+          Text(text,
+              style: TextStyle(
+                  color: color,
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w900)),
+        ],
+      ),
     );
   }
 
@@ -644,18 +686,13 @@ class _ProviderOrderDetailsScreenState
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF102928) : Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: _mainColor.withAlpha(12),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: isDark ? const Color(0xFF102928) : AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+            color: isDark ? Colors.white10 : AppColors.borderLight),
+        boxShadow: isDark ? null : AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -663,13 +700,13 @@ class _ProviderOrderDetailsScreenState
           Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: _mainColor.withAlpha(18),
-                  borderRadius: BorderRadius.circular(14),
+                  color: _mainColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
-                child: Icon(icon, color: _mainColor, size: 20),
+                child: Icon(icon, color: _mainColor, size: 18),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -680,21 +717,23 @@ class _ProviderOrderDetailsScreenState
                       title,
                       style: TextStyle(
                         fontFamily: 'Cairo',
-                        fontSize: 14,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w900,
                         color: isDark ? Colors.white : _inkColor,
                       ),
                     ),
-                    if (description != null) ...[
+                    if (description != null && description.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         description,
                         style: TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 10.8,
-                          height: 1.7,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                          fontSize: 10.5,
+                          height: 1.5,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? Colors.white60
+                              : AppTextStyles.textSecondary,
                         ),
                       ),
                     ],
@@ -703,7 +742,7 @@ class _ProviderOrderDetailsScreenState
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           child,
         ],
       ),
@@ -720,9 +759,9 @@ class _ProviderOrderDetailsScreenState
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(AppRadius.xxl),
         gradient: const LinearGradient(
           colors: [Color(0xFF115E59), Color(0xFF0F766E), Color(0xFF14B8A6)],
           begin: Alignment.topRight,
@@ -730,9 +769,9 @@ class _ProviderOrderDetailsScreenState
         ),
         boxShadow: [
           BoxShadow(
-            color: _accentColor.withValues(alpha: 0.20),
-            blurRadius: 26,
-            offset: const Offset(0, 14),
+            color: _accentColor.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -746,7 +785,7 @@ class _ProviderOrderDetailsScreenState
               height: 132,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.10),
+                color: Colors.white.withValues(alpha: 0.07),
               ),
             ),
           ),
@@ -758,7 +797,7 @@ class _ProviderOrderDetailsScreenState
               height: 154,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Colors.white.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -1032,7 +1071,6 @@ class _ProviderOrderDetailsScreenState
                 _surfaceCard(
                   icon: Icons.person_outline_rounded,
                   title: 'بيانات العميل',
-                  description: 'راجع بيانات التواصل والموقع قبل بدء التنفيذ أو إرسال التحديثات.',
                   child: Column(
                     children: [
                       _infoLine(
@@ -1066,7 +1104,6 @@ class _ProviderOrderDetailsScreenState
                 _surfaceCard(
                   icon: Icons.description_outlined,
                   title: 'ملخص الطلب',
-                  description: 'العنوان والوصف كما أرسلها العميل مع المحافظة على التفاصيل الأصلية.',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1083,7 +1120,6 @@ class _ProviderOrderDetailsScreenState
                 _surfaceCard(
                   icon: Icons.attach_file_rounded,
                   title: 'المرفقات',
-                  description: 'افصل بين مرفقات الطلب الأصلية ومرفقات التسليم النهائي عند توفرها.',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1151,78 +1187,96 @@ class _ProviderOrderDetailsScreenState
                   _surfaceCard(
                     icon: Icons.timeline_rounded,
                     title: 'سجل تغيير الحالة',
-                    description: 'تسلسل التحديثات والإجراءات المسجلة على الطلب.',
                     child: Column(
-                      children: order.statusLogs.map((log) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
-                          ),
+                      children: List.generate(order.statusLogs.length, (i) {
+                        final log = order.statusLogs[i];
+                        final isLast = i == order.statusLogs.length - 1;
+                        final dotColor = _statusColor(log.toStatus);
+                        return IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 26,
-                                height: 26,
-                                decoration: BoxDecoration(
-                                  color: _statusColor(log.toStatus).withAlpha(18),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.circle,
-                                  size: 10,
-                                  color: _statusColor(log.toStatus),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${log.fromStatus.isNotEmpty ? log.fromStatus : '—'} → ${log.toStatus}',
-                                      style: TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w900,
-                                        color: isDark ? Colors.white : _inkColor,
+                              Column(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    margin: const EdgeInsets.only(top: 4),
+                                    decoration: BoxDecoration(
+                                      color: dotColor,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: dotColor.withAlpha(60),
+                                        width: 4,
                                       ),
                                     ),
-                                    if (log.note != null && log.note!.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
+                                  ),
+                                  if (!isLast)
+                                    Expanded(
+                                      child: Container(
+                                        width: 2,
+                                        margin: const EdgeInsets.symmetric(
+                                            vertical: 4),
+                                        color: isDark
+                                            ? Colors.white12
+                                            : AppColors.borderLight,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
                                       Text(
-                                        log.note!,
+                                        '${log.fromStatus.isNotEmpty ? log.fromStatus : '—'} → ${log.toStatus}',
                                         style: TextStyle(
                                           fontFamily: 'Cairo',
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: isDark ? Colors.white : _inkColor,
                                         ),
                                       ),
-                                    ],
-                                    if (log.createdAt != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _formatDate(log.createdAt!),
-                                        style: TextStyle(
-                                          fontFamily: 'Cairo',
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: isDark ? Colors.white38 : Colors.black38,
+                                      if (log.note != null && log.note!.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          log.note!,
+                                          style: TextStyle(
+                                            fontFamily: 'Cairo',
+                                            fontSize: 11.5,
+                                            height: 1.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark
+                                                ? Colors.white60
+                                                : AppTextStyles.textSecondary,
+                                          ),
                                         ),
-                                      ),
+                                      ],
+                                      if (log.createdAt != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _formatDate(log.createdAt!),
+                                          style: TextStyle(
+                                            fontFamily: 'Cairo',
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: isDark
+                                                ? Colors.white38
+                                                : AppTextStyles.textTertiary,
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         );
-                      }).toList(),
+                      }),
                     ),
                   ),
                 ),
@@ -1233,29 +1287,27 @@ class _ProviderOrderDetailsScreenState
                 _surfaceCard(
                   icon: Icons.handyman_outlined,
                   title: 'إجراء على الطلب',
-                  description: 'نفّذ الإجراء المناسب حسب حالة الطلب دون تغيير منطق التدفق الحالي.',
                   child: _buildActionsForStatus(order),
                 ),
               ),
               const SizedBox(height: 18),
               _buildEntrance(
                 6,
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
+                Center(
+                  child: TextButton.icon(
                     onPressed: () => Navigator.pop(context, false),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      side: BorderSide(color: isDark ? Colors.white24 : Colors.grey.shade300),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                      backgroundColor: Colors.white.withValues(alpha: 0.9),
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
+                      size: 16,
+                      color: isDark ? Colors.white70 : AppTextStyles.textSecondary,
                     ),
-                    child: Text(
+                    label: Text(
                       'رجوع',
                       style: TextStyle(
                         fontFamily: 'Cairo',
                         fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white70 : _inkColor,
+                        fontSize: 12.5,
+                        color: isDark ? Colors.white70 : AppTextStyles.textSecondary,
                       ),
                     ),
                   ),
@@ -1329,7 +1381,8 @@ class _ProviderOrderDetailsScreenState
               backgroundColor: AppColors.success,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(AppRadius.md)),
+              elevation: 0,
             ),
           ),
         ),
@@ -1379,7 +1432,8 @@ class _ProviderOrderDetailsScreenState
             backgroundColor: _mainColor,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            elevation: 0,
           ),
           child: Text(
               rejectedByClient
@@ -1405,15 +1459,15 @@ class _ProviderOrderDetailsScreenState
           onPressed: _actionLoading ? null : _reject,
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
-            side: const BorderSide(color: Colors.red),
+            side: const BorderSide(color: AppColors.error),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           ),
           child: const Text('رفض الطلب',
               style: TextStyle(
                   fontFamily: 'Cairo',
                   fontWeight: FontWeight.bold,
-                  color: Colors.red)),
+                  color: AppColors.error)),
         ),
       ),
     ]);
@@ -1449,11 +1503,12 @@ class _ProviderOrderDetailsScreenState
                   ),
                 ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.error,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
+            elevation: 0,
           ),
         ),
       ),
@@ -1532,11 +1587,12 @@ class _ProviderOrderDetailsScreenState
                   ),
                 ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
+            backgroundColor: AppColors.info,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
+            elevation: 0,
           ),
         ),
       ),
@@ -1592,7 +1648,8 @@ class _ProviderOrderDetailsScreenState
             backgroundColor: _mainColor,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            elevation: 0,
           ),
           child: Text(
               rejectedByClient
@@ -1640,10 +1697,11 @@ class _ProviderOrderDetailsScreenState
         child: ElevatedButton(
           onPressed: _actionLoading ? null : _updateProgress,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
+            backgroundColor: AppColors.warning,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            elevation: 0,
           ),
           child: const Text('تحديث التقدم',
               style: TextStyle(
@@ -1692,7 +1750,7 @@ class _ProviderOrderDetailsScreenState
                   style: const TextStyle(fontFamily: 'Cairo', fontSize: 12),
                 ),
                 trailing: IconButton(
-                  icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                  icon: const Icon(Icons.close, size: 18, color: AppColors.error),
                   onPressed: _actionLoading
                       ? null
                       : () {
@@ -1710,10 +1768,11 @@ class _ProviderOrderDetailsScreenState
         child: ElevatedButton(
           onPressed: _actionLoading ? null : _complete,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+            elevation: 0,
           ),
           child: const Text('إكمال الطلب',
               style: TextStyle(
@@ -1738,15 +1797,15 @@ class _ProviderOrderDetailsScreenState
           onPressed: _actionLoading ? null : _reject,
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
-            side: const BorderSide(color: Colors.red),
+            side: const BorderSide(color: AppColors.error),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           ),
           child: const Text('إلغاء الطلب',
               style: TextStyle(
                   fontFamily: 'Cairo',
                   fontWeight: FontWeight.bold,
-                  color: Colors.red)),
+                  color: AppColors.error)),
         ),
       ),
     ]);
@@ -1786,37 +1845,69 @@ class _ProviderOrderDetailsScreenState
 
   Widget _attachmentRow(RequestAttachment attachment) {
     final fileName = _attachmentFileName(attachment);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           onTap: () => _openAttachment(attachment),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : AppColors.grey50,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(
+                  color: isDark ? Colors.white10 : AppColors.borderLight),
+            ),
             child: Row(children: [
-              Icon(_attachIcon(attachment.fileType),
-                  size: 18, color: Colors.black45),
-              const SizedBox(width: 6),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: _mainColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Icon(_attachIcon(attachment.fileType),
+                    size: 16, color: _mainColor),
+              ),
+              const SizedBox(width: 10),
               Expanded(
-                  child: Text(fileName,
-                      style: const TextStyle(fontFamily: 'Cairo', fontSize: 13))),
+                  child: Text(
+                fileName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : _inkColor,
+                ),
+              )),
               const SizedBox(width: 8),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _mainColor.withAlpha(25),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _mainColor.withAlpha(60)),
+                  color: _mainColor.withAlpha(22),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
                 child: Text(attachment.fileType.toUpperCase(),
                     style: const TextStyle(
-                        fontFamily: 'Cairo', fontSize: 11, color: _mainColor)),
+                        fontFamily: 'Cairo',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: _mainColor)),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.open_in_new, size: 16, color: Colors.black38),
+              Icon(Icons.open_in_new,
+                  size: 14,
+                  color: isDark
+                      ? Colors.white38
+                      : AppTextStyles.textTertiary),
             ]),
           ),
         ),

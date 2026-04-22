@@ -20,7 +20,7 @@
   </div>
 
   <div id="verify-content" class="verification-page hidden">
-    <header class="verify-page-hero">
+    <header class="verify-page-hero ux26-page-header">
       <div class="verify-page-topline">
         <button type="button" class="verify-back-btn" id="verifyBackBtn" aria-label="رجوع">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -66,7 +66,7 @@
       </button>
     </section>
 
-    <section class="verify-status-notice hidden" id="verifyStatusNotice" aria-live="polite">
+    <section class="verify-status-notice ux26-alert ux26-alert-info hidden" id="verifyStatusNotice" aria-live="polite">
       <div class="verify-status-notice-copy">
         <strong id="verifyStatusNoticeTitle">تنبيه</strong>
         <p id="verifyStatusNoticeBody"></p>
@@ -107,7 +107,7 @@
               <p>توثيق الشارة الزرقاء للهوية الشخصية.</p>
             </div>
 
-            <div class="verify-form-stack">
+            <div class="verify-form-stack ux26-form-shell">
               <label class="form-label" for="blueIndividualNumber">رقم الهوية / الإقامة</label>
               <input id="blueIndividualNumber" class="form-input" type="text" inputmode="numeric" placeholder="أدخل الرقم">
 
@@ -141,7 +141,7 @@
               <p>توثيق الشارة الزرقاء للصفة التجارية.</p>
             </div>
 
-            <div class="verify-form-stack">
+            <div class="verify-form-stack ux26-form-shell">
               <label class="form-label" for="blueBusinessNumber">رقم السجل التجاري</label>
               <input id="blueBusinessNumber" class="form-input" type="text" inputmode="numeric" placeholder="أدخل الرقم">
 
@@ -182,7 +182,7 @@
               <input id="blueAttachmentsInput" class="form-input" type="file" multiple accept="image/*,.pdf">
               <div class="verify-upload-hint">يمكن رفع أكثر من ملف.</div>
               <div class="verify-file-list" id="blueFileList"></div>
-              <div class="verify-files-feedback" id="blueFilesFeedback"></div>
+              <div class="verify-files-feedback ux26-alert" id="blueFilesFeedback"></div>
             </div>
 
             <div class="verify-inline-actions">
@@ -223,7 +223,7 @@
               <input id="greenAttachmentsInput" class="form-input" type="file" multiple accept="image/*,.pdf">
               <div class="verify-upload-hint">يمكن رفع أكثر من ملف.</div>
               <div class="verify-file-list" id="greenFileList"></div>
-              <div class="verify-files-feedback" id="greenFilesFeedback"></div>
+              <div class="verify-files-feedback ux26-alert" id="greenFilesFeedback"></div>
             </div>
 
             <div class="verify-inline-actions">
@@ -245,7 +245,7 @@
       <div class="verify-plan-grid" id="verifyPlansGrid"></div>
     </section>
 
-    <div class="verify-page-actions" id="verifyDetailActions">
+    <div class="verify-page-actions ux26-form-actions" id="verifyDetailActions">
       <button type="button" class="btn btn-outline" id="verifyDetailCancelBtn">إلغاء</button>
       <button type="button" class="btn btn-primary" id="verifyToSummaryBtn">استمرار</button>
     </div>
@@ -261,8 +261,8 @@
 
         <p class="verify-summary-caption">عرض البنود التي تم اختيارها من الصفحة السابقة</p>
 
-        <div class="verify-summary-table-wrap">
-          <table class="verify-summary-table">
+        <div class="verify-summary-table-wrap ux26-table-wrap">
+          <table class="verify-summary-table ux26-table">
             <thead>
               <tr>
                 <th>البند</th>
@@ -273,7 +273,7 @@
         </div>
       </div>
 
-      <div class="verify-page-actions verify-summary-actions">
+      <div class="verify-page-actions verify-summary-actions ux26-form-actions">
         <button type="button" class="btn btn-outline" id="verifySummaryCancelBtn">إلغاء</button>
         <button type="button" class="btn btn-primary" id="verifySubmitBtn">استمرار</button>
       </div>
@@ -289,7 +289,7 @@
           <strong>تم استلام الطلب</strong>
           <p id="verifySuccessNote">سيتم التواصل معكم بعد عملية التدقيق المعتمدة من منصة المختص.</p>
         </div>
-        <div class="verify-page-actions verify-success-actions">
+        <div class="verify-page-actions verify-success-actions ux26-form-actions">
           <button type="button" class="btn btn-primary" id="verifySuccessCloseBtn">إغلاق</button>
         </div>
       </div>

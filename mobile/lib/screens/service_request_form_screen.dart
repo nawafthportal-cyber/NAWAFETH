@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
@@ -33,13 +34,15 @@ class ServiceRequestFormScreen extends StatefulWidget {
 class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   with SingleTickerProviderStateMixin {
   static const Color _mainColor = AppColors.primary;
-  static const Color _accentColor = AppColors.teal;
   static const Color _surfaceColor = AppColors.bgLight;
   static const Color _inkColor = AppTextStyles.textPrimary;
 
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _detailsController = TextEditingController();
+  final _titleFocus = FocusNode();
+  final _detailsFocus = FocusNode();
+  AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
   late final AnimationController _entranceController;
   String? _selectedRegion;
   String? _selectedCity;
@@ -93,6 +96,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   void dispose() {
     _titleController.dispose();
     _detailsController.dispose();
+    _titleFocus.dispose();
+    _detailsFocus.dispose();
     // _selectedCity — لا يحتاج dispose
     if (_recorderInitialized) _recorder.closeRecorder();
     _entranceController.dispose();
@@ -133,6 +138,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source);
     if (picked == null || !mounted) return;
+    HapticFeedback.selectionClick();
     setState(() => _images.add(File(picked.path)));
   }
 
@@ -140,6 +146,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     final picker = ImagePicker();
     final picked = await picker.pickVideo(source: source);
     if (picked == null || !mounted) return;
+    HapticFeedback.selectionClick();
     setState(() => _videos.add(File(picked.path)));
   }
 
@@ -150,6 +157,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     );
     final path = result?.files.single.path;
     if (path == null || !mounted) return;
+    HapticFeedback.selectionClick();
     setState(() => _files.add(File(path)));
   }
 
@@ -174,6 +182,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       await _initRecorder();
       if (!_recorderInitialized) return;
     }
+    HapticFeedback.selectionClick();
     if (_isRecording) {
       final path = await _recorder.stopRecorder();
       if (!mounted) return;
@@ -200,6 +209,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       locale: const Locale('ar', 'SA'),
     );
     if (picked == null || !mounted) return;
+    HapticFeedback.selectionClick();
     setState(() => _quoteDeadline = picked);
   }
 
@@ -207,32 +217,39 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      barrierColor: Colors.black.withValues(alpha: 0.32),
       builder: (sheetContext) => Directionality(
         textDirection: TextDirection.rtl,
         child: SafeArea(
           child: Container(
             margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x1F0F172A),
-                  blurRadius: 24,
-                  offset: Offset(0, 12),
-                ),
-              ],
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+              boxShadow: AppShadows.elevated,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.grey200,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
                 const Text(
                   'إضافة مرفق',
                   style: TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 16,
+                    fontSize: AppTextStyles.h2,
                     fontWeight: FontWeight.w900,
                     color: _inkColor,
                   ),
@@ -243,11 +260,11 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                   style: TextStyle(
                     fontFamily: 'Cairo',
                     fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF667085),
+                    fontWeight: FontWeight.w600,
+                    color: AppTextStyles.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _buildSheetActionItem(
                   icon: Icons.photo_camera_outlined,
                   label: 'تصوير صورة',
@@ -296,17 +313,59 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     );
   }
 
-  void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(msg, style: const TextStyle(fontFamily: 'Cairo'))));
+  void _snack(String msg, {bool isError = true}) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: isError ? AppColors.grey800 : AppColors.grey700,
+      duration: const Duration(seconds: 3),
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      content: Row(
+        children: [
+          Icon(
+            isError
+                ? Icons.error_outline_rounded
+                : Icons.check_circle_outline_rounded,
+            color: isError ? AppColors.errorSurface : AppColors.successSurface,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              msg,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ));
   }
 
   // ─── إرسال الطلب ───
   Future<void> _submitRequest() async {
-    if (!_formKey.currentState!.validate()) return;
+    // بعد أول محاولة إرسال، فعّل التحقق التفاعلي حتى تظهر الأخطاء فورياً عند التصحيح.
+    if (_autovalidateMode != AutovalidateMode.onUserInteraction) {
+      setState(() {
+        _autovalidateMode = AutovalidateMode.onUserInteraction;
+      });
+    }
+    if (!_formKey.currentState!.validate()) {
+      HapticFeedback.lightImpact();
+      return;
+    }
 
     // التحقق من الحقول المطلوبة
     if (_selectedSubcategoryId == null) {
+      HapticFeedback.lightImpact();
       _snack('الرجاء اختيار التصنيف الفرعي');
       return;
     }
@@ -317,12 +376,16 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     int? providerId;
     if (_effectiveRequestType == 'normal') {
       if (widget.providerId == null) {
+        HapticFeedback.lightImpact();
         _snack('الطلب العادي يتطلب تحديد مزود خدمة');
         return;
       }
       providerId = int.tryParse(widget.providerId!);
     }
 
+    // إخفاء لوحة المفاتيح وإعلام خفيف عند بدء الإرسال.
+    FocusScope.of(context).unfocus();
+    HapticFeedback.selectionClick();
     setState(() => _submitting = true);
 
     final res = await MarketplaceService.createRequest(
@@ -345,6 +408,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     setState(() => _submitting = false);
 
     if (res.isSuccess) {
+      HapticFeedback.mediumImpact();
       showDialog(
         context: context,
         builder: (_) => Directionality(
@@ -372,6 +436,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
         ),
       );
     } else {
+      HapticFeedback.lightImpact();
       _snack(res.error ?? 'فشل إرسال الطلب');
     }
   }
@@ -437,204 +502,192 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
           showNotificationAction: false,
           showChatAction: false,
         ),
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFF1F7FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 18),
-              children: [
-                _buildEntrance(0, _buildHeroCard()),
-                const SizedBox(height: 12),
-                _buildEntrance(
-                  1,
-                  _buildSectionCard(
-                    icon: Icons.tune_rounded,
-                    title: 'إعداد الطلب',
-                    child: Column(
-                      children: [
-                        _requestTypePicker(),
-                        const SizedBox(height: 14),
-                        _categoryDropdown(),
-                        const SizedBox(height: 12),
-                        _subcategoryDropdown(),
-                      ],
-                    ),
+        body: Form(
+          key: _formKey,
+          autovalidateMode: _autovalidateMode,
+          child: ListView(
+            physics: const BouncingScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
+            children: [
+              _buildEntrance(0, _buildHeroCard()),
+              const SizedBox(height: 10),
+              _buildEntrance(
+                1,
+                _buildSectionCard(
+                  title: 'إعداد الطلب',
+                  child: Column(
+                    children: [
+                      _requestTypePicker(),
+                      const SizedBox(height: 14),
+                      _fieldLabel('القسم'),
+                      _categoryDropdown(),
+                      const SizedBox(height: 12),
+                      _fieldLabel('التصنيف الفرعي'),
+                      _subcategoryDropdown(),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                _buildEntrance(
-                  2,
-                  _buildSectionCard(
-                    icon: Icons.place_outlined,
-                    title: 'الموقع والعنوان',
-                    child: Column(
-                      children: [
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedRegion,
-                          decoration: _inputDeco(hint: 'اختر المنطقة الإدارية'),
-                          isExpanded: true,
-                          menuMaxHeight: 300,
-                          items: SaudiCities.regionCatalogFallback
-                              .map((region) => DropdownMenuItem(
-                                    value: region.nameAr,
-                                    child: Text(
-                                      region.displayName,
-                                      style: const TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 12.5,
-                                      ),
+              ),
+              const SizedBox(height: 10),
+              _buildEntrance(
+                2,
+                _buildSectionCard(
+                  title: 'الموقع والعنوان',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _fieldLabel('المنطقة الإدارية'),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedRegion,
+                        decoration: _inputDeco(hint: 'اختر المنطقة الإدارية'),
+                        isExpanded: true,
+                        menuMaxHeight: 300,
+                        items: SaudiCities.regionCatalogFallback
+                            .map((region) => DropdownMenuItem(
+                                  value: region.nameAr,
+                                  child: Text(
+                                    region.displayName,
+                                    style: const TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 12.5,
                                     ),
-                                  ))
-                              .toList(),
-                          onChanged: (value) => setState(() {
-                            _selectedRegion = value;
-                            _selectedCity = null;
-                          }),
-                        ),
-                        const SizedBox(height: 10),
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedCity,
-                          decoration: _inputDeco(hint: 'اختر المدينة (اختياري)'),
-                          isExpanded: true,
-                          menuMaxHeight: 300,
-                          items: _availableCities
-                              .map((city) => DropdownMenuItem(
-                                    value: city,
-                                    child: Text(
-                                      city,
-                                      style: const TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 12.5,
-                                      ),
-                                    ),
-                                  ))
-                              .toList(),
-                          onChanged: (value) => setState(() => _selectedCity = value),
-                        ),
-                        if (_selectedScopedCity.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton.icon(
-                              onPressed: () => setState(() {
-                                _selectedRegion = null;
-                                _selectedCity = null;
-                              }),
-                              icon: const Icon(Icons.close_rounded, size: 16),
-                              label: const Text(
-                                'إلغاء اختيار المدينة',
-                                style: TextStyle(fontFamily: 'Cairo'),
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 10),
-                        TextFormField(
-                          controller: _titleController,
-                          maxLength: 50,
-                          style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
-                          decoration: _inputDeco(
-                            hint: 'اكتب عنوان الطلب...',
-                            counter: '${_titleController.text.length}/50',
-                          ),
-                          validator: (value) => (value == null || value.trim().isEmpty)
-                              ? 'يرجى إدخال عنوان الطلب'
-                              : null,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildEntrance(
-                  3,
-                  _buildSectionCard(
-                    icon: Icons.notes_rounded,
-                    title: 'تفاصيل الطلب',
-                    child: TextFormField(
-                      controller: _detailsController,
-                      maxLength: 500,
-                      maxLines: 6,
-                      style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
-                      decoration: _inputDeco(
-                        hint: 'اكتب تفاصيل الطلب بشكل دقيق...',
-                        counter: '${_detailsController.text.length}/500',
+                                  ),
+                                ))
+                            .toList(),
+                        onChanged: (value) => setState(() {
+                          _selectedRegion = value;
+                          _selectedCity = null;
+                        }),
                       ),
-                      validator: (value) => (value == null || value.trim().isEmpty)
-                          ? 'يرجى إدخال تفاصيل الطلب'
-                          : null,
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildEntrance(
-                  4,
-                  _buildSectionCard(
-                    icon: Icons.event_outlined,
-                    title: 'موعد استقبال العروض',
-                    child: _deadlineTile(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildEntrance(
-                  5,
-                  _buildSectionCard(
-                    icon: Icons.attach_file_rounded,
-                    title: 'المرفقات',
-                    child: Column(
-                      children: [
-                        _attachmentsPreview(),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _showAttachmentOptions,
-                            icon: const Icon(Icons.add_rounded, color: Colors.white),
+                      const SizedBox(height: 12),
+                      _fieldLabel('المدينة', optional: true),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedCity,
+                        decoration: _inputDeco(hint: 'اختر المدينة (اختياري)'),
+                        isExpanded: true,
+                        menuMaxHeight: 300,
+                        items: _availableCities
+                            .map((city) => DropdownMenuItem(
+                                  value: city,
+                                  child: Text(
+                                    city,
+                                    style: const TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 12.5,
+                                    ),
+                                  ),
+                                ))
+                            .toList(),
+                        onChanged: (value) => setState(() => _selectedCity = value),
+                      ),
+                      if (_selectedScopedCity.isNotEmpty)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => setState(() {
+                              _selectedRegion = null;
+                              _selectedCity = null;
+                            }),
+                            icon: const Icon(Icons.close_rounded, size: 14),
                             label: const Text(
-                              'إضافة مرفق',
+                              'مسح الموقع',
                               style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12.5,
                                 fontFamily: 'Cairo',
-                                fontWeight: FontWeight.w800,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _mainColor,
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.grey500,
+                              minimumSize: const Size(0, 32),
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      const SizedBox(height: 6),
+                      _fieldLabel('عنوان الطلب'),
+                      TextFormField(
+                        controller: _titleController,
+                        focusNode: _titleFocus,
+                        maxLength: 50,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) =>
+                            _detailsFocus.requestFocus(),
+                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
+                        decoration: _inputDeco(
+                          hint: 'مثال: تركيب مكيف سبليت في غرفة النوم',
+                          counter: '${_titleController.text.length}/50',
+                        ),
+                        validator: (value) => (value == null || value.trim().isEmpty)
+                            ? 'يرجى إدخال عنوان الطلب'
+                            : null,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                _buildEntrance(
-                  6,
-                  _buildSectionCard(
-                    icon: Icons.mic_none_rounded,
-                    title: 'رسالة صوتية',
-                    child: _audioPart(),
+              ),
+              const SizedBox(height: 10),
+              _buildEntrance(
+                3,
+                _buildSectionCard(
+                  title: 'تفاصيل الطلب',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _fieldLabel('وصف الخدمة المطلوبة'),
+                      TextFormField(
+                        controller: _detailsController,
+                        focusNode: _detailsFocus,
+                        maxLength: 500,
+                        maxLines: 6,
+                        textInputAction: TextInputAction.newline,
+                        keyboardType: TextInputType.multiline,
+                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, height: 1.6),
+                        decoration: _inputDeco(
+                          hint: 'اشرح ما تحتاجه بدقة: الموقع، الوقت المناسب، أي تفاصيل تساعد المزود.',
+                          counter: '${_detailsController.text.length}/500',
+                        ),
+                        validator: (value) => (value == null || value.trim().isEmpty)
+                            ? 'يرجى إدخال تفاصيل الطلب'
+                            : null,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 14),
-                _buildEntrance(7, _buildActions()),
-              ],
-            ),
+              ),
+              const SizedBox(height: 10),
+              _buildEntrance(
+                4,
+                _buildSectionCard(
+                  title: 'موعد استقبال العروض',
+                  trailingHint: 'اختياري',
+                  child: _deadlineTile(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildEntrance(
+                5,
+                _buildSectionCard(
+                  title: 'المرفقات',
+                  trailingHint: _attachmentsCount == 0 ? 'اختياري' : '$_attachmentsCount مرفق',
+                  child: _attachmentsPreview(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildEntrance(
+                6,
+                _buildSectionCard(
+                  title: 'رسالة صوتية',
+                  trailingHint: 'اختياري',
+                  child: _audioPart(),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _buildEntrance(7, _buildActions()),
+            ],
           ),
         ),
       ),
@@ -643,75 +696,120 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
 
   // ─── Sub-widgets ───
 
+  Widget _fieldLabel(String text, {bool optional = false}) {
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: 6, start: 2),
+      child: Row(
+        children: [
+          Text(
+            text,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: AppTextStyles.bodySm,
+              fontWeight: FontWeight.w800,
+              color: AppTextStyles.textSecondary,
+            ),
+          ),
+          if (optional) ...[
+            const SizedBox(width: 6),
+            const Text(
+              '·',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                color: AppColors.grey400,
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Text(
+              'اختياري',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: AppTextStyles.caption,
+                fontWeight: FontWeight.w700,
+                color: AppColors.grey400,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   InputDecoration _inputDeco({String? hint, String? counter}) =>
       InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(
           fontFamily: 'Cairo',
           fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF98A2B3),
+          fontWeight: FontWeight.w600,
+          color: AppColors.grey400,
         ),
         filled: true,
-        fillColor: const Color(0xFFF8FBFF),
+        fillColor: AppColors.surfaceLight,
         counterText: counter,
         counterStyle: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 11,
-          color: Color(0xFF667085),
+          fontSize: 10.5,
+          color: AppColors.grey500,
         ),
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFD7E5F2)),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.borderLight),
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: Color(0xFFD7E5F2)),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(color: AppColors.borderLight),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: const BorderSide(color: _mainColor, width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: const BorderSide(color: AppColors.error),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           borderSide: const BorderSide(color: AppColors.error, width: 1.2),
+        ),
+        errorStyle: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppColors.error,
         ),
       );
 
   Widget _requestTypePicker() {
     // إذا جاء من صفحة مزود محدد → نوع عادي فقط.
     if (_isProviderRequest) {
-      return Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: _mainColor.withValues(alpha: 0.09),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _mainColor.withValues(alpha: 0.22)),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.verified_rounded, color: _mainColor, size: 16),
-              SizedBox(width: 8),
-              Text(
-                'طلب عادي مباشر',
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.primarySurface,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.verified_rounded, color: _mainColor, size: 16),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'طلب عادي مباشر إلى مقدم الخدمة المحدد',
                 style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: _mainColor,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
@@ -730,80 +828,81 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       {
         'key': 'urgent',
         'label': 'عاجل',
-        'hint': 'عرض سريع للطلبات المستعجلة',
+        'hint': 'تنفيذ مستعجل',
       },
     ];
 
-    return Row(
-      children: types.map((entry) {
-        final selected = _requestType == entry['key'];
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsetsDirectional.only(
-              start: entry == types.first ? 0 : 6,
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: () => setState(() => _requestType = entry['key']!),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: selected
-                      ? const LinearGradient(
-                          colors: [Color(0xFF5B3FD0), Color(0xFF7C4DFF)],
-                          begin: Alignment.topRight,
-                          end: Alignment.bottomLeft,
-                        )
-                      : null,
-                  color: selected ? null : const Color(0xFFF8FBFF),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: selected
-                        ? Colors.transparent
-                        : const Color(0xFFD7E5F2),
-                  ),
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: _mainColor.withValues(alpha: 0.20),
-                            blurRadius: 18,
-                            offset: const Offset(0, 10),
-                          ),
-                        ]
-                      : null,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _fieldLabel('نوع الطلب'),
+        Row(
+          children: types.map((entry) {
+            final selected = _requestType == entry['key'];
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(
+                  start: entry == types.first ? 0 : 6,
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      entry['label']!,
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w900,
-                        color: selected ? Colors.white : _inkColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      entry['hint']!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  onTap: () {
+                    if (_requestType == entry['key']) return;
+                    HapticFeedback.selectionClick();
+                    setState(() => _requestType = entry['key']!);
+                  },
+                  child: AnimatedContainer(
+                    duration: AppDurations.fast,
+                    curve: Curves.easeOut,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.primarySurface
+                          : AppColors.surfaceLight,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(
                         color: selected
-                            ? Colors.white.withValues(alpha: 0.84)
-                            : const Color(0xFF667085),
+                            ? _mainColor
+                            : AppColors.borderLight,
+                        width: selected ? 1.4 : 1,
                       ),
                     ),
-                  ],
+                    child: Column(
+                      children: [
+                        Text(
+                          entry['label']!,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w900,
+                            color: selected ? _mainColor : _inkColor,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          entry['hint']!,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: selected
+                                ? _mainColor.withValues(alpha: 0.78)
+                                : AppColors.grey500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -812,15 +911,15 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FBFF),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFD7E5F2)),
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.borderLight),
         ),
         child: const Center(
           child: SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(strokeWidth: 2.2),
+            height: 18,
+            width: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: _mainColor),
           ),
         ),
       );
@@ -828,7 +927,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     return DropdownButtonFormField<int>(
       initialValue: _selectedCategoryId,
       decoration: _inputDeco(hint: 'اختر القسم'),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       items: _categories
           .map((c) => DropdownMenuItem<int>(
               value: c['id'] as int,
@@ -850,7 +949,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     return DropdownButtonFormField<int>(
       initialValue: _selectedSubcategoryId,
       decoration: _inputDeco(hint: 'اختر التصنيف'),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       items: subs
           .map((s) => DropdownMenuItem<int>(
               value: s['id'] as int,
@@ -863,269 +962,368 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   }
 
   Widget _deadlineTile() {
+    final hasDate = _quoteDeadline != null;
     return InkWell(
       onTap: _selectDeadline,
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FBFF),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFD7E5F2)),
+          color: AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.borderLight),
         ),
         child: Row(children: [
-          const Icon(Icons.calendar_today_outlined, color: _mainColor, size: 18),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppColors.primarySurface,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: const Icon(Icons.calendar_today_outlined,
+                color: _mainColor, size: 16),
+          ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              _quoteDeadline == null
-                  ? 'اضغط لتحديد التاريخ'
-                  : DateFormat('dd/MM/yyyy').format(_quoteDeadline!),
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-                color: _quoteDeadline == null
-                    ? const Color(0xFF98A2B3)
-                    : _inkColor,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  hasDate
+                      ? DateFormat('dd MMMM yyyy', 'ar').format(_quoteDeadline!)
+                      : 'تحديد تاريخ آخر موعد',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: hasDate ? _inkColor : AppColors.grey500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hasDate
+                      ? 'سيتوقف استقبال العروض بعد هذا التاريخ.'
+                      : 'اضغط لاختيار آخر موعد لاستقبال العروض.',
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.grey500,
+                  ),
+                ),
+              ],
             ),
           ),
-          if (_quoteDeadline != null)
+          if (hasDate)
             IconButton(
               onPressed: () => setState(() => _quoteDeadline = null),
-              icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFB42318)),
-            ),
+              icon: const Icon(Icons.close_rounded,
+                  size: 18, color: AppColors.grey500),
+              tooltip: 'مسح',
+              splashRadius: 18,
+            )
+          else
+            const Icon(Icons.chevron_left_rounded,
+                color: AppColors.grey400, size: 22),
         ]),
       ),
     );
   }
 
   Widget _attachmentsPreview() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FBFF),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD7E5F2)),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(
+    final isEmpty = _images.isEmpty &&
+        _videos.isEmpty &&
+        _files.isEmpty &&
+        _audioPath == null;
+
+    return AnimatedSize(
+      duration: AppDurations.normal,
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: AppDurations.normal,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: Column(
+          key: ValueKey<bool>(isEmpty),
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildInfoPill(
-              icon: Icons.layers_outlined,
-              label: _attachmentsCount == 0
-                  ? 'لا توجد مرفقات'
-                  : 'عدد المرفقات: $_attachmentsCount',
-            ),
-          ],
-        ),
-        if (_images.isEmpty && _videos.isEmpty && _files.isEmpty) ...[
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE4EBF1)),
-            ),
-            child: const Column(
-              children: [
-                Icon(Icons.cloud_upload_outlined, color: _mainColor, size: 26),
-                SizedBox(height: 8),
-                Text(
-                  'لا توجد مرفقات مضافة حتى الآن',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: _inkColor,
-                  ),
+        if (isEmpty)
+          InkWell(
+            onTap: _showAttachmentOptions,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 22),
+              decoration: BoxDecoration(
+                color: AppColors.primarySurface.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(
+                  color: _mainColor.withValues(alpha: 0.18),
+                  width: 1.2,
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'يمكنك دعم الطلب بصور أو فيديوهات أو ملفات توضّح المطلوب.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF667085),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.cloud_upload_outlined,
+                      color: _mainColor, size: 28),
+                  SizedBox(height: 8),
+                  Text(
+                    'اضغط لإضافة صورة أو فيديو أو ملف',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: _inkColor,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(height: 4),
+                  Text(
+                    'المرفقات تساعد مقدم الخدمة على فهم طلبك بشكل أدق.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.grey500,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-        if (_images.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          const Text(
-            'الصور',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: _inkColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _images
-                .map((image) => Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
-                          child: Image.file(
-                            image,
-                            width: 84,
-                            height: 84,
-                            fit: BoxFit.cover,
+          )
+        else ...[
+          if (_images.isNotEmpty) ...[
+            _attachmentGroupLabel('الصور', _images.length),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: _images
+                  .map((image) => Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.sm),
+                            child: Image.file(
+                              image,
+                              width: 84,
+                              height: 84,
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                        ),
-                        PositionedDirectional(
-                          top: 6,
-                          start: 6,
-                          child: InkWell(
-                            onTap: () => setState(() => _images.remove(image)),
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFB42318),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.close_rounded,
-                                size: 16,
-                                color: Colors.white,
+                          PositionedDirectional(
+                            top: 4,
+                            start: 4,
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                setState(() => _images.remove(image));
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.62),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ))
-                .toList(),
+                        ],
+                      ))
+                  .toList(),
+            ),
+          ],
+          if (_videos.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _attachmentGroupLabel('الفيديوهات', _videos.length),
+            const SizedBox(height: 8),
+            ..._videos.map(
+              (video) => _buildAttachmentListItem(
+                icon: Icons.videocam_outlined,
+                name: video.path.split('/').last,
+                onRemove: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _videos.remove(video));
+                },
+              ),
+            ),
+          ],
+          if (_files.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _attachmentGroupLabel('الملفات', _files.length),
+            const SizedBox(height: 8),
+            ..._files.map(
+              (file) => _buildAttachmentListItem(
+                icon: Icons.insert_drive_file_outlined,
+                name: file.path.split('/').last,
+                onRemove: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _files.remove(file));
+                },
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _showAttachmentOptions,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text(
+              'إضافة مرفق آخر',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _mainColor,
+              side: BorderSide(
+                color: _mainColor.withValues(alpha: 0.45),
+              ),
+              minimumSize: const Size(double.infinity, 42),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
           ),
         ],
-        if (_videos.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          const Text(
-            'الفيديوهات',
-            style: TextStyle(
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _attachmentGroupLabel(String label, int count) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            color: AppTextStyles.textSecondary,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.grey100,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+          child: Text(
+            '$count',
+            style: const TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: _inkColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: AppColors.grey600,
             ),
           ),
-          const SizedBox(height: 8),
-          ..._videos.map(
-            (video) => _buildAttachmentListItem(
-              icon: Icons.videocam_outlined,
-              name: video.path.split('/').last,
-              onRemove: () => setState(() => _videos.remove(video)),
-            ),
-          ),
-        ],
-        if (_files.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          const Text(
-            'الملفات',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: _inkColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          ..._files.map(
-            (file) => _buildAttachmentListItem(
-              icon: Icons.insert_drive_file_outlined,
-              name: file.path.split('/').last,
-              onRemove: () => setState(() => _files.remove(file)),
-            ),
-          ),
-        ],
-      ]),
+        ),
+      ],
     );
   }
 
   Widget _audioPart() {
+    final hasAudio = _audioPath != null;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FBFF),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD7E5F2)),
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(children: [
         Row(children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
               color: _isRecording
-                  ? const Color(0xFFFFF1F1)
-                  : _mainColor.withValues(alpha: 0.10),
+                  ? AppColors.errorSurface
+                  : AppColors.primarySurface,
               shape: BoxShape.circle,
             ),
             child: IconButton(
               onPressed: _toggleRecording,
-              icon: Icon(_isRecording ? Icons.stop_rounded : Icons.mic_none_rounded),
-              color: _isRecording ? const Color(0xFFB42318) : _mainColor,
+              icon: Icon(
+                _isRecording ? Icons.stop_rounded : Icons.mic_none_rounded,
+                size: 22,
+              ),
+              color: _isRecording ? AppColors.error : _mainColor,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   _isRecording
-                      ? 'جاري تسجيل الرسالة الصوتية'
-                      : _audioPath != null
+                      ? 'جارٍ تسجيل الرسالة…'
+                      : hasAudio
                           ? 'تم تجهيز الرسالة الصوتية'
                           : 'أضف ملاحظة صوتية قصيرة',
                   style: TextStyle(
                     fontFamily: 'Cairo',
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
-                    color: _isRecording ? const Color(0xFFB42318) : _inkColor,
+                    fontWeight: FontWeight.w800,
+                    color: _isRecording ? AppColors.error : _inkColor,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   _isRecording
-                      ? 'اضغط للإيقاف وحفظ التسجيل الحالي.'
-                      : _audioPath != null
+                      ? 'اضغط للإيقاف وحفظ التسجيل.'
+                      : hasAudio
                           ? 'يمكنك حذف التسجيل أو إبقاؤه ضمن الطلب.'
-                          : 'التسجيل اختياري لكنه مفيد للحالات التي تحتاج شرحًا إضافيًا.',
+                          : 'مفيدة لشرح تفاصيل تحتاج إلى توضيح إضافي.',
                   style: const TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF667085),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.grey500,
                   ),
                 ),
               ],
             ),
           ),
         ]),
-        if (_audioPath != null)
+        if (hasAudio)
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: () => setState(() => _audioPath = null),
-              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              icon: const Icon(Icons.delete_outline_rounded, size: 16),
               label: const Text(
                 'حذف التسجيل',
-                style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-              style: TextButton.styleFrom(foregroundColor: const Color(0xFFB42318)),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.error,
+                minimumSize: const Size(0, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
             ),
           ),
       ]),
@@ -1133,172 +1331,155 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   }
 
   Widget _buildHeroCard() {
+    final summaryChips = <Widget>[
+      _buildHeroChip(
+        icon: Icons.local_offer_outlined,
+        label: _requestTypeLabel,
+        emphasised: true,
+      ),
+      if (_selectedCategoryName != null)
+        _buildHeroChip(
+          icon: Icons.category_outlined,
+          label: _selectedCategoryName!,
+        ),
+      if (_selectedSubcategoryName != null)
+        _buildHeroChip(
+          icon: Icons.account_tree_outlined,
+          label: _selectedSubcategoryName!,
+        ),
+      if (_selectedScopedCity.isNotEmpty)
+        _buildHeroChip(
+          icon: Icons.location_on_outlined,
+          label: _selectedScopedCity,
+        ),
+      if (_attachmentsCount > 0)
+        _buildHeroChip(
+          icon: Icons.attach_file_rounded,
+          label: '$_attachmentsCount مرفق',
+        ),
+    ];
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF183B64), Color(0xFF22577A), Color(0xFF0F766E)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: 0.16),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-          ),
-        ],
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppShadows.card,
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            top: -36,
-            left: -18,
-            child: Container(
-              width: 132,
-              height: 132,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -56,
-            right: -18,
-            child: Container(
-              width: 154,
-              height: 154,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Column(
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(
-                      Icons.assignment_add,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.providerName != null
-                              ? 'طلب خدمة من ${widget.providerName}'
-                              : 'طلب خدمة جديدة',
-                          style: const TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _requestTypeDescription,
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 11.5,
-                            height: 1.8,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white.withValues(alpha: 0.84),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySurface,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Icon(
+                  Icons.assignment_outlined,
+                  color: _mainColor,
+                  size: 20,
+                ),
               ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildHeroChip(icon: Icons.local_offer_outlined, label: _requestTypeLabel),
-                  _buildHeroChip(
-                    icon: Icons.category_outlined,
-                    label: _selectedCategoryName ?? 'القسم غير محدد',
-                  ),
-                  if (_selectedSubcategoryName != null)
-                    _buildHeroChip(
-                      icon: Icons.account_tree_outlined,
-                      label: _selectedSubcategoryName!,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.providerName != null
+                          ? 'طلب خدمة من ${widget.providerName}'
+                          : 'طلب خدمة جديدة',
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: AppTextStyles.h2,
+                        fontWeight: FontWeight.w900,
+                        color: _inkColor,
+                      ),
                     ),
-                  if (_selectedScopedCity.isNotEmpty)
-                    _buildHeroChip(icon: Icons.location_on_outlined, label: _selectedScopedCity),
-                  if (_attachmentsCount > 0)
-                    _buildHeroChip(icon: Icons.attach_file_rounded, label: '$_attachmentsCount مرفقات'),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      _requestTypeDescription,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 11.5,
+                        height: 1.7,
+                        fontWeight: FontWeight.w600,
+                        color: AppTextStyles.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
+          if (summaryChips.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: summaryChips,
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildSectionCard({
-    required IconData icon,
     required String title,
     required Widget child,
+    String? trailingHint,
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0x220E5E85)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppShadows.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 3,
+                height: 16,
                 decoration: BoxDecoration(
-                  color: _mainColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: _mainColor, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: _inkColor,
+                  color: _mainColor,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: AppTextStyles.h2,
+                    fontWeight: FontWeight.w900,
+                    color: _inkColor,
+                  ),
+                ),
+              ),
+              if (trailingHint != null)
+                Text(
+                  trailingHint,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: AppTextStyles.caption,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.grey400,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1308,53 +1489,31 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     );
   }
 
-  Widget _buildHeroChip({required IconData icon, required String label}) {
+  Widget _buildHeroChip({
+    required IconData icon,
+    required String label,
+    bool emphasised = false,
+  }) {
+    final bg = emphasised ? AppColors.primarySurface : AppColors.grey50;
+    final fg = emphasised ? _mainColor : AppTextStyles.textSecondary;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        color: bg,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.white),
-          const SizedBox(width: 6),
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 10.8,
+              fontSize: 10.5,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoPill({required IconData icon, required String label}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE4EBF1)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: _accentColor),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 10.8,
-              fontWeight: FontWeight.w800,
-              color: _inkColor,
+              color: fg,
             ),
           ),
         ],
@@ -1369,22 +1528,21 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4EBF1)),
+        color: AppColors.grey50,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-              color: _mainColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.primarySurface,
+              borderRadius: BorderRadius.circular(AppRadius.xs),
             ),
-            child: Icon(icon, color: _mainColor, size: 20),
+            child: Icon(icon, color: _mainColor, size: 17),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1394,14 +1552,17 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
               style: const TextStyle(
                 fontFamily: 'Cairo',
                 fontSize: 11.5,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: _inkColor,
               ),
             ),
           ),
           IconButton(
             onPressed: onRemove,
-            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFB42318)),
+            icon: const Icon(Icons.close_rounded,
+                color: AppColors.grey500, size: 18),
+            splashRadius: 18,
+            tooltip: 'إزالة',
           ),
         ],
       ),
@@ -1409,62 +1570,69 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   }
 
   Widget _buildActions() {
-    return Row(children: [
-      Expanded(
-        child: ElevatedButton(
-          onPressed: _submitting ? null : _submitRequest,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _mainColor,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _submitting ? null : _submitRequest,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _mainColor,
+              disabledBackgroundColor: _mainColor.withValues(alpha: 0.55),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
+            child: AnimatedSwitcher(
+              duration: AppDurations.fast,
+              transitionBuilder: (child, anim) =>
+                  FadeTransition(opacity: anim, child: child),
+              child: _submitting
+                  ? const SizedBox(
+                      key: ValueKey('submit-loading'),
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'تقديم الطلب',
+                      key: ValueKey('submit-label'),
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
             ),
           ),
-          child: _submitting
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Text(
-                  'تقديم الطلب',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
         ),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: OutlinedButton(
-          onPressed: () => Navigator.pop(context),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: _mainColor,
-            padding: const EdgeInsets.symmetric(vertical: 15),
-            side: const BorderSide(color: _mainColor, width: 1.5),
-            backgroundColor: Colors.white.withValues(alpha: 0.9),
+        const SizedBox(height: 6),
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.pop(context),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.grey500,
+            minimumSize: const Size(double.infinity, 40),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
           ),
           child: const Text(
             'إلغاء',
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 13.5,
-              fontWeight: FontWeight.w900,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   Widget _buildSheetActionItem({
@@ -1474,24 +1642,27 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   }) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      minLeadingWidth: 40,
       leading: Container(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F8FB),
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.primarySurface,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
-        child: Icon(icon, color: _mainColor, size: 20),
+        child: Icon(icon, color: _mainColor, size: 18),
       ),
       title: Text(
         label,
         style: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 13,
+          fontSize: 12.5,
           fontWeight: FontWeight.w800,
           color: _inkColor,
         ),
       ),
+      trailing: const Icon(Icons.chevron_left_rounded,
+          color: AppColors.grey400, size: 20),
       onTap: onTap,
     );
   }

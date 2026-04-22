@@ -23,20 +23,20 @@
       <a href="/login/?next=/notifications/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
 
-    <div id="notif-content" class="hidden notif-shell">
-      <header class="notif-page-top">
+    <div id="notif-content" class="hidden notif-shell ux26-form-shell">
+      <header class="notif-page-top ux26-page-header">
         <div class="notif-page-title-wrap">
           <h1>الإشعارات</h1>
           <p>تابع آخر التحديثات والعروض والرسائل في مكان واحد.</p>
         </div>
         <div class="notif-top-counters">
-          <span id="notif-total" class="notif-total-badge">0</span>
-          <span id="notif-unread" class="notif-unread-badge hidden">0 غير مقروء</span>
+          <span id="notif-total" class="notif-total-badge ux26-status-badge">0</span>
+          <span id="notif-unread" class="notif-unread-badge ux26-status-badge hidden">0 غير مقروء</span>
         </div>
       </header>
 
-      <section class="notif-control-panel">
-        <div class="notif-actions">
+      <section class="notif-control-panel ux26-toolbar">
+        <div class="notif-actions ux26-form-actions">
           <a href="/notification-settings/" class="btn-sm notif-action-btn">إعدادات الإشعارات</a>
           <button class="btn-sm notif-action-btn" id="btn-mark-all">تمييز الكل كمقروء</button>
           <button class="btn-sm btn-danger notif-action-btn" id="btn-delete-old">حذف القديم</button>
@@ -44,15 +44,15 @@
       </section>
 
       <div class="notif-error-stack">
-        <div id="notif-error" class="form-error hidden"></div>
+        <div id="notif-error" class="form-error ux26-alert ux26-alert-danger hidden"></div>
         <div id="notif-retry-wrap" class="notif-retry-wrap hidden">
           <button id="notif-retry" type="button" class="btn notif-retry-btn">إعادة المحاولة</button>
         </div>
       </div>
 
-      <section class="notif-list-panel">
+      <section class="notif-list-panel ux26-form-section">
         <div id="notif-list" class="notif-list"></div>
-        <div id="notif-empty" class="empty-hint hidden">
+        <div id="notif-empty" class="empty-hint ux26-alert ux26-alert-info hidden">
           <div class="empty-icon">🔕</div>
           <p>لا توجد إشعارات</p>
         </div>

@@ -245,6 +245,14 @@ class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         toolbarHeight: 56,
+        centerTitle: false,
+        titleSpacing: 12,
+        titleTextStyle: TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: AppTextStyles.h1,
+          fontWeight: AppTextStyles.bold,
+          color: textPrimary,
+        ),
         iconTheme: IconThemeData(color: textSecondary, size: 20),
         actionsIconTheme: IconThemeData(color: textSecondary, size: 20),
       ),
@@ -381,17 +389,19 @@ class AppTheme {
       // Dialog
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
-        elevation: 8,
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.18),
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardRadiusMd),
         titleTextStyle: TextStyle(
           fontFamily: 'Cairo',
           fontSize: AppTextStyles.h2,
-          fontWeight: AppTextStyles.semiBold,
+          fontWeight: AppTextStyles.bold,
           color: textPrimary,
         ),
         contentTextStyle: TextStyle(
           fontFamily: 'Cairo',
           fontSize: AppTextStyles.bodyMd,
+          height: 1.55,
           color: textSecondary,
         ),
       ),
@@ -399,11 +409,62 @@ class AppTheme {
       // Bottom Sheet
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: surface,
+        modalBackgroundColor: surface,
+        modalBarrierColor: Colors.black.withValues(alpha: 0.32),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
         ),
+        // Note: drag handle is opt-in per-call to avoid duplicate handles on
+        // sheets that already render their own.
+        dragHandleColor: isDark ? AppColors.borderDark : AppColors.grey300,
         elevation: 0,
+        modalElevation: 0,
       ),
+
+      // Snack Bar — normalized across the app
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.grey800,
+        contentTextStyle: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: AppTextStyles.bodyMd,
+          fontWeight: AppTextStyles.semiBold,
+          color: Colors.white,
+        ),
+        actionTextColor: Colors.white,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardRadius),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        elevation: 2,
+      ),
+
+      // Progress indicators — brand color everywhere.
+      // Note: no circular track color so spinners inside colored buttons
+      // (success/error/warning/info) render as a clean white ring.
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.primary,
+        linearTrackColor: AppColors.primarySurface,
+        strokeWidth: 2.4,
+      ),
+
+      // Tooltip
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: AppColors.grey800,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        textStyle: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: AppTextStyles.bodySm,
+          color: Colors.white,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        waitDuration: AppDurations.normal,
+      ),
+
+      // Splash / hover surfaces — calmer ripple
+      splashFactory: InkSparkle.splashFactory,
+      splashColor: AppColors.primary.withValues(alpha: 0.10),
+      highlightColor: AppColors.primary.withValues(alpha: 0.04),
 
       // Icon
       iconTheme: IconThemeData(color: textSecondary, size: 20),
@@ -420,6 +481,18 @@ class AppTheme {
             fontWeight: AppTextStyles.semiBold,
           ),
         ),
+      ),
+
+      // Page transitions — single curve/timing on all platforms
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: ZoomPageTransitionsBuilder(),
+        },
       ),
     );
   }

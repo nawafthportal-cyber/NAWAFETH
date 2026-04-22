@@ -41,7 +41,21 @@ subprojects {
         }
     }
 
+    afterEvaluate {
+        extensions.findByType(ApplicationExtension::class.java)?.compileOptions {
+            sourceCompatibility = globalJavaVersion
+            targetCompatibility = globalJavaVersion
+        }
+
+        extensions.findByType(LibraryExtension::class.java)?.compileOptions {
+            sourceCompatibility = globalJavaVersion
+            targetCompatibility = globalJavaVersion
+        }
+    }
+
     tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = globalJvmTarget
+        targetCompatibility = globalJvmTarget
         if (!options.compilerArgs.contains("-Xlint:-options")) {
             options.compilerArgs.add("-Xlint:-options")
         }

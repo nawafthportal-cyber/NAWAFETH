@@ -28,7 +28,7 @@
     data-complete-url-template="/api/billing/invoices/__id__/complete-mock-payment/"
     data-verification-url="/verification/"
   >
-    <header class="verify-pay-header">
+    <header class="verify-pay-header ux26-page-header">
       <button type="button" class="verify-pay-back" id="verifyPayHeaderBack" aria-label="رجوع">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="15 18 9 12 15 6"></polyline>
@@ -40,16 +40,16 @@
       </div>
     </header>
 
-    <article class="verify-pay-card">
+    <article class="verify-pay-card ux26-form-section">
       <div id="verifyPayLoading" class="verify-pay-loading">
         <div class="spinner" aria-hidden="true"></div>
         <span>جاري تحميل بيانات الفاتورة...</span>
       </div>
 
-      <div id="verifyPayError" class="verify-pay-error hidden"></div>
+      <div id="verifyPayError" class="verify-pay-error ux26-alert ux26-alert-danger hidden"></div>
 
-      <form id="verifyPayForm" class="verify-pay-body hidden" autocomplete="on" novalidate>
-        <div id="verifyPayStatusBanner" class="verify-pay-status hidden"></div>
+      <form id="verifyPayForm" class="verify-pay-body ux26-form-shell hidden" autocomplete="on" novalidate>
+        <div id="verifyPayStatusBanner" class="verify-pay-status ux26-alert hidden"></div>
 
         <div class="verify-pay-summary-grid">
           <div class="verify-pay-summary-item">
@@ -62,11 +62,11 @@
           </div>
           <div class="verify-pay-summary-item">
             <span>حالة الطلب</span>
-            <strong id="verifyPayRequestStatus">—</strong>
+            <strong id="verifyPayRequestStatus" class="ux26-status-badge">—</strong>
           </div>
           <div class="verify-pay-summary-item">
             <span>حالة الفاتورة</span>
-            <strong id="verifyPayInvoiceStatus">—</strong>
+            <strong id="verifyPayInvoiceStatus" class="ux26-status-badge">—</strong>
           </div>
         </div>
 
@@ -124,7 +124,7 @@
           </ul>
         </div>
 
-        <div class="verify-pay-actions">
+        <div class="verify-pay-actions ux26-form-actions">
           <button type="button" class="btn btn-outline" id="verifyPayBackBtn">رجوع لطلبات التوثيق</button>
           <button type="submit" class="btn btn-primary" id="verifyPaySubmitBtn">دفع الآن</button>
         </div>

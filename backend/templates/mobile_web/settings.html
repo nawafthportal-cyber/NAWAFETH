@@ -74,12 +74,12 @@
       <a href="/login/?next=/settings/" class="btn btn-primary">تسجيل الدخول</a>
     </div>
 
-    <div id="settings-content" class="hidden">
-      <div class="page-header">
+    <div id="settings-content" class="hidden ux26-form-shell">
+      <div class="page-header ux26-page-header">
         <h1>إعدادات الحساب</h1>
       </div>
 
-      <section class="settings-hero">
+      <section class="settings-hero ux26-toolbar">
         <div class="settings-hero-copy">
           <p class="settings-hero-eyebrow">الحساب الشخصي</p>
           <h2 class="settings-hero-title">حدّث بياناتك كما تظهر في التطبيق والويب</h2>
@@ -89,7 +89,7 @@
       </section>
 
       <!-- Profile Header -->
-      <div class="settings-profile-header">
+      <div class="settings-profile-header ux26-form-section">
         <div class="settings-avatar-wrap">
           <img class="settings-avatar" id="settings-avatar" src="" alt="avatar">
           <label class="avatar-upload-btn" id="settings-avatar-upload-trigger" for="avatar-file-input">
@@ -106,7 +106,7 @@
       </div>
 
       <!-- Account Info -->
-      <form id="settings-form" class="form-card" autocomplete="off">
+      <form id="settings-form" class="form-card ux26-form-shell ux26-form-section" autocomplete="off">
         <h3 class="form-card-title">معلومات الحساب</h3>
 
         <div class="form-group">
@@ -138,12 +138,12 @@
           <span id="save-text">حفظ التغييرات</span>
           <span class="spinner hidden" id="save-spinner"></span>
         </button>
-        <div class="form-success hidden" id="save-success">تم حفظ التغييرات بنجاح ✓</div>
-        <div class="form-error hidden" id="save-error"></div>
+        <div class="form-success ux26-alert ux26-alert-success hidden" id="save-success">تم حفظ التغييرات بنجاح ✓</div>
+        <div class="form-error ux26-alert ux26-alert-danger hidden" id="save-error"></div>
       </form>
 
       <!-- Security Section -->
-      <div class="form-card">
+      <div class="form-card ux26-form-section">
         <h3 class="form-card-title">الأمان</h3>
         <div class="security-item">
           <div class="security-info">
@@ -154,7 +154,7 @@
         </div>
       </div>
 
-      <div class="form-card">
+      <div class="form-card ux26-form-section">
         <h3 class="form-card-title">روابط المنصة</h3>
         <a href="/notification-settings/" class="profile-menu-item">
           <div class="profile-menu-icon">🔔</div>
@@ -179,7 +179,7 @@
       </div>
 
       <!-- Danger zone -->
-      <div class="form-card danger-zone">
+      <div class="form-card danger-zone ux26-form-section">
         <h3 class="form-card-title" style="color:#F44336">المنطقة الخطرة</h3>
         <p class="form-hint">سيتم حذف حسابك وجميع بياناتك نهائيًا ولا يمكن التراجع عن هذا الإجراء</p>
         <button class="btn-danger-outline" id="delete-account-btn">حذف الحساب نهائيًا</button>

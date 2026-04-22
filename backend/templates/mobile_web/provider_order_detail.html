@@ -943,7 +943,7 @@
         </svg>
       </div>
       <h2>تسجيل الدخول مطلوب</h2>
-      <p>دخول المزود مطلوب.</p>
+      <p>يرجى تسجيل الدخول للوصول إلى تفاصيل الطلب.</p>
       <a href="/login/" id="pod-login-link" class="pod-btn pod-btn-primary">تسجيل الدخول</a>
     </div>
   </div>
@@ -956,7 +956,7 @@
         </a>
         <div class="pod-title-stack">
           <h1>تفاصيل الطلب</h1>
-          <span>Provider Order</span>
+          <span>تفاصيل تشغيل الطلب</span>
         </div>
       </div>
       <div class="pod-topbar-actions">
@@ -970,7 +970,7 @@
       <div class="loading-center"><div class="spinner"></div></div>
     </div>
 
-    <div id="pod-error" class="pod-error" style="display:none"></div>
+    <div id="pod-error" class="pod-error ux26-alert ux26-alert-danger" style="display:none"></div>
 
     <div id="pod-detail" class="pod-workspace" style="display:none">
       <div class="pod-main">
@@ -987,7 +987,7 @@
               </div>
             </div>
             <div class="pod-hero-actions">
-              <span class="pod-status-pill" id="pod-status-pill"></span>
+              <span class="pod-status-pill ux26-status-badge" id="pod-status-pill"></span>
               <button type="button" class="pod-btn pod-chat-btn" id="pod-chat-launch-btn">
                 <span class="pod-chat-btn-text">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path></svg>
@@ -998,7 +998,7 @@
           </div>
         </section>
 
-        <section id="pod-header-section" class="pod-card">
+        <section id="pod-header-section" class="pod-card orders-mobile-sheet">
           <div class="pod-head">
             <h2 id="pod-title"></h2>
           </div>
@@ -1018,7 +1018,7 @@
           </div>
         </section>
 
-        <section id="pod-order-info-section" class="pod-card">
+        <section id="pod-order-info-section" class="pod-card orders-mobile-sheet">
           <div class="pod-head">
             <h3>وصف الطلب</h3>
           </div>
@@ -1028,7 +1028,7 @@
           </div>
         </section>
 
-        <section id="pod-attachments-section" class="pod-card">
+        <section id="pod-attachments-section" class="pod-card orders-mobile-sheet">
           <div class="pod-head">
             <h3>المرفقات</h3>
           </div>
@@ -1051,14 +1051,14 @@
           </div>
         </section>
 
-        <section id="pod-actions-section" class="pod-card">
+        <section id="pod-actions-section" class="pod-card orders-mobile-sheet">
           <div class="pod-head">
             <h3>الإجراءات</h3>
           </div>
           <div id="pod-actions"></div>
         </section>
 
-        <section class="pod-card" id="pod-logs-section" style="display:none">
+        <section class="pod-card orders-mobile-sheet" id="pod-logs-section" style="display:none">
           <div class="pod-head">
             <h3>السجل</h3>
           </div>
@@ -1071,7 +1071,7 @@
       </div>
 
       <aside class="pod-side">
-        <section id="pod-client-section" class="pod-card pod-client-card">
+        <section id="pod-client-section" class="pod-card orders-mobile-sheet pod-client-card">
           <div class="pod-client-head">
             <h3>العميل</h3>
           </div>
@@ -1105,3 +1105,4 @@
 {% block extra_js %}
 <script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260418-redesign-v3"></script>
 {% endblock %}
+

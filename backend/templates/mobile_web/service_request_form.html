@@ -607,11 +607,11 @@ body.page-service-request {
       </div>
       <h2>{{ provider_mode_block.title }}</h2>
       <p>{{ provider_mode_block.description }}</p>
-      <div class="auth-gate-unified-actions" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px">
+      <div class="auth-gate-unified-actions">
         <button type="button" class="sr-auth-btn" data-provider-request-switch="client" data-provider-request-target="{{ provider_mode_block.target }}">{{ provider_mode_block.switch_label }}</button>
-        <a href="/profile/" class="btn btn-secondary" style="min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">{{ provider_mode_block.profile_label }}</a>
+        <a href="/profile/" class="btn btn-secondary">{{ provider_mode_block.profile_label }}</a>
       </div>
-      <p class="auth-gate-unified-note" style="margin-top:12px">{{ provider_mode_block.note }}</p>
+      <p class="auth-gate-unified-note">{{ provider_mode_block.note }}</p>
       {% else %}
       <div class="sr-auth-icon" aria-hidden="true">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -624,7 +624,7 @@ body.page-service-request {
 
     <!-- Form Content -->
     <div id="form-content"{% if not request.user.is_authenticated or provider_mode_blocked %} class="hidden"{% endif %}>
-      <form id="sr-form" autocomplete="off" novalidate>
+      <form id="sr-form" class="ux26-form-shell" autocomplete="off" novalidate>
         <div class="sr-form-card">
           <section class="sr-hero" aria-live="polite" aria-atomic="true">
             <div class="sr-hero-inner">
@@ -635,7 +635,7 @@ body.page-service-request {
               <div class="sr-hero-grid">
                 <div class="sr-hero-copy">
                   <h1 id="sr-title">طلب خدمة</h1>
-                  <p id="sr-subtitle">حدد التصنيف واكتب تفاصيل طلبك، ثم اختر طريقة الإرسال.</p>
+                  <p id="sr-subtitle">أدخل البيانات الأساسية ثم اختر طريقة الإرسال المناسبة.</p>
                   <div class="sr-hero-pills">
                     <span id="sr-pill-1" class="sr-hero-pill">مطابقة ذكية حسب التخصص</span>
                     <span id="sr-pill-2" class="sr-hero-pill">إرسال يناسب هذا النوع</span>
@@ -653,15 +653,15 @@ body.page-service-request {
           </section>
 
           <div class="sr-header">
-            <h1>بناء الطلب</h1>
-            <p>أكمل الحقول التالية بحسب نوع الطلب الذي اخترته في الأعلى.</p>
+            <h1>بيانات الطلب</h1>
+            <p>ابدأ بالمطلوب، واترك الحقول الاختيارية عند الحاجة.</p>
           </div>
 
           <!-- Section 1: Request Type -->
-          <div id="sr-type-section" class="sr-section">
+          <div id="sr-type-section" class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">1</span>
-              <span class="sr-section-label">نوع الطلب</span>
+              <span class="sr-section-label">نوع الخدمة</span>
             </div>
             <div id="sr-type-chips" class="sr-chips">
               <div class="sr-chip active" data-val="competitive">
@@ -677,10 +677,10 @@ body.page-service-request {
           </div>
 
           <!-- Section 2: Category -->
-          <div id="sr-scope-section" class="sr-section">
+          <div id="sr-scope-section" class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">2</span>
-              <span class="sr-section-label">التصنيف</span>
+              <span class="sr-section-label">التصنيف المناسب</span>
             </div>
             <div id="sr-scope-fields">
               <div class="sr-two-col">
@@ -697,8 +697,8 @@ body.page-service-request {
               </div>
             </div>
             <div id="sr-fixed-target" class="sr-fixed-target hidden">
-              <div id="sr-scope-title" style="font-weight:700;margin-bottom:8px;color:#0f766e;font-size:13.5px;"></div>
-              <div id="sr-scope-text" style="font-size:12.5px;color:#64748b;margin-bottom:10px;"></div>
+              <div id="sr-scope-title" class="sr-section-label"></div>
+              <div id="sr-scope-text" class="text-muted"></div>
               <div class="sr-fixed-target-row"><span class="sr-ft-label">المزود</span><span class="sr-ft-value" id="sr-fixed-provider-name"></span></div>
               <div class="sr-fixed-target-row" id="sr-fixed-service-row"><span class="sr-ft-label">الخدمة</span><span class="sr-ft-value" id="sr-fixed-service"></span></div>
               <div class="sr-fixed-target-row"><span class="sr-ft-label">القسم</span><span class="sr-ft-value" id="sr-fixed-category"></span></div>
@@ -708,10 +708,10 @@ body.page-service-request {
           </div>
 
           <!-- Section 3: Dispatch Scope -->
-          <div id="sr-dispatch-section" class="sr-section">
+          <div id="sr-dispatch-section" class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">3</span>
-              <span class="sr-section-label">نطاق الإرسال</span>
+              <span class="sr-section-label">طريقة الوصول للمزودين</span>
             </div>
 
             <div id="sr-city-group" class="sr-field-group">
@@ -727,7 +727,7 @@ body.page-service-request {
             </div>
 
             <div class="sr-dispatch-box" id="sr-dispatch-mode-wrap">
-              <div class="sr-section-label" style="margin-bottom:10px;">طريقة التوجيه</div>
+              <div class="sr-section-label">طريقة التوجيه</div>
               <div id="sr-dispatch-chips" class="sr-chips">
                 <div class="sr-chip active" data-dispatch="all">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
@@ -756,10 +756,10 @@ body.page-service-request {
           </div>
 
           <!-- Section 4: Request Details -->
-          <div class="sr-section">
+          <div class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">4</span>
-              <span class="sr-section-label">تفاصيل الطلب</span>
+              <span class="sr-section-label">وصف الطلب</span>
             </div>
             <div class="sr-field-group">
               <label for="sr-req-title">عنوان الطلب</label>
@@ -783,10 +783,10 @@ body.page-service-request {
           </div>
 
           <!-- Section 5: Attachments -->
-          <div class="sr-section">
+          <div class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">5</span>
-              <span class="sr-section-label">المرفقات <span class="sr-optional" style="font-size:12px;">(اختياري)</span></span>
+              <span class="sr-section-label">المرفقات <span class="sr-optional">(اختياري)</span></span>
             </div>
             <div class="sr-attach-buttons">
               <label class="sr-attach-btn">
@@ -814,15 +814,15 @@ body.page-service-request {
               <button type="button" id="sr-audio-remove" class="sr-audio-remove">حذف</button>
             </div>
             <div id="sr-attachments" class="sr-attachments-preview"></div>
-            <div id="sr-attachment-note" class="hidden" style="margin-top:10px;padding:10px 14px;border-radius:12px;background:rgba(15,118,110,0.04);border:1px solid rgba(15,118,110,0.10);font-size:12.5px;">
-              <div id="sr-attachment-note-title" style="font-weight:700;color:#0f766e;margin-bottom:2px;"></div>
-              <div id="sr-attachment-note-text" style="color:#64748b;"></div>
+            <div id="sr-attachment-note" class="hidden order-inline-note ux26-alert ux26-alert-info">
+              <div id="sr-attachment-note-title"></div>
+              <div id="sr-attachment-note-text"></div>
             </div>
           </div>
 
           <!-- Submit -->
           <div class="sr-submit-section">
-            <p id="sr-submit-helper" class="sr-submit-helper">اكتب المطلوب بوضوح وأرفق ما يلزم فقط.</p>
+            <p id="sr-submit-helper" class="sr-submit-helper ux26-field-help">اكتب المطلوب بوضوح وأرفق ما يلزم فقط.</p>
             <button type="submit" id="sr-submit" class="sr-submit-btn">
               <span id="sr-submit-text">إرسال الطلب</span>
             </button>
@@ -832,9 +832,9 @@ body.page-service-request {
       </form>
 
       <!-- Map Modal -->
-      <div id="sr-map-modal" class="sr-map-modal">
+      <div id="sr-map-modal" class="sr-map-modal ux26-modal">
         <div class="sr-map-modal-backdrop" id="sr-map-modal-backdrop"></div>
-        <div class="sr-map-modal-panel">
+        <div class="sr-map-modal-panel ux26-modal-card">
           <div class="sr-map-modal-header">
             <h3>اختيار مزود قريب</h3>
             <button type="button" class="sr-map-modal-close" id="sr-map-modal-close" aria-label="إغلاق">

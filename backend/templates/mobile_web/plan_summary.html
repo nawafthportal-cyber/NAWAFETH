@@ -16,24 +16,24 @@
 
   <section
     id="summary-content"
-    class="subsum-content hidden"
+    class="subsum-content ux26-form-shell hidden"
     data-plans-url="/api/subscriptions/plans/"
     data-profile-url="/api/accounts/me/"
     data-subscribe-url-template="/api/subscriptions/subscribe/__id__/"
     data-payment-url="/plans/payment/"
     data-plans-page-url="/plans/"
   >
-    <div id="summary-loading" class="loading-center subsum-loading">
+    <div id="summary-loading" class="loading-center subsum-loading ux26-alert ux26-alert-info">
       <div class="spinner"></div>
       <p>جاري تجهيز ملخص الطلب...</p>
     </div>
 
-    <div id="summary-empty" class="empty-state hidden">
+    <div id="summary-empty" class="empty-state ux26-alert ux26-alert-warning hidden">
       <p id="summary-empty-message">تعذر العثور على الباقة المطلوبة</p>
       <a href="/plans/" class="btn btn-secondary">العودة إلى الاشتراكات</a>
     </div>
 
-    <div id="summary-card" class="hidden"></div>
+    <div id="summary-card" class="ux26-form-shell hidden"></div>
   </section>
 </main>
 {% endblock %}
