@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants/app_theme.dart';
+import '../services/billing_service.dart';
 import '../services/verification_service.dart';
 import '../widgets/platform_top_bar.dart';
 
@@ -92,6 +93,107 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final amount = _priceFor(badgeType);
     if (_isFreeBadge(badgeType)) return 'مجاني ضمن الباقة';
     return '${_formatAmount(amount)} ر.س سنويًا عند الاعتماد';
+  }
+
+  String? _asText(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString().trim() ?? '');
+  }
+
+  double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString().trim() ?? '') ?? 0;
+  }
+
+  bool _requestNeedsPayment(Map<String, dynamic>? requestItem) {
+    if (requestItem == null) return false;
+    final invoiceSummaryRaw = requestItem['invoice_summary'];
+    final invoiceSummary = invoiceSummaryRaw is Map
+        ? Map<String, dynamic>.from(invoiceSummaryRaw)
+        : const <String, dynamic>{};
+
+    final invoiceId =
+        _toInt(requestItem['invoice'] ?? invoiceSummary['id']) ?? 0;
+    final requestStatus = (_asText(requestItem['status']) ?? '').toLowerCase();
+    final invoiceStatus =
+        (_asText(invoiceSummary['status']) ?? '').toLowerCase();
+    final invoicePaid =
+        invoiceStatus == 'paid' || invoiceSummary['payment_effective'] == true;
+    final total = _toDouble(invoiceSummary['total']);
+
+    return invoiceId > 0 &&
+        requestStatus == 'pending_payment' &&
+        !invoicePaid &&
+        total > 0;
+  }
+
+  String _requestCode(Map<String, dynamic> requestItem) {
+    final code = _asText(requestItem['code']);
+    if (code != null) return code;
+    final id = _toInt(requestItem['id']);
+    if (id != null && id > 0) {
+      return 'AD${id.toString().padLeft(6, '0')}';
+    }
+    return '';
+  }
+
+  Future<bool> _startRequestPayment(Map<String, dynamic> requestItem) async {
+    final invoiceSummaryRaw = requestItem['invoice_summary'];
+    final invoiceSummary = invoiceSummaryRaw is Map
+        ? Map<String, dynamic>.from(invoiceSummaryRaw)
+        : const <String, dynamic>{};
+    final invoiceId = _toInt(requestItem['invoice'] ?? invoiceSummary['id']);
+    if (invoiceId == null || invoiceId <= 0) {
+      _showErrorSnackBar('لا توجد فاتورة مرتبطة بهذا الطلب');
+      return false;
+    }
+
+    final requestId = _toInt(requestItem['id']) ?? 0;
+    final initRes = await BillingService.initPayment(
+      invoiceId: invoiceId,
+      idempotencyKey: 'verify-checkout-$requestId-$invoiceId',
+    );
+    if (!mounted) return false;
+
+    if (!initRes.isSuccess) {
+      _showErrorSnackBar(initRes.error ?? 'تعذر فتح صفحة الدفع');
+      return false;
+    }
+
+    final payload = Map<String, dynamic>.from(initRes.dataAsMap ?? const {});
+    final checkoutUrl = _asText(payload['checkout_url']) ?? '';
+    if (checkoutUrl.isEmpty) {
+      _showErrorSnackBar('تعذر الحصول على رابط صفحة الدفع');
+      return false;
+    }
+
+    final opened = await BillingService.openCheckout(
+      checkoutUrl: checkoutUrl,
+      requestCode: _requestCode(requestItem),
+    );
+    if (!mounted) return false;
+
+    if (!opened) {
+      _showErrorSnackBar('تعذر فتح صفحة الدفع الموحدة');
+      return false;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'تم فتح صفحة الدفع الموحدة. بعد نجاح السداد ستعود للتطبيق تلقائيًا.',
+        ),
+        backgroundColor: AppColors.success,
+      ),
+    );
+    return true;
   }
 
   String _pricingPolicyNote() {
@@ -346,7 +448,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
       return;
     }
 
-    final requestId = createRes.dataAsMap?['id'] as int?;
+    final createPayload = Map<String, dynamic>.from(
+      createRes.dataAsMap ?? const {},
+    );
+    final requestId = _toInt(createPayload['id']);
     if (requestId == null) {
       setState(() => _isSending = false);
       _showErrorSnackBar('تم استلام رد غير مكتمل من الخادم أثناء إنشاء الطلب.');
@@ -384,8 +489,20 @@ class _VerificationScreenState extends State<VerificationScreen> {
       }
     }
 
+    final detailRes = await VerificationService.fetchRequestDetail(requestId);
+    if (!mounted) return;
+    final requestSnapshot = detailRes.isSuccess && detailRes.dataAsMap != null
+        ? Map<String, dynamic>.from(detailRes.dataAsMap!)
+        : createPayload;
+
     if (!mounted) return;
     setState(() => _isSending = false);
+
+    if (_requestNeedsPayment(requestSnapshot)) {
+      final opened = await _startRequestPayment(requestSnapshot);
+      if (!mounted) return;
+      if (opened) return;
+    }
 
     _showSuccess();
   }
@@ -410,7 +527,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
-                    colors: [AppColors.success.withValues(alpha: 0.7), AppColors.success],
+                    colors: [
+                      AppColors.success.withValues(alpha: 0.7),
+                      AppColors.success
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

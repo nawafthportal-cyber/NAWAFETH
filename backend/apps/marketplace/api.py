@@ -257,12 +257,13 @@ class ServiceRequestCreateView(generics.CreateAPIView):
 				user=service_request.provider.user,
 				title="طلب عاجل موجّه إليك",
 				body=f"لديك طلب خدمة عاجل: {service_request.title}",
-				kind="request_created",
+				kind="urgent_request",
 				url=f"/requests/{service_request.id}",
 				actor=self.request.user,
 				event_type=EventType.REQUEST_CREATED,
-				pref_key="new_request",
+				pref_key="urgent_request",
 				request_id=service_request.id,
+				is_urgent=True,
 				audience_mode="provider",
 			)
 		if is_urgent and dispatch_mode in {"all", "nearest"}:

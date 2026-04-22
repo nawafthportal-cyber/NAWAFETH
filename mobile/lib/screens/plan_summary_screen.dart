@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/billing_service.dart';
 import '../services/subscriptions_service.dart';
 import '../widgets/platform_top_bar.dart';
 
@@ -18,6 +19,17 @@ class PlanSummaryScreen extends StatefulWidget {
 class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
   bool _submitting = false;
 
+  String? _asString(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  double _toMoney(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString().trim() ?? '') ?? 0;
+  }
+
   int? _toInt(dynamic value) {
     if (value is int) return value;
     if (value is num) return value.toInt();
@@ -28,8 +40,101 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
     if (value is! List) return const <Map<String, dynamic>>[];
     return value
         .whereType<Map>()
-        .map((item) => item.map((key, value) => MapEntry(key.toString(), value)))
+        .map(
+            (item) => item.map((key, value) => MapEntry(key.toString(), value)))
         .toList();
+  }
+
+  bool _requiresPayment(Map<String, dynamic>? subscription) {
+    if (subscription == null) return false;
+    final invoiceSummary = subscription['invoice_summary'];
+    final summary = invoiceSummary is Map
+        ? Map<String, dynamic>.from(invoiceSummary)
+        : const <String, dynamic>{};
+
+    final invoiceId = _toInt(subscription['invoice'] ?? summary['id']) ?? 0;
+    final statusCode = (_asString(
+              subscription['provider_status_code'] ?? subscription['status'],
+            ) ??
+            '')
+        .toLowerCase();
+    final invoiceStatus = (_asString(summary['status']) ?? '').toLowerCase();
+    final invoicePaid =
+        invoiceStatus == 'paid' || summary['payment_effective'] == true;
+    final total = _toMoney(summary['total']);
+
+    return invoiceId > 0 &&
+        statusCode == 'pending_payment' &&
+        !invoicePaid &&
+        total > 0;
+  }
+
+  String _requestCodeFromSubscription(Map<String, dynamic> subscription) {
+    final requestCode = _asString(subscription['request_code']);
+    if (requestCode != null) return requestCode;
+    final subscriptionId = _toInt(subscription['id']);
+    if (subscriptionId != null && subscriptionId > 0) {
+      return 'SD${subscriptionId.toString().padLeft(6, '0')}';
+    }
+    return '';
+  }
+
+  Future<void> _startPaymentFlow(Map<String, dynamic> subscription) async {
+    final invoiceSummary = subscription['invoice_summary'];
+    final summary = invoiceSummary is Map
+        ? Map<String, dynamic>.from(invoiceSummary)
+        : const <String, dynamic>{};
+    final invoiceId = _toInt(subscription['invoice'] ?? summary['id']);
+    if (invoiceId == null || invoiceId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا توجد فاتورة مرتبطة بطلب الاشتراك')),
+      );
+      return;
+    }
+
+    final subscriptionId = _toInt(subscription['id']) ?? 0;
+    final initRes = await BillingService.initPayment(
+      invoiceId: invoiceId,
+      idempotencyKey: 'subscription-checkout-$subscriptionId-$invoiceId',
+    );
+    if (!mounted) return;
+
+    if (!initRes.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(initRes.error ?? 'تعذر فتح صفحة الدفع')),
+      );
+      return;
+    }
+
+    final attempt = Map<String, dynamic>.from(initRes.dataAsMap ?? const {});
+    final checkoutUrl = _asString(attempt['checkout_url']) ?? '';
+    if (checkoutUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر الحصول على رابط صفحة الدفع')),
+      );
+      return;
+    }
+
+    final opened = await BillingService.openCheckout(
+      checkoutUrl: checkoutUrl,
+      requestCode: _requestCodeFromSubscription(subscription),
+    );
+    if (!mounted) return;
+
+    if (!opened) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح صفحة الدفع الموحدة')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'تم فتح صفحة الدفع الموحدة. بعد إتمام السداد ستعود للتطبيق تلقائيًا.',
+        ),
+      ),
+    );
   }
 
   Future<void> _submit() async {
@@ -51,10 +156,18 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
       return;
     }
 
+    final subscription =
+        Map<String, dynamic>.from(result.dataAsMap ?? const {});
+    if (_requiresPayment(subscription)) {
+      await _startPaymentFlow(subscription);
+      return;
+    }
+
     final offer = SubscriptionsService.planOffer(widget.plan);
-    final amountLabel =
-        (offer['final_payable_label'] ?? offer['annual_price_label'] ?? 'مجانية')
-            .toString();
+    final amountLabel = (offer['final_payable_label'] ??
+            offer['annual_price_label'] ??
+            'مجانية')
+        .toString();
 
     await showDialog(
       context: context,
@@ -62,7 +175,8 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           title: const Text('تم تسجيل الاشتراك بنجاح'),
-          content: Text('سيتم إشعاركم بتفعيل الاشتراك بعد مراجعة فريق الاشتراكات. المبلغ النهائي: $amountLabel'),
+          content: Text(
+              'سيتم إشعاركم بتفعيل الاشتراك بعد مراجعة فريق الاشتراكات. المبلغ النهائي: $amountLabel'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -92,7 +206,8 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
     final planName = SubscriptionsService.planDisplayTitle(widget.plan);
     final billingCycle = (offer['billing_cycle_label'] ?? 'سنوي').toString();
     final annualPrice = (offer['annual_price_label'] ?? 'مجانية').toString();
-    final finalAmount = (offer['final_payable_label'] ?? annualPrice).toString();
+    final finalAmount =
+        (offer['final_payable_label'] ?? annualPrice).toString();
     final verificationEffect =
         (offer['verification_effect_label'] ?? '—').toString();
     final taxNote = (offer['tax_note'] ?? '').toString();
@@ -152,7 +267,8 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
                   ),
                   const SizedBox(height: 18),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
                       color: Colors.white.withAlpha(32),
                       borderRadius: BorderRadius.circular(18),
@@ -162,7 +278,8 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
                       children: [
                         const Text(
                           'المبلغ النهائي',
-                          style: TextStyle(color: Colors.white70, fontFamily: 'Cairo'),
+                          style: TextStyle(
+                              color: Colors.white70, fontFamily: 'Cairo'),
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -177,7 +294,8 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
                         const SizedBox(height: 4),
                         Text(
                           billingCycle,
-                          style: const TextStyle(color: Colors.white70, fontFamily: 'Cairo'),
+                          style: const TextStyle(
+                              color: Colors.white70, fontFamily: 'Cairo'),
                         ),
                       ],
                     ),
@@ -194,7 +312,8 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
                   _infoRow('دورة الفوترة', billingCycle),
                   _infoRow('سعر الباقة', annualPrice),
                   _infoRow('أثر التوثيق', verificationEffect),
-                  _infoRow('المبلغ النهائي المستحق', finalAmount, emphasize: true),
+                  _infoRow('المبلغ النهائي المستحق', finalAmount,
+                      emphasize: true),
                 ],
               ),
             ),
@@ -366,7 +485,9 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
               value,
               textAlign: TextAlign.left,
               style: TextStyle(
-                color: emphasize ? const Color(0xFF0F766E) : const Color(0xFF0F172A),
+                color: emphasize
+                    ? const Color(0xFF0F766E)
+                    : const Color(0xFF0F172A),
                 fontWeight: FontWeight.w700,
                 fontFamily: 'Cairo',
               ),

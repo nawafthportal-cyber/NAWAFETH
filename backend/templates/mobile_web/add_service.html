@@ -1,629 +1,301 @@
 {% extends "mobile_web/base.html" %}
 {% load static %}
 
-{% block title %}نوافــذ — طلـب خدمة{% endblock %}
+{% block title %}نوافــذ — طلب خدمة{% endblock %}
 {% block sidebar_add_service %}active{% endblock %}
-{% block body_class %}page-add-service{% endblock %}
+{% block body_class %}page-add-service page-add-service-hub{% endblock %}
 
 {% block extra_css %}
 <style>
-  body.page-add-service .page-content {
-    background:
-      radial-gradient(circle at 95% 6%, rgba(37, 99, 235, 0.16), transparent 35%),
-      radial-gradient(circle at 8% 14%, rgba(16, 185, 129, 0.14), transparent 32%),
-      linear-gradient(180deg, #f6f8fc 0%, #f3f5f9 100%);
-    min-height: calc(100vh - 64px);
-    padding: 18px 12px 24px;
-  }
-
-  body.page-add-service .container.asv2-shell {
-    width: min(1180px, 100%);
-    margin: 0 auto;
-  }
-
-  body.page-add-service #add-service-client-content:not(.hidden) {
-    display: grid;
-    gap: 14px;
-  }
-
-  body.page-add-service #add-service-client-content.hidden {
-    display: none;
-  }
-
-  body.page-add-service .asv2-hero {
-    position: relative;
-    overflow: hidden;
-    border: 1px solid rgba(37, 99, 235, 0.14);
-    border-radius: 24px;
-    padding: 16px;
-    background:
-      linear-gradient(135deg, #ffffff 0%, #eef8ff 52%, #f4fffb 100%);
-    box-shadow: 0 14px 34px rgba(16, 24, 40, 0.08);
-    display: grid;
-    gap: 14px;
-  }
-
-  body.page-add-service .asv2-hero::before {
-    content: "";
-    position: absolute;
-    inset-inline-end: -110px;
-    top: -120px;
-    width: 280px;
-    height: 280px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.2), transparent 65%);
-    pointer-events: none;
-  }
-
-  body.page-add-service .asv2-hero::after {
-    content: "";
-    position: absolute;
-    inset-inline-start: -90px;
-    bottom: -140px;
-    width: 240px;
-    height: 240px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(16, 185, 129, 0.18), transparent 66%);
-    pointer-events: none;
-  }
-
-  body.page-add-service .asv2-hero-top,
-  body.page-add-service .asv2-hero-main,
-  body.page-add-service .asv2-hero-quick,
-  body.page-add-service .asv2-hero-actions {
-    position: relative;
-    z-index: 1;
-  }
-
-  body.page-add-service .asv2-hero-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-
-  body.page-add-service .asv2-kicker {
-    display: inline-flex;
-    align-items: center;
-    min-height: 26px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid rgba(30, 64, 175, 0.24);
-    background: rgba(30, 64, 175, 0.08);
-    color: #1d3d8f;
-    font-size: 11px;
-    font-weight: 900;
-  }
-
-  body.page-add-service .asv2-orders-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 34px;
-    padding: 0 14px;
-    border-radius: 10px;
-    border: 1px solid rgba(30, 64, 175, 0.26);
-    background: rgba(255, 255, 255, 0.84);
-    color: #1e3a8a;
-    font-size: 12px;
-    font-weight: 800;
-    text-decoration: none;
-    transition: transform .16s ease, box-shadow .16s ease;
-  }
-
-  body.page-add-service .asv2-orders-link:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 16px rgba(30, 64, 175, 0.14);
-  }
-
-  body.page-add-service .asv2-hero-main h1 {
-    margin: 0;
-    color: #0f172a;
-    font-size: clamp(30px, 4.6vw, 46px);
-    line-height: 1.05;
-    letter-spacing: 0;
-  }
-
-  body.page-add-service .asv2-hero-main p {
-    margin: 8px 0 0;
-    color: #334155;
-    font-size: 14px;
-    font-weight: 700;
-  }
-
-  body.page-add-service .asv2-hero-quick {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  body.page-add-service .asv2-hero-quick span {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 40px;
-    border-radius: 12px;
-    border: 1px solid rgba(15, 23, 42, 0.12);
-    background: rgba(255, 255, 255, 0.86);
-    color: #1f2937;
-    font-size: 12px;
-    font-weight: 800;
-    text-align: center;
-    padding: 0 10px;
-  }
-
-  body.page-add-service .asv2-hero-actions {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  body.page-add-service .asv2-hero-btn {
-    min-height: 40px;
-    border-radius: 12px;
-    padding: 0 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    font-size: 12.5px;
-    font-weight: 900;
-    transition: transform .16s ease, box-shadow .16s ease;
-  }
-
-  body.page-add-service .asv2-hero-btn.primary {
-    color: #fff;
-    background: linear-gradient(135deg, #0f766e 0%, #0ea5e9 100%);
-    box-shadow: 0 10px 20px rgba(14, 116, 144, 0.24);
-  }
-
-  body.page-add-service .asv2-hero-btn.secondary {
-    color: #0f172a;
-    background: rgba(255, 255, 255, 0.94);
-    border: 1px solid rgba(15, 23, 42, 0.14);
-  }
-
-  body.page-add-service .asv2-hero-btn:hover {
-    transform: translateY(-1px);
-  }
-
-  body.page-add-service .asv2-panel {
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 22px;
-    padding: 14px;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  }
-
-  body.page-add-service .asv2-categories-panel {
-    overflow: hidden;
-  }
-
-  body.page-add-service .asv2-panel-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-
-  body.page-add-service .asv2-panel-head h2 {
-    margin: 0;
-    color: #0f172a;
-    font-size: 18px;
-    font-weight: 900;
-  }
-
-  body.page-add-service .asv2-count {
-    min-width: 38px;
-    height: 30px;
-    border-radius: 999px;
-    padding: 0 12px;
-    border: 1px solid rgba(14, 116, 144, 0.32);
-    background: rgba(14, 116, 144, 0.1);
-    color: #0e7490;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 900;
-  }
-
-  body.page-add-service .asv2-action-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  body.page-add-service .asv2-action-card {
-    border-radius: 16px;
-    border: 1px solid rgba(15, 23, 42, 0.1);
-    background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%);
-    padding: 12px;
-    display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) 20px;
-    align-items: center;
-    gap: 10px;
-    text-decoration: none;
-    color: inherit;
-    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
-  }
-
-  body.page-add-service .asv2-action-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(14, 116, 144, 0.28);
-    box-shadow: 0 14px 24px rgba(14, 116, 144, 0.14);
-  }
-
-  body.page-add-service .asv2-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  }
-
-  body.page-add-service .asv2-icon.search {
-    background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
-  }
-
-  body.page-add-service .asv2-icon.urgent {
-    background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
-  }
-
-  body.page-add-service .asv2-icon.quote {
-    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
-  }
-
-  body.page-add-service .asv2-action-title {
-    margin: 0;
-    color: #0f172a;
-    font-size: 15px;
-    font-weight: 900;
-    line-height: 1.25;
-  }
-
-  body.page-add-service .asv2-action-copy {
-    min-width: 0;
-  }
-
-  body.page-add-service .asv2-action-sub {
-    margin: 2px 0 0;
-    color: #475569;
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  body.page-add-service .asv2-arrow {
-    color: rgba(15, 23, 42, 0.46);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  body.page-add-service .asv2-categories-viewport {
-    position: relative;
-    overflow: hidden;
-    margin-inline: -14px;
-    padding: 2px 0 4px;
-    direction: ltr;
-    cursor: grab;
-    -webkit-user-select: none;
-    user-select: none;
-  }
-
-  body.page-add-service .asv2-categories-viewport.is-dragging {
-    cursor: grabbing;
-  }
-
-  body.page-add-service .asv2-categories-viewport::before,
-  body.page-add-service .asv2-categories-viewport::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 54px;
-    z-index: 2;
-    pointer-events: none;
-  }
-
-  body.page-add-service .asv2-categories-viewport::before {
-    left: 0;
-    background: linear-gradient(90deg, rgba(255, 255, 255, 0.96), transparent);
-  }
-
-  body.page-add-service .asv2-categories-viewport::after {
-    right: 0;
-    background: linear-gradient(270deg, rgba(255, 255, 255, 0.96), transparent);
-  }
-
-  body.page-add-service .asv2-categories-grid,
-  body.page-add-service .asv2-categories-track {
-    display: flex;
-    align-items: stretch;
-    gap: 12px;
-    width: max-content;
-  }
-
-  body.page-add-service .asv2-categories-track.is-ready {
-    animation: asv2-category-marquee 60s linear infinite;
-  }
-
-  body.page-add-service .asv2-categories-viewport:hover .asv2-categories-track.is-ready,
-  body.page-add-service .asv2-categories-track.is-ready.is-paused {
-    animation-play-state: paused;
-  }
-
-  body.page-add-service .asv2-categories-scroll-hint {
-    text-align: center;
-    margin-top: 8px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #94a3b8;
-    opacity: 1;
-    transition: opacity .4s ease;
-    pointer-events: none;
-  }
-
-  body.page-add-service .asv2-categories-scroll-hint.hidden {
-    opacity: 0;
-  }
-
-  body.page-add-service .asv2-categories-scroll-hint i {
-    display: inline-block;
-    animation: asv2-hint-sway 1.6s ease-in-out infinite;
-  }
-
-  @keyframes asv2-hint-sway {
-    0%, 100% { transform: translateX(0); }
-    50% { transform: translateX(-6px); }
-  }
-
-  body.page-add-service .asv2-categories-grid .cat-item {
-    flex: 0 0 184px;
-    width: 184px;
-    min-height: 142px;
-    direction: rtl;
-    border-radius: 18px;
-    border: 1px solid rgba(15, 23, 42, 0.09);
-    background: linear-gradient(160deg, #ffffff 0%, #f7fbff 100%);
-    padding: 14px 12px;
-    text-decoration: none;
-    color: inherit;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    text-align: center;
-    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
-  }
-
-  body.page-add-service .asv2-categories-grid .cat-item:hover {
-    transform: translateY(-2px);
-    border-color: rgba(37, 99, 235, 0.22);
-    box-shadow: 0 12px 20px rgba(37, 99, 235, 0.12);
-  }
-
-  body.page-add-service .asv2-categories-grid .cat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
-    background: rgba(37, 99, 235, 0.1);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  body.page-add-service .asv2-categories-grid .cat-name {
-    font-size: 12.5px;
-    font-weight: 900;
-    color: #0f172a;
-  }
-
-  body.page-add-service .asv2-categories-grid .cat-meta {
-    font-size: 11px;
-    font-weight: 700;
-    color: #64748b;
-  }
-
-  body.page-add-service .asv2-categories-grid .cat-link-hint {
-    margin-top: 2px;
-    font-size: 10.5px;
-    font-weight: 800;
-    color: #0e7490;
-  }
-
-  body.page-add-service .asv2-categories-grid .skeleton-cat {
-    pointer-events: none;
-  }
-
-  body.page-add-service .asv2-categories-grid .skeleton-cat .cat-icon,
-  body.page-add-service .asv2-categories-grid .skeleton-cat .cat-name {
-    background: linear-gradient(90deg, #e8edf3 25%, #f4f7fb 50%, #e8edf3 75%);
-    background-size: 200% 100%;
-    animation: asv2-shimmer 1.2s linear infinite;
-  }
-
-  body.page-add-service .asv2-categories-grid .skeleton-cat .cat-name {
-    width: 70%;
-    height: 12px;
-    border-radius: 8px;
-    color: transparent;
-  }
-
-  body.page-add-service .add-service-cats-message {
-    width: calc(100vw - 48px);
-    max-width: 100%;
-    border: 1px dashed rgba(15, 23, 42, 0.16);
-    border-radius: 14px;
-    background: rgba(248, 250, 252, 0.9);
-    min-height: 110px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 14px;
-    font-size: 13px;
-    font-weight: 700;
-    color: #475569;
-  }
-
-  @keyframes asv2-shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-
-  @keyframes asv2-category-marquee {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-  }
-
-  @media (min-width: 768px) {
-    body.page-add-service .page-content {
-      padding: 24px 20px 32px;
-    }
-
-    body.page-add-service #add-service-client-content:not(.hidden) {
-      gap: 16px;
-    }
-
-    body.page-add-service .asv2-hero {
-      padding: 20px;
-    }
-
-    body.page-add-service .asv2-hero-main p {
-      font-size: 15px;
-    }
-
-    body.page-add-service .asv2-action-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    body.page-add-service .asv2-categories-grid .cat-item {
-      flex-basis: 204px;
-      width: 204px;
-    }
-  }
-
-  @media (min-width: 1100px) {
-    body.page-add-service #add-service-client-content:not(.hidden) {
-      grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
-      align-items: start;
-      gap: 18px;
-    }
-
-    body.page-add-service .asv2-hero {
-      min-height: 100%;
-      padding: 24px;
-      align-content: space-between;
-    }
-
-    body.page-add-service .asv2-hero-main h1 {
-      font-size: clamp(38px, 3.2vw, 54px);
-    }
-
-    body.page-add-service .asv2-hero-quick {
-      grid-template-columns: repeat(6, minmax(0, max-content));
-      justify-content: start;
-    }
-
-    body.page-add-service .asv2-hero-quick span {
-      min-width: 136px;
-      min-height: 44px;
-      font-size: 12.5px;
-    }
-
-    body.page-add-service .asv2-panel {
-      padding: 16px;
-      border-radius: 24px;
-    }
-
-    body.page-add-service .asv2-action-grid {
-      grid-template-columns: 1fr;
-    }
-
-    body.page-add-service .asv2-categories-panel {
-      grid-column: 1 / -1;
-      padding-block: 18px;
-    }
-
-    body.page-add-service .asv2-categories-viewport {
-      margin-inline: -16px;
-    }
-
-    body.page-add-service .asv2-categories-grid .cat-item {
-      flex-basis: 220px;
-      width: 220px;
-      min-height: 152px;
-    }
-  }
-
-  @media (max-width: 1023px) {
-    body.page-add-service #bottom-nav {
-      display: flex !important;
-    }
-
-    body.page-add-service .page-content {
-      padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
-    }
-  }
-
-  @media (max-width: 480px) {
-    body.page-add-service .asv2-hero-top {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    body.page-add-service .asv2-orders-link,
-    body.page-add-service .asv2-hero-btn {
-      width: 100%;
-    }
-
-    body.page-add-service .asv2-hero-quick,
-    body.page-add-service .asv2-hero-actions {
-      grid-template-columns: 1fr;
-    }
-
-    body.page-add-service .asv2-hero-actions {
-      display: grid;
-    }
-  }
-
-  @media (max-width: 360px) {
-    body.page-add-service .page-content {
-      padding-inline: 10px;
-    }
-
-    body.page-add-service .asv2-panel,
-    body.page-add-service .asv2-hero {
-      padding: 12px;
-      border-radius: 18px;
-    }
-
-    body.page-add-service .asv2-action-card {
-      grid-template-columns: 40px minmax(0, 1fr);
-    }
-
-    body.page-add-service .asv2-arrow {
-      display: none;
-    }
-
-    body.page-add-service .asv2-categories-grid .cat-item {
-      flex-basis: 170px;
-      width: 170px;
-    }
-  }
+/* ===========================================================
+   Add Service — Hub page (3 request paths)
+   Scope: .page-add-service-hub
+   Each card → opens its own dedicated request form page.
+   =========================================================== */
+:root {
+  --hub-ink: #0f172a;
+  --hub-ink-2: #475569;
+  --hub-ink-3: #64748b;
+  --hub-line: rgba(15, 23, 42, 0.08);
+  --hub-line-2: rgba(15, 23, 42, 0.14);
+  --hub-bg: #f6f8fb;
+  --hub-card: #ffffff;
+  --hub-radius: 22px;
+  --hub-shadow-sm: 0 4px 14px -8px rgba(15, 23, 42, 0.16);
+  --hub-shadow-md: 0 18px 40px -22px rgba(15, 23, 42, 0.24);
+  --hub-shadow-lg: 0 30px 70px -30px rgba(103, 58, 183, 0.45);
+
+  --hub-search:  #673AB7;
+  --hub-search-2:#9C6BE6;
+  --hub-urgent:  #e11d48;
+  --hub-urgent-2:#f97316;
+  --hub-quote:   #2563eb;
+  --hub-quote-2: #7c3aed;
+}
+
+body.page-add-service-hub { background: var(--hub-bg); }
+body.page-add-service-hub .page-content { padding-bottom: 110px; }
+body.page-add-service-hub .container.hub-shell { max-width: 760px; padding-inline: 14px; }
+
+/* ─────────── Hero ─────────── */
+body.page-add-service-hub .hub-hero {
+  position: relative;
+  margin-top: 8px;
+  padding: 26px 22px 28px;
+  border-radius: 26px;
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(156, 107, 230, 0.42) 0%, transparent 60%),
+    radial-gradient(110% 80% at 100% 100%, rgba(124, 58, 237, 0.32) 0%, transparent 55%),
+    linear-gradient(135deg, #0b1320 0%, #0f1d2e 50%, #0c1a2c 100%);
+  color: #fff;
+  overflow: hidden;
+  box-shadow: var(--hub-shadow-lg);
+}
+body.page-add-service-hub .hub-hero::before {
+  content: ""; position: absolute; inset: -40% -10% auto auto;
+  width: 320px; height: 320px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(20,184,166,.38), transparent 70%);
+  filter: blur(8px); pointer-events: none;
+}
+body.page-add-service-hub .hub-hero::after {
+  content: ""; position: absolute; inset: auto auto -30% -20%;
+  width: 280px; height: 280px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(124,58,237,.28), transparent 70%);
+  filter: blur(10px); pointer-events: none;
+}
+
+body.page-add-service-hub .hub-hero-top {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12.5px; font-weight: 800; opacity: .94;
+  position: relative; z-index: 1;
+}
+body.page-add-service-hub .hub-hero-kicker {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 999px;
+  background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.18);
+}
+body.page-add-service-hub .hub-hero-kicker::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: #4ade80; box-shadow: 0 0 0 4px rgba(74, 222, 128, .25);
+  animation: hub-pulse 1.6s ease-in-out infinite;
+}
+@keyframes hub-pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.25);opacity:.55} }
+body.page-add-service-hub .hub-hero-link {
+  color: #fff; text-decoration: none; font-weight: 800;
+  display: inline-flex; align-items: center; gap: 4px; opacity: .92;
+}
+body.page-add-service-hub .hub-hero-link:hover { opacity: 1; }
+
+body.page-add-service-hub .hub-hero-main { position: relative; z-index: 1; margin-top: 22px; }
+body.page-add-service-hub .hub-hero-main h1 {
+  font-size: 26px; line-height: 1.25; font-weight: 900; margin: 0 0 8px;
+  background: linear-gradient(90deg, #ffffff 0%, #c7f7ee 60%, #a5b4fc 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+body.page-add-service-hub .hub-hero-main p {
+  margin: 0; font-size: 14px; line-height: 1.75; opacity: .85; max-width: 60ch;
+}
+
+/* mini stats row */
+body.page-add-service-hub .hub-hero-stats {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-top: 20px;
+}
+body.page-add-service-hub .hub-hero-stat {
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 14px; padding: 10px 8px;
+  text-align: center;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+body.page-add-service-hub .hub-hero-stat strong {
+  display: block; font-size: 18px; font-weight: 900; line-height: 1.1;
+  background: linear-gradient(90deg, #ffffff, #c7f7ee);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+body.page-add-service-hub .hub-hero-stat span {
+  display: block; font-size: 10.5px; font-weight: 700; opacity: .8; margin-top: 4px;
+}
+
+/* ─────────── Section heading ─────────── */
+body.page-add-service-hub .hub-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 22px 4px 12px;
+}
+body.page-add-service-hub .hub-section-head h2 {
+  margin: 0; font-size: 16px; font-weight: 900; color: var(--hub-ink);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+body.page-add-service-hub .hub-section-head h2::before {
+  content: ""; width: 4px; height: 18px; border-radius: 4px;
+  background: linear-gradient(180deg, var(--hub-search), var(--hub-search-2));
+}
+body.page-add-service-hub .hub-section-head .hub-section-tag {
+  font-size: 11px; font-weight: 800; color: var(--hub-ink-3);
+  background: rgba(15,23,42,.06); padding: 4px 10px; border-radius: 999px;
+}
+
+/* ─────────── Path cards ─────────── */
+body.page-add-service-hub .hub-paths {
+  display: grid; gap: 12px;
+}
+
+body.page-add-service-hub .hub-path {
+  position: relative;
+  display: block;
+  text-decoration: none; color: inherit;
+  background: var(--hub-card);
+  border: 1px solid var(--hub-line);
+  border-radius: var(--hub-radius);
+  padding: 18px;
+  box-shadow: var(--hub-shadow-sm);
+  overflow: hidden;
+  transition: transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s, border-color .25s;
+  cursor: pointer;
+  isolation: isolate;
+}
+body.page-add-service-hub .hub-path::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--c1, #673AB7), var(--c2, #9C6BE6));
+  opacity: 0; transition: opacity .25s ease;
+  z-index: -1;
+}
+body.page-add-service-hub .hub-path::after {
+  content: ""; position: absolute;
+  inset-inline-start: 0; inset-block: 16px;
+  width: 4px; border-radius: 4px;
+  background: linear-gradient(180deg, var(--c1, #673AB7), var(--c2, #9C6BE6));
+}
+body.page-add-service-hub .hub-path:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--hub-shadow-md);
+  border-color: transparent;
+}
+body.page-add-service-hub .hub-path:active { transform: translateY(-1px); }
+
+body.page-add-service-hub .hub-path-row {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  align-items: center; gap: 14px;
+}
+
+body.page-add-service-hub .hub-path-icon {
+  width: 60px; height: 60px; border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+  box-shadow: 0 12px 24px -12px rgba(15, 23, 42, .35);
+  position: relative; overflow: hidden;
+}
+body.page-add-service-hub .hub-path-icon::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,.35), transparent 60%);
+  pointer-events: none;
+}
+body.page-add-service-hub .hub-path-icon svg { width: 28px; height: 28px; position: relative; z-index: 1; }
+
+body.page-add-service-hub .hub-path-body { min-width: 0; }
+body.page-add-service-hub .hub-path-title {
+  margin: 0 0 4px; font-size: 16.5px; font-weight: 900; color: var(--hub-ink);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+body.page-add-service-hub .hub-path-badge {
+  font-size: 10.5px; font-weight: 800; color: #fff;
+  padding: 3px 8px; border-radius: 999px;
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+  box-shadow: 0 4px 10px -4px rgba(15,23,42,.3);
+}
+body.page-add-service-hub .hub-path-badge.is-popular {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+}
+body.page-add-service-hub .hub-path-sub {
+  margin: 0; font-size: 13px; color: var(--hub-ink-2); line-height: 1.7;
+}
+
+body.page-add-service-hub .hub-path-arrow {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(15, 23, 42, .06);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--hub-ink-2);
+  transition: all .25s ease;
+  flex-shrink: 0;
+}
+body.page-add-service-hub .hub-path:hover .hub-path-arrow {
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+  color: #fff;
+  transform: translateX(-4px); /* RTL = visually toward leading edge */
+}
+[dir="ltr"] body.page-add-service-hub .hub-path:hover .hub-path-arrow { transform: translateX(4px); }
+
+/* meta footer (chips) */
+body.page-add-service-hub .hub-path-meta {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px dashed var(--hub-line);
+}
+body.page-add-service-hub .hub-path-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 800; color: var(--hub-ink-2);
+  background: rgba(15,23,42,.045);
+  padding: 5px 10px; border-radius: 999px;
+}
+body.page-add-service-hub .hub-path-chip svg { width: 13px; height: 13px; opacity: .85; }
+
+/* color variants */
+body.page-add-service-hub .hub-path.search { --c1: var(--hub-search);  --c2: var(--hub-search-2); }
+body.page-add-service-hub .hub-path.urgent { --c1: var(--hub-urgent);  --c2: var(--hub-urgent-2); }
+body.page-add-service-hub .hub-path.quote  { --c1: var(--hub-quote);   --c2: var(--hub-quote-2); }
+
+/* ─────────── Help footer ─────────── */
+body.page-add-service-hub .hub-help {
+  margin-top: 22px;
+  padding: 16px;
+  border-radius: var(--hub-radius);
+  background: linear-gradient(135deg, rgba(156, 107, 230, .08), rgba(124, 58, 237, .04));
+  border: 1px dashed rgba(156, 107, 230, .35);
+  display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 12px;
+}
+body.page-add-service-hub .hub-help-icon {
+  width: 44px; height: 44px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(156, 107, 230, .14); color: #673AB7;
+}
+body.page-add-service-hub .hub-help h3 {
+  margin: 0 0 2px; font-size: 14px; font-weight: 900; color: var(--hub-ink);
+}
+body.page-add-service-hub .hub-help p {
+  margin: 0; font-size: 12px; color: var(--hub-ink-2); line-height: 1.6;
+}
+body.page-add-service-hub .hub-help-btn {
+  background: #fff; color: var(--hub-ink);
+  border: 1px solid var(--hub-line-2);
+  padding: 10px 14px; border-radius: 12px;
+  text-decoration: none; font-size: 12.5px; font-weight: 800;
+  transition: all .2s ease;
+}
+body.page-add-service-hub .hub-help-btn:hover {
+  background: #673AB7; color: #fff; border-color: transparent;
+}
+
+@media (max-width: 480px) {
+  body.page-add-service-hub .hub-hero-main h1 { font-size: 22px; }
+  body.page-add-service-hub .hub-path { padding: 16px; }
+  body.page-add-service-hub .hub-path-icon { width: 52px; height: 52px; border-radius: 16px; }
+  body.page-add-service-hub .hub-path-icon svg { width: 24px; height: 24px; }
+  body.page-add-service-hub .hub-path-title { font-size: 15.5px; }
+  body.page-add-service-hub .hub-path-row { grid-template-columns: 52px 1fr auto; gap: 12px; }
+  body.page-add-service-hub .hub-help { grid-template-columns: 38px 1fr; }
+  body.page-add-service-hub .hub-help-btn { grid-column: 1 / -1; text-align: center; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <main class="page-content">
-  <div class="container asv2-shell">
+  <div class="container hub-shell">
+
+    <!-- Provider-mode gate (kept for ClientModeOnlyRequestViewMixin) -->
     <div id="add-service-provider-block" class="auth-gate auth-gate-unified{% if not provider_mode_blocked %} hidden{% endif %}">
       {% if provider_mode_blocked %}
       <p class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
@@ -639,95 +311,167 @@
       <p class="auth-gate-unified-note" style="margin-top:12px">{{ provider_mode_block.note }}</p>
       {% endif %}
     </div>
+
     <div id="add-service-client-content"{% if provider_mode_blocked %} class="hidden"{% endif %}>
-    <section class="asv2-hero">
-      <div class="asv2-hero-top">
-        <span class="asv2-kicker">لوحة بدء الطلب</span>
-        <a href="/orders/" class="asv2-orders-link" data-mode-orders-link="true">طلباتي</a>
-      </div>
-      <div class="asv2-hero-main">
-        <h1>طلــب خدمة</h1>
-        <p>اختر مسارك وابدأ مباشرة</p>
-      </div>
-      <div class="asv2-hero-quick" aria-hidden="true">
-        <span>بحث مباشر</span>
-        <span>إشعار عاجل</span>
-        <span>عروض تنافسية</span>
-      </div>
-      <div class="asv2-hero-actions">
-        <a href="/search/" class="asv2-hero-btn secondary">تصفح المزودين</a>
-        <a href="/request-quote/" class="asv2-hero-btn primary" data-auth-required="true">طلب عروض أسعار</a>
-      </div>
-    </section>
 
-    <section class="asv2-panel">
-      <div class="asv2-panel-head">
-        <h2>مسارات الطلب</h2>
-      </div>
-
-      <div class="asv2-action-grid">
-        <a href="/search/" class="asv2-action-card">
-          <span class="asv2-icon search" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </span>
-          <div class="asv2-action-copy">
-            <h3 class="asv2-action-title">بحث مباشر</h3>
-            <small class="asv2-action-sub">فلترة حسب التخصص</small>
-          </div>
-          <span class="asv2-arrow" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-          </span>
-        </a>
-
-        <a href="/urgent-request/" class="asv2-action-card" data-auth-required="true">
-          <span class="asv2-icon urgent" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-          </span>
-          <div class="asv2-action-copy">
-            <h3 class="asv2-action-title">طلب عاجل</h3>
-            <small class="asv2-action-sub">إشعار فوري للمؤهلين</small>
-          </div>
-          <span class="asv2-arrow" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-          </span>
-        </a>
-
-        <a href="/request-quote/" class="asv2-action-card" data-auth-required="true">
-          <span class="asv2-icon quote" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          </span>
-          <div class="asv2-action-copy">
-            <h3 class="asv2-action-title">عروض أسعار</h3>
-            <small class="asv2-action-sub">قارن ثم اختر العرض</small>
-          </div>
-          <span class="asv2-arrow" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-          </span>
-        </a>
-      </div>
-    </section>
-
-    <section class="asv2-panel asv2-categories-panel">
-      <div class="asv2-panel-head">
-        <h2>التصنيفات</h2>
-        <span class="asv2-count" id="cats-count">0</span>
-      </div>
-      <div class="asv2-categories-viewport" aria-label="التصنيفات المتاحة">
-        <div class="categories-grid asv2-categories-grid asv2-categories-track" id="cats-grid">
-          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
-          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
-          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
-          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
-          <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
+      <!-- ───── Hero ───── -->
+      <section class="hub-hero">
+        <div class="hub-hero-top">
+          <span class="hub-hero-kicker">جاهز لاستقبال طلبك</span>
+          <a href="/orders/" class="hub-hero-link" data-mode-orders-link="true">طلباتي ←</a>
         </div>
+        <div class="hub-hero-main">
+          <h1>كيف تحب أن نُنجز خدمتك؟</h1>
+          <p>اختر المسار الأنسب لك — كل مسار يفتح نموذج طلب مُخصّص بأقل خطوات ممكنة.</p>
+        </div>
+        <div class="hub-hero-stats" aria-hidden="true">
+          <div class="hub-hero-stat"><strong>3</strong><span>مسارات للطلب</span></div>
+          <div class="hub-hero-stat"><strong>~2د</strong><span>متوسط وقت الإرسال</span></div>
+          <div class="hub-hero-stat"><strong>24/7</strong><span>استقبال الطلبات</span></div>
+        </div>
+      </section>
+
+      <!-- ───── Section heading ───── -->
+      <div class="hub-section-head">
+        <h2>اختر نوع الطلب</h2>
+        <span class="hub-section-tag">3 مسارات</span>
       </div>
-      <div class="asv2-categories-scroll-hint">اسحب لاستعراض التصنيفات <i>⟵</i></div>
-    </section>
+
+      <!-- ───── 3 Path cards ───── -->
+      <div class="hub-paths">
+
+        <!-- 1) Search & direct contact -->
+        <a href="/search/" class="hub-path search">
+          <div class="hub-path-row">
+            <div class="hub-path-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </div>
+            <div class="hub-path-body">
+              <h3 class="hub-path-title">
+                البحث عن مزود خدمة
+                <span class="hub-path-badge">طلب مباشر</span>
+              </h3>
+              <p class="hub-path-sub">تصفّح المزودين، قارن التقييمات، وابدأ المحادثة بنفسك مباشرة.</p>
+            </div>
+            <div class="hub-path-arrow" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+          </div>
+          <div class="hub-path-meta">
+            <span class="hub-path-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              فلترة جغرافية
+            </span>
+            <span class="hub-path-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.3 17 14 18.2 21 12 17.8 5.8 21 7 14 2 9.3 9 8.5 12 2"/></svg>
+              تقييمات حقيقية
+            </span>
+            <span class="hub-path-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              محادثة فورية
+            </span>
+          </div>
+        </a>
+
+        <!-- 2) Urgent request -->
+        <a href="/urgent-request/" class="hub-path urgent" data-auth-required="true">
+          <div class="hub-path-row">
+            <div class="hub-path-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2 3 14h9l-1 8 10-12h-9z"/>
+              </svg>
+            </div>
+            <div class="hub-path-body">
+              <h3 class="hub-path-title">
+                طلب عاجل
+                <span class="hub-path-badge is-popular">الأكثر طلبًا</span>
+              </h3>
+              <p class="hub-path-sub">إشعار فوري لأقرب المزودين المؤهلين — استجابة سريعة خلال دقائق.</p>
+            </div>
+            <div class="hub-path-arrow" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+          </div>
+          <div class="hub-path-meta">
+            <span class="hub-path-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              استجابة فورية
+            </span>
+            <span class="hub-path-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              اتصال مباشر
+            </span>
+            <span class="hub-path-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              أقرب مزود
+            </span>
+          </div>
+        </a>
+
+        <!-- 3) Quote request -->
+        <a href="/request-quote/" class="hub-path quote" data-auth-required="true">
+          <div class="hub-path-row">
+            <div class="hub-path-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            </div>
+            <div class="hub-path-body">
+              <h3 class="hub-path-title">
+                طلب عروض أسعار
+                <span class="hub-path-badge">قارن العروض</span>
+              </h3>
+              <p class="hub-path-sub">استقبل عدة عروض من مزودين موثوقين، قارنها واختر الأنسب لك.</p>
+            </div>
+            <div class="hub-path-arrow" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+          </div>
+          <div class="hub-path-meta">
+            <span class="hub-path-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              أسعار تنافسية
+            </span>
+            <span class="hub-path-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              مقارنة مرنة
+            </span>
+            <span class="hub-path-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              مزودون موثوقون
+            </span>
+          </div>
+        </a>
+
+      </div>
+
+      <!-- ───── Help section ───── -->
+      <div class="hub-help">
+        <div class="hub-help-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div>
+          <h3>غير متأكد من المسار المناسب؟</h3>
+          <p>تواصل مع فريق الدعم وسنساعدك في اختيار الطريقة الأنسب لاحتياجك.</p>
+        </div>
+        <a href="/contact/" class="hub-help-btn">المساعدة</a>
+      </div>
+
     </div>
   </div>
 </main>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/addServicePage.js' %}?v=20260420-marquee-drag"></script>
+<script src="{% static 'mobile_web/js/addServicePage.js' %}?v=20260422-hub-v1"></script>
 {% endblock %}

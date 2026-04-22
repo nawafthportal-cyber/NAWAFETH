@@ -9,26 +9,26 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
 .page-urgent-request{
-  --ur-bg:#f5efe4;
-  --ur-surface:#fffdf8;
+  --ur-bg:#F5F0FB;
+  --ur-surface:#ffffff;
   --ur-ink:#1f2937;
   --ur-muted:#6b7280;
   --ur-line:rgba(148, 163, 184, 0.24);
-  --ur-accent:#c67b2b;
-  --ur-accent-strong:#9a5a12;
-  --ur-accent-soft:rgba(198,123,43,.12);
+  --ur-accent:#673AB7;
+  --ur-accent-strong:#4A2D8F;
+  --ur-accent-soft:rgba(103,58,183,.12);
   --ur-success:#0f766e;
   --ur-danger:#b42318;
   --ur-shadow:0 24px 60px rgba(15, 23, 42, .12);
 }
 .page-urgent-request .page-content{
   background:
-    radial-gradient(circle at top right, rgba(198,123,43,.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(103,58,183,.16), transparent 28%),
     radial-gradient(circle at top left, rgba(15,118,110,.10), transparent 24%),
-    linear-gradient(180deg, #fcf7ef 0%, #f5efe4 44%, #f7f8fb 100%);
+    linear-gradient(180deg, #F5F0FB 0%, #F5F0FB 44%, #f7f8fb 100%);
 }
 .page-urgent-request .ur-page{
-  max-width:1180px;
+  max-width:880px;
   margin:0 auto;
   padding:24px 0 48px;
 }
@@ -39,15 +39,13 @@
 .page-urgent-request .ur-hero{
   position:relative;
   overflow:hidden;
-  display:grid;
-  grid-template-columns:minmax(0,1.3fr) minmax(320px,.9fr);
-  gap:18px;
-  padding:24px;
-  border:1px solid rgba(255,255,255,.65);
-  border-radius:34px;
+  display:block;
+  padding:28px 28px 24px;
+  border:1px solid rgba(209,196,233,.55);
+  border-radius:26px;
   background:
-    linear-gradient(145deg, rgba(255,255,255,.92), rgba(255,248,238,.95)),
-    linear-gradient(160deg, rgba(198,123,43,.08), rgba(15,118,110,.05));
+    linear-gradient(160deg, rgba(255,255,255,.96), rgba(245,240,251,.94)),
+    radial-gradient(circle at 100% 0%, rgba(156,107,230,.18), transparent 55%);
   box-shadow:var(--ur-shadow);
 }
 .page-urgent-request .ur-hero:before,
@@ -61,7 +59,7 @@
   width:220px;
   height:220px;
   inset:auto -60px -90px auto;
-  background:radial-gradient(circle, rgba(198,123,43,.20), transparent 72%);
+  background:radial-gradient(circle, rgba(103,58,183,.20), transparent 72%);
 }
 .page-urgent-request .ur-hero:after{
   width:180px;
@@ -81,7 +79,7 @@
   padding:9px 14px;
   border-radius:999px;
   background:rgba(31,41,55,.06);
-  color:#7c4a14;
+  color:#4A2D8F;
   font-size:13px;
   font-weight:800;
 }
@@ -92,8 +90,8 @@
   margin-top:14px;
   padding:11px 15px;
   border-radius:999px;
-  background:rgba(198,123,43,.10);
-  color:#8a4a0c;
+  background:rgba(103,58,183,.10);
+  color:#4A2D8F;
   font-size:13px;
   font-weight:900;
 }
@@ -139,7 +137,7 @@
   padding:18px;
   border-radius:26px;
   border:1px solid rgba(148,163,184,.16);
-  background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,249,242,.88));
+  background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(245,240,251,.88));
   box-shadow:0 18px 38px rgba(15, 23, 42, .08);
 }
 .page-urgent-request .ur-side-card strong{
@@ -177,11 +175,8 @@
   font-weight:700;
 }
 .page-urgent-request .ur-layout{
-  display:grid;
-  grid-template-columns:minmax(0, 1.1fr) minmax(280px, .52fr);
-  gap:18px;
+  display:block;
   margin-top:18px;
-  align-items:start;
 }
 .page-urgent-request .ur-form-shell{
   background:rgba(255,255,255,.88);
@@ -197,7 +192,7 @@
   gap:16px;
   padding:22px 24px 18px;
   border-bottom:1px solid rgba(148,163,184,.12);
-  background:linear-gradient(180deg, rgba(255,252,247,.94), rgba(255,255,255,.85));
+  background:linear-gradient(180deg, rgba(245,240,251,.94), rgba(255,255,255,.85));
 }
 .page-urgent-request .ur-form-head h2{
   margin:0;
@@ -251,10 +246,10 @@
   border-radius:16px;
   display:grid;
   place-items:center;
-  background:linear-gradient(135deg, var(--ur-accent), #e0a14a);
+  background:linear-gradient(135deg, var(--ur-accent), #9C6BE6);
   color:#fff;
   font-weight:900;
-  box-shadow:0 12px 26px rgba(198,123,43,.22);
+  box-shadow:0 12px 26px rgba(103,58,183,.22);
 }
 .page-urgent-request .ur-section-head h3{
   margin:0;
@@ -311,8 +306,8 @@
 .page-urgent-request .ur-field textarea:focus,
 .page-urgent-request .ur-field select:focus{
   outline:none;
-  border-color:rgba(198,123,43,.55);
-  box-shadow:0 0 0 4px rgba(198,123,43,.13);
+  border-color:rgba(103,58,183,.55);
+  box-shadow:0 0 0 4px rgba(103,58,183,.13);
 }
 .page-urgent-request .ur-field input.is-invalid,
 .page-urgent-request .ur-field textarea.is-invalid,
@@ -384,9 +379,9 @@
   line-height:1.8;
 }
 .page-urgent-request .ur-dispatch-card input:checked + .ur-dispatch-card-body{
-  border-color:rgba(198,123,43,.36);
-  background:linear-gradient(180deg, rgba(255,250,242,.98), rgba(255,246,232,.98));
-  box-shadow:0 18px 36px rgba(198,123,43,.12);
+  border-color:rgba(103,58,183,.36);
+  background:linear-gradient(180deg, rgba(245,240,251,.98), rgba(237,231,246,.98));
+  box-shadow:0 18px 36px rgba(103,58,183,.12);
   transform:translateY(-2px);
 }
 .page-urgent-request .ur-scope-card,
@@ -450,8 +445,8 @@
 }
 .page-urgent-request .ur-btn{
   color:#fff;
-  background:linear-gradient(135deg, var(--ur-accent), #aa6118);
-  box-shadow:0 16px 32px rgba(198,123,43,.22);
+  background:linear-gradient(135deg, var(--ur-accent), #4A2D8F);
+  box-shadow:0 16px 32px rgba(103,58,183,.22);
 }
 .page-urgent-request .ur-btn-secondary{
   color:#0f172a;
@@ -459,8 +454,8 @@
   border:1px solid rgba(148,163,184,.18);
 }
 .page-urgent-request .ur-btn-ghost{
-  color:#7c4a14;
-  background:rgba(198,123,43,.10);
+  color:#4A2D8F;
+  background:rgba(103,58,183,.10);
 }
 .page-urgent-request .ur-action-btn{
   min-height:40px;
@@ -470,7 +465,7 @@
 }
 .page-urgent-request .ur-action-call{ background:rgba(15,118,110,.12); color:#115e59; }
 .page-urgent-request .ur-action-whatsapp{ background:rgba(34,197,94,.12); color:#15803d; }
-.page-urgent-request .ur-action-send{ background:rgba(198,123,43,.12); color:#8a4a0c; }
+.page-urgent-request .ur-action-send{ background:rgba(103,58,183,.12); color:#4A2D8F; }
 .page-urgent-request .ur-selected-provider{
   display:flex;
   gap:14px;
@@ -483,7 +478,7 @@
   height:72px;
   border-radius:22px;
   overflow:hidden;
-  background:linear-gradient(135deg, #f8e3c8, #f4c38a);
+  background:linear-gradient(135deg, #EDE7F6, #C4A5F4);
   box-shadow:0 12px 22px rgba(15, 23, 42, .1);
 }
 .page-urgent-request .ur-provider-avatar img{
@@ -497,7 +492,7 @@
   height:100%;
   display:grid;
   place-items:center;
-  color:#7c4a14;
+  color:#4A2D8F;
   font-weight:900;
   font-size:24px;
 }
@@ -698,44 +693,51 @@
   position:fixed;
   right:18px;
   bottom:102px;
-  z-index:150;
-  width:min(420px, calc(100vw - 32px));
-  padding:16px;
-  border-radius:24px;
-  color:#fff;
-  background:#0f172a;
-  box-shadow:0 18px 50px rgba(15,23,42,.28);
+  z-index:1500;
+  width:min(380px, calc(100vw - 32px));
+  padding:14px 16px 14px 14px;
+  border-radius:16px;
+  color:#1F1240;
+  background:#ffffff;
+  border:1px solid rgba(209,196,233,.6);
+  box-shadow:0 22px 50px rgba(74,45,143,.18);
   opacity:0;
   transform:translateY(16px);
   pointer-events:none;
   transition:opacity .22s ease, transform .22s ease;
+  border-right:4px solid #673AB7;
 }
 .page-urgent-request .ur-toast.show{
   opacity:1;
   transform:translateY(0);
   pointer-events:auto;
 }
-.page-urgent-request .ur-toast.success{ background:#0f766e; }
-.page-urgent-request .ur-toast.warning{ background:#9a5a12; }
-.page-urgent-request .ur-toast.error{ background:#991b1b; }
+.page-urgent-request .ur-toast.success{ background:#ffffff; color:#1F1240; border-right-color:#15803d; }
+.page-urgent-request .ur-toast.warning{ background:#ffffff !important; color:#1F1240; border-right-color:#b45309; }
+.page-urgent-request .ur-toast.error{ background:#ffffff; color:#1F1240; border-right-color:#b91c1c; }
 .page-urgent-request .ur-toast-head{
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
   gap:12px;
 }
-.page-urgent-request .ur-toast-head strong{ display:block; margin-bottom:4px; font-size:15px; }
-.page-urgent-request .ur-toast-head p{ margin:0; font-size:13px; line-height:1.7; opacity:.94; }
+.page-urgent-request .ur-toast-head strong{ display:block; margin-bottom:4px; font-size:14px; color:#3A1F73; font-weight:800; }
+.page-urgent-request .ur-toast-head p{ margin:0; font-size:13px; line-height:1.6; color:#4A2D8F; opacity:1; }
+.page-urgent-request .ur-toast.success .ur-toast-head strong{ color:#15803d; }
+.page-urgent-request .ur-toast.warning .ur-toast-head strong{ color:#b45309; }
+.page-urgent-request .ur-toast.error   .ur-toast-head strong{ color:#b91c1c; }
 .page-urgent-request .ur-toast-close{
   flex:0 0 auto;
-  width:36px;
-  height:36px;
+  width:30px;
+  height:30px;
   border:none;
-  border-radius:12px;
-  color:inherit;
-  background:rgba(255,255,255,.14);
+  border-radius:10px;
+  color:#6E5A99;
+  background:rgba(103,58,183,.08);
   cursor:pointer;
+  transition:background .18s ease, color .18s ease;
 }
+.page-urgent-request .ur-toast-close:hover{ background:rgba(103,58,183,.16); color:#3A1F73; }
 .page-urgent-request .ur-success{
   position:fixed;
   inset:0;
@@ -810,7 +812,7 @@
   gap:14px;
   padding:20px 20px 16px;
   border-bottom:1px solid rgba(148,163,184,.14);
-  background:linear-gradient(180deg, rgba(255,252,247,.96), rgba(255,255,255,.94));
+  background:linear-gradient(180deg, rgba(245,240,251,.96), rgba(255,255,255,.94));
 }
 .page-urgent-request .ur-map-head h3{
   margin:0;
@@ -867,8 +869,8 @@
   transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
 .page-urgent-request .ur-provider-card.selected{
-  border-color:rgba(198,123,43,.34);
-  box-shadow:0 18px 36px rgba(198,123,43,.12);
+  border-color:rgba(103,58,183,.34);
+  box-shadow:0 18px 36px rgba(103,58,183,.12);
   transform:translateY(-1px);
 }
 .page-urgent-request .ur-provider-card-head{
@@ -882,7 +884,7 @@
   height:62px;
   border-radius:18px;
   overflow:hidden;
-  background:linear-gradient(135deg, #fde7cc, #efb56e);
+  background:linear-gradient(135deg, #EDE7F6, #C4A5F4);
   flex:0 0 62px;
 }
 .page-urgent-request .ur-provider-card-avatar img{
@@ -932,7 +934,7 @@
   height:48px;
   border-radius:16px;
   overflow:hidden;
-  background:linear-gradient(135deg, #fde7cc, #efb56e);
+  background:linear-gradient(135deg, #EDE7F6, #C4A5F4);
   flex:0 0 48px;
 }
 .page-urgent-request .ur-popup-avatar img{
@@ -973,7 +975,7 @@
 }
 .page-urgent-request .ur-popup-actions .call{ background:rgba(15,118,110,.12); color:#115e59; }
 .page-urgent-request .ur-popup-actions .whatsapp{ background:rgba(34,197,94,.12); color:#15803d; }
-.page-urgent-request .ur-popup-actions .send{ background:rgba(198,123,43,.14); color:#8a4a0c; }
+.page-urgent-request .ur-popup-actions .send{ background:rgba(103,58,183,.14); color:#4A2D8F; }
 .page-urgent-request .leaflet-popup-content-wrapper{
   border-radius:20px;
 }
@@ -1014,6 +1016,228 @@
     bottom:92px;
   }
 }
+
+/* ================================================================
+   PREMIUM POLISH — purple identity, dynamic micro-interactions
+   ================================================================ */
+@keyframes urFadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes urPulse{0%,100%{box-shadow:0 0 0 0 rgba(103,58,183,.45)}70%{box-shadow:0 0 0 12px rgba(103,58,183,0)}}
+@keyframes urShine{0%{transform:translateX(-120%)}60%,100%{transform:translateX(140%)}}
+@keyframes urFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+.page-urgent-request .page-content{
+  background:
+    radial-gradient(circle at 12% 0%,rgba(156,107,230,.22),transparent 40%),
+    radial-gradient(circle at 88% 8%,rgba(103,58,183,.18),transparent 38%),
+    linear-gradient(180deg,#F5F0FB 0%,#EDE7F6 55%,#F5F0FB 100%) !important;
+  min-height:100vh;
+}
+
+.page-urgent-request .ur-hero{
+  position:relative;overflow:hidden;
+  background:
+    linear-gradient(160deg,rgba(255,255,255,.96),rgba(245,240,251,.94)),
+    radial-gradient(circle at 100% 0%,rgba(156,107,230,.18),transparent 55%) !important;
+  border:1px solid rgba(209,196,233,.6) !important;
+  box-shadow:0 26px 64px rgba(74,45,143,.14) !important;
+  animation:urFadeUp .55s ease both;
+}
+.page-urgent-request .ur-hero::before{
+  background:radial-gradient(circle,rgba(156,107,230,.32),transparent 70%) !important;
+  width:280px !important;height:280px !important;
+}
+.page-urgent-request .ur-hero::after{
+  background:radial-gradient(circle,rgba(103,58,183,.22),transparent 70%) !important;
+  width:220px !important;height:220px !important;
+}
+
+.page-urgent-request .ur-hero h1{
+  background:linear-gradient(135deg,#3A1F73 0%,#673AB7 60%,#9C6BE6 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  letter-spacing:-.01em;
+}
+
+.page-urgent-request .ur-kicker{
+  background:linear-gradient(135deg,#673AB7,#4A2D8F) !important;
+  color:#fff !important;
+  box-shadow:0 10px 22px rgba(103,58,183,.32);
+}
+.page-urgent-request .ur-kicker svg{animation:urFloat 2.6s ease-in-out infinite}
+
+.page-urgent-request .ur-type-spotlight{
+  background:linear-gradient(135deg,rgba(103,58,183,.10),rgba(156,107,230,.18)) !important;
+  border:1px solid rgba(103,58,183,.28);
+  color:#4A2D8F !important;
+}
+
+.page-urgent-request .ur-pill{
+  background:rgba(255,255,255,.86) !important;
+  border:1px solid rgba(209,196,233,.65) !important;
+  color:#4A2D8F !important;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+.page-urgent-request .ur-pill:hover{transform:translateY(-2px);border-color:rgba(103,58,183,.45);box-shadow:0 10px 22px rgba(103,58,183,.12)}
+
+.page-urgent-request .ur-side-card,
+.page-urgent-request .ur-side-metrics,
+.page-urgent-request .ur-form-shell{
+  background:linear-gradient(180deg,#ffffff,#fbf8ff) !important;
+  border:1px solid rgba(209,196,233,.55) !important;
+}
+.page-urgent-request .ur-metric strong{color:#673AB7}
+
+.page-urgent-request .ur-badge{
+  background:rgba(103,58,183,.10) !important;
+  color:#4A2D8F !important;
+  border:1px solid rgba(103,58,183,.20);
+}
+.page-urgent-request .ur-badge.is-type{
+  background:linear-gradient(135deg,#673AB7,#4A2D8F) !important;color:#fff !important;border-color:transparent;
+  box-shadow:0 10px 22px rgba(103,58,183,.32);
+}
+
+.page-urgent-request .ur-form-head{
+  background:linear-gradient(180deg,#ffffff,#F5F0FB) !important;
+  border-bottom:1px solid rgba(209,196,233,.5) !important;
+}
+
+/* form fields focus state */
+.page-urgent-request input,
+.page-urgent-request select,
+.page-urgent-request textarea{
+  border:1px solid rgba(209,196,233,.7) !important;
+  background:#fff !important;
+  border-radius:14px !important;
+  transition:border-color .2s ease,box-shadow .2s ease,transform .15s ease;
+}
+.page-urgent-request input:focus,
+.page-urgent-request select:focus,
+.page-urgent-request textarea:focus{
+  border-color:#673AB7 !important;
+  box-shadow:0 0 0 4px rgba(103,58,183,.14) !important;
+  outline:none;
+}
+
+/* primary buttons */
+.page-urgent-request .btn-primary,
+.page-urgent-request .ur-submit,
+.page-urgent-request button[type="submit"]{
+  background:linear-gradient(135deg,#9C6BE6 0%,#673AB7 50%,#4A2D8F 100%) !important;
+  color:#fff !important;border:0 !important;
+  border-radius:14px !important;
+  padding:13px 22px !important;font-weight:800 !important;
+  box-shadow:0 14px 30px rgba(103,58,183,.32),inset 0 1px 0 rgba(255,255,255,.32) !important;
+  transition:transform .2s ease,filter .2s ease,box-shadow .25s ease;
+  position:relative;overflow:hidden;
+}
+.page-urgent-request .btn-primary::after,
+.page-urgent-request .ur-submit::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.25) 50%,transparent 70%);
+  transform:translateX(-120%);pointer-events:none;
+}
+.page-urgent-request .btn-primary:hover::after,
+.page-urgent-request .ur-submit:hover::after{animation:urShine 1.1s ease forwards}
+.page-urgent-request .btn-primary:hover,
+.page-urgent-request .ur-submit:hover{transform:translateY(-2px);filter:brightness(1.08);box-shadow:0 18px 38px rgba(103,58,183,.42)}
+
+.page-urgent-request .btn-secondary{
+  background:#fff !important;border:1px solid rgba(209,196,233,.7) !important;
+  color:#4A2D8F !important;border-radius:14px !important;
+  transition:all .2s ease;
+}
+.page-urgent-request .btn-secondary:hover{background:#F5F0FB !important;transform:translateY(-1px)}
+
+/* unified auth gate purple */
+.page-urgent-request .ur-auth-gate{
+  background:linear-gradient(160deg,#ffffff 0%,#F5F0FB 100%) !important;
+  border:1px solid rgba(209,196,233,.6) !important;
+  box-shadow:0 22px 50px rgba(74,45,143,.14) !important;
+  border-radius:26px !important;
+  padding:28px !important;
+  animation:urFadeUp .5s ease both;
+}
+.page-urgent-request .auth-gate-unified-icon{
+  background:linear-gradient(135deg,#9C6BE6,#673AB7) !important;
+  color:#fff !important;
+  box-shadow:0 14px 30px rgba(103,58,183,.32);
+  animation:urPulse 2.4s ease-in-out infinite;
+}
+.page-urgent-request .auth-gate-unified-title{color:#3A1F73 !important}
+.page-urgent-request .auth-gate-unified-desc,
+.page-urgent-request .auth-gate-unified-note{color:#6E5A99 !important}
+.page-urgent-request .auth-gate-unified-kicker{color:#673AB7 !important;font-weight:800}
+
+/* type/category cards */
+.page-urgent-request .ur-type-card,
+.page-urgent-request .ur-cat-card{
+  transition:transform .25s ease,box-shadow .25s ease,border-color .2s ease,background .25s ease;
+}
+.page-urgent-request .ur-type-card:hover,
+.page-urgent-request .ur-cat-card:hover{
+  transform:translateY(-3px);
+  border-color:rgba(103,58,183,.4) !important;
+  box-shadow:0 22px 44px rgba(103,58,183,.14) !important;
+}
+.page-urgent-request .ur-type-card.is-active,
+.page-urgent-request .ur-cat-card.is-active{
+  border-color:#673AB7 !important;
+  background:linear-gradient(180deg,#ffffff,#F5F0FB) !important;
+  box-shadow:0 22px 44px rgba(103,58,183,.18) !important;
+}
+
+/* avatar gradient */
+.page-urgent-request .ur-provider-avatar,
+.page-urgent-request .ur-modal-avatar{
+  background:linear-gradient(135deg,#9C6BE6,#673AB7) !important;
+  color:#fff !important;
+}
+
+/* modals */
+.page-urgent-request .ur-modal-card{
+  border:1px solid rgba(209,196,233,.55) !important;
+  background:linear-gradient(180deg,#fff,#fbf8ff) !important;
+}
+.page-urgent-request .ur-modal-head{
+  background:linear-gradient(180deg,#F5F0FB,#fff) !important;
+  border-bottom:1px solid rgba(209,196,233,.5) !important;
+}
+
+/* toast warning use purple */
+.page-urgent-request .ur-toast.warning{background:#ffffff !important;color:#1F1240}
+
+/* dark mode */
+body.theme-dark.page-urgent-request .page-content{
+  background:
+    radial-gradient(circle at 12% 0%,rgba(103,58,183,.30),transparent 45%),
+    radial-gradient(circle at 88% 8%,rgba(74,45,143,.30),transparent 45%),
+    linear-gradient(180deg,#1F0E40 0%,#2A1654 60%,#1F0E40 100%) !important;
+  color:#EDE7F6;
+}
+body.theme-dark.page-urgent-request .ur-hero,
+body.theme-dark.page-urgent-request .ur-side-card,
+body.theme-dark.page-urgent-request .ur-side-metrics,
+body.theme-dark.page-urgent-request .ur-form-shell,
+body.theme-dark.page-urgent-request .ur-auth-gate{
+  background:linear-gradient(160deg,#2A1654 0%,#1F0E40 100%) !important;
+  border-color:#3A1F73 !important;
+  color:#EDE7F6;
+}
+body.theme-dark.page-urgent-request .ur-hero h1{
+  background:linear-gradient(135deg,#C4A5F4 0%,#9C6BE6 60%,#673AB7 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+body.theme-dark.page-urgent-request input,
+body.theme-dark.page-urgent-request select,
+body.theme-dark.page-urgent-request textarea{
+  background:#1F0E40 !important;border-color:#3A1F73 !important;color:#EDE7F6 !important;
+}
+
+@media (prefers-reduced-motion:reduce){
+  .page-urgent-request *,
+  .page-urgent-request *::before,
+  .page-urgent-request *::after{animation:none !important}
+}
 </style>
 {% endblock %}
 
@@ -1038,7 +1262,7 @@
         <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
       </div>
       <h2 class="auth-gate-unified-title">سجّل دخولك لإنشاء طلب عاجل</h2>
-      <p class="auth-gate-unified-desc">أنشئ طلبك بسرعة، اختر التصنيف المناسب، وحدد نطاق الإرسال بدقة ليصل إلى المزودين المطابقين فورًا.</p>
+      <p class="auth-gate-unified-desc">لإرسال طلب عاجل للمزوّدين المطابقين فورًا.</p>
       <a href="/login/?next=/urgent-request/" class="btn btn-primary">تسجيل الدخول</a>
       {% endif %}
     </div>
@@ -1048,33 +1272,9 @@
         <div class="ur-hero-copy">
           <span class="ur-kicker">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
-            مسار طلب عاجل ذكي
+            طلب عاجل
           </span>
-          <span class="ur-type-spotlight">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
-            نوع الطلب: عاجل
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2zm1 11h-2V7h2zm0 4h-2v-2h2z"/></svg>
-          </span>
-          <h1>أرسل طلبك العاجل للمزوّد الأنسب خلال دقائق</h1>
-          <p>اختر التصنيف الرئيسي والفرعي، حدد نطاق الإرسال، أضف العنوان والتفاصيل والمرفقات، ثم دع المنصة تطابق التخصص والمدينة أو تعرض لك أقرب المزوّدين على الخريطة.</p>
-          <div class="ur-pill-row">
-            <span class="ur-pill">مطابقة حسب التصنيف الرئيسي والفرعي</span>
-            <span class="ur-pill">نطاق مدينة اختياري عند الإرسال للجميع</span>
-            <span class="ur-pill">خريطة تفاعلية عند اختيار الأقرب</span>
-          </div>
-        </div>
-        <div class="ur-hero-side">
-          <div class="ur-side-grid">
-            <div class="ur-side-card">
-              <strong>كيف يعمل المسار الجديد؟</strong>
-              <p>عند اختيار <b>إرسال للجميع</b> يتم الإرسال فقط إلى المزوّدين المطابقين للتصنيف، ومع تحديد المدينة تتم مطابقة المدينة أيضًا. وعند اختيار <b>إرسال للأقرب</b> تظهر خريطة تفاعلية للمزوّدين داخل المدينة المختارة مع وسائل التواصل والإرسال المباشر.</p>
-            </div>
-            <div class="ur-side-metrics">
-              <div class="ur-metric"><strong>300</strong><span>حد التفاصيل</span></div>
-              <div class="ur-metric"><strong>4</strong><span>أنواع مرفقات</span></div>
-              <div class="ur-metric"><strong>2</strong><span>أنماط إرسال</span></div>
-            </div>
-          </div>
+          <h1>أرسل طلبك للمزوّد الأنسب خلال دقائق</h1>
         </div>
       </section>
 
@@ -1087,14 +1287,9 @@
                 طلب عاجل
               </span>
               <div>
-              <h2>نموذج الطلب العاجل</h2>
-              <p>واجهة جديدة مبنية لتوافق الفكرة الجديدة وربطها مع واجهات الباكند الحالية بدون كسر مسار الإرسال.</p>
+                <h2>نموذج الطلب</h2>
               </div>
             </div>
-            <span class="ur-badge">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 3 7v6c0 5 3.84 9.74 9 11 5.16-1.26 9-6 9-11V7l-9-5z"/></svg>
-              مطابقة احترافية
-            </span>
           </div>
 
           <form id="ur-form" class="ur-form" autocomplete="off">
@@ -1102,8 +1297,7 @@
               <div class="ur-section-head">
                 <span class="ur-step">1</span>
                 <div>
-                  <h3>التصنيف الرئيسي والفرعي</h3>
-                  <p>اختر التخصص بدقة حتى تصل الرسالة فقط إلى المزوّدين المطابقين.</p>
+                  <h3>التصنيف</h3>
                 </div>
               </div>
               <div class="ur-fields">
@@ -1119,7 +1313,6 @@
                   <select id="ur-subcategory" aria-describedby="ur-subcategory-error">
                     <option value="">اختر التصنيف الفرعي</option>
                   </select>
-                  <small class="ur-field-help">سيتم استخدامه في مطابقة المزوّدين عند الإرسال أو على الخريطة.</small>
                   <small class="ur-field-error hidden" id="ur-subcategory-error"></small>
                 </div>
               </div>
@@ -1129,8 +1322,7 @@
               <div class="ur-section-head">
                 <span class="ur-step">2</span>
                 <div>
-                  <h3>نطاق الإرسال والمنطقة</h3>
-                  <p>يمكنك الإرسال لجميع المزوّدين المطابقين أو اختيار الأقرب من خلال الخريطة داخل المدينة المحددة.</p>
+                  <h3>نطاق الإرسال</h3>
                 </div>
               </div>
 
@@ -1139,23 +1331,16 @@
                   <input type="radio" name="dispatch_mode" id="ur-dispatch-all" value="all" checked>
                   <span class="ur-dispatch-card-body">
                     <strong>إرسال للجميع</strong>
-                    <span>يطابق جميع المزوّدين حسب التصنيف الرئيسي والفرعي، ومع تحديد المدينة تتم المطابقة داخلها فقط.</span>
+                    <span>لجميع المزوّدين المطابقين.</span>
                   </span>
                 </label>
                 <label class="ur-dispatch-card">
                   <input type="radio" name="dispatch_mode" id="ur-dispatch-nearest" value="nearest">
                   <span class="ur-dispatch-card-body">
                     <strong>إرسال للأقرب</strong>
-                    <span>يستخدم موقعك الحالي ثم يعرض لك خريطة للمزوّدين في المدينة المختارة لتحديد مزوّد وإرسال الطلب له مباشرة.</span>
+                    <span>اختيار مزوّد من الخريطة.</span>
                   </span>
                 </label>
-              </div>
-
-              <div class="ur-inline-actions" style="margin-top:16px">
-                <div class="ur-scope-card" style="flex:1 1 280px">
-                  <strong>نطاق الإرسال</strong>
-                  <p id="ur-dispatch-summary">سيتم الإرسال لجميع المزوّدين المطابقين للتصنيف، ويمكنك اختيار المدينة لتقييد النطاق.</p>
-                </div>
               </div>
 
               <div class="ur-location-grid" style="margin-top:16px">
@@ -1170,14 +1355,13 @@
                   <select id="ur-city" aria-describedby="ur-city-error">
                     <option value="">اختر المنطقة أولًا ثم المدينة</option>
                   </select>
-                  <small class="ur-field-help">اختياري عند الإرسال للجميع، ومطلوب عند اختيار الأقرب.</small>
                   <small class="ur-field-error hidden" id="ur-city-error"></small>
                 </div>
               </div>
 
               <div class="ur-inline-actions">
-                <button type="button" class="ur-btn-ghost hidden" id="ur-city-clear">إلغاء المدينة المحددة</button>
-                <button type="button" class="ur-btn-secondary hidden" id="ur-open-map">فتح الخريطة واختيار مزوّد</button>
+                <button type="button" class="ur-btn-ghost hidden" id="ur-city-clear">إلغاء المدينة</button>
+                <button type="button" class="ur-btn-secondary hidden" id="ur-open-map">فتح الخريطة</button>
               </div>
 
               <div id="ur-selected-provider" class="ur-selected-provider hidden" style="margin-top:16px">
@@ -1188,7 +1372,7 @@
                 </div>
                 <div class="ur-provider-meta">
                   <h4 id="ur-provider-name">لم يتم اختيار مزوّد بعد</h4>
-                  <p id="ur-provider-location">اختر مزوّدًا من الخريطة لتفعيل الإرسال المباشر عند خيار الأقرب.</p>
+                  <p id="ur-provider-location">اختر مزوّدًا من الخريطة.</p>
                   <div class="ur-provider-stat-row">
                     <span class="ur-provider-stat" id="ur-provider-rating">التقييم —</span>
                     <span class="ur-provider-stat" id="ur-provider-completed">المكتملة —</span>
@@ -1207,8 +1391,7 @@
               <div class="ur-section-head">
                 <span class="ur-step">3</span>
                 <div>
-                  <h3>عنوان الطلب والتفاصيل</h3>
-                  <p>العنوان يوضح الطلب بسرعة، والتفاصيل مختصرة وواضحة بحد أقصى 300 حرف.</p>
+                  <h3>التفاصيل</h3>
                 </div>
               </div>
               <div class="ur-fields">
@@ -1220,7 +1403,7 @@
                 </div>
                 <div class="ur-field span-full">
                   <label for="ur-description">تفاصيل الطلب <span class="ur-required">*</span></label>
-                  <textarea id="ur-description" maxlength="300" placeholder="اكتب وصفًا مختصرًا وواضحًا لما تحتاجه، مع أهم الملاحظات أو الحالة الحالية..."></textarea>
+                  <textarea id="ur-description" maxlength="300" placeholder="اكتب وصفًا مختصرًا وواضحًا..."></textarea>
                   <small class="ur-field-error hidden" id="ur-description-error"></small>
                   <div class="ur-count" id="ur-desc-count-wrap"><span id="ur-desc-count">0</span>/300</div>
                 </div>
@@ -1232,14 +1415,10 @@
                 <span class="ur-step">4</span>
                 <div>
                   <h3>المرفقات</h3>
-                  <p>يمكنك رفع صور أو فيديو، استخدام الكاميرا، تسجيل صوت، أو إرفاق ملف <code>pdf</code>.</p>
                 </div>
               </div>
 
               <div class="ur-attachments-card">
-                <strong>إدارة المرفقات</strong>
-                <p>المرفقات تُرسل مع الطلب عبر نفس الـ API الحالي وتُصنّف تلقائيًا إلى صور وفيديو وصوت وملفات.</p>
-
                 <div class="ur-picker-grid">
                   <button type="button" class="ur-picker-btn" id="ur-pick-gallery">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zM4 6H2v14a2 2 0 0 0 2 2h14v-2H4z"/></svg>
@@ -1263,16 +1442,13 @@
                 <input id="ur-camera-input" type="file" multiple accept="image/*,video/*" capture="environment" hidden>
                 <input id="ur-pdf-input" type="file" multiple accept=".pdf,application/pdf" hidden>
 
-                <div id="ur-recording" class="ur-recording hidden">جارٍ التسجيل الآن... اضغط مرة أخرى لإيقاف التسجيل وحفظ الملف الصوتي.</div>
-                <div id="ur-attachment-summary" class="ur-attachment-summary">لا توجد مرفقات مضافة حتى الآن.</div>
+                <div id="ur-recording" class="ur-recording hidden">جارٍ التسجيل...</div>
+                <div id="ur-attachment-summary" class="ur-attachment-summary">لا توجد مرفقات.</div>
                 <div id="ur-attachment-list" class="ur-attachment-list"></div>
               </div>
             </section>
 
             <div class="ur-submit-row">
-              <div class="ur-submit-note">
-                سيتم إرسال الطلب عبر مسار <code>/api/marketplace/requests/create/</code> مع مطابقة التصنيف والمدينة، وإرسال مباشر للمزوّد المختار عند نمط الأقرب.
-              </div>
               <div class="ur-inline-actions">
                 <a href="/add-service/" class="ur-btn-secondary">إلغاء</a>
                 <button type="submit" id="ur-submit" class="ur-btn">إرسال الطلب العاجل</button>
@@ -1280,44 +1456,6 @@
             </div>
           </form>
         </section>
-
-        <aside class="ur-side-panel">
-          <section class="ur-side-block">
-            <h3>قواعد المطابقة</h3>
-            <div class="ur-side-list">
-              <div class="ur-side-item">
-                <strong>إرسال للجميع</strong>
-                <span>يطابق جميع مزوّدي المنصة حسب التصنيف الرئيسي والفرعي، ومع اختيار المدينة تتم مطابقة المدينة أيضًا.</span>
-              </div>
-              <div class="ur-side-item">
-                <strong>إرسال للأقرب</strong>
-                <span>يعتمد على المدينة المختارة وموقعك الحالي لإظهار المزوّدين القريبين مع خيارات الاتصال والواتساب والإرسال.</span>
-              </div>
-              <div class="ur-side-item">
-                <strong>المرفقات</strong>
-                <span>تُرفع كصور وفيديو وصوت وملفات ضمن نفس الطلب مع دعم الكاميرا وملفات <code>pdf</code>.</span>
-              </div>
-            </div>
-          </section>
-
-          <section class="ur-side-block">
-            <h3>ملخص مباشر</h3>
-            <div class="ur-side-list">
-              <div class="ur-side-item">
-                <strong id="ur-summary-service">التصنيف: غير محدد</strong>
-                <span id="ur-summary-service-sub">اختر التصنيف الرئيسي والفرعي لبدء المطابقة.</span>
-              </div>
-              <div class="ur-side-item">
-                <strong id="ur-summary-scope">النطاق: إرسال للجميع</strong>
-                <span id="ur-summary-location">بدون تقييد مدينة حتى الآن.</span>
-              </div>
-              <div class="ur-side-item">
-                <strong id="ur-summary-attachments">المرفقات: 0</strong>
-                <span id="ur-summary-provider">لم يتم تحديد مزوّد مباشر بعد.</span>
-              </div>
-            </div>
-          </section>
-        </aside>
       </div>
 
       <div id="ur-map-modal" class="ur-map-modal" aria-hidden="true">
@@ -1325,8 +1463,7 @@
         <div class="ur-map-panel" role="dialog" aria-modal="true" aria-labelledby="ur-map-title">
           <div class="ur-map-head">
             <div>
-              <h3 id="ur-map-title">المزوّدون الأقرب داخل المدينة</h3>
-              <p id="ur-map-subtitle">اختر مزوّدًا من الخريطة أو من القائمة، ثم استخدم إرسال الطلب لتحديده مباشرة.</p>
+              <h3 id="ur-map-title">المزوّدون الأقرب</h3>
             </div>
             <button type="button" class="ur-map-close" id="ur-map-close" aria-label="إغلاق">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -1335,7 +1472,7 @@
           <div class="ur-map-body">
             <div id="ur-map-canvas" class="ur-map-canvas"></div>
             <div class="ur-map-list-wrap">
-              <div class="ur-map-status" id="ur-map-status">جار تجهيز نتائج المزوّدين...</div>
+              <div class="ur-map-status" id="ur-map-status">جار التحميل...</div>
               <div id="ur-map-list" class="ur-map-list"></div>
             </div>
           </div>
@@ -1348,7 +1485,7 @@
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
           </div>
           <h3>تم إرسال طلبك بنجاح</h3>
-          <p id="ur-success-message">تم إنشاء الطلب العاجل وإرساله للمسار المطابق. سيتم تحويلك إلى صفحة الطلبات خلال لحظات.</p>
+          <p id="ur-success-message">سيتم تحويلك إلى صفحة الطلبات.</p>
         </div>
       </div>
 
@@ -1370,5 +1507,5 @@
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/urgentRequestPage.js' %}?v=20260418-urgent-redesign"></script>
+<script src="{% static 'mobile_web/js/urgentRequestPage.js' %}?v=20260422-tiles-carto"></script>
 {% endblock %}

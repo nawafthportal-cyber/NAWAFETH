@@ -1,13 +1,65 @@
 {% extends "mobile_web/base.html" %}{% load static %}
 {% block title %}باقات الاشتراك — نوافــذ{% endblock %}
-{% block body_class %}page-plans{% endblock %}
+{% block body_class %}page-plans page-plans-premium{% endblock %}
+
+{% block extra_css %}
+<style>
+  body.page-plans-premium .page-shell{padding:0 14px 32px;display:grid;gap:16px;max-width:980px;margin:0 auto}
+
+  body.page-plans-premium .auth-gate{display:grid;place-items:center;min-height:60vh}
+  body.page-plans-premium .auth-gate-inner{background:linear-gradient(160deg,#ffffff 0%,#F5F0FB 100%);border:1px solid #D1C4E9;border-radius:24px;padding:32px 24px;text-align:center;display:grid;gap:14px;justify-items:center;box-shadow:0 18px 42px rgba(103,58,183,.08);max-width:360px;width:100%}
+  body.page-plans-premium .auth-gate-inner h2{margin:0;color:#3A1F73;font-size:18px}
+  body.page-plans-premium .auth-gate-inner .btn-primary{background:linear-gradient(135deg,#673AB7,#4A2D8F);border:0;color:#fff;font-weight:700;padding:12px 22px;border-radius:14px;text-decoration:none;min-height:44px;display:inline-flex;align-items:center;justify-content:center;width:100%;max-width:240px;box-shadow:0 10px 24px rgba(103,58,183,.28)}
+
+  body.page-plans-premium .ux26-page-header.subs-compare-head{position:relative;overflow:hidden;background:linear-gradient(135deg,#673AB7 0%,#4A2D8F 60%,#3A1F73 100%);color:#fff;border-radius:24px;padding:22px 22px 24px;display:grid;gap:16px;box-shadow:0 22px 48px rgba(58,31,115,.25)}
+  body.page-plans-premium .ux26-page-header.subs-compare-head::before{content:"";position:absolute;top:-80px;left:-50px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.18),rgba(255,255,255,0));pointer-events:none}
+  body.page-plans-premium .ux26-page-header.subs-compare-head::after{content:"";position:absolute;bottom:-100px;right:-60px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.10),rgba(255,255,255,0));pointer-events:none}
+  body.page-plans-premium .subs-compare-head-top{position:relative;z-index:1;display:flex;justify-content:flex-start}
+  body.page-plans-premium .subs-compare-user-pill{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.32);color:#fff;font-size:12px;font-weight:700;backdrop-filter:blur(8px)}
+  body.page-plans-premium .subs-compare-head-bottom{position:relative;z-index:1;display:grid;gap:6px}
+  body.page-plans-premium .subs-compare-head-bottom h1{margin:0;color:#fff;font-size:24px;line-height:1.3;letter-spacing:-.01em}
+  body.page-plans-premium .subs-compare-head-bottom p{margin:0;color:rgba(255,255,255,.88);font-size:13px;line-height:1.8}
+
+  body.page-plans-premium .loading-center{display:grid;place-items:center;min-height:200px}
+  body.page-plans-premium .spinner{width:42px;height:42px;border:3px solid #EDE7F6;border-top-color:#673AB7;border-radius:50%;animation:plansSpin 1s linear infinite}
+  @keyframes plansSpin{to{transform:rotate(360deg)}}
+
+  body.page-plans-premium #plans-list{display:grid;gap:14px}
+  body.page-plans-premium #plans-list:not(.hidden){padding:4px 2px}
+  body.page-plans-premium .subs-compare-table tfoot th,
+  body.page-plans-premium .subs-compare-table tfoot td{padding:14px 12px;text-align:center;vertical-align:middle;border-top:1px solid rgba(89,58,120,.16);border-bottom:0}
+  body.page-plans-premium .subs-compare-action-label{background:#fffdfd;color:#3A1F73;font-size:14px;font-weight:900;line-height:1.5}
+  body.page-plans-premium .subs-action-cell .subs-plan-action{display:inline-flex;align-items:center;justify-content:center;max-width:100%;white-space:normal;line-height:1.35}
+  body.page-plans-premium .subs-compare-table tfoot tr td:nth-child(2){background:linear-gradient(180deg,#b69bd7 0%,#c8b2e1 100%)}
+  body.page-plans-premium .subs-compare-table tfoot tr td:nth-child(3){background:linear-gradient(180deg,#8f64be 0%,#a178cb 100%)}
+  body.page-plans-premium .subs-compare-table tfoot tr td:nth-child(4){background:linear-gradient(180deg,#6d2f9b 0%,#7f45af 100%)}
+
+  body.page-plans-premium #plans-state.ux26-alert{background:linear-gradient(160deg,#ffffff 0%,#F5F0FB 100%);border:1px solid #D1C4E9;border-radius:22px;padding:24px 20px;text-align:center;display:grid;gap:14px;justify-items:center;color:#4A2D8F}
+  body.page-plans-premium #plans-state .plans-retry-btn{background:linear-gradient(135deg,#673AB7,#4A2D8F);border:0;color:#fff;font-weight:700;padding:12px 24px;border-radius:14px;min-height:44px;box-shadow:0 10px 24px rgba(103,58,183,.24)}
+
+  @media (max-width:640px){
+    body.page-plans-premium .page-shell{padding:0 10px 24px;gap:12px}
+    body.page-plans-premium .ux26-page-header.subs-compare-head{padding:18px 16px 20px;border-radius:20px}
+    body.page-plans-premium .subs-compare-head-bottom h1{font-size:20px}
+    body.page-plans-premium .subs-compare-head-bottom p{font-size:12.5px}
+    body.page-plans-premium .subs-compare-table tfoot th,
+    body.page-plans-premium .subs-compare-table tfoot td{padding:10px 8px}
+    body.page-plans-premium .subs-compare-action-label{font-size:12px}
+  }
+
+  body.theme-dark.page-plans-premium .auth-gate-inner,
+  body.theme-dark.page-plans-premium #plans-state.ux26-alert{background:linear-gradient(160deg,#1f1530 0%,#2A1654 100%);border-color:#3A1F73;color:#EDE7F6}
+  body.theme-dark.page-plans-premium .auth-gate-inner h2{color:#EDE7F6}
+</style>
+{% endblock %}
 
 {% block content %}
 <main class="page-shell">
   <div id="auth-gate" class="auth-gate hidden">
     <div class="auth-gate-inner">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#673AB7" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       <h2>تسجيل الدخول مطلوب</h2>
+      <p style="margin:0;color:#6E5A99;font-size:13px;line-height:1.8">يجب تسجيل الدخول لعرض باقات الاشتراك المناسبة لحسابك.</p>
       <a href="/login/?next=/plans/" class="btn btn-primary">تسجيل الدخول</a>
     </div>
   </div>
@@ -19,14 +71,15 @@
       </div>
       <div class="subs-compare-head-bottom">
         <h1>باقات الاشتراك</h1>
-        <p id="plans-page-note">اختر الباقة المناسبة لإكمال الترقية.</p>
+        <p id="plans-page-note">اختر الباقة المناسبة لإكمال الترقية والاستفادة من جميع المزايا.</p>
       </div>
     </section>
 
     <div id="plans-loading" class="loading-center"><div class="spinner"></div></div>
     <div id="plans-list" class="subs-compare-stage ux26-table-wrap hidden"></div>
     <div id="plans-state" class="empty-state ux26-alert ux26-alert-info hidden">
-      <p id="plans-state-message">لا توجد باقات متاحة حالياً</p>
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#673AB7" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <p id="plans-state-message" style="margin:0;font-size:14px">لا توجد باقات متاحة حالياً</p>
       <button id="plans-retry" type="button" class="btn btn-primary plans-retry-btn">إعادة المحاولة</button>
     </div>
   </div>
@@ -34,5 +87,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/plansPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/plansPage.js' %}?v=20260422-premium-actions"></script>
 {% endblock %}

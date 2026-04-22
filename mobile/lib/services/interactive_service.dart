@@ -44,7 +44,8 @@ class InteractiveService {
 
   /// جلب المستخدمين المتابعين لي (مزود فقط)
   static Future<ListResult<UserPublicModel>> fetchFollowers() async {
-    final resp = await ApiClient.get('/api/providers/me/followers/');
+    final path = await _withMode('/api/providers/me/followers/');
+    final resp = await ApiClient.get(path);
     if (!resp.isSuccess) {
       return ListResult(error: resp.error ?? 'خطأ في جلب المتابعين');
     }

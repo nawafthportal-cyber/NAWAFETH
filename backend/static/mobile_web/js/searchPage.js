@@ -35,7 +35,7 @@ const SearchPage = (() => {
   let _categoryPickerVisibleIds = [];
   let _categoryPickerHighlightIndex = -1;
 
-  const _quickCategoryLimit = 10;
+  const _quickCategoryLimit = 6;
   const _recentCategoryLimit = 6;
   const _recentCategoryStorageKey = 'nw_search_recent_category_ids';
 
@@ -353,11 +353,33 @@ const SearchPage = (() => {
       }
     }
 
+    // 1) Active category as a prominent dismissable chip (if any)
+    if (_activeCat) {
+      const activeCatObj = _categories.find(c => String(c.id) === String(_activeCat));
+      if (activeCatObj) {
+        const activeChip = _createFilterChip(activeCatObj.name || '', String(activeCatObj.id), true, '');
+        activeChip.classList.add('filter-chip-active-pinned');
+        const x = document.createElement('span');
+        x.className = 'filter-chip-x';
+        x.setAttribute('aria-hidden', 'true');
+        x.textContent = '×';
+        activeChip.appendChild(x);
+        activeChip.setAttribute('aria-label', 'إلغاء تصنيف ' + (activeCatObj.name || ''));
+        // Clicking the active chip clears (handled by existing handler that toggles to '' when same id)
+        activeChip.dataset.catId = '';
+        row.appendChild(activeChip);
+      }
+    }
+
+    // 2) "All" chip
     row.appendChild(_createFilterChip('الكل', '', !_activeCat, ''));
 
+    // 3) Quick category chips
     const quickCategories = _buildQuickCategories(_categories);
     quickCategories.forEach(cat => {
-      row.appendChild(_createFilterChip(cat.name || '', String(cat.id), String(_activeCat) === String(cat.id), ''));
+      // Skip the active one — already shown as pinned dismissable chip
+      if (_activeCat && String(cat.id) === String(_activeCat)) return;
+      row.appendChild(_createFilterChip(cat.name || '', String(cat.id), false, ''));
       _categoriesById.set(String(cat.id), {
         id: cat.id,
         name: String(cat.name || '').trim(),
@@ -371,12 +393,6 @@ const SearchPage = (() => {
         name: String(cat.name || '').trim(),
       });
     });
-
-    if (_categories.length > quickCategories.length) {
-      const moreBtn = _createFilterChip('كل التصنيفات', '', false, 'open-picker');
-      moreBtn.classList.add('filter-chip-more');
-      row.appendChild(moreBtn);
-    }
 
     _syncCategorySummary();
     _renderCategoryPicker();
@@ -520,21 +536,44 @@ const SearchPage = (() => {
     }
 
     const frag = document.createDocumentFragment();
+    const isSearching = !!_normalizeSearchText(_categoryPickerFilter);
+    const recentSet = new Set();
+
+    // Recents section (only shown when not searching)
+    if (!isSearching) {
+      const recentIds = _readRecentCategoryIds();
+      const byId = new Map(_categories.map(c => [String(c.id), c]));
+      const recents = recentIds.map(id => byId.get(String(id))).filter(Boolean);
+      if (recents.length) {
+        frag.appendChild(_makePickerSectionHeader('المستخدمة مؤخراً', recents.length, 'recent'));
+        recents.forEach(cat => {
+          recentSet.add(String(cat.id));
+          frag.appendChild(_makePickerItem(cat));
+        });
+      }
+    }
+
+    // Group remaining by Arabic first letter (or A-Z), excluding ones already shown in recents
+    const groups = new Map();
     filtered.forEach(cat => {
-      const id = String(cat.id || '');
-      const isActive = String(_activeCat || '') === id;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'category-picker-item' + (isActive ? ' is-active' : '');
-      btn.dataset.catId = id;
-      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      btn.appendChild(document.createTextNode(String(cat.name || '').trim() || ('تصنيف ' + id)));
-      const check = document.createElement('span');
-      check.className = 'category-picker-item-check';
-      check.textContent = isActive ? '✓' : '';
-      btn.appendChild(check);
-      frag.appendChild(btn);
+      if (recentSet.has(String(cat.id))) return;
+      const name = String(cat.name || '').trim();
+      const ch = name.charAt(0).toUpperCase() || '#';
+      if (!groups.has(ch)) groups.set(ch, []);
+      groups.get(ch).push(cat);
     });
+
+    // Sort group keys (Arabic locale aware)
+    const sortedKeys = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b, 'ar'));
+    sortedKeys.forEach(letter => {
+      const items = groups.get(letter);
+      frag.appendChild(_makePickerSectionHeader(letter, items.length, 'letter'));
+      items
+        .slice()
+        .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'))
+        .forEach(cat => frag.appendChild(_makePickerItem(cat)));
+    });
+
     _categoryPickerList.appendChild(frag);
 
     if (_categoryPickerHighlightIndex < 0 || _categoryPickerHighlightIndex >= filtered.length) {
@@ -542,6 +581,36 @@ const SearchPage = (() => {
       _categoryPickerHighlightIndex = selectedIndex >= 0 ? selectedIndex : 0;
     }
     _applyCategoryPickerHighlight();
+  }
+
+  function _makePickerSectionHeader(label, count, kind) {
+    const h = document.createElement('div');
+    h.className = 'category-picker-section' + (kind ? ' is-' + kind : '');
+    const lbl = document.createElement('span');
+    lbl.className = 'category-picker-section-label';
+    lbl.textContent = label;
+    const cnt = document.createElement('span');
+    cnt.className = 'category-picker-section-count';
+    cnt.textContent = String(count);
+    h.appendChild(lbl);
+    h.appendChild(cnt);
+    return h;
+  }
+
+  function _makePickerItem(cat) {
+    const id = String(cat.id || '');
+    const isActive = String(_activeCat || '') === id;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'category-picker-item' + (isActive ? ' is-active' : '');
+    btn.dataset.catId = id;
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    btn.appendChild(document.createTextNode(String(cat.name || '').trim() || ('تصنيف ' + id)));
+    const check = document.createElement('span');
+    check.className = 'category-picker-item-check';
+    check.textContent = isActive ? '✓' : '';
+    btn.appendChild(check);
+    return btn;
   }
 
   function _moveCategoryPickerHighlight(delta) {
@@ -577,11 +646,24 @@ const SearchPage = (() => {
 
   function _syncCategorySummary() {
     const selectedName = _selectedCategoryName();
+    const total = _categories.length;
     if (_categorySummary) {
       _categorySummary.textContent = 'التصنيف الحالي: ' + (selectedName || 'الكل');
     }
     if (_categoryOpenBtn) {
       _categoryOpenBtn.setAttribute('title', selectedName ? ('تغيير التصنيف - ' + selectedName) : 'اختيار التصنيف');
+      // Maintain a count badge inside the button (created on demand)
+      let badge = _categoryOpenBtn.querySelector('.search-open-categories-count');
+      if (total > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'search-open-categories-count';
+          _categoryOpenBtn.appendChild(badge);
+        }
+        badge.textContent = String(total);
+      } else if (badge) {
+        badge.remove();
+      }
     }
   }
 
@@ -1299,12 +1381,17 @@ const SearchPage = (() => {
 
     const excellenceItems = UI.normalizeExcellenceBadges(provider.excellence_badges);
     if (excellenceItems.length) {
-      badgesRow.appendChild(
-        UI.el('span', {
+      excellenceItems.forEach((item) => {
+        const label = (item && (item.name || item.code)) || 'شارة تميز';
+        const chip = UI.el('span', {
           className: 'provider-search-badge is-excellence',
-          textContent: excellenceItems[0].name || excellenceItems[0].code || 'شارة تميز',
-        })
-      );
+          textContent: label,
+        });
+        if (item && item.description) {
+          chip.title = item.description;
+        }
+        badgesRow.appendChild(chip);
+      });
     }
 
     if (badgesRow.childNodes.length) {
@@ -1313,22 +1400,8 @@ const SearchPage = (() => {
 
     titleRow.appendChild(nameWrap);
 
+    // Rating/trust pill removed from header — rating is shown in the stats row below.
     const titleAside = UI.el('div', { className: 'provider-search-title-aside' });
-    if (ratingCount > 0 || completed > 0) {
-      const trust = UI.el('span', { className: 'provider-search-trust' });
-      const trustIcon = UI.el('span', { className: 'provider-search-trust-icon' });
-      trustIcon.appendChild(_tinyIcon(ratingCount > 0 ? 'spark' : 'done', ratingCount > 0 ? '#F59E0B' : '#0f766e', 14));
-      trust.appendChild(trustIcon);
-      const trustCopy = UI.el('span', { className: 'provider-search-trust-copy' });
-      trustCopy.appendChild(UI.el('strong', {
-        textContent: ratingCount > 0 ? ratingLabel : String(completed),
-      }));
-      trustCopy.appendChild(UI.el('span', {
-        textContent: ratingCount > 0 ? (ratingCount + ' تقييم') : 'مهمة مكتملة',
-      }));
-      trust.appendChild(trustCopy);
-      titleAside.appendChild(trust);
-    }
     if (titleAside.childNodes.length) {
       titleRow.appendChild(titleAside);
     }

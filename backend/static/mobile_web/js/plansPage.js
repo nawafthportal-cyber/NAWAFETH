@@ -410,12 +410,13 @@ const PlansPage = (() => {
             <tbody>
               ${rowsMarkup}
             </tbody>
+            <tfoot>
+              <tr class="subs-compare-actions-row">
+                <th scope="row" class="subs-compare-action-label">اختيار الباقة</th>
+                ${plans.map((plan) => `<td class="subs-action-cell">${_buildActionCell(plan)}</td>`).join('')}
+              </tr>
+            </tfoot>
           </table>
-        </div>
-
-        <div class="subs-actions-grid subs-actions-grid-${plans.length}">
-          <div class="subs-actions-spacer"></div>
-          ${plans.map((plan) => `<div class="subs-action-slot">${_buildActionCell(plan)}</div>`).join('')}
         </div>
 
         <p class="subs-compare-helper">بالضغط على ترقية سيتم الانتقال إلى صفحة ملخص طلب الاشتراك والرسوم.</p>

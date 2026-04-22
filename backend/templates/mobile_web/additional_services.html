@@ -2,6 +2,102 @@
 {% block title %}الخدمات الإضافية — نوافــذ{% endblock %}
 {% block body_class %}page-additional-services page-additional-services-premium{% endblock %}
 
+{% block extra_css %}
+<style>
+  body.page-additional-services-premium .as-page,
+  body.page-additional-services-premium .as-page *,
+  body.page-additional-services-premium .as-page *::before,
+  body.page-additional-services-premium .as-page *::after{box-sizing:border-box}
+  body.page-additional-services-premium .as-page,
+  body.page-additional-services-premium .as-page :is(.detail-card,.as-wizard-card,.as-section-panel,.as-summary-panel,.as-card,form){max-width:100%;min-width:0}
+  body.page-additional-services-premium .as-title-wrap,
+  body.page-additional-services-premium .as-option-item span,
+  body.page-additional-services-premium .as-summary-card li,
+  body.page-additional-services-premium .as-note{min-width:0;overflow-wrap:anywhere}
+  body.page-additional-services-premium :is(.as-inline-fields input,.as-notes-field textarea){max-width:100%}
+
+  @media (max-width:640px){
+    body.page-additional-services-premium .page-shell.as-page{width:100%;padding-inline:10px;padding-bottom:calc(var(--bottom-nav-height,84px) + env(safe-area-inset-bottom,0px) + 18px);overflow-x:hidden}
+    body.page-additional-services-premium .as-page .page-header{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:8px;margin-bottom:10px}
+    body.page-additional-services-premium .as-page .page-header h1{min-width:0;font-size:20px;line-height:1.3;text-align:center;white-space:normal}
+    body.page-additional-services-premium .as-page :is(.btn-back,.btn-icon){width:42px;height:42px;min-width:42px;border-radius:14px}
+
+    body.page-additional-services-premium .as-hero{padding:14px 12px;border-radius:18px;gap:10px}
+    body.page-additional-services-premium .as-hero h2{font-size:18px;line-height:1.35}
+    body.page-additional-services-premium .as-hero p{font-size:12.5px;line-height:1.75}
+    body.page-additional-services-premium .as-hero-points{gap:7px}
+    body.page-additional-services-premium .as-hero-points li{font-size:11.5px;line-height:1.6}
+    body.page-additional-services-premium .as-hero-badge{align-self:flex-start;white-space:nowrap}
+
+    body.page-additional-services-premium .as-provider-strip{display:grid;grid-template-columns:1fr;align-items:start;gap:6px;padding:12px;border-radius:16px}
+    body.page-additional-services-premium .as-provider-value{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+
+    body.page-additional-services-premium .as-wizard-card,
+    body.page-additional-services-premium .as-block{padding:12px;border-radius:18px}
+    body.page-additional-services-premium .as-wizard-head{margin-bottom:10px}
+    body.page-additional-services-premium .as-wizard-head h3{font-size:16px;line-height:1.45}
+    body.page-additional-services-premium .as-wizard-head p{font-size:12px;line-height:1.7}
+
+    body.page-additional-services-premium .as-main-cards{display:flex;grid-template-columns:none;gap:8px;margin:0 -2px 12px;padding:2px 2px 8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+    body.page-additional-services-premium .as-main-cards::-webkit-scrollbar{height:0}
+    body.page-additional-services-premium .as-main-card{flex:0 0 min(72vw,220px);min-height:64px;padding:10px 12px;border-radius:15px;scroll-snap-align:start;flex-direction:row;align-items:center;justify-content:space-between;text-align:right}
+    body.page-additional-services-premium .as-main-card-title{font-size:13px;line-height:1.35}
+    body.page-additional-services-premium .as-main-card-count{width:30px;min-width:30px;height:30px}
+
+    body.page-additional-services-premium .as-section-panel,
+    body.page-additional-services-premium .as-summary-panel{padding:11px;border-radius:15px}
+    body.page-additional-services-premium .as-section-head{flex-wrap:wrap;align-items:stretch;gap:8px}
+    body.page-additional-services-premium .as-enable-toggle{width:100%;min-height:44px;padding:10px 11px;border:1px solid #D8E4ED;border-radius:13px;background:#F8FBFD;font-size:12.5px;line-height:1.5}
+    body.page-additional-services-premium .as-enable-toggle input{width:18px;height:18px;flex:0 0 18px}
+    body.page-additional-services-premium .as-counter{justify-self:start;font-size:11.5px}
+
+    body.page-additional-services-premium .as-options-grid{gap:8px}
+    body.page-additional-services-premium .as-option-item{min-height:46px;align-items:center;padding:10px 11px;border-radius:13px;font-size:12.5px;line-height:1.55}
+    body.page-additional-services-premium .as-option-item input{width:18px;height:18px;flex:0 0 18px;margin-top:0}
+    body.page-additional-services-premium .as-coming-soon-badge{margin-right:0;margin-inline-start:auto;flex:0 0 auto}
+
+    body.page-additional-services-premium .as-inline-fields{grid-template-columns:1fr;gap:9px}
+    body.page-additional-services-premium .as-inline-fields label,
+    body.page-additional-services-premium .as-notes-field{gap:7px}
+    body.page-additional-services-premium .as-inline-fields input,
+    body.page-additional-services-premium .as-notes-field textarea{min-height:44px;border-radius:12px;font-size:16px}
+    body.page-additional-services-premium .as-notes-field textarea{min-height:112px;resize:vertical}
+
+    body.page-additional-services-premium .as-summary-card{padding:10px;border-radius:13px}
+    body.page-additional-services-premium .as-summary-card ul{padding-inline-start:16px}
+    body.page-additional-services-premium .as-inline-alert{font-size:12px;line-height:1.7}
+    body.page-additional-services-premium .as-wizard-actions{display:grid;grid-template-columns:1fr;gap:8px}
+    body.page-additional-services-premium .as-wizard-actions .btn-primary,
+    body.page-additional-services-premium .as-wizard-actions .btn-outline{width:100%;min-height:46px;font-size:13.5px;border-radius:13px}
+
+    body.page-additional-services-premium .as-block-head{align-items:flex-start;gap:8px}
+    body.page-additional-services-premium .as-block-head h3{font-size:15px}
+    body.page-additional-services-premium .as-card{padding:11px;border-radius:15px}
+    body.page-additional-services-premium .as-card-head{flex-wrap:wrap;align-items:flex-start}
+    body.page-additional-services-premium .as-title-wrap strong{white-space:normal;line-height:1.55}
+    body.page-additional-services-premium .as-card-head-side{width:100%;justify-content:space-between}
+    body.page-additional-services-premium .as-card-footer{display:grid;grid-template-columns:1fr;align-items:stretch}
+    body.page-additional-services-premium .as-buy-btn{width:100%;min-height:44px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+    body.page-additional-services-premium .as-meta-row{align-items:flex-start;gap:4px}
+    body.page-additional-services-premium .as-meta-row b{text-align:left;overflow-wrap:anywhere}
+    body.page-additional-services-premium .as-section-item{padding:9px;border-radius:12px}
+
+    body.page-additional-services-premium .as-success-modal{align-items:flex-end;padding:0}
+    body.page-additional-services-premium .as-success-dialog{width:100%;max-width:none;border-width:0;border-top:3px solid #F97316;border-radius:20px 20px 0 0;padding:12px 12px calc(env(safe-area-inset-bottom,0px) + 16px)}
+    body.page-additional-services-premium .as-success-dialog-head{border-radius:16px;font-size:16px}
+    body.page-additional-services-premium .as-success-dialog-body{border-radius:14px}
+    body.page-additional-services-premium .as-success-close-btn{width:100%;min-height:46px}
+  }
+
+  @media (max-width:380px){
+    body.page-additional-services-premium .page-shell.as-page{padding-inline:8px}
+    body.page-additional-services-premium .as-main-card{flex-basis:min(78vw,210px)}
+    body.page-additional-services-premium .as-hero h2{font-size:16px}
+    body.page-additional-services-premium .as-option-item{font-size:12px}
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="page-shell as-page">
   <div class="page-header">

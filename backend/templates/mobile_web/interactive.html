@@ -5,16 +5,492 @@
 {% block nav_interactive %}active{% endblock %}
 {% block bnav_interactive %}active{% endblock %}
 {% block sidebar_interactive %}active{% endblock %}
-{% block body_class %}page-interactive{% endblock %}
+{% block body_class %}page-interactive page-interactive-x{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}?v=20260421-tiktok-viewer">
+<style>
+/* ===========================================================
+   Interactive page redesign — creative, dense, 500+ items
+   Scoped under .page-interactive-x to override existing styles.
+   =========================================================== */
+:root {
+  --inx-accent: var(--color-primary, #673AB7);
+  --inx-accent-strong: var(--color-primary-dark, #512DA8);
+  --inx-accent-soft: rgba(103, 58, 183, 0.12);
+  --inx-warm: var(--color-accent, #F1A559);
+  --inx-rose: #d45d8f;
+  --inx-violet: #8a63d2;
+  --inx-ink: var(--color-text, #1A1A2E);
+  --inx-ink-2: var(--color-text-secondary, #666680);
+  --inx-line: var(--color-border, rgba(0, 0, 0, 0.06));
+  --inx-card-bg: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
+  --inx-shadow-sm: 0 4px 12px -6px rgba(15, 23, 42, 0.16);
+  --inx-shadow-md: 0 16px 36px -18px rgba(15, 23, 42, 0.22);
+  --inx-shadow-lg: 0 26px 60px -28px rgba(103, 58, 183, 0.38);
+  --inx-hero-grad-start: #3f2a76;
+  --inx-hero-grad-mid: #512DA8;
+  --inx-hero-grad-end: #673AB7;
+  --inx-hero-orb-primary: rgba(103, 58, 183, 0.48);
+  --inx-hero-orb-accent: rgba(241, 165, 89, 0.42);
+}
+
+/* ---------- Hero ---------- */
+.page-interactive-x .interactive-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 22px 18px 26px;
+  margin: 8px 0 16px;
+  border-radius: 26px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(241, 165, 89, 0.24), transparent 55%),
+    radial-gradient(120% 140% at 100% 0%, rgba(103, 58, 183, 0.24), transparent 55%),
+    linear-gradient(135deg, var(--inx-hero-grad-start) 0%, var(--inx-hero-grad-mid) 40%, var(--inx-hero-grad-end) 100%);
+  color: #f4fbfb;
+  isolation: isolate;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--inx-shadow-lg);
+}
+.page-interactive-x .interactive-hero::before,
+.page-interactive-x .interactive-hero::after {
+  content: "";
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.55;
+  z-index: -1;
+  animation: inxOrbA 14s ease-in-out infinite;
+}
+.page-interactive-x .interactive-hero::before {
+  top: -60px;
+  inset-inline-end: -50px;
+  background: radial-gradient(circle, var(--inx-hero-orb-accent), transparent 65%);
+}
+.page-interactive-x .interactive-hero::after {
+  bottom: -90px;
+  inset-inline-start: -60px;
+  background: radial-gradient(circle, var(--inx-hero-orb-primary), transparent 65%);
+  animation-name: inxOrbB;
+  animation-duration: 18s;
+}
+@keyframes inxOrbA { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(-12px,16px) scale(1.08);} }
+@keyframes inxOrbB { 0%,100%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(18px,-14px) scale(1.1);} }
+
+.page-interactive-x .interactive-hero-copy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.page-interactive-x .interactive-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #ecfeff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  backdrop-filter: blur(6px);
+}
+.page-interactive-x .interactive-kicker::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--inx-warm);
+  box-shadow: 0 0 0 4px rgba(241, 165, 89, 0.28);
+  animation: inxPulse 1.8s ease-in-out infinite;
+}
+@keyframes inxPulse { 0%,100%{transform:scale(1);opacity:1;} 50%{transform:scale(1.2);opacity:0.6;} }
+
+.page-interactive-x .interactive-hero-title {
+  margin: 0;
+  font-family: 'Cairo', sans-serif;
+  font-size: clamp(24px, 5.5vw, 32px);
+  font-weight: 900;
+  line-height: 1.15;
+  letter-spacing: -0.4px;
+  background: linear-gradient(95deg, #ffffff 0%, #ede6ff 38%, #ffd9b0 72%, #ffffff 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  animation: inxTitleShimmer 7s linear infinite;
+}
+@keyframes inxTitleShimmer { to { background-position: -220% 0; } }
+
+/* Mini summary stats inside hero */
+.page-interactive-x .interactive-hero-summary {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.page-interactive-x .interactive-hero-summary-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+  transition: transform .25s ease, background .25s ease;
+}
+.page-interactive-x .interactive-hero-summary-item:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.16);
+}
+.page-interactive-x .interactive-hero-summary-item::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #f8d7b4, var(--inx-warm));
+  opacity: 0.85;
+}
+.page-interactive-x .interactive-hero-summary-item[data-tab="followers"]::before { background: linear-gradient(180deg, #ddd1ff, var(--inx-accent)); }
+.page-interactive-x .interactive-hero-summary-item[data-tab="favorites"]::before { background: linear-gradient(180deg, #f8d7b4, var(--inx-warm)); }
+.page-interactive-x .interactive-hero-summary-num {
+  font-family: 'Cairo', sans-serif;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+.page-interactive-x .interactive-hero-summary-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* ---------- Sticky tabs bar ---------- */
+.page-interactive-x .interactive-overview-card {
+  position: sticky;
+  top: 8px;
+  z-index: 30;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: saturate(160%) blur(14px);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 12px 30px -22px rgba(15, 23, 42, 0.35);
+}
+.page-interactive-x .interactive-tabs-heading { display: none; }
+
+.page-interactive-x .interactive-tabs-shell {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.page-interactive-x #interact-tabs.tabs-row {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(103, 58, 183, 0.08), rgba(103, 58, 183, 0.03));
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.page-interactive-x #interact-tabs.tabs-row::-webkit-scrollbar { display: none; }
+
+.page-interactive-x .interactive-tab-btn {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 96px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--inx-ink);
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: color .18s ease, transform .18s ease;
+}
+.page-interactive-x .interactive-tab-btn:hover { color: var(--inx-accent-strong); }
+.page-interactive-x .interactive-tab-btn.active {
+  color: #fff;
+  background: linear-gradient(135deg, #4a2f94, #5e35b1 55%, #7e57c2);
+  box-shadow:
+    0 12px 22px -10px rgba(103, 58, 183, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+.page-interactive-x .interactive-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  background: rgba(103, 58, 183, 0.10);
+  color: var(--inx-accent-strong);
+  transition: background .18s ease, color .18s ease;
+}
+.page-interactive-x .interactive-tab-btn.active .interactive-tab-icon {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.page-interactive-x .interactive-tab-icon svg { width: 14px; height: 14px; }
+
+/* Per-tab count badge appended dynamically */
+.page-interactive-x .interactive-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(103, 58, 183, 0.14);
+  color: var(--inx-accent-strong);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transition: background .18s ease, color .18s ease;
+}
+.page-interactive-x .interactive-tab-btn.active .interactive-tab-count {
+  background: rgba(255, 255, 255, 0.26);
+  color: #fff;
+}
+
+/* ---------- Panel toolbar (search + density + counter) ---------- */
+.page-interactive-x .interactive-panel-shell {
+  background: var(--inx-card-bg);
+  border-radius: 22px;
+  border: 1px solid var(--inx-line);
+  padding: 14px;
+  box-shadow: var(--inx-shadow-sm);
+  margin-bottom: 16px;
+}
+.page-interactive-x .interactive-panel-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px dashed rgba(15, 23, 42, 0.08);
+}
+.page-interactive-x .interactive-panel-head > div:first-child { flex: 1 1 auto; min-width: 0; }
+.page-interactive-x .interactive-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: 'Cairo', sans-serif;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--inx-ink);
+}
+.page-interactive-x .interactive-panel-title::before {
+  content: "";
+  width: 4px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--inx-accent), #7e57c2);
+}
+.page-interactive-x .interactive-panel-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--inx-ink-2);
+  font-weight: 600;
+}
+
+.page-interactive-x .interactive-panel-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+}
+.page-interactive-x .inx-search {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.page-interactive-x .inx-search input {
+  width: 100%;
+  height: 40px;
+  padding: 0 38px 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  background: #f8fafc;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  color: var(--inx-ink);
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+[dir="rtl"] .page-interactive-x .inx-search input { padding: 0 14px 0 38px; }
+.page-interactive-x .inx-search input::placeholder { color: #94a3b8; font-weight: 600; }
+.page-interactive-x .inx-search input:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: rgba(103, 58, 183, 0.45);
+  box-shadow: 0 0 0 4px rgba(103, 58, 183, 0.14);
+}
+.page-interactive-x .inx-search-icon {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 12px;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  pointer-events: none;
+}
+[dir="rtl"] .page-interactive-x .inx-search-icon { inset-inline-end: 12px; inset-inline-start: auto; }
+
+.page-interactive-x .inx-density {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 12px;
+  background: #eef2f7;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+.page-interactive-x .inx-density button {
+  width: 36px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  border-radius: 9px;
+  color: #64748b;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+}
+.page-interactive-x .inx-density button.is-on {
+  background: #ffffff;
+  color: var(--inx-accent-strong);
+  box-shadow: var(--inx-shadow-sm);
+}
+.page-interactive-x .inx-density svg { width: 16px; height: 16px; }
+
+.page-interactive-x .inx-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--inx-accent-soft);
+  color: var(--inx-accent-strong);
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.page-interactive-x .inx-counter b { font-weight: 900; }
+.page-interactive-x .inx-counter .inx-counter-sep { opacity: 0.5; }
+
+/* ---------- Grids (default + compact density) ---------- */
+.page-interactive-x .interactive-following-grid,
+.page-interactive-x .interactive-followers-list,
+.page-interactive-x .interactive-favorites-host {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+}
+.page-interactive-x [data-density="compact"] .interactive-following-grid,
+.page-interactive-x [data-density="compact"] .interactive-followers-list,
+.page-interactive-x [data-density="compact"] .interactive-favorites-host {
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+}
+
+/* When user filters out an item via search */
+.page-interactive-x .inx-hidden-by-filter { display: none !important; }
+
+/* Empty state when filter removes everything */
+.page-interactive-x .inx-no-match {
+  grid-column: 1 / -1;
+  padding: 28px 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(15, 23, 42, 0.12);
+  background: #f8fafc;
+  text-align: center;
+  color: var(--inx-ink-2);
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+}
+.page-interactive-x .inx-no-match strong { color: var(--inx-accent-strong); }
+
+/* Slight entrance animation for newly rendered cards */
+.page-interactive-x .interactive-following-card,
+.page-interactive-x .interactive-follower-tile,
+.page-interactive-x .interactive-favorite-card {
+  animation: inxCardIn .35s ease both;
+}
+@keyframes inxCardIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .page-interactive-x .interactive-hero::before,
+  .page-interactive-x .interactive-hero::after,
+  .page-interactive-x .interactive-hero-title,
+  .page-interactive-x .interactive-kicker::before,
+  .page-interactive-x .interactive-following-card,
+  .page-interactive-x .interactive-follower-tile,
+  .page-interactive-x .interactive-favorite-card {
+    animation: none !important;
+  }
+}
+
+/* Small screens */
+@media (max-width: 480px) {
+  .page-interactive-x .interactive-hero { padding: 18px 14px 22px; border-radius: 20px; }
+  .page-interactive-x .interactive-hero-summary-num { font-size: 18px; }
+  .page-interactive-x .interactive-overview-card { top: 4px; padding: 8px; border-radius: 18px; }
+  .page-interactive-x .interactive-tab-btn { min-width: 80px; height: 40px; font-size: 12px; padding: 0 10px; }
+  .page-interactive-x .interactive-tab-label { display: none; }
+  .page-interactive-x .interactive-tab-btn.active .interactive-tab-label { display: inline; }
+  .page-interactive-x .inx-density { display: none; }
+  .page-interactive-x .interactive-panel-shell { padding: 12px; border-radius: 18px; }
+  .page-interactive-x .interactive-following-grid,
+  .page-interactive-x .interactive-followers-list,
+  .page-interactive-x .interactive-favorites-host {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 {% endblock %}
 
 {% block content %}
 <main class="page-content">
   <div class="container">
-    <div class="interactive-root">
+    <div class="interactive-root" data-density="normal">
       {% include "mobile_web/_auth_gate_unified.html" with gate_id="auth-gate" kicker="شبكة تفاعلك" title="سجّل دخولك لعرض تفاعلي" description="يلزم تسجيل الدخول للوصول إلى المتابعة، المتابعين، والمفضلة." next_path="/interactive/" note="تابع المهتمين بك ووسائطك المفضلة من مكان واحد." %}
 
       <!-- Content -->
@@ -22,7 +498,21 @@
         <section class="interactive-hero">
           <div class="interactive-hero-copy">
             <span class="interactive-kicker">لوحة تفاعلك</span>
-            <h1 class="interactive-hero-title">تفاعلي</h1>
+            <h1 class="interactive-hero-title">شبكتك التفاعلية</h1>
+          </div>
+          <div class="interactive-hero-summary" id="interactive-hero-summary" aria-hidden="false">
+            <div class="interactive-hero-summary-item" data-tab="following">
+              <span class="interactive-hero-summary-num" data-summary-for="following">0</span>
+              <span class="interactive-hero-summary-label">من أتابع</span>
+            </div>
+            <div class="interactive-hero-summary-item" data-tab="followers" id="interactive-hero-summary-followers">
+              <span class="interactive-hero-summary-num" data-summary-for="followers">0</span>
+              <span class="interactive-hero-summary-label">متابعيني</span>
+            </div>
+            <div class="interactive-hero-summary-item" data-tab="favorites">
+              <span class="interactive-hero-summary-num" data-summary-for="favorites">0</span>
+              <span class="interactive-hero-summary-label">مفضلتي</span>
+            </div>
           </div>
         </section>
 
@@ -61,7 +551,7 @@
           <div class="interactive-tabs-heading">
             <div class="interactive-tabs-copy">
               <span class="interactive-tabs-kicker">إدارة التفاعل</span>
-             </div>
+            </div>
             <p class="interactive-tabs-note">بدّل بين الأقسام للوصول السريع إلى الأشخاص والوسائط التي تهمك.</p>
           </div>
 
@@ -71,31 +561,68 @@
         </section>
 
         <!-- Following tab -->
-        <section id="tab-following" class="tab-panel active interactive-panel-shell">
+        <section id="tab-following" class="tab-panel active interactive-panel-shell" data-panel-key="following">
           <div class="interactive-panel-head">
             <div>
               <h3 class="interactive-panel-title">من أتابع</h3>
-             </div>
+              <p class="interactive-panel-subtitle">مزودو الخدمة والأشخاص الذين تتابع نشاطهم.</p>
+            </div>
+            <div class="interactive-panel-toolbar">
+              <label class="inx-search" aria-label="ابحث في من أتابع">
+                <input type="search" placeholder="ابحث بالاسم أو المدينة…" data-inx-search="following" autocomplete="off" />
+                <svg class="inx-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              </label>
+              <span class="inx-counter" id="inx-counter-following" aria-live="polite">
+                <b data-counter-visible="following">0</b><span class="inx-counter-sep">/</span><b data-counter-total="following">0</b>
+              </span>
+              <div class="inx-density" role="group" aria-label="كثافة العرض">
+                <button type="button" data-density-btn="normal" class="is-on" title="عرض شبكي" aria-label="عرض شبكي">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                </button>
+                <button type="button" data-density-btn="compact" title="عرض مدمج" aria-label="عرض مدمج">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="4.5" height="4.5" rx="1"/><rect x="9.75" y="3" width="4.5" height="4.5" rx="1"/><rect x="16.5" y="3" width="4.5" height="4.5" rx="1"/><rect x="3" y="9.75" width="4.5" height="4.5" rx="1"/><rect x="9.75" y="9.75" width="4.5" height="4.5" rx="1"/><rect x="16.5" y="9.75" width="4.5" height="4.5" rx="1"/><rect x="3" y="16.5" width="4.5" height="4.5" rx="1"/><rect x="9.75" y="16.5" width="4.5" height="4.5" rx="1"/><rect x="16.5" y="16.5" width="4.5" height="4.5" rx="1"/></svg>
+                </button>
+              </div>
+            </div>
           </div>
           <div class="interactive-following-grid" id="following-list"></div>
         </section>
 
         <!-- Followers tab (provider mode only) -->
-        <section id="tab-followers" class="tab-panel interactive-panel-shell">
+        <section id="tab-followers" class="tab-panel interactive-panel-shell" data-panel-key="followers">
           <div class="interactive-panel-head">
             <div>
               <h3 class="interactive-panel-title">متابعيني</h3>
+              <p class="interactive-panel-subtitle">العملاء والأشخاص الذين يتابعون ملفك.</p>
+            </div>
+            <div class="interactive-panel-toolbar">
+              <label class="inx-search" aria-label="ابحث في المتابعين">
+                <input type="search" placeholder="ابحث بالاسم…" data-inx-search="followers" autocomplete="off" />
+                <svg class="inx-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              </label>
+              <span class="inx-counter" id="inx-counter-followers" aria-live="polite">
+                <b data-counter-visible="followers">0</b><span class="inx-counter-sep">/</span><b data-counter-total="followers">0</b>
+              </span>
             </div>
           </div>
           <div class="interactive-followers-list" id="followers-list"></div>
         </section>
 
         <!-- Favorites tab -->
-        <section id="tab-favorites" class="tab-panel interactive-panel-shell">
+        <section id="tab-favorites" class="tab-panel interactive-panel-shell" data-panel-key="favorites">
           <div class="interactive-panel-head">
             <div>
               <h3 class="interactive-panel-title">مفضلتي</h3>
               <p class="interactive-panel-subtitle">الريلز والوسائط التي احتفظت بها للرجوع إليها بسرعة.</p>
+            </div>
+            <div class="interactive-panel-toolbar">
+              <label class="inx-search" aria-label="ابحث في المفضلة">
+                <input type="search" placeholder="ابحث في المفضلة…" data-inx-search="favorites" autocomplete="off" />
+                <svg class="inx-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              </label>
+              <span class="inx-counter" id="inx-counter-favorites" aria-live="polite">
+                <b data-counter-visible="favorites">0</b><span class="inx-counter-sep">/</span><b data-counter-total="favorites">0</b>
+              </span>
             </div>
           </div>
           <div class="interactive-favorites-host" id="favorites-list"></div>
@@ -108,5 +635,196 @@
 
 {% block extra_js %}
 <script src="{% static 'mobile_web/js/spotlightViewer.js' %}?v=20260421-tiktok-viewer"></script>
-<script src="{% static 'mobile_web/js/interactivePage.js' %}?v=20260405-interactive"></script>
+<script src="{% static 'mobile_web/js/interactivePage.js' %}?v=20260422-interactive-fix"></script>
+<script>
+/* ===========================================================
+   Interactive page enhancements: search, density, counters, tab badges.
+   Operates entirely on the rendered DOM produced by interactivePage.js.
+   =========================================================== */
+(function () {
+  'use strict';
+
+  var TAB_TO_LIST = {
+    following: 'following-list',
+    followers: 'followers-list',
+    favorites: 'favorites-list'
+  };
+
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $all(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+
+  function debounce(fn, wait) {
+    var t;
+    return function () {
+      var ctx = this, args = arguments;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(ctx, args); }, wait);
+    };
+  }
+
+  function itemSelectorForTab(tabKey) {
+    if (tabKey === 'following') return '.interactive-following-card';
+    if (tabKey === 'followers') return '.interactive-follower-tile';
+    if (tabKey === 'favorites') return '.interactive-favorite-card, .interactive-favorite-reel';
+    return '';
+  }
+
+  function getItems(listEl, tabKey) {
+    if (!listEl) return [];
+    var selector = itemSelectorForTab(tabKey);
+    if (!selector) return [];
+    return Array.prototype.slice.call(listEl.querySelectorAll(selector)).filter(function (c) {
+      return c.nodeType === 1 && !c.classList.contains('inx-no-match');
+    });
+  }
+
+  function getItemSearchText(el) {
+    if (!el) return '';
+    if (el.dataset && el.dataset.inxSearchText) return el.dataset.inxSearchText;
+    var txt = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    if (el.dataset) el.dataset.inxSearchText = txt;
+    return txt;
+  }
+
+  function ensureNoMatch(listEl, tabKey) {
+    var nm = listEl.querySelector('.inx-no-match');
+    if (!nm) {
+      nm = document.createElement('div');
+      nm.className = 'inx-no-match';
+      nm.innerHTML = 'لا توجد نتائج تطابق بحثك. <strong>جرّب كلمة أخرى.</strong>';
+      listEl.appendChild(nm);
+    }
+    return nm;
+  }
+
+  function applyFilter(tabKey) {
+    var listEl = document.getElementById(TAB_TO_LIST[tabKey]);
+    if (!listEl) return;
+    var input = document.querySelector('[data-inx-search="' + tabKey + '"]');
+    var q = (input && input.value || '').trim().toLowerCase();
+    var items = getItems(listEl, tabKey);
+    var visible = 0;
+    items.forEach(function (el) {
+      // Reset cached text if cards were re-rendered
+      if (el.dataset && !el.dataset.inxSearchText) getItemSearchText(el);
+      var match = !q || getItemSearchText(el).indexOf(q) !== -1;
+      el.classList.toggle('inx-hidden-by-filter', !match);
+      if (match) visible++;
+    });
+    var nm = ensureNoMatch(listEl, tabKey);
+    nm.style.display = (q && visible === 0) ? '' : 'none';
+    updateCounters(tabKey, visible, items.length);
+  }
+
+  function updateCounters(tabKey, visible, total) {
+    var v = document.querySelector('[data-counter-visible="' + tabKey + '"]');
+    var t = document.querySelector('[data-counter-total="' + tabKey + '"]');
+    if (v) v.textContent = String(visible);
+    if (t) t.textContent = String(total);
+
+    // Hero summary
+    var summary = document.querySelector('[data-summary-for="' + tabKey + '"]');
+    if (summary) summary.textContent = String(total);
+
+    // Tab badge
+    syncTabBadge(tabKey, total);
+  }
+
+  function syncTabBadge(tabKey, total) {
+    var btn = document.querySelector('#interact-tabs .tab-btn[data-tab="' + tabKey + '"]');
+    if (!btn) return;
+    var badge = btn.querySelector('.interactive-tab-count');
+    if (total > 0) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'interactive-tab-count';
+        btn.appendChild(badge);
+      }
+      badge.textContent = total > 999 ? '999+' : String(total);
+    } else if (badge) {
+      badge.remove();
+    }
+  }
+
+  function recountAll() {
+    Object.keys(TAB_TO_LIST).forEach(function (tabKey) {
+      var listEl = document.getElementById(TAB_TO_LIST[tabKey]);
+      if (!listEl) return;
+      // Drop cached search text in case items were re-rendered
+      $all('[data-inx-search-text]', listEl).forEach(function (el) {
+        delete el.dataset.inxSearchText;
+      });
+      applyFilter(tabKey);
+    });
+  }
+
+  function bindSearch() {
+    $all('[data-inx-search]').forEach(function (input) {
+      var tabKey = input.getAttribute('data-inx-search');
+      var run = debounce(function () { applyFilter(tabKey); }, 120);
+      input.addEventListener('input', run);
+    });
+  }
+
+  function bindDensity() {
+    var root = document.querySelector('.interactive-root');
+    if (!root) return;
+    $all('[data-density-btn]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var mode = btn.getAttribute('data-density-btn') || 'normal';
+        root.setAttribute('data-density', mode);
+        $all('[data-density-btn]').forEach(function (b) {
+          b.classList.toggle('is-on', b.getAttribute('data-density-btn') === mode);
+        });
+        try { localStorage.setItem('inx_density', mode); } catch (e) {}
+      });
+    });
+    try {
+      var saved = localStorage.getItem('inx_density');
+      if (saved === 'compact') {
+        var b = document.querySelector('[data-density-btn="compact"]');
+        if (b) b.click();
+      }
+    } catch (e) {}
+  }
+
+  function watchLists() {
+    Object.keys(TAB_TO_LIST).forEach(function (tabKey) {
+      var listEl = document.getElementById(TAB_TO_LIST[tabKey]);
+      if (!listEl) return;
+      var mo = new MutationObserver(debounce(function () { applyFilter(tabKey); }, 80));
+      mo.observe(listEl, { childList: true });
+    });
+  }
+
+  function hideFollowersSummaryIfClient() {
+    // interactivePage.js hides #tab-followers panel for client mode by adding .hidden
+    var followersPanel = document.getElementById('tab-followers');
+    var followersSummary = document.getElementById('interactive-hero-summary-followers');
+    if (!followersSummary || !followersPanel) return;
+    var apply = function () {
+      followersSummary.style.display = followersPanel.classList.contains('hidden') ? 'none' : '';
+    };
+    apply();
+    var mo = new MutationObserver(apply);
+    mo.observe(followersPanel, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  function init() {
+    bindSearch();
+    bindDensity();
+    watchLists();
+    hideFollowersSummaryIfClient();
+    // Initial pass after a moment so interactivePage.js has finished
+    setTimeout(recountAll, 400);
+    setTimeout(recountAll, 1500);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
 {% endblock %}

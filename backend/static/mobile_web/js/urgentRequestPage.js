@@ -684,9 +684,10 @@ const UrgentRequestPage = (() => {
   function ensureMap() {
     if (state.map || typeof L === 'undefined' || !dom['ur-map-canvas']) return;
     state.map = L.map(dom['ur-map-canvas'], { scrollWheelZoom: false, zoomControl: true }).setView([24.7136, 46.6753], 10);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
-      maxZoom: 18,
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19,
     }).addTo(state.map);
     setTimeout(() => state.map?.invalidateSize(), 250);
   }

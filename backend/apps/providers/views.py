@@ -950,7 +950,7 @@ class MyLikedProvidersView(generics.ListAPIView):
 
 
 class MyProviderFollowersView(generics.ListAPIView):
-	"""Users who follow the current user's provider profile (if exists)."""
+	"""Users who follow the current user's provider profile (role-scoped)."""
 	serializer_class = ProviderFollowerSerializer
 	permission_classes = [IsAtLeastProvider]
 
@@ -958,9 +958,13 @@ class MyProviderFollowersView(generics.ListAPIView):
 		provider_profile = getattr(self.request.user, "provider_profile", None)
 		if not provider_profile:
 			return ProviderFollow.objects.none()
+		role = get_active_role(self.request, fallback="provider")
 
 		return (
-			ProviderFollow.objects.filter(provider=provider_profile)
+			ProviderFollow.objects.filter(
+				provider=provider_profile,
+				role_context=role,
+			)
 			.select_related("user", "user__provider_profile")
 			.order_by("-created_at", "-id")
 		)

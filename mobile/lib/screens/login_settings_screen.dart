@@ -189,7 +189,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
     required String newPassword,
     required String confirmPassword,
   }) async {
-    if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
+    if (currentPassword.isEmpty ||
+        newPassword.isEmpty ||
+        confirmPassword.isEmpty) {
       _snack('يرجى تعبئة جميع حقول كلمة المرور');
       return;
     }
@@ -218,9 +220,50 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
           message,
           style: const TextStyle(fontFamily: 'Cairo'),
         ),
-        backgroundColor: success ? const Color(0xFF1B8A5A) : Colors.red.shade700,
+        backgroundColor:
+            success ? const Color(0xFF1B8A5A) : Colors.red.shade700,
       ),
     );
+  }
+
+  String? _firstApiMessage(dynamic value) {
+    if (value == null) return null;
+    if (value is String) {
+      final text = value.trim();
+      return text.isEmpty ? null : text;
+    }
+    if (value is num || value is bool) {
+      return value.toString();
+    }
+    if (value is List) {
+      for (final item in value) {
+        final message = _firstApiMessage(item);
+        if (message != null) return message;
+      }
+      return null;
+    }
+    if (value is Map) {
+      for (final key in const ['detail', 'message', 'error']) {
+        final message = _firstApiMessage(value[key]);
+        if (message != null) return message;
+      }
+      for (final entry in value.entries) {
+        final message = _firstApiMessage(entry.value);
+        if (message != null) return message;
+      }
+      return null;
+    }
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  String _apiErrorMessage(dynamic response, String fallback) {
+    final data = response.dataAsMap;
+    final parsed = _firstApiMessage(data);
+    if (parsed != null) return parsed;
+    final raw = (response.error as String?)?.trim();
+    if (raw != null && raw.isNotEmpty) return raw;
+    return fallback;
   }
 
   PlatformTopBar _settingsTopBar() {
@@ -256,7 +299,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
     final lastCtrl = TextEditingController(text: _lastNameCtrl.text);
     await _showActionDialog(
       title: 'تعديل الاسم الشخصي',
-      description: 'يمكنك تحديث الاسم الأول واسم العائلة كما سيظهران في الحساب.',
+      description:
+          'يمكنك تحديث الاسم الأول واسم العائلة كما سيظهران في الحساب.',
       hint: 'تأكد من كتابة الاسم بشكل صحيح قبل الحفظ.',
       fields: [
         _DialogFieldConfig(label: 'الاسم الأول', controller: firstCtrl),
@@ -295,29 +339,288 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
   }
 
   Future<void> _showPhoneDialog() async {
-    final controller = TextEditingController(text: _phoneCtrl.text);
-    await _showActionDialog(
-      title: 'تغيير رقم الجوال',
-      description: 'أدخل رقم الجوال بالصيغة المحلية الصحيحة 05XXXXXXXX.',
-      hint: 'سيتم استخدام هذا الرقم في مسارات التحقق والدخول البيومتري.',
-      fields: [
-        _DialogFieldConfig(
-          label: 'رقم الجوال',
-          controller: controller,
-          keyboardType: TextInputType.phone,
-          textDirection: TextDirection.ltr,
-          maxLength: 10,
-        ),
-      ],
-      onSubmit: () async {
-        final normalized = AuthService.normalizePhoneLocal05(controller.text.trim());
-        if (normalized == null) {
-          _snack('صيغة رقم الجوال يجب أن تكون 05XXXXXXXX');
-          return;
-        }
-        await _updateProfileFields(
-          {'phone': normalized},
-          'تم تحديث رقم الجوال بنجاح',
+    final phoneCtrl = TextEditingController(text: _phoneCtrl.text);
+    final otpCtrl = TextEditingController();
+    var step = 1;
+    var localSaving = false;
+    String? pendingPhone;
+    String? devCodeHint;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          contentPadding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+          content: StatefulBuilder(
+            builder: (context, setLocalState) {
+              Future<void> requestCode() async {
+                final normalized = AuthService.normalizePhoneLocal05(
+                  phoneCtrl.text.trim(),
+                );
+                if (normalized == null) {
+                  _snack('صيغة رقم الجوال يجب أن تكون 05XXXXXXXX');
+                  return;
+                }
+
+                setLocalState(() => localSaving = true);
+                final response =
+                    await AccountSettingsService.requestPhoneChange(
+                  normalized,
+                );
+                if (!mounted || !dialogContext.mounted) return;
+                setLocalState(() => localSaving = false);
+
+                if (!response.isSuccess) {
+                  _snack(
+                    _apiErrorMessage(response, 'تعذر إرسال رمز التحقق'),
+                  );
+                  return;
+                }
+
+                final payload = Map<String, dynamic>.from(
+                  response.dataAsMap ?? const {},
+                );
+                setLocalState(() {
+                  step = 2;
+                  pendingPhone = normalized;
+                  devCodeHint = _firstApiMessage(payload['dev_code']);
+                  otpCtrl.clear();
+                });
+                _snack('تم إرسال رمز التحقق إلى الرقم الجديد', success: true);
+              }
+
+              Future<void> confirmCode() async {
+                final code = otpCtrl.text.trim();
+                if (!RegExp(r'^\d{4}$').hasMatch(code)) {
+                  _snack('أدخل رمز التحقق المكون من 4 أرقام');
+                  return;
+                }
+                if (pendingPhone == null || pendingPhone!.isEmpty) {
+                  _snack('ابدأ بإرسال رمز التحقق أولاً');
+                  return;
+                }
+
+                setLocalState(() => localSaving = true);
+                final response =
+                    await AccountSettingsService.confirmPhoneChange(
+                  phone: pendingPhone!,
+                  code: code,
+                );
+                if (!mounted || !dialogContext.mounted) return;
+                setLocalState(() => localSaving = false);
+
+                if (!response.isSuccess) {
+                  _snack(
+                    _apiErrorMessage(
+                      response,
+                      'رمز التحقق غير صحيح أو انتهت صلاحيته',
+                    ),
+                  );
+                  return;
+                }
+
+                await _loadProfile();
+                if (!mounted || !dialogContext.mounted) return;
+                Navigator.of(dialogContext).pop();
+                _snack('تم تغيير رقم الجوال بنجاح', success: true);
+              }
+
+              final description = step == 1
+                  ? 'أدخل رقم الجوال الجديد بالصيغة المحلية 05XXXXXXXX، ثم أرسل رمز التحقق.'
+                  : 'أدخل رمز التحقق المرسل إلى ${pendingPhone ?? ''} لتأكيد التغيير.';
+              final hint = step == 1
+                  ? 'تغيير رقم الجوال يتم عبر OTP فقط حسب سياسة الأمان.'
+                  : 'إذا لم يصلك الرمز يمكنك إعادة الإرسال أو تعديل الرقم.';
+
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'تغيير رقم الجوال',
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        description,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11.5,
+                          height: 1.8,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF5B657A),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F9FB),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0x330E7490)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              hint,
+                              style: const TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F5D78),
+                              ),
+                            ),
+                            if (step == 2 &&
+                                devCodeHint != null &&
+                                devCodeHint!.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'رمز التطوير: $devCodeHint',
+                                style: const TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F5D78),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      if (step == 1)
+                        _buildDialogField(
+                          _DialogFieldConfig(
+                            label: 'رقم الجوال',
+                            controller: phoneCtrl,
+                            keyboardType: TextInputType.phone,
+                            textDirection: TextDirection.ltr,
+                            maxLength: 10,
+                          ),
+                        )
+                      else ...[
+                        _buildDialogField(
+                          _DialogFieldConfig(
+                            label: 'رمز التحقق',
+                            controller: otpCtrl,
+                            keyboardType: TextInputType.number,
+                            textDirection: TextDirection.ltr,
+                            maxLength: 4,
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: localSaving
+                                ? null
+                                : () {
+                                    setLocalState(() {
+                                      step = 1;
+                                      pendingPhone = null;
+                                      devCodeHint = null;
+                                    });
+                                  },
+                            child: const Text(
+                              'تعديل الرقم',
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      Row(
+                        children: [
+                          if (step == 2)
+                            TextButton(
+                              onPressed: localSaving ? null : requestCode,
+                              child: const Text(
+                                'إعادة الإرسال',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text(
+                              'إلغاء',
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: localSaving
+                                ? null
+                                : (step == 1 ? requestCode : confirmCode),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: localSaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    step == 1
+                                        ? 'إرسال رمز التحقق'
+                                        : 'تأكيد التغيير',
+                                    style: const TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -363,7 +666,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
     final pinCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
     await _showActionDialog(
-      title: _storedPin == null ? 'إضافة رمز دخول أمان' : 'تعديل رمز دخول الأمان',
+      title:
+          _storedPin == null ? 'إضافة رمز دخول أمان' : 'تعديل رمز دخول الأمان',
       description:
           'يحمي هذا الرمز إعدادات الدخول على الجهاز الحالي ويستخدم قبل فتح الشاشة.',
       hint: 'يمكنك إدخال رمز من 4 إلى 6 أرقام.',
@@ -483,8 +787,10 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           contentPadding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
           content: StatefulBuilder(
             builder: (context, setLocalState) {
@@ -633,7 +939,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
           ),
           filled: true,
           fillColor: const Color(0xFFFBFCFD),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: Color(0xFFDCE6ED)),
@@ -689,8 +996,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
           return;
         }
 
-        final phone = AuthService.normalizePhoneLocal05(_phoneCtrl.text.trim()) ??
-            await AuthService.getLastLoginPhone();
+        final phone =
+            AuthService.normalizePhoneLocal05(_phoneCtrl.text.trim()) ??
+                await AuthService.getLastLoginPhone();
         if (phone == null) {
           setState(() => _faceIdLoading = false);
           _snack(
@@ -840,7 +1148,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
 
     if (_loading) {
       return Scaffold(
-        backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
+        backgroundColor:
+            isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
         appBar: _settingsTopBar(),
         body: _buildLoadingState(isDark),
       );
@@ -848,7 +1157,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
+        backgroundColor:
+            isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
         appBar: _settingsTopBar(),
         body: _buildErrorState(isDark),
       );
@@ -856,18 +1166,27 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
 
     final profile = _profile!;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
+      backgroundColor:
+          isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
       appBar: _settingsTopBar(),
       body: Container(
         decoration: BoxDecoration(
           gradient: isDark
               ? const LinearGradient(
-                  colors: [Color(0xFF0E1726), Color(0xFF122235), Color(0xFF17293D)],
+                  colors: [
+                    Color(0xFF0E1726),
+                    Color(0xFF122235),
+                    Color(0xFF17293D)
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 )
               : const LinearGradient(
-                  colors: [Color(0xFFEEF5FB), Color(0xFFF4F7FB), Color(0xFFF7F8FC)],
+                  colors: [
+                    Color(0xFFEEF5FB),
+                    Color(0xFFF4F7FB),
+                    Color(0xFFF7F8FC)
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -900,11 +1219,14 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
         margin: const EdgeInsets.symmetric(horizontal: 24),
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.94),
+          color: isDark
+              ? const Color(0xFF132637)
+              : Colors.white.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.12 : 0.08),
+              color: const Color(0xFF0C223D)
+                  .withValues(alpha: isDark ? 0.12 : 0.08),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -935,7 +1257,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
         margin: const EdgeInsets.symmetric(horizontal: 20),
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.94),
+          color: isDark
+              ? const Color(0xFF132637)
+              : Colors.white.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: isDark
@@ -964,8 +1288,10 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
               ),
               icon: const Icon(Icons.refresh_rounded, size: 18),
               label: const Text(
@@ -1058,9 +1384,13 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _HeroMetaChip(label: 'اسم العضوية', value: _valueOrDash(profile.username)),
-                  _HeroMetaChip(label: 'البريد', value: _valueOrDash(profile.email)),
-                  _HeroMetaChip(label: 'الجوال', value: _valueOrDash(profile.phone)),
+                  _HeroMetaChip(
+                      label: 'اسم العضوية',
+                      value: _valueOrDash(profile.username)),
+                  _HeroMetaChip(
+                      label: 'البريد', value: _valueOrDash(profile.email)),
+                  _HeroMetaChip(
+                      label: 'الجوال', value: _valueOrDash(profile.phone)),
                 ],
               ),
             ],
@@ -1132,7 +1462,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                       end: Alignment.bottomLeft,
                     ),
                   ),
-                  child: const Icon(Icons.verified_user_outlined, color: Colors.white),
+                  child: const Icon(Icons.verified_user_outlined,
+                      color: Colors.white),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1145,7 +1476,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                           fontFamily: 'Cairo',
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color:
+                              isDark ? Colors.white : const Color(0xFF0F172A),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1155,7 +1487,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                           fontFamily: 'Cairo',
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
-                          color: isDark ? const Color(0xFF92A6BA) : const Color(0xFF4F657D),
+                          color: isDark
+                              ? const Color(0xFF92A6BA)
+                              : const Color(0xFF4F657D),
                         ),
                       ),
                     ],
@@ -1206,10 +1540,10 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
           _SettingActionTile(
             title: 'الاسم الشخصي',
             value: [profile.firstName ?? '', profile.lastName ?? '']
-                .where((part) => part.trim().isNotEmpty)
-                .join(' ')
-                .trim()
-                .isEmpty
+                    .where((part) => part.trim().isNotEmpty)
+                    .join(' ')
+                    .trim()
+                    .isEmpty
                 ? 'غير مضاف'
                 : [profile.firstName ?? '', profile.lastName ?? '']
                     .where((part) => part.trim().isNotEmpty)
@@ -1277,9 +1611,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              color: pinActive
-                  ? const Color(0xFFF0FAF5)
-                  : const Color(0xFFFFF6E9),
+              color:
+                  pinActive ? const Color(0xFFF0FAF5) : const Color(0xFFFFF6E9),
               border: Border.all(
                 color: pinActive
                     ? const Color(0xFFB8E0C9)
@@ -1291,7 +1624,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
               children: [
                 Icon(
                   pinActive ? Icons.lock_rounded : Icons.lock_open_rounded,
-                  color: pinActive ? const Color(0xFF1B8A5A) : const Color(0xFFC07A17),
+                  color: pinActive
+                      ? const Color(0xFF1B8A5A)
+                      : const Color(0xFFC07A17),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1304,7 +1639,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                           fontFamily: 'Cairo',
                           fontSize: 13,
                           fontWeight: FontWeight.w900,
-                          color: pinActive ? const Color(0xFF1B8A5A) : const Color(0xFF8F5A07),
+                          color: pinActive
+                              ? const Color(0xFF1B8A5A)
+                              : const Color(0xFF8F5A07),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1317,7 +1654,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                           fontSize: 11,
                           height: 1.8,
                           fontWeight: FontWeight.w700,
-                          color: pinActive ? const Color(0xFF2A6E53) : const Color(0xFF8C6729),
+                          color: pinActive
+                              ? const Color(0xFF2A6E53)
+                              : const Color(0xFF8C6729),
                         ),
                       ),
                     ],
@@ -1335,7 +1674,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                 foregroundColor: _primaryColor,
                 side: const BorderSide(color: _primaryColor),
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18)),
               ),
               icon: const Icon(Icons.key_rounded, size: 18),
               label: Text(
@@ -1470,10 +1810,12 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                   ? null
                   : (_faceIdEnabled ? _disableFaceId : _enrollFaceId),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _faceIdEnabled ? Colors.red.shade600 : _primaryColor,
+                backgroundColor:
+                    _faceIdEnabled ? Colors.red.shade600 : _primaryColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18)),
               ),
               icon: _faceIdLoading
                   ? const SizedBox(
@@ -1510,7 +1852,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.94),
+        color: isDark
+            ? const Color(0xFF132637)
+            : Colors.white.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: isDark
@@ -1548,18 +1892,27 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
   Widget _buildUnlockScreen(bool isDark) {
     final dotsCount = (_storedPin ?? '').isNotEmpty ? _storedPin!.length : 6;
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
+      backgroundColor:
+          isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
       appBar: _settingsTopBar(),
       body: Container(
         decoration: BoxDecoration(
           gradient: isDark
               ? const LinearGradient(
-                  colors: [Color(0xFF0E1726), Color(0xFF122235), Color(0xFF17293D)],
+                  colors: [
+                    Color(0xFF0E1726),
+                    Color(0xFF122235),
+                    Color(0xFF17293D)
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 )
               : const LinearGradient(
-                  colors: [Color(0xFFEEF5FB), Color(0xFFF4F7FB), Color(0xFFF7F8FC)],
+                  colors: [
+                    Color(0xFFEEF5FB),
+                    Color(0xFFF4F7FB),
+                    Color(0xFFF7F8FC)
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -1575,7 +1928,11 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(26),
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF0F766E), Color(0xFF0E7490), Color(0xFF1D4ED8)],
+                      colors: [
+                        Color(0xFF0F766E),
+                        Color(0xFF0E7490),
+                        Color(0xFF1D4ED8)
+                      ],
                       begin: Alignment.topRight,
                       end: Alignment.bottomLeft,
                     ),
@@ -1620,7 +1977,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.94),
+                    color: isDark
+                        ? const Color(0xFF132637)
+                        : Colors.white.withValues(alpha: 0.94),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
                       color: isDark
@@ -1629,7 +1988,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
+                        color: const Color(0xFF0C223D)
+                            .withValues(alpha: isDark ? 0.10 : 0.06),
                         blurRadius: 18,
                         offset: const Offset(0, 8),
                       ),
@@ -1682,10 +2042,12 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                         children: [
                           ...List.generate(
                             9,
-                            (i) => _buildPinKey('${i + 1}', onTap: () => _appendUnlockDigit('${i + 1}')),
+                            (i) => _buildPinKey('${i + 1}',
+                                onTap: () => _appendUnlockDigit('${i + 1}')),
                           ),
                           const SizedBox.shrink(),
-                          _buildPinKey('0', onTap: () => _appendUnlockDigit('0')),
+                          _buildPinKey('0',
+                              onTap: () => _appendUnlockDigit('0')),
                           _buildPinKey('⌫', onTap: _removeUnlockDigit),
                         ],
                       ),
@@ -1703,7 +2065,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
                                 borderRadius: BorderRadius.circular(18),
                               ),
                             ),
-                            icon: const Icon(Icons.fingerprint_rounded, size: 18),
+                            icon:
+                                const Icon(Icons.fingerprint_rounded, size: 18),
                             label: const Text(
                               'الدخول بالبصمة أو الوجه',
                               style: TextStyle(
@@ -1752,7 +2115,9 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.94),
+        color: isDark
+            ? const Color(0xFF132637)
+            : Colors.white.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isDark
@@ -1761,7 +2126,8 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
+            color:
+                const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -1893,12 +2259,15 @@ class _SettingActionTile extends StatelessWidget {
           ElevatedButton(
             onPressed: onTap,
             style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  strongButton ? const Color(0xFF0F5D78) : const Color(0xFFEAF7F9),
-              foregroundColor: strongButton ? Colors.white : const Color(0xFF0F5D78),
+              backgroundColor: strongButton
+                  ? const Color(0xFF0F5D78)
+                  : const Color(0xFFEAF7F9),
+              foregroundColor:
+                  strongButton ? Colors.white : const Color(0xFF0F5D78),
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
             ),
             child: Text(
               buttonLabel,

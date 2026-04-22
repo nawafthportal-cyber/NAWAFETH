@@ -422,7 +422,7 @@ const InteractivePage = (() => {
     const container = document.getElementById('followers-list');
     _renderLoading(container, 'جاري تحميل المتابعين...');
 
-    const res = await ApiClient.get('/api/providers/me/followers/');
+    const res = await ApiClient.get(_withMode('/api/providers/me/followers/', _mode));
     if (res.status === 401) {
       const recovered = await Auth.resolveProfile(true, _mode);
       if (!recovered.ok && !Auth.isLoggedIn()) {

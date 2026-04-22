@@ -899,43 +899,16 @@ const HomePage = (() => {
     var pauseTarget = carousel || $categoriesList;
 
     if (!pauseTarget.dataset.autoBound) {
-      pauseTarget.addEventListener('pointerenter', function() {
-        _pauseCategoriesAutoScroll();
-      }, { passive: true });
-      pauseTarget.addEventListener('pointermove', function() {
-        _pauseCategoriesAutoScroll();
-      }, { passive: true });
       pauseTarget.addEventListener('pointerdown', function() {
         _pauseCategoriesAutoScroll();
-      }, { passive: true });
-      pauseTarget.addEventListener('pointerup', function() {
-        _scheduleCategoriesResume();
-      }, { passive: true });
-      pauseTarget.addEventListener('pointercancel', function() {
         _scheduleCategoriesResume();
       }, { passive: true });
       pauseTarget.addEventListener('touchstart', function() {
         _pauseCategoriesAutoScroll();
-      }, { passive: true });
-      pauseTarget.addEventListener('touchmove', function() {
-        _pauseCategoriesAutoScroll();
-      }, { passive: true });
-      pauseTarget.addEventListener('touchend', function() {
         _scheduleCategoriesResume();
       }, { passive: true });
-      pauseTarget.addEventListener('touchcancel', function() {
-        _scheduleCategoriesResume();
-      }, { passive: true });
-      pauseTarget.addEventListener('mouseenter', function() {
+      pauseTarget.addEventListener('wheel', function() {
         _pauseCategoriesAutoScroll();
-      });
-      pauseTarget.addEventListener('mouseleave', function() {
-        _scheduleCategoriesResume();
-      });
-      pauseTarget.addEventListener('focusin', function() {
-        _pauseCategoriesAutoScroll();
-      }, { passive: true });
-      pauseTarget.addEventListener('focusout', function() {
         _scheduleCategoriesResume();
       }, { passive: true });
       pauseTarget.dataset.autoBound = 'true';
@@ -1242,20 +1215,9 @@ const HomePage = (() => {
     const pause = () => _pauseProvidersAutoRotate();
     const resumeLater = () => _pauseProvidersAutoRotate({ resumeLater: true });
 
-    $providersList.addEventListener('pointerenter', pause, { passive: true });
-    $providersList.addEventListener('pointermove', pause, { passive: true });
-    $providersList.addEventListener('pointerdown', pause, { passive: true });
-    $providersList.addEventListener('pointerup', resumeLater, { passive: true });
-    $providersList.addEventListener('pointercancel', resumeLater, { passive: true });
-    $providersList.addEventListener('touchstart', pause, { passive: true });
-    $providersList.addEventListener('touchmove', pause, { passive: true });
-    $providersList.addEventListener('touchend', resumeLater, { passive: true });
-    $providersList.addEventListener('touchcancel', resumeLater, { passive: true });
-    $providersList.addEventListener('wheel', resumeLater, { passive: true });
-    $providersList.addEventListener('mouseenter', pause, { passive: true });
-    $providersList.addEventListener('mouseleave', resumeLater, { passive: true });
-    $providersList.addEventListener('focusin', pause, { passive: true });
-    $providersList.addEventListener('focusout', resumeLater, { passive: true });
+    $providersList.addEventListener('pointerdown', function() { pause(); resumeLater(); }, { passive: true });
+    $providersList.addEventListener('touchstart', function() { pause(); resumeLater(); }, { passive: true });
+    $providersList.addEventListener('wheel', function() { pause(); resumeLater(); }, { passive: true });
   }
 
   function _isDesktopHomeGrid() {
