@@ -350,6 +350,49 @@ body.page-search.page-search-providers .search-discovery-filters {
   min-width: 0;
 }
 
+body.page-search.page-search-providers .search-filters-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+body.page-search.page-search-providers .search-filters-current {
+  margin: 0;
+  color: #4b5563;
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.page-search.page-search-providers .search-open-categories-btn {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(15, 118, 110, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--spd-accent-strong);
+  font-family: 'Cairo', sans-serif;
+  font-size: 11.5px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+body.page-search.page-search-providers .search-open-categories-btn svg {
+  opacity: 0.8;
+}
+
 body.page-search.page-search-providers .filter-row {
   display: flex;
   gap: 10px;
@@ -385,6 +428,226 @@ body.page-search.page-search-providers .filter-chip:hover {
   background: rgba(15, 118, 110, 0.08);
   color: var(--spd-accent-strong);
   box-shadow: 0 10px 18px rgba(15, 118, 110, 0.08);
+}
+
+body.page-search.page-search-providers .filter-chip.filter-chip-more {
+  border-style: dashed;
+  background: rgba(23, 32, 51, 0.03);
+}
+
+body.page-search.page-search-providers .category-picker-modal {
+  position: fixed;
+  inset: max(18px, env(safe-area-inset-top, 0px)) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  z-index: 95;
+  width: min(760px, calc(100vw - 32px));
+  margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border-radius: 24px;
+  border: 1px solid rgba(23, 32, 51, 0.1);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 26px 52px rgba(15, 23, 42, 0.24);
+  transform: translateY(14px) scale(0.99);
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+body.page-search.page-search-providers .category-picker-modal.open {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+body.page-search.page-search-providers .category-picker-handle {
+  width: 46px;
+  height: 5px;
+  margin: 2px auto 0;
+  border-radius: 999px;
+  background: rgba(23, 32, 51, 0.12);
+  display: none;
+}
+
+body.page-search.page-search-providers .category-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+body.page-search.page-search-providers .category-picker-head h3 {
+  margin: 0;
+  color: #111827;
+  font-family: 'Cairo', sans-serif;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+body.page-search.page-search-providers .category-picker-close {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(23, 32, 51, 0.1);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.92);
+  color: #1f2937;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+body.page-search.page-search-providers .category-picker-search-wrap {
+  position: relative;
+}
+
+body.page-search.page-search-providers .category-picker-search-icon {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
+}
+
+[dir="ltr"] body.page-search.page-search-providers .category-picker-search-icon {
+  right: auto;
+  left: 12px;
+}
+
+body.page-search.page-search-providers .category-picker-search {
+  width: 100%;
+  height: 46px;
+  border: 1px solid rgba(23, 32, 51, 0.1);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.95);
+  color: #0f172a;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 0 40px 0 12px;
+}
+
+[dir="ltr"] body.page-search.page-search-providers .category-picker-search {
+  padding: 0 12px 0 40px;
+}
+
+body.page-search.page-search-providers .category-picker-search:focus {
+  outline: none;
+  border-color: rgba(15, 118, 110, 0.42);
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+}
+
+body.page-search.page-search-providers .category-picker-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+
+body.page-search.page-search-providers .category-picker-count {
+  color: #64748b;
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+body.page-search.page-search-providers .category-picker-reset {
+  border: 0;
+  border-radius: 10px;
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--spd-accent-strong);
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  min-height: 30px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+body.page-search.page-search-providers .category-picker-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 88px;
+  overflow-y: auto;
+  padding-inline-end: 2px;
+}
+
+body.page-search.page-search-providers .category-picker-quick-item {
+  min-height: 34px;
+  border: 1px solid rgba(23, 32, 51, 0.1);
+  border-radius: 999px;
+  background: rgba(248, 250, 252, 0.96);
+  color: #334155;
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 0 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+body.page-search.page-search-providers .category-picker-quick-item.active {
+  border-color: rgba(15, 118, 110, 0.28);
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--spd-accent-strong);
+}
+
+body.page-search.page-search-providers .category-picker-list {
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding-inline-end: 2px;
+}
+
+body.page-search.page-search-providers .category-picker-item {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid rgba(23, 32, 51, 0.08);
+  border-radius: 14px;
+  background: rgba(250, 251, 253, 0.95);
+  color: #1f2937;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12.5px;
+  font-weight: 800;
+  text-align: start;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+
+body.page-search.page-search-providers .category-picker-item:hover,
+body.page-search.page-search-providers .category-picker-item.is-highlighted {
+  border-color: rgba(15, 118, 110, 0.24);
+  background: rgba(15, 118, 110, 0.07);
+}
+
+body.page-search.page-search-providers .category-picker-item.is-active {
+  border-color: rgba(15, 118, 110, 0.32);
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--spd-accent-strong);
+}
+
+body.page-search.page-search-providers .category-picker-item-check {
+  color: var(--spd-accent-strong);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+body.page-search.page-search-providers .category-picker-empty {
+  min-height: 90px;
+  border: 1px dashed rgba(23, 32, 51, 0.18);
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: #64748b;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 body.page-search.page-search-providers .search-promo-banner {
@@ -1362,6 +1625,17 @@ body.page-search.page-search-providers .search-toast.show {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  body.page-search.page-search-providers .search-filters-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  body.page-search.page-search-providers .search-open-categories-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   body.page-search.page-search-providers .search-mobile-sort-btn,
   body.page-search.page-search-providers .search-mobile-map-btn {
     width: 100%;
@@ -1408,6 +1682,27 @@ body.page-search.page-search-providers .search-toast.show {
   body.page-search.page-search-providers .search-map-modal {
     inset: max(8px, env(safe-area-inset-top, 0px)) 8px calc(env(safe-area-inset-bottom, 0px) + 8px);
     border-radius: 24px;
+  }
+
+  body.page-search.page-search-providers .category-picker-modal {
+    inset: auto 0 0 0;
+    width: 100%;
+    max-height: min(86vh, 760px);
+    border-radius: 24px 24px 0 0;
+    padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
+    transform: translateY(100%);
+  }
+
+  body.page-search.page-search-providers .category-picker-modal.open {
+    transform: translateY(0);
+  }
+
+  body.page-search.page-search-providers .category-picker-handle {
+    display: block;
+  }
+
+  body.page-search.page-search-providers .category-picker-quick {
+    max-height: 98px;
   }
 }
 
@@ -1512,6 +1807,13 @@ body.page-search.page-search-providers .search-toast.show {
     </div>
 
     <div class="search-discovery-filters">
+      <div class="search-filters-head">
+        <p class="search-filters-current" id="search-active-category">التصنيف الحالي: الكل</p>
+        <button class="search-open-categories-btn" id="search-open-categories" type="button" aria-haspopup="dialog" aria-controls="category-picker-modal">
+          كل التصنيفات
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"></path></svg>
+        </button>
+      </div>
       <div class="filter-row" id="filter-row">
         <button class="filter-chip active" data-cat-id="">الكل</button>
       </div>
@@ -1537,6 +1839,26 @@ body.page-search.page-search-providers .search-toast.show {
   </div>
 
   <div class="sort-sheet-backdrop hidden" id="sort-sheet-backdrop"></div>
+  <div class="sort-sheet-backdrop hidden" id="category-picker-backdrop"></div>
+  <div class="category-picker-modal hidden" id="category-picker-modal" role="dialog" aria-modal="true" aria-labelledby="category-picker-title">
+    <div class="category-picker-handle" aria-hidden="true"></div>
+    <div class="category-picker-head">
+      <h3 id="category-picker-title">اختر التصنيف</h3>
+      <button class="category-picker-close" id="category-picker-close" type="button" aria-label="إغلاق">×</button>
+    </div>
+    <div class="category-picker-search-wrap">
+      <span class="category-picker-search-icon" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </span>
+      <input class="category-picker-search" id="category-picker-search" type="search" placeholder="ابحث عن تصنيف..." autocomplete="off">
+    </div>
+    <div class="category-picker-meta">
+      <span class="category-picker-count" id="category-picker-count">0 تصنيف</span>
+      <button class="category-picker-reset" id="category-picker-reset" type="button">اختيار الكل</button>
+    </div>
+    <div class="category-picker-quick" id="category-picker-quick"></div>
+    <div class="category-picker-list" id="category-picker-list"></div>
+  </div>
   <div class="sort-sheet hidden" id="sort-sheet" role="dialog" aria-modal="true" aria-label="فرز حسب">
     <div class="sort-sheet-handle"></div>
     <h3 class="sort-sheet-title">فرز حسب</h3>
@@ -1562,5 +1884,5 @@ body.page-search.page-search-providers .search-toast.show {
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/searchPage.js' %}?v=20260419-search-redesign4"></script>
+<script src="{% static 'mobile_web/js/searchPage.js' %}?v=20260422-category-picker1"></script>
 {% endblock %}

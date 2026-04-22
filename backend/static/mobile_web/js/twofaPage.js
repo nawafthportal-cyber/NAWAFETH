@@ -192,7 +192,8 @@ const TwofaPage = (() => {
 
     const res = await ApiClient.request('/api/accounts/otp/verify/', {
       method: 'POST',
-      body: { phone: _phone, code },
+      // Keep web parity with Flutter QA/dev OTP behavior.
+      body: { phone: _phone, code, mobile_any_otp: true },
     });
 
     _setLoading(false);

@@ -24,4 +24,24 @@ class AccountSettingsService {
       },
     );
   }
+
+  static Future<ApiResponse> requestPhoneChange(String phone) {
+    return ApiClient.post(
+      '/api/accounts/me/request-phone-change/',
+      body: {'phone': phone.trim()},
+    );
+  }
+
+  static Future<ApiResponse> confirmPhoneChange({
+    required String phone,
+    required String code,
+  }) {
+    return ApiClient.post(
+      '/api/accounts/me/confirm-phone-change/',
+      body: {
+        'phone': phone.trim(),
+        'code': code.trim(),
+      },
+    );
+  }
 }

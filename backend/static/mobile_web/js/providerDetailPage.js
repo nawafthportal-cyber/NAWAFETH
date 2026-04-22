@@ -489,6 +489,9 @@ const ProviderDetailPage = (() => {
 
     if (provRes.ok && provRes.data) {
       _providerData = provRes.data;
+      // Reveal the content shell BEFORE rendering so any embedded
+      // sub-widgets (e.g. Leaflet map) can size themselves correctly.
+      _setInitialShellLoading(false);
       _renderProvider(provRes.data, statsRes.ok ? statsRes.data : null);
       if (typeof NwAnalytics !== 'undefined') {
         NwAnalytics.trackOnce(
@@ -1956,11 +1959,9 @@ const ProviderDetailPage = (() => {
     if (!listEl) return;
 
     const marqueeReviews = reviews.slice();
-    if (marqueeReviews.length <= 2) {
+    if (marqueeReviews.length === 1) {
       const staticList = UI.el('div', { className: 'pd-reviews-static' });
-      marqueeReviews.forEach((review) => {
-        staticList.appendChild(_buildReviewCard(review));
-      });
+      staticList.appendChild(_buildReviewCard(marqueeReviews[0]));
       listEl.appendChild(staticList);
       _setTabLoadingState('reviews', false);
       return;
@@ -1970,12 +1971,22 @@ const ProviderDetailPage = (() => {
     const track = UI.el('div', { className: 'pd-reviews-track' });
     const groupA = UI.el('div', { className: 'pd-reviews-track-group' });
 
-    marqueeReviews.forEach((review) => {
-      groupA.appendChild(_buildReviewCard(review));
-    });
+    // Ensure each group has enough cards so multiple reviews are visible
+    // simultaneously even when the dataset is small (2-3 reviews).
+    const minCardsPerGroup = 6;
+    const repeatTimes = Math.max(1, Math.ceil(minCardsPerGroup / marqueeReviews.length));
+    for (let r = 0; r < repeatTimes; r++) {
+      marqueeReviews.forEach((review) => {
+        groupA.appendChild(_buildReviewCard(review));
+      });
+    }
     const groupB = groupA.cloneNode(true);
 
-    track.style.setProperty('--pd-reviews-duration', Math.max(18, marqueeReviews.length * 6) + 's');
+    const totalCardsPerGroup = marqueeReviews.length * repeatTimes;
+    track.style.setProperty(
+      '--pd-reviews-duration',
+      Math.max(20, totalCardsPerGroup * 5) + 's'
+    );
     track.appendChild(groupA);
     track.appendChild(groupB);
     marquee.appendChild(track);
@@ -2419,11 +2430,16 @@ const ProviderDetailPage = (() => {
 
   function _syncServiceRangeMapSize() {
     if (!_serviceRangeMap) return;
-    setTimeout(() => {
-      try {
-        _serviceRangeMap.invalidateSize();
-      } catch (_) {}
-    }, 120);
+    // Retry across animation frames so the map invalidates once the
+    // surrounding shell has been laid out (mobile widths often have a
+    // race between unhiding the shell and Leaflet measuring its size).
+    [60, 200, 500].forEach((delay) => {
+      setTimeout(() => {
+        try {
+          if (_serviceRangeMap) _serviceRangeMap.invalidateSize();
+        } catch (_) {}
+      }, delay);
+    });
   }
 
   function _renderServiceRangeMap(provider) {

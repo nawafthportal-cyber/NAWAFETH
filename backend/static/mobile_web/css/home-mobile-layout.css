@@ -547,29 +547,31 @@ body.home-mobile-layout .home-section-note {
 
 body.home-mobile-layout .home-section--reels .home-section-shell {
   --section-border: rgba(114, 90, 190, 0.22);
-  --section-glow: rgba(157, 116, 255, 0.22);
-  --section-surface-a: rgba(40, 30, 70, 0.98);
-  --section-surface-b: rgba(68, 45, 111, 0.98);
-  --section-shadow: 0 24px 48px rgba(36, 24, 64, 0.22);
+  --section-glow: rgba(157, 116, 255, 0.18);
+  --section-surface-a: rgba(255, 255, 255, 0.98);
+  --section-surface-b: rgba(245, 240, 255, 0.98);
+  --section-shadow: 0 22px 44px rgba(58, 36, 122, 0.14);
 }
 
 body.home-mobile-layout .home-section--reels .home-section-kicker {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.18);
-  color: #f7edff;
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.18);
+  color: #6b21a8;
 }
 
 body.home-mobile-layout .home-section--reels .home-section-title-static,
 body.home-mobile-layout .home-section--reels .home-section-note {
-  color: #f8f4ff;
+  color: #2a1448;
 }
 
 body.home-mobile-layout .home-section--reels .home-section-note {
-  color: rgba(248, 244, 255, 0.78);
+  color: #6e6582;
 }
 
 body.home-mobile-layout .home-section--reels .reel-caption {
-  color: rgba(248, 244, 255, 0.82);
+  color: #2a1448;
+  font-weight: 700;
+  text-shadow: none;
 }
 
 body.home-mobile-layout .home-section--promo .home-section-shell {
@@ -633,6 +635,15 @@ body.home-mobile-layout .home-section--providers .featured-specialists-scroll .f
 
 body.home-mobile-layout .home-section--providers .featured-specialists-scroll .featured-specialist-card:hover {
   transform: translateY(-3px);
+}
+
+body.home-mobile-layout .home-section--providers .featured-specialists-scroll .featured-specialist-avatar-ring {
+  transition: box-shadow 220ms ease, transform 220ms ease;
+}
+
+body.home-mobile-layout .home-section--providers .featured-specialists-scroll .featured-specialist-card:hover .featured-specialist-avatar-ring {
+  box-shadow: 0 14px 30px rgba(141, 42, 122, 0.28);
+  transform: scale(1.04);
 }
 
 body.home-mobile-layout.js-enhanced-home [data-home-section] {
@@ -711,8 +722,10 @@ body.home-mobile-layout .view-all-btn {
 }
 
 body.home-mobile-layout .reel-caption {
-  font-size: 9px;
-  max-width: 78px;
+  font-size: 11px;
+  max-width: 84px;
+  font-weight: 700;
+  margin-top: 6px;
 }
 
 body.home-mobile-layout .reel-item.is-active .reel-ring {
@@ -1046,6 +1059,25 @@ body.home-mobile-layout .home-section--categories .cat-name {
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.featured-specialists-scroll .featured-specialist-meta.is-empty {
+  background: rgba(99, 102, 113, 0.08);
+  color: #5f6470;
+  border: 1px dashed rgba(99, 102, 113, 0.28);
+  padding: 3px 8px;
+  font-weight: 600;
+}
+
+.featured-specialists-scroll .featured-specialist-card:hover .featured-specialist-meta {
+  background: rgba(132, 36, 126, 0.14);
+  transform: translateY(-1px);
+}
+
+.featured-specialists-scroll .featured-specialist-card:hover .featured-specialist-meta.is-empty {
+  background: rgba(99, 102, 113, 0.12);
+  transform: translateY(-1px);
 }
 
 .featured-specialists-scroll .featured-specialist-meta svg {
@@ -1928,8 +1960,9 @@ body.home-mobile-layout .section-reels {
   }
 
   body.home-mobile-layout .reel-caption {
-    max-width: 78px;
-    font-size: 9px;
+    max-width: 80px;
+    font-size: 10.5px;
+    font-weight: 700;
   }
 
   .categories-scroll {

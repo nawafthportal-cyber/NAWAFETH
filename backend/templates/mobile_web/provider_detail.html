@@ -163,10 +163,26 @@
       </div>
     </div>
 
-    <div class="pd-connections-row">
-      <button class="pd-connections-btn" id="btn-show-followers" type="button">عرض المتابعين</button>
+    <div class="pd-connections-row" role="group" aria-label="روابط المتابعة">
+      <button class="pd-connections-btn" id="btn-show-followers" type="button" aria-label="عرض من يتابعون مقدم الخدمة">
+        <span class="pd-connections-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+        <span class="pd-connections-text">
+          <span class="pd-connections-label">المتابِعون</span>
+          <span class="pd-connections-hint">عرض القائمة</span>
+        </span>
+      </button>
       <span class="pd-connections-divider" aria-hidden="true"></span>
-      <button class="pd-connections-btn muted" id="btn-show-following" type="button">عرض المتابَعين</button>
+      <button class="pd-connections-btn muted" id="btn-show-following" type="button" aria-label="عرض من يتابعهم مقدم الخدمة">
+        <span class="pd-connections-icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        </span>
+        <span class="pd-connections-text">
+          <span class="pd-connections-label">يتابعهم</span>
+          <span class="pd-connections-hint">عرض القائمة</span>
+        </span>
+      </button>
     </div>
 
     <!-- ═══ Highlights / Spotlights ═══ -->
@@ -441,5 +457,5 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{% static 'mobile_web/js/spotlightViewer.js' %}?v=20260421-tiktok-viewer"></script>
-  <script src="{% static 'mobile_web/js/providerDetailPage.js' %}?v=20260421-spotlight-tiktok"></script>
+  <script src="{% static 'mobile_web/js/providerDetailPage.js' %}?v=20260422-pd-services-reviews-polish"></script>
 {% endblock %}

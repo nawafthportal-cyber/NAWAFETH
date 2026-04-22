@@ -846,9 +846,7 @@ body.mobile-web-parity :is(.is-disabled, [aria-disabled="true"]) {
 
 /* Footer cleanup */
 body.mobile-web-parity #site-footer {
-  border-top: 1px solid var(--ux26-border);
-  background: var(--ux26-surface);
-  backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Compact + calmer mobile experience */

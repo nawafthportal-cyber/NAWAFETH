@@ -896,20 +896,49 @@ const HomePage = (() => {
     /* — Auto-scroll: slow continuous scroll — */
     _startCategoriesAutoScroll();
 
-    if (!carousel.dataset.autoBound) {
-      $categoriesList.addEventListener('touchstart', function() {
+    var pauseTarget = carousel || $categoriesList;
+
+    if (!pauseTarget.dataset.autoBound) {
+      pauseTarget.addEventListener('pointerenter', function() {
         _pauseCategoriesAutoScroll();
       }, { passive: true });
-      $categoriesList.addEventListener('touchend', function() {
+      pauseTarget.addEventListener('pointermove', function() {
+        _pauseCategoriesAutoScroll();
+      }, { passive: true });
+      pauseTarget.addEventListener('pointerdown', function() {
+        _pauseCategoriesAutoScroll();
+      }, { passive: true });
+      pauseTarget.addEventListener('pointerup', function() {
         _scheduleCategoriesResume();
       }, { passive: true });
-      $categoriesList.addEventListener('mouseenter', function() {
+      pauseTarget.addEventListener('pointercancel', function() {
+        _scheduleCategoriesResume();
+      }, { passive: true });
+      pauseTarget.addEventListener('touchstart', function() {
+        _pauseCategoriesAutoScroll();
+      }, { passive: true });
+      pauseTarget.addEventListener('touchmove', function() {
+        _pauseCategoriesAutoScroll();
+      }, { passive: true });
+      pauseTarget.addEventListener('touchend', function() {
+        _scheduleCategoriesResume();
+      }, { passive: true });
+      pauseTarget.addEventListener('touchcancel', function() {
+        _scheduleCategoriesResume();
+      }, { passive: true });
+      pauseTarget.addEventListener('mouseenter', function() {
         _pauseCategoriesAutoScroll();
       });
-      $categoriesList.addEventListener('mouseleave', function() {
+      pauseTarget.addEventListener('mouseleave', function() {
         _scheduleCategoriesResume();
       });
-      carousel.dataset.autoBound = 'true';
+      pauseTarget.addEventListener('focusin', function() {
+        _pauseCategoriesAutoScroll();
+      }, { passive: true });
+      pauseTarget.addEventListener('focusout', function() {
+        _scheduleCategoriesResume();
+      }, { passive: true });
+      pauseTarget.dataset.autoBound = 'true';
     }
 
     window.requestAnimationFrame(function() {
@@ -931,10 +960,14 @@ const HomePage = (() => {
   var CATEGORIES_AUTO_INTERVAL = 30;
   var CATEGORIES_RESUME_DELAY = 2500;
 
+  function _hasHorizontalOverflow(container, tolerance = 2) {
+    if (!container) return false;
+    return (container.scrollWidth - container.clientWidth) > tolerance;
+  }
+
   function _startCategoriesAutoScroll() {
     _stopCategoriesAutoScroll();
     if (!$categoriesList) return;
-    if (_isDesktopHomeGrid && _isDesktopHomeGrid()) return;
     var cards = $categoriesList.querySelectorAll('.cat-item');
     if (cards.length <= 2) return;
 
@@ -1163,9 +1196,17 @@ const HomePage = (() => {
         textContent: displayName,
       }));
 
-      const meta = UI.el('div', { className: 'featured-specialist-meta' });
-      meta.appendChild(UI.icon('star', 12, '#f59e0b'));
-      meta.appendChild(UI.text(_formatFeaturedRating(item.rating_avg)));
+      const ratingNumber = Number(item.rating_avg);
+      const hasRating = Number.isFinite(ratingNumber) && ratingNumber > 0;
+      const meta = UI.el('div', {
+        className: 'featured-specialist-meta' + (hasRating ? '' : ' is-empty'),
+      });
+      if (hasRating) {
+        meta.appendChild(UI.icon('star', 12, '#f59e0b'));
+        meta.appendChild(UI.text(ratingNumber.toFixed(1)));
+      } else {
+        meta.appendChild(UI.text('0 تقييم'));
+      }
       if (isVerified) {
         meta.appendChild(
           item.is_verified_blue
@@ -1181,11 +1222,6 @@ const HomePage = (() => {
     _startProvidersAutoRotate();
   }
 
-  function _formatFeaturedRating(value) {
-    const n = Number(value);
-    if (Number.isFinite(n) && n > 0) return n.toFixed(1);
-    return 'جديد';
-  }
 
   function _renderProvidersEmpty() {
     if (!$providersList) return;
@@ -1206,12 +1242,20 @@ const HomePage = (() => {
     const pause = () => _pauseProvidersAutoRotate();
     const resumeLater = () => _pauseProvidersAutoRotate({ resumeLater: true });
 
+    $providersList.addEventListener('pointerenter', pause, { passive: true });
+    $providersList.addEventListener('pointermove', pause, { passive: true });
     $providersList.addEventListener('pointerdown', pause, { passive: true });
     $providersList.addEventListener('pointerup', resumeLater, { passive: true });
     $providersList.addEventListener('pointercancel', resumeLater, { passive: true });
+    $providersList.addEventListener('touchstart', pause, { passive: true });
+    $providersList.addEventListener('touchmove', pause, { passive: true });
+    $providersList.addEventListener('touchend', resumeLater, { passive: true });
+    $providersList.addEventListener('touchcancel', resumeLater, { passive: true });
     $providersList.addEventListener('wheel', resumeLater, { passive: true });
     $providersList.addEventListener('mouseenter', pause, { passive: true });
     $providersList.addEventListener('mouseleave', resumeLater, { passive: true });
+    $providersList.addEventListener('focusin', pause, { passive: true });
+    $providersList.addEventListener('focusout', resumeLater, { passive: true });
   }
 
   function _isDesktopHomeGrid() {
@@ -1225,8 +1269,18 @@ const HomePage = (() => {
       _stopProvidersAutoRotate();
       return;
     }
-    if ($providersList && $providersList.querySelectorAll('.featured-specialist-card').length > 1 && !_providersAutoTimer) {
-      _startProvidersAutoRotate();
+    const hasEnoughCards = !!($providersList && $providersList.querySelectorAll('.featured-specialist-card').length > 1);
+    const hasOverflow = _hasHorizontalOverflow($providersList);
+
+    if (hasEnoughCards && hasOverflow) {
+      if (!_providersAutoTimer) {
+        _startProvidersAutoRotate();
+      }
+      return;
+    }
+
+    if (_providersAutoTimer) {
+      _stopProvidersAutoRotate();
     }
   }
 
@@ -1251,6 +1305,7 @@ const HomePage = (() => {
     if (_isDesktopHomeGrid() && !isFeaturedSpecialists) return;
     const cards = $providersList.querySelectorAll('.featured-specialist-card');
     if (cards.length <= 1) return;
+    if (!_hasHorizontalOverflow($providersList)) return;
 
     _providersPaused = false;
     _providersAutoTimer = setInterval(() => {
