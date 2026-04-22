@@ -617,22 +617,52 @@ class _LoginScreenState extends State<LoginScreen>
                   (_isLoading || _isGuestLoading) ? null : _continueAsGuest,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.deepPurple,
-                backgroundColor: const Color(0xFFF9F5FD),
+                backgroundColor: Colors.white,
                 side: BorderSide(
-                  color: AppColors.deepPurple.withValues(alpha: 0.26),
-                  width: 1.05,
+                  color: AppColors.deepPurple.withValues(alpha: 0.36),
+                  width: 1.3,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(fieldRadius),
                 ),
               ),
-              child: Text(
-                _isGuestLoading ? 'جارٍ التنفيذ...' : _content.guestLabel,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12.5,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.deepPurple.withValues(alpha: 0.34),
+                        width: 1,
+                      ),
+                    ),
+                    child: _isGuestLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(6),
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(
+                            Icons.person_rounded,
+                            size: 16,
+                            color: AppColors.deepPurple,
+                          ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _isGuestLoading ? 'جارٍ التنفيذ...' : _content.guestLabel,
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12.5,
+                      color: AppColors.deepPurple,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

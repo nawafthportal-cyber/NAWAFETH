@@ -57,7 +57,7 @@ const LoginPage = (() => {
     _setText('login-phone-hint', _resolveTitle(blocks.login_phone_hint, 'الصيغة المعتمدة: 05XXXXXXXX'));
     _sendOtpDefaultLabel = _resolveTitle(blocks.login_submit_label, 'إرسال رمز التحقق');
     _setText('send-otp-text', _sendOtpDefaultLabel);
-    _setText('btn-guest', _resolveTitle(blocks.login_guest_label, 'المتابعة كضيف'));
+    _setText('guest-login-text', _resolveTitle(blocks.login_guest_label, 'المتابعة كضيف'));
     _syncSendOtpButton();
   }
 

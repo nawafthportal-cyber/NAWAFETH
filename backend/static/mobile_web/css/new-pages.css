@@ -138,9 +138,9 @@ body.page-twofa .auth-page.auth-page-twofa {
   isolation: isolate;
   overflow: hidden;
   background:
-    radial-gradient(circle at 14% 8%, rgba(14, 116, 144, 0.14), transparent 34%),
-    radial-gradient(circle at 94% 84%, rgba(103, 58, 183, 0.2), transparent 38%),
-    linear-gradient(180deg, #eef3fb 0%, #f5f7fc 58%, #f2f4fb 100%);
+    radial-gradient(circle at 16% 10%, rgba(255,255,255,.16), transparent 30%),
+    radial-gradient(circle at 88% 86%, rgba(241,165,89,.22), transparent 36%),
+    linear-gradient(145deg,#2b175f 0%,#4a2d8f 48%,#673ab7 100%);
 }
 
 body.page-twofa .auth-twofa-bg-shape {
@@ -155,7 +155,7 @@ body.page-twofa .auth-twofa-bg-shape-a {
   height: min(46vw, 320px);
   top: -110px;
   inset-inline-end: -72px;
-  background: radial-gradient(circle, rgba(103, 58, 183, 0.2), transparent 72%);
+  background: radial-gradient(circle, rgba(255,255,255,.12), transparent 72%);
 }
 
 body.page-twofa .auth-twofa-bg-shape-b {
@@ -163,7 +163,7 @@ body.page-twofa .auth-twofa-bg-shape-b {
   height: min(52vw, 360px);
   bottom: -150px;
   inset-inline-start: -96px;
-  background: radial-gradient(circle, rgba(14, 116, 144, 0.15), transparent 72%);
+  background: radial-gradient(circle, rgba(255,255,255,.08), transparent 72%);
 }
 
 body.page-twofa .auth-twofa-container.container {
@@ -177,11 +177,11 @@ body.page-twofa .auth-twofa-container.container {
 body.page-twofa .auth-card.auth-card-twofa {
   max-width: 100%;
   border-radius: 30px;
-  border: 1px solid rgba(77, 74, 138, 0.14);
+  border: 1px solid rgba(255,255,255,.42);
   background:
-    radial-gradient(circle at 16% 8%, rgba(255, 255, 255, 0.82), transparent 30%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.99), rgba(247, 249, 255, 0.96));
-  box-shadow: 0 26px 48px rgba(15, 23, 42, 0.12);
+    radial-gradient(circle at 50% 0%, rgba(255,255,255,.98), rgba(255,255,255,.86) 28%, rgba(249,246,255,.96) 100%);
+  box-shadow: 0 30px 70px rgba(22,10,48,.34), inset 0 1px 0 rgba(255,255,255,.8);
+  color: #1e1236;
   padding: clamp(20px, 3vw, 30px) clamp(16px, 2.8vw, 28px);
 }
 
@@ -191,19 +191,23 @@ body.page-twofa .auth-header {
 
 body.page-twofa .auth-twofa-kicker {
   margin: 0 auto 10px;
+  border-color: rgba(103,58,183,.28) !important;
+  background: #fff !important;
+  color: #4a2d8f !important;
+  box-shadow: 0 8px 18px rgba(74,45,143,.12) !important;
 }
 
 body.page-twofa .twofa-icon {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   margin: 0 auto 10px;
-  border-radius: 22px;
-  background: linear-gradient(145deg, rgba(103, 58, 183, 0.16), rgba(103, 58, 183, 0.06));
-  color: #6b42c4;
+  border-radius: 999px;
+  background: linear-gradient(145deg, #fff 0%, #f4ecff 100%);
+  color: #4a2d8f;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 18px 36px rgba(103, 58, 183, 0.14);
+  box-shadow: 0 16px 38px rgba(74,45,143,.24), inset 0 0 0 1px rgba(103,58,183,.16);
 }
 
 body.page-twofa .auth-twofa-logo {
@@ -214,34 +218,34 @@ body.page-twofa .auth-twofa-logo {
 
 body.page-twofa .auth-title {
   margin: 0 0 8px;
-  color: #0f172a;
+  color: #1b1230;
   font-size: clamp(30px, 5.2vw, 38px);
   font-weight: 800;
   line-height: 1.2;
+  text-shadow: none;
 }
 
 body.page-twofa .auth-desc {
   margin: 0;
   font-size: 14px;
   line-height: 1.9;
-  color: #52637a;
+  color: #4f435f;
+  font-weight: 700;
 }
 
 body.page-twofa .otp-info-card {
   margin-bottom: 18px;
   border-radius: 20px;
-  border: 1px solid rgba(103, 58, 183, 0.14);
-  background:
-    radial-gradient(circle at 88% 10%, rgba(103, 58, 183, 0.1), transparent 36%),
-    rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(103,58,183,.18);
+  background: rgba(255,255,255,.72);
   padding: 14px 16px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 8px 20px rgba(74,45,143,.08);
 }
 
 body.page-twofa .otp-info-label {
   margin: 0;
   text-align: center;
-  color: #6b7690;
+  color: #6b5f7a;
   font-size: 12px;
   font-weight: 700;
 }
@@ -263,25 +267,23 @@ body.page-twofa .otp-box {
   width: 62px;
   height: 66px;
   border-radius: 18px;
-  border: 1.5px solid rgba(125, 133, 156, 0.22);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 255, 0.92));
-  color: #251d47;
+  border: 2px solid rgba(103,58,183,.22);
+  background: #fff;
+  color: #1f1633;
   font-size: 26px;
   font-weight: 800;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 22px rgba(54,31,94,.08);
   transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 body.page-twofa .otp-box.is-filled {
-  border-color: rgba(103, 58, 183, 0.48);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(244, 239, 255, 0.95));
+  border-color: rgba(103,58,183,.48);
+  background: linear-gradient(180deg, #fff 0%, rgba(244,239,255,.95) 100%);
 }
 
 body.page-twofa .otp-box:focus {
-  border-color: rgba(103, 58, 183, 0.78);
-  box-shadow:
-    0 0 0 4px rgba(103, 58, 183, 0.1),
-    0 14px 26px rgba(103, 58, 183, 0.12);
+  border-color: #4a2d8f;
+  box-shadow: 0 0 0 4px rgba(103,58,183,.18), 0 14px 26px rgba(103,58,183,.12);
 }
 
 body.page-twofa #otp-error.form-error {
@@ -290,10 +292,10 @@ body.page-twofa #otp-error.form-error {
   text-align: center;
   font-size: 13px;
   font-weight: 700;
-  color: #b3261e;
+  color: #b42318;
   border-radius: 14px;
-  background: rgba(211, 47, 47, 0.08);
-  border: 1px solid rgba(211, 47, 47, 0.12);
+  background: rgba(211,47,47,.08);
+  border: 1px solid rgba(211,47,47,.14);
   padding: 10px 12px;
 }
 
@@ -305,11 +307,30 @@ body.page-twofa .auth-card-twofa .btn-faceid-login {
   font-weight: 700;
 }
 
+body.page-twofa #btn-verify-otp {
+  border: 1px solid rgba(255,255,255,.28);
+  background: linear-gradient(135deg,#4a2d8f 0%,#673ab7 58%,#7d55d1 100%);
+  color: #fff;
+  box-shadow: 0 16px 34px rgba(74,45,143,.28);
+}
+
+body.page-twofa .auth-card-twofa .btn-faceid-login {
+  border: 2px solid rgba(74,45,143,.42);
+  background: #fff;
+  color: #321b63;
+  font-weight: 900;
+}
+
+body.page-twofa .auth-card-twofa .btn-faceid-login:hover {
+  border-color: #4a2d8f;
+  background: #f7f2ff;
+}
+
 body.page-twofa #resend-otp-spinner.spinner {
   width: 14px;
   height: 14px;
   border-width: 2px;
-  border-color: rgba(103, 58, 183, 0.28);
+  border-color: rgba(103,58,183,.28);
   border-top-color: #673ab7;
 }
 
@@ -320,13 +341,13 @@ body.page-twofa .twofa-countdown-pill {
   min-height: 34px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(103, 58, 183, 0.12);
-  background: rgba(103, 58, 183, 0.08);
+  border: 1px solid rgba(103,58,183,.22);
+  background: rgba(103,58,183,.08);
   text-align: center;
 }
 
 body.page-twofa #resend-countdown-text {
-  color: #5f3baa;
+  color: #4a2d8f;
   font-size: 12px;
   font-weight: 800;
 }
@@ -339,6 +360,16 @@ body.page-twofa .twofa-faceid .auth-divider {
   margin: 10px 0;
 }
 
+body.page-twofa .auth-divider {
+  color: #5f526f;
+  font-weight: 800;
+}
+
+body.page-twofa .auth-divider::before,
+body.page-twofa .auth-divider::after {
+  background: linear-gradient(90deg,transparent,rgba(74,45,143,.34),transparent);
+}
+
 body.page-twofa .twofa-resend-row {
   margin-top: 18px;
   gap: 10px 14px;
@@ -347,6 +378,7 @@ body.page-twofa .twofa-resend-row {
 body.page-twofa .twofa-resend-row .btn-link {
   font-size: 13px;
   font-weight: 700;
+  color: #4f435f;
 }
 
 body.page-twofa .otp-resend-btn {
@@ -355,7 +387,8 @@ body.page-twofa .otp-resend-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #5f3baa;
+  color: #4a2d8f;
+  font-weight: 800;
 }
 
 body.page-twofa .twofa-toast {

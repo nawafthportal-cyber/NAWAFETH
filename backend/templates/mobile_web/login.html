@@ -4,6 +4,134 @@
 {% block title %}نوافــذ — تسجيل الدخول{% endblock %}
 {% block body_class %}page-login{% endblock %}
 
+{% block extra_css %}
+<style>
+  body.page-login .auth-page.auth-page-login{
+    background:
+      radial-gradient(circle at 16% 10%, rgba(255,255,255,.16), transparent 30%),
+      radial-gradient(circle at 88% 86%, rgba(241,165,89,.22), transparent 36%),
+      linear-gradient(145deg,#2b175f 0%,#4a2d8f 48%,#673ab7 100%);
+  }
+  body.page-login .auth-card.auth-card-login{
+    border:1px solid rgba(255,255,255,.42);
+    background:
+      radial-gradient(circle at 50% 0%, rgba(255,255,255,.98), rgba(255,255,255,.86) 28%, rgba(249,246,255,.96) 100%);
+    box-shadow:0 30px 70px rgba(22,10,48,.34), inset 0 1px 0 rgba(255,255,255,.8);
+    color:#1e1236;
+  }
+  body.page-login .auth-login-kicker{
+    border-color:rgba(103,58,183,.28);
+    background:#fff;
+    color:#4a2d8f;
+    box-shadow:0 8px 18px rgba(74,45,143,.12);
+  }
+  body.page-login .auth-logo{
+    width:86px;
+    height:86px;
+    margin:0 auto 18px;
+    border-radius:999px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(145deg,#fff 0%,#f4ecff 100%);
+    color:#4a2d8f;
+    font-size:0;
+    box-shadow:0 16px 38px rgba(74,45,143,.24), inset 0 0 0 1px rgba(103,58,183,.16);
+  }
+  body.page-login .auth-logo::before{
+    content:"";
+    width:34px;
+    height:34px;
+    display:block;
+    background:currentColor;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg width='34' height='34' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4V6Zm3 9.73V17h-2v-1.27a2 2 0 1 1 2 0Z'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg width='34' height='34' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='black' d='M17 8h-1V6a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2Zm-7-2a2 2 0 1 1 4 0v2h-4V6Zm3 9.73V17h-2v-1.27a2 2 0 1 1 2 0Z'/%3E%3C/svg%3E") center/contain no-repeat;
+  }
+  body.page-login .auth-title{
+    color:#1b1230;
+    text-shadow:none;
+  }
+  body.page-login .auth-desc,
+  body.page-login .form-hint{
+    color:#4f435f;
+    font-weight:700;
+  }
+  body.page-login .auth-card-login .form-label{
+    color:#321b63;
+  }
+  body.page-login .auth-card-login .form-input{
+    min-height:52px;
+    border:2px solid rgba(103,58,183,.22);
+    border-radius:16px;
+    background:#fff;
+    color:#1f1633;
+    font-weight:800;
+    box-shadow:0 10px 22px rgba(54,31,94,.08);
+  }
+  body.page-login .auth-card-login .form-input::placeholder{
+    color:#8e7daa;
+    opacity:1;
+  }
+  body.page-login .auth-card-login .form-input:focus{
+    border-color:#4a2d8f;
+    box-shadow:0 0 0 4px rgba(103,58,183,.18),0 14px 28px rgba(54,31,94,.12);
+  }
+  body.page-login .auth-card-login .btn-primary{
+    border:1px solid rgba(255,255,255,.28);
+    background:linear-gradient(135deg,#4a2d8f 0%,#673ab7 58%,#7d55d1 100%);
+    color:#fff;
+    box-shadow:0 16px 34px rgba(74,45,143,.28);
+  }
+  body.page-login .auth-card-login .btn-secondary,
+  body.page-login .auth-card-login .btn-faceid-login{
+    border:2px solid rgba(74,45,143,.42);
+    background:#fff;
+    color:#321b63;
+    font-weight:900;
+    box-shadow:0 12px 26px rgba(54,31,94,.08);
+  }
+  body.page-login .auth-card-login .btn-secondary:hover,
+  body.page-login .auth-card-login .btn-faceid-login:hover{
+    border-color:#4a2d8f;
+    background:#f7f2ff;
+  }
+  body.page-login #btn-guest::before{
+    content:"";
+    width:24px;
+    height:24px;
+    flex:0 0 24px;
+    border-radius:999px;
+    border:1px solid rgba(74,45,143,.34);
+    background:#fff url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234A2D8F' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 21a8 8 0 0 0-16 0'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E") center/16px 16px no-repeat;
+    box-shadow:0 6px 14px rgba(74,45,143,.12);
+  }
+  body.page-login .auth-card-login .btn-faceid-login svg{
+    color:#4a2d8f;
+    filter:drop-shadow(0 2px 4px rgba(74,45,143,.14));
+  }
+  body.page-login .auth-divider{
+    color:#5f526f;
+    font-weight:800;
+  }
+  body.page-login .auth-divider::before,
+  body.page-login .auth-divider::after{
+    background:linear-gradient(90deg,transparent,rgba(74,45,143,.34),transparent);
+  }
+  body.page-login #phone-error{
+    color:#b42318;
+    font-weight:800;
+  }
+
+  @media (max-width:540px){
+    body.page-login .auth-card.auth-card-login{padding:24px 16px;border-radius:26px}
+    body.page-login .auth-logo{width:78px;height:78px;margin-bottom:16px}
+    body.page-login .auth-logo::before{width:31px;height:31px}
+    body.page-login .auth-title{font-size:30px}
+    body.page-login .auth-desc{font-size:13.5px}
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="auth-page auth-page-login">
   <span class="auth-login-bg-shape auth-login-bg-shape-a" aria-hidden="true"></span>
@@ -49,12 +177,56 @@
       </div>
 
       <div class="auth-divider"><span>أو</span></div>
-      <button class="btn btn-secondary" id="btn-guest" type="button">...</button>
+      <button class="btn btn-secondary" id="btn-guest" type="button">
+        <span class="login-guest-icon" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21a8 8 0 0 0-16 0"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </span>
+        <span id="guest-login-text">...</span>
+      </button>
     </div>
   </div>
 </main>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/loginPage.js' %}?v=20260419-account-messages"></script>
+<style id="login-final-contrast-overrides">
+  body.mobile-web-parity.page-login #btn-guest.btn.btn-secondary{
+    background:#fff !important;
+    color:#4a2d8f !important;
+    border-color:rgba(255,255,255,.92) !important;
+    box-shadow:0 14px 30px rgba(26,12,56,.18) !important;
+    text-shadow:none !important;
+  }
+  body.mobile-web-parity.page-login #btn-guest.btn.btn-secondary::before{
+    display:none !important;
+    content:none !important;
+  }
+  body.mobile-web-parity.page-login #btn-guest.btn.btn-secondary .login-guest-icon{
+    width:28px !important;
+    height:28px !important;
+    flex:0 0 28px !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    border-radius:999px !important;
+    border:1px solid rgba(74,45,143,.32) !important;
+    background:#fff !important;
+    color:#4a2d8f !important;
+    box-shadow:none !important;
+  }
+  body.mobile-web-parity.page-login #btn-guest.btn.btn-secondary .login-guest-icon svg{
+    display:block !important;
+    color:#4a2d8f !important;
+    stroke:currentColor !important;
+  }
+  body.mobile-web-parity.page-login #btn-guest.btn.btn-secondary:hover{
+    background:#f9f5ff !important;
+    color:#3f247e !important;
+    border-color:#fff !important;
+  }
+</style>
+<script src="{% static 'mobile_web/js/loginPage.js' %}?v=20260423-guest-icon"></script>
 {% endblock %}
