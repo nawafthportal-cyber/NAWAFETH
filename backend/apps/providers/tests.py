@@ -4,14 +4,18 @@ from django.urls import reverse
 
 from apps.accounts.models import User, UserRole
 from apps.extras_portal.views import _report_option_card_catalog
+from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
+from apps.reviews.models import Review, ReviewModerationStatus
 
 from .models import (
+    Category,
     ContentShareChannel,
     ContentShareContentType,
     ProviderContentShare,
     ProviderFollow,
     ProviderPortfolioItem,
     ProviderProfile,
+    SubCategory,
 )
 
 
@@ -190,3 +194,93 @@ class ProviderFollowersRoleIsolationTests(TestCase):
         self.assertEqual(rows[0]["follow_role_context"], "client")
         self.assertIsNone(rows[0]["provider_id"])
         self.assertEqual(rows[0]["display_name"], "عميل متابع")
+
+
+class ProviderRatingDisplayTests(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(name="خدمات منزلية")
+        self.subcategory = SubCategory.objects.create(category=self.category, name="صيانة")
+        self.provider_user = User.objects.create_user(
+            phone="0503500001",
+            username="provider.rating.owner",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود التقييم",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+
+    @staticmethod
+    def _rows_from_payload(payload):
+        if isinstance(payload, dict):
+            return payload.get("results", [])
+        return payload
+
+    def _create_review(self, *, rating: int, phone_suffix: str) -> Review:
+        client_user = User.objects.create_user(
+            phone=f"050350{phone_suffix}",
+            username=f"provider.rating.client.{phone_suffix}",
+            role_state=UserRole.CLIENT,
+        )
+        request = ServiceRequest.objects.create(
+            client=client_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب تقييم",
+            description="طلب مكتمل لاختبار التقييم",
+            request_type=RequestType.NORMAL,
+            status=RequestStatus.COMPLETED,
+            city="الرياض",
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            return Review.objects.create(
+                request=request,
+                provider=self.provider,
+                client=client_user,
+                rating=rating,
+                response_speed=rating,
+                cost_value=rating,
+                quality=rating,
+                credibility=rating,
+                on_time=rating,
+                moderation_status=ReviewModerationStatus.APPROVED,
+            )
+
+    def test_review_save_refreshes_provider_rating_without_celery_worker(self):
+        self._create_review(rating=5, phone_suffix="0002")
+
+        self.provider.refresh_from_db()
+        self.assertEqual(self.provider.rating_count, 1)
+        self.assertEqual(float(self.provider.rating_avg), 5.0)
+
+    def test_public_provider_surfaces_use_approved_reviews_when_cached_rating_is_stale(self):
+        self._create_review(rating=5, phone_suffix="0003")
+        self._create_review(rating=4, phone_suffix="0004")
+        ProviderProfile.objects.filter(id=self.provider.id).update(
+            rating_avg=0,
+            rating_count=0,
+        )
+
+        list_response = self.client.get(reverse("providers:provider_list"))
+        self.assertEqual(list_response.status_code, 200)
+        rows = self._rows_from_payload(list_response.json())
+        row = next(item for item in rows if item["id"] == self.provider.id)
+        self.assertEqual(int(row["rating_count"]), 2)
+        self.assertAlmostEqual(float(row["rating_avg"]), 4.5)
+
+        detail_response = self.client.get(reverse("providers:provider_detail", args=[self.provider.id]))
+        self.assertEqual(detail_response.status_code, 200)
+        detail = detail_response.json()
+        self.assertEqual(int(detail["rating_count"]), 2)
+        self.assertAlmostEqual(float(detail["rating_avg"]), 4.5)
+
+        stats_response = self.client.get(reverse("providers:provider_public_stats", args=[self.provider.id]))
+        self.assertEqual(stats_response.status_code, 200)
+        stats = stats_response.json()
+        self.assertEqual(int(stats["rating_count"]), 2)
+        self.assertAlmostEqual(float(stats["rating_avg"]), 4.5)

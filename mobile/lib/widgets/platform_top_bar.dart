@@ -681,23 +681,24 @@ class _AppBadge extends StatelessWidget {
         gradient: LinearGradient(
           colors: overlay
               ? const [Color(0xFFF1A559), Color(0xFFB788F3)]
-              : const [Color(0xFF5B2F88), Color(0xFF8D5FD3)],
+              : const [Color(0xFFFAF8FF), Color(0xFFF8F4FD)],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: (overlay ? const Color(0xFFD8A877) : const Color(0xFF6E42A0))
-                .withValues(alpha: 0.22),
-            blurRadius: 14,
-            offset: const Offset(0, 7),
-          ),
-        ],
+        boxShadow: overlay
+            ? [
+                BoxShadow(
+                  color: const Color(0xFFD8A877).withValues(alpha: 0.22),
+                  blurRadius: 14,
+                  offset: const Offset(0, 7),
+                ),
+              ]
+            : null,
       ),
-      child: const Text(
+      child: Text(
         'ن',
         style: TextStyle(
-          color: Colors.white,
+          color: overlay ? Colors.white : const Color(0xFF512DA8),
           fontFamily: 'Cairo',
           fontWeight: FontWeight.w900,
           fontSize: 18,

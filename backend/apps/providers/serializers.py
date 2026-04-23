@@ -4,6 +4,7 @@ from django.utils.text import slugify
 from apps.accounts.models import User
 from apps.accounts.phone_validation import normalize_phone_local05, require_phone_local05
 from apps.accounts.role_context import get_active_role
+from apps.reviews.services import provider_rating_values
 from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import (
     IMAGE_EXTENSIONS,
@@ -298,6 +299,8 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
     subcategory_ids = serializers.SerializerMethodField()
     whatsapp_url = serializers.SerializerMethodField()
     city_display = serializers.SerializerMethodField()
+    rating_avg = serializers.SerializerMethodField()
+    rating_count = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
@@ -456,6 +459,12 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
     def get_city_display(self, obj):
         return format_city_display(getattr(obj, "city", ""), region=getattr(obj, "region", ""))
 
+    def get_rating_avg(self, obj):
+        return f"{provider_rating_values(obj)['rating_avg']:.2f}"
+
+    def get_rating_count(self, obj):
+        return provider_rating_values(obj)["rating_count"]
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["profile_image"] = _safe_file_url(getattr(instance, "profile_image", None))
@@ -480,6 +489,8 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
     subcategory_ids = serializers.SerializerMethodField()
     whatsapp_url = serializers.SerializerMethodField()
     city_display = serializers.SerializerMethodField()
+    rating_avg = serializers.SerializerMethodField()
+    rating_count = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
@@ -597,6 +608,12 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
 
     def get_city_display(self, obj):
         return format_city_display(getattr(obj, "city", ""), region=getattr(obj, "region", ""))
+
+    def get_rating_avg(self, obj):
+        return f"{provider_rating_values(obj)['rating_avg']:.2f}"
+
+    def get_rating_count(self, obj):
+        return provider_rating_values(obj)["rating_count"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

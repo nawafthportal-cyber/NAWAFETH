@@ -180,13 +180,37 @@ const ProviderDetailPage = (() => {
   }
 
   function _ensureActiveTabVisible() {
+    const tabsRoot = document.getElementById('pd-tabs');
     const active = document.querySelector('#pd-tabs .pd-tab.active');
-    if (!active || typeof active.scrollIntoView !== 'function') return;
+    if (!tabsRoot || !active || !tabsRoot.contains(active)) return;
+
+    const rootRect = tabsRoot.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const activeCenter = activeRect.left + (activeRect.width / 2);
+    const rootCenter = rootRect.left + (rootRect.width / 2);
+    const delta = activeCenter - rootCenter;
+
     try {
-      active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      tabsRoot.scrollTo({
+        left: tabsRoot.scrollLeft + delta,
+        behavior: 'smooth',
+      });
     } catch (_) {
-      active.scrollIntoView();
+      tabsRoot.scrollLeft += delta;
     }
+
+    _resetPageHorizontalScroll();
+  }
+
+  function _resetPageHorizontalScroll() {
+    if (window.scrollX === 0 && document.documentElement.scrollLeft === 0 && document.body.scrollLeft === 0) return;
+    try {
+      window.scrollTo({ left: 0, top: window.scrollY, behavior: 'auto' });
+    } catch (_) {
+      window.scrollTo(0, window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0);
+    }
+    document.documentElement.scrollLeft = 0;
+    document.body.scrollLeft = 0;
   }
 
   function _setTabMeta(tabName, value) {
@@ -1958,10 +1982,13 @@ const ProviderDetailPage = (() => {
     if (emptyEl) emptyEl.classList.add('hidden');
     if (!listEl) return;
 
+    const isCompactReviews = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
     const marqueeReviews = reviews.slice();
-    if (marqueeReviews.length === 1) {
+    if (isCompactReviews || marqueeReviews.length === 1) {
       const staticList = UI.el('div', { className: 'pd-reviews-static' });
-      staticList.appendChild(_buildReviewCard(marqueeReviews[0]));
+      marqueeReviews.forEach((review) => {
+        staticList.appendChild(_buildReviewCard(review));
+      });
       listEl.appendChild(staticList);
       _setTabLoadingState('reviews', false);
       return;

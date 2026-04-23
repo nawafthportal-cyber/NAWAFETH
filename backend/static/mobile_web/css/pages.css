@@ -2766,11 +2766,15 @@ body.page-urgent-request {
 .pd-cover-btn:hover { background: rgba(255,255,255,0.3); }
 .pd-cover-btn.bookmarked svg { fill: #fff; }
 
-/* ── Avatar centered ── */
+/* ── Avatar centered (RTL-safe) ── */
 .pd-avatar-wrap {
   position: absolute;
   bottom: -56px;
-  left: 50%; transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  width: 130px;
   z-index: 10;
 }
 .pd-avatar {
@@ -3528,6 +3532,51 @@ body.page-urgent-request {
 @keyframes pd-reviews-scroll {
   0% { transform: translateX(calc(-50% - (var(--space-md) / 2))); }
   100% { transform: translateX(0); }
+}
+
+@media (max-width: 640px) {
+  body.page-provider-detail,
+  body.page-provider-detail .pd-page,
+  body.page-provider-detail .pd-content-shell,
+  body.page-provider-detail .pd-tab-content,
+  body.page-provider-detail #tab-reviews,
+  body.page-provider-detail .pd-reviews-list {
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-x: clip;
+  }
+
+  body.page-provider-detail .pd-reviews-marquee {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    -webkit-mask-image: none;
+            mask-image: none;
+  }
+
+  body.page-provider-detail .pd-reviews-track {
+    width: 100%;
+    display: block;
+    transform: none !important;
+    animation: none;
+  }
+
+  body.page-provider-detail .pd-reviews-track-group {
+    display: grid;
+    gap: var(--space-md);
+    padding-inline-end: 0;
+  }
+
+  body.page-provider-detail .pd-reviews-track-group + .pd-reviews-track-group {
+    display: none;
+  }
+
+  body.page-provider-detail .pd-review-card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    flex: none;
+  }
 }
 
 /* ── Empty state ── */
@@ -13714,11 +13763,15 @@ body.page-provider-detail.page-provider-detail-premium {
     radial-gradient(680px 360px at 90% -8%, rgba(14, 116, 144, 0.24), transparent 64%),
     radial-gradient(720px 320px at -12% 16%, rgba(15, 118, 110, 0.2), transparent 64%),
     linear-gradient(180deg, #edf6fb 0%, #f5f8fc 42%, #f7f8fb 100%);
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 body.page-provider-detail.page-provider-detail-premium .pd-page-premium {
   position: relative;
   overflow: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 body.page-provider-detail.page-provider-detail-premium .pd-page-premium::before,
@@ -13757,6 +13810,16 @@ body.page-provider-detail.page-provider-detail-premium .pd-hero {
 
 body.page-provider-detail.page-provider-detail-premium .pd-avatar-wrap {
   z-index: 12;
+  left: 0;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  transform: none;
+}
+
+/* Twitter-style: remove the bottom fade gradient so the avatar visibly overlaps the cover */
+body.page-provider-detail.page-provider-detail-premium .pd-hero::after {
+  display: none;
 }
 
 body.page-provider-detail.page-provider-detail-premium .pd-identity {
@@ -13765,8 +13828,8 @@ body.page-provider-detail.page-provider-detail-premium .pd-identity {
 }
 
 body.page-provider-detail.page-provider-detail-premium .pd-cover {
-  border-bottom-left-radius: 30px;
-  border-bottom-right-radius: 30px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
   background: linear-gradient(128deg, #0f766e 0%, #0e7490 52%, #1d4ed8 100%);
   box-shadow: 0 24px 44px rgba(14, 58, 102, 0.32);
 }
@@ -13793,8 +13856,8 @@ body.page-provider-detail.page-provider-detail-premium .pd-avatar {
 
 body.page-provider-detail.page-provider-detail-premium .pd-identity {
   width: min(760px, calc(100% - 24px));
-  margin: 0 auto 12px;
-  padding: 78px 18px 18px;
+  margin: -30px auto 12px;
+  padding: 108px 18px 18px;
   border-radius: 24px;
   border: 1px solid rgba(14, 101, 112, 0.18);
   background: var(--pd-premium-glass);
@@ -14102,7 +14165,7 @@ body.page-provider-detail.page-provider-detail-premium .pd-panel.active .pd-card
   body.page-provider-detail.page-provider-detail-premium .pd-identity {
     width: calc(100% - 14px);
     border-radius: 20px;
-    padding: 68px 12px 14px;
+    padding: 98px 12px 14px;
   }
 
   body.page-provider-detail.page-provider-detail-premium .pd-tabs {
@@ -14123,8 +14186,8 @@ body.page-provider-detail.page-provider-detail-premium .pd-panel.active .pd-card
   }
 
   body.page-provider-detail.page-provider-detail-premium .pd-cover {
-    border-bottom-left-radius: 22px;
-    border-bottom-right-radius: 22px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
   }
 }
 

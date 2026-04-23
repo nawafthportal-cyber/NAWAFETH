@@ -1,3 +1,5 @@
+import logging
+
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
@@ -5,6 +7,8 @@ from django.dispatch import receiver
 from apps.notifications.services import create_notification
 
 from .models import Review, ReviewModerationStatus
+
+logger = logging.getLogger("nawafeth.reviews")
 
 
 def _provider_user_for_review(instance: Review):
@@ -67,8 +71,16 @@ def update_provider_rating(sender, instance: Review, created, **kwargs):
     provider_id = instance.provider_id
     if not provider_id:
         return
-    from .tasks import recalculate_provider_rating
-    transaction.on_commit(lambda: recalculate_provider_rating.delay(provider_id))
+
+    def _refresh_rating():
+        from .services import refresh_provider_rating
+
+        try:
+            refresh_provider_rating(provider_id)
+        except Exception:
+            logger.exception("Failed to refresh provider rating for provider_id=%s", provider_id)
+
+    transaction.on_commit(_refresh_rating)
 
     if not created:
         return
@@ -156,5 +168,13 @@ def update_provider_rating_on_delete(sender, instance: Review, **kwargs):
     provider_id = instance.provider_id
     if not provider_id:
         return
-    from .tasks import recalculate_provider_rating
-    transaction.on_commit(lambda: recalculate_provider_rating.delay(provider_id))
+
+    def _refresh_rating():
+        from .services import refresh_provider_rating
+
+        try:
+            refresh_provider_rating(provider_id)
+        except Exception:
+            logger.exception("Failed to refresh provider rating for provider_id=%s", provider_id)
+
+    transaction.on_commit(_refresh_rating)

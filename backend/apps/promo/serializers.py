@@ -6,6 +6,7 @@ from django.utils import timezone
 from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
 from apps.providers.location_formatter import format_city_display
 from apps.providers.serializers import ProviderPortfolioItemSerializer, ProviderSpotlightItemSerializer
+from apps.reviews.services import provider_rating_values
 from apps.subscriptions.capabilities import (
     promotional_chat_controls_enabled_for_user,
     promotional_notification_controls_enabled_for_user,
@@ -836,7 +837,7 @@ class PromoActivePlacementSerializer(serializers.Serializer):
 
     def get_target_provider_rating_avg(self, obj):
         provider = self._target_provider(obj)
-        return getattr(provider, "rating_avg", 0) or 0
+        return provider_rating_values(provider)["rating_avg"] if provider is not None else 0
 
     def get_target_city_display(self, obj):
         if isinstance(obj, dict):
@@ -851,10 +852,7 @@ class PromoActivePlacementSerializer(serializers.Serializer):
 
     def get_target_provider_rating_count(self, obj):
         provider = self._target_provider(obj)
-        try:
-            return int(getattr(provider, "rating_count", 0) or 0)
-        except (TypeError, ValueError):
-            return 0
+        return provider_rating_values(provider)["rating_count"] if provider is not None else 0
 
     def get_target_provider_excellence_badges(self, obj):
         provider = self._target_provider(obj)

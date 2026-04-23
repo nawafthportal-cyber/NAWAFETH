@@ -252,8 +252,10 @@ def _me_payload(user: User, *, request=None) -> dict:
             if provider_likes_received_count is None:
                 provider_likes_received_count = pp.likes.count()
                 _cache.set(_lk, provider_likes_received_count, 300)
-            provider_rating_avg = pp.rating_avg
-            provider_rating_count = pp.rating_count
+            from apps.reviews.services import provider_rating_values
+            rating = provider_rating_values(pp)
+            provider_rating_avg = rating["rating_avg"]
+            provider_rating_count = rating["rating_count"]
         except Exception:
             pass
 

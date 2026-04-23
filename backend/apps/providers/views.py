@@ -6,7 +6,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Count, Exists, F, Max, OuterRef, Prefetch, Q
+from django.db.models import Avg, Count, Exists, F, Max, OuterRef, Prefetch, Q
 from django.db.models.functions import Coalesce
 from django.db import transaction
 
@@ -17,6 +17,8 @@ from apps.accounts.models import User
 from apps.accounts.models import UserRole
 from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider
 from apps.accounts.role_context import get_active_role
+from apps.reviews.models import ReviewModerationStatus
+from apps.reviews.services import calculate_provider_rating
 
 from .models import (
 	Category,
@@ -101,6 +103,20 @@ def _is_storage_error(exc):
 	return False
 
 
+def _with_rating_annotations(qs):
+	return qs.annotate(
+		computed_rating_avg=Avg(
+			"reviews__rating",
+			filter=Q(reviews__moderation_status=ReviewModerationStatus.APPROVED),
+		),
+		computed_rating_count=Count(
+			"reviews",
+			filter=Q(reviews__moderation_status=ReviewModerationStatus.APPROVED),
+			distinct=True,
+		),
+	)
+
+
 class MyProviderProfileView(generics.RetrieveUpdateAPIView):
 	"""Get/update the current user's provider profile."""
 
@@ -109,9 +125,11 @@ class MyProviderProfileView(generics.RetrieveUpdateAPIView):
 
 	def get_object(self):
 		provider_profile = (
-			ProviderProfile.objects.select_related("user")
-			.prefetch_related("providercategory_set__subcategory__category")
-			.filter(user=self.request.user)
+			_with_rating_annotations(
+				ProviderProfile.objects.select_related("user")
+				.prefetch_related("providercategory_set__subcategory__category")
+				.filter(user=self.request.user)
+			)
 			.first()
 		)
 		if not provider_profile:
@@ -319,7 +337,7 @@ class ProviderListView(generics.ListAPIView):
 	def get_queryset(self):
 		from apps.marketplace.models import RequestStatus
 		# Public list must include only real active provider accounts.
-		qs = (
+		qs = _with_rating_annotations(
 			ProviderProfile.objects.select_related("user")
 			.prefetch_related("providercategory_set__subcategory__category")
 			.filter(
@@ -389,7 +407,7 @@ class ProviderDetailView(generics.RetrieveAPIView):
 
 	def get_queryset(self):
 		from apps.marketplace.models import RequestStatus
-		return (
+		return _with_rating_annotations(
 			ProviderProfile.objects.select_related("user")
 			.prefetch_related("providercategory_set__subcategory__category")
 			.filter(
@@ -419,7 +437,7 @@ class MyFollowingProvidersView(generics.ListAPIView):
 			user=self.request.user,
 			role_context=role,
 		)
-		return (
+		return _with_rating_annotations(
 			ProviderProfile.objects.annotate(_is_followed=Exists(followed_by_me))
 			.filter(_is_followed=True)
 			.annotate(
@@ -937,7 +955,7 @@ class MyLikedProvidersView(generics.ListAPIView):
 			user=self.request.user,
 			role_context=role,
 		)
-		return (
+		return _with_rating_annotations(
 			ProviderProfile.objects.annotate(_is_liked=Exists(liked_by_me))
 			.filter(_is_liked=True)
 			.annotate(
@@ -1021,7 +1039,7 @@ class ProviderFollowingView(generics.ListAPIView):
 				user=user,
 				role_context=role,
 			)
-			return (
+			return _with_rating_annotations(
 				ProviderProfile.objects.annotate(_is_followed=Exists(followed_by_provider_user))
 				.filter(_is_followed=True)
 				.annotate(
@@ -1099,6 +1117,7 @@ class ProviderPublicStatsView(APIView):
 		).count()
 		media_likes_count = portfolio_likes_count + spotlight_likes_count
 		media_saves_count = portfolio_saves_count + spotlight_saves_count
+		rating = calculate_provider_rating(provider_id)
 
 		payload = {
 			"provider_id": provider_id,
@@ -1114,8 +1133,8 @@ class ProviderPublicStatsView(APIView):
 			"portfolio_saves_count": portfolio_saves_count,
 			"spotlight_saves_count": spotlight_saves_count,
 			"media_saves_count": media_saves_count,
-			"rating_avg": getattr(provider, "rating_avg", 0) or 0,
-			"rating_count": getattr(provider, "rating_count", 0) or 0,
+			"rating_avg": rating["rating_avg"],
+			"rating_count": rating["rating_count"],
 		}
 		_cache.set(cache_key, payload, 300)  # 5 minutes
 		return Response(payload, status=status.HTTP_200_OK)
