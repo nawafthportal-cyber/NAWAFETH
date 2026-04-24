@@ -213,10 +213,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     );
   }
 
-  // =============================================
-  //  CLIENT PROFILE  -  2026 Design
-  // =============================================
-
   Widget _buildClientProfile(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
     final profile = _userProfile!;
@@ -319,124 +315,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     );
   }
 
-  Widget _buildProfileHeadCard(UserProfile profile, bool isDark) {
-    final chips = <String>[
-      isProviderRegistered ? 'التحويل بين الأوضاع' : 'لوحة ملف موحدة',
-      _notificationUnread > 0 ? '$_notificationUnread إشعار جديد' : 'الإشعارات تحت السيطرة',
-      profile.favoritesMediaCount > 0 ? '${profile.favoritesMediaCount} محفوظ' : 'ابدأ ببناء محفوظاتك',
-    ];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : const Color(0x335E35B1),
-        ),
-        gradient: isDark
-            ? const LinearGradient(
-                colors: [Color(0xFF1A1036), Color(0xFF140E2E)],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-              )
-            : const LinearGradient(
-                colors: [Color(0xFFFFFFFF), Color(0xFFF5F0FF)],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-              ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.14 : 0.10),
-            blurRadius: 26,
-            offset: const Offset(0, 16),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0x335E35B1)
-                  : const Color(0x1F5E35B1),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              'نافذتي',
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 10.5,
-                fontWeight: FontWeight.w900,
-                color: isDark ? const Color(0xFFCDB4F4) : const Color(0xFF5E35B1),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'إدارة الحساب والوصول السريع من مكان واحد',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 22,
-              height: 1.2,
-              fontWeight: FontWeight.w900,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            isProviderRegistered
-                ? 'تابع نشاطك، بدّل بين وضع العميل ومقدم الخدمة، واحتفظ بكل أدوات الحساب في واجهة أكثر أناقة ووضوحاً.'
-                : 'تابع نشاطك، أدِر معلوماتك الأساسية، وادخل سريعاً إلى أدوات الحساب والمحـفوظات من واجهة أكثر أناقة ووضوحاً.',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 11.5,
-              height: 1.9,
-              fontWeight: FontWeight.w700,
-              color: isDark ? const Color(0xFFB0C0D2) : const Color(0xFF4D657E),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: chips
-                .map(
-                  (chip) => Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.06)
-                          : Colors.white.withValues(alpha: 0.78),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0x335E35B1),
-                      ),
-                    ),
-                    child: Text(
-                      chip,
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? const Color(0xFFCDB4F4) : const Color(0xFF5E35B1),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
   // -- HEADER --
   Widget _buildHeader(UserProfile profile, bool isDark, Color accent) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -518,19 +396,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                     ),
                   ),
                   const Spacer(),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Text(
-                      profile.displayName,
-                      style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 18,
-                        height: 1.1,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

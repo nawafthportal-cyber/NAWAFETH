@@ -196,7 +196,7 @@ NOTIFICATION_CATALOG = {
         "title": "توصيات منصة نوافذ",
         "tier": NotificationTier.BASIC,
         "default_enabled": True,
-        "audience_modes": ("client", "provider", "shared"),
+        "audience_modes": ("client",),
         "required_tier": CanonicalPlanTier.BASIC,
     },
     # الباقة الريادية
@@ -367,11 +367,70 @@ EVENT_TO_PREF_KEY = {
 }
 
 
+NOTIFICATION_PREFERENCE_SECTIONS = {
+    CanonicalPlanTier.BASIC: {
+        "title": NotificationTier.BASIC.label,
+        "description": "تنبيهات التشغيل الأساسية المرتبطة بالطلبات والرسائل والتحديثات العامة.",
+        "sort_order": 1,
+    },
+    CanonicalPlanTier.PIONEER: {
+        "title": NotificationTier.LEADING.label,
+        "description": "تنبيهات التفاعل والنمو المرتبطة بالمتابعات والتعليقات واهتمام العملاء.",
+        "sort_order": 2,
+    },
+    CanonicalPlanTier.PROFESSIONAL: {
+        "title": NotificationTier.PROFESSIONAL.label,
+        "description": "تنبيهات متقدمة للمراجعات والمنافسة والظهور التجاري.",
+        "sort_order": 3,
+    },
+    NotificationTier.EXTRA: {
+        "title": NotificationTier.EXTRA.label,
+        "description": "تنبيهات مرتبطة بالخدمات الإضافية والبوابات التشغيلية المتخصصة.",
+        "sort_order": 4,
+        "note_title": "إدارة العملاء",
+        "note_body": "مخصص للعملاء وخدمتهم المتكررة مثل الصيانة الدورية، ويشمل مواعيد ورسائل تنبيه.",
+    },
+}
+
+
 def notification_tier_to_canonical(tier: str) -> str:
     normalized = str(tier or "").strip().lower()
     if normalized == NotificationTier.EXTRA:
         return NotificationTier.EXTRA
     return canonical_tier_from_value(normalized, fallback=CanonicalPlanTier.BASIC) or CanonicalPlanTier.BASIC
+
+
+def notification_preference_sections_for_response(*, prefs) -> list[dict[str, object]]:
+    visible_tiers = []
+    seen = set()
+    for pref in prefs:
+        key = notification_tier_to_canonical(getattr(pref, "tier", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        visible_tiers.append(key)
+
+    visible_tiers.sort(
+        key=lambda key: (
+            int(NOTIFICATION_PREFERENCE_SECTIONS.get(key, {}).get("sort_order", 999)),
+            str(key),
+        )
+    )
+
+    sections = []
+    for key in visible_tiers:
+        meta = dict(NOTIFICATION_PREFERENCE_SECTIONS.get(key, {}))
+        sections.append(
+            {
+                "key": key,
+                "title": str(meta.get("title") or key),
+                "description": str(meta.get("description") or ""),
+                "sort_order": int(meta.get("sort_order") or 999),
+                "note_title": str(meta.get("note_title") or ""),
+                "note_body": str(meta.get("note_body") or ""),
+            }
+        )
+    return sections
 
 
 def normalize_preference_mode(mode: str | None) -> str:
@@ -451,6 +510,13 @@ def notification_preference_availability(
 
     context = context or _notification_entitlement_context(user)
     normalized_mode = normalize_preference_mode(audience_mode)
+    supported_modes = _pref_supported_modes(pref_key)
+    if normalized_mode not in supported_modes:
+        return {
+            "locked": True,
+            "reason": "هذا النوع من الإشعارات غير متاح لهذا السياق.",
+        }
+
     if normalized_mode == NotificationPreference.AudienceMode.PROVIDER and not bool(context.get("has_provider_profile")):
         return {
             "locked": True,
@@ -551,10 +617,11 @@ def get_or_create_notification_preferences(user, *, mode: str | None = None, exp
     qs = NotificationPreference.objects.filter(user=user)
     if normalized_mode in {NotificationPreference.AudienceMode.CLIENT, NotificationPreference.AudienceMode.PROVIDER}:
         qs = qs.filter(audience_mode__in=[normalized_mode, NotificationPreference.AudienceMode.SHARED])
+    rows = list(qs.order_by("tier", "audience_mode", "id"))
+    rows = [row for row in rows if row.audience_mode in _pref_supported_modes(row.key)]
     if exposed_only:
-        rows = list(qs.order_by("tier", "audience_mode", "id"))
         return [row for row in rows if _pref_is_exposed(row.key)]
-    return list(qs.order_by("tier", "audience_mode", "id"))
+    return rows
 
 
 def should_send_notification(*, user, pref_key: str | None, audience_mode: str | None = None) -> bool:

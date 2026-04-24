@@ -37,6 +37,7 @@ class SearchProviderScreen extends StatefulWidget {
 
 class _SearchProviderScreenState extends State<SearchProviderScreen> {
   final _searchCtrl = TextEditingController();
+  final _resultsScrollController = ScrollController();
   Timer? _debounce;
 
   // ── API data ──
@@ -44,8 +45,14 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   List<ProviderPublicModel> _providers = [];
   bool _loadingCats = true;
   bool _loadingProviders = false;
+  bool _loadingMore = false;
   bool _initialLoad = true;
   String? _loadError;
+  bool _showOfflineCachedResults = false;
+  String? _cacheStatusLabel;
+  int _totalResults = 0;
+  bool _hasMore = false;
+  int? _nextPage;
 
   // ── Filters ──
   int? _selectedCatId;
@@ -62,23 +69,35 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   bool _searchBannerImpressionTracked = false;
   String _lastCategoryPopupKey = '';
 
-  // ── Search results cache (5 min) ──
-  static final Map<String, List<ProviderPublicModel>> _searchCache = {};
-  static final Map<String, DateTime> _searchCacheTime = {};
-  static const _searchCacheTtl = Duration(minutes: 5);
-
   @override
   void initState() {
     super.initState();
     _selectedCatId = widget.initialCategoryId;
     _searchCtrl.text = widget.initialQuery.trim();
+    _resultsScrollController.addListener(_handleResultsScroll);
     _loadInitial();
   }
 
   Future<void> _loadInitial() async {
+    await _restoreLastSearchFilters();
     await Future.wait([_loadCategories(), _searchProviders()]);
     if (mounted) setState(() => _initialLoad = false);
     _loadSearchPromos();
+  }
+
+  Future<void> _restoreLastSearchFilters() async {
+    final hasExplicitState =
+        widget.initialCategoryId != null || widget.initialQuery.trim().isNotEmpty;
+    if (hasExplicitState) {
+      return;
+    }
+    final snapshot = await ProvidersApiService.loadLastSearchFilters();
+    if (!mounted || snapshot == null) {
+      return;
+    }
+    _selectedCatId = snapshot.categoryId;
+    _selectedSort = snapshot.sort.trim().isEmpty ? 'default' : snapshot.sort.trim();
+    _searchCtrl.text = snapshot.query;
   }
 
   Future<void> _loadSearchPromos() async {
@@ -366,82 +385,150 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     }
   }
 
-  Future<void> _searchProviders(
-      {bool requestLocationPermission = false}) async {
-    if (mounted) setState(() => _loadingProviders = true);
+  Future<void> _searchProviders({
+    bool requestLocationPermission = false,
+    bool forceRefresh = false,
+  }) async {
+    if (_loadingProviders) return;
+    if (mounted) {
+      setState(() {
+        _loadingProviders = true;
+        _loadError = null;
+      });
+    }
     try {
       final q = _searchCtrl.text.trim();
-      final cacheKey = '${q}_${_selectedCatId ?? ''}';
-
-      // Check cache first
-      final cachedAt = _searchCacheTime[cacheKey];
-      if (cachedAt != null &&
-          DateTime.now().difference(cachedAt) < _searchCacheTtl &&
-          _searchCache.containsKey(cacheKey)) {
-        final cached = _searchCache[cacheKey]!;
-        final distanceMap = await _buildDistanceMap(
-          cached,
-          requestPermission:
-              _selectedSort == 'nearest' ? requestLocationPermission : false,
-        );
-        _distanceKmByProviderId
-          ..clear()
-          ..addAll(distanceMap);
-        final sorted = List<ProviderPublicModel>.from(cached);
-        _sortProviders(sorted);
-        if (mounted) {
-          setState(() {
-            _providers = _applySearchPromoOrdering(sorted);
-            _loadError = null;
-          });
-        }
-        if (mounted) setState(() => _loadingProviders = false);
-        return;
-      }
-      final res = await ProvidersApiService.fetchProvidersList(
-        pageSize: 30,
+      final result = await ProvidersApiService.fetchProvidersPageResult(
+        page: 1,
+        pageSize: 20,
         query: q,
         categoryId: _selectedCatId,
+        forceRefresh: forceRefresh,
       );
-      if (res.isSuccess && res.data != null) {
-        final list = res.data is List
-            ? res.data as List
-            : (res.data['results'] as List?) ?? [];
-        final providers = list
-            .map((e) => ProviderPublicModel.fromJson(e as Map<String, dynamic>))
-            .toList();
-        // Store in cache
-        _searchCache[cacheKey] = List<ProviderPublicModel>.from(providers);
-        _searchCacheTime[cacheKey] = DateTime.now();
-        final distanceMap = await _buildDistanceMap(
-          providers,
-          requestPermission:
-              _selectedSort == 'nearest' ? requestLocationPermission : false,
-        );
-        _distanceKmByProviderId
-          ..clear()
-          ..addAll(distanceMap);
-        // Client-side sort
-        _sortProviders(providers);
-        if (mounted) {
-          setState(() {
-            _providers = _applySearchPromoOrdering(providers);
-            _loadError = null;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() => _loadError = res.error ?? 'فشل تحميل البيانات');
-        }
+      await ProvidersApiService.saveLastSearchFilters(
+        query: q,
+        categoryId: _selectedCatId,
+        sort: _selectedSort,
+      );
+
+      final distanceMap = await _buildDistanceMap(
+        result.data,
+        requestPermission:
+            _selectedSort == 'nearest' ? requestLocationPermission : false,
+      );
+      final sorted = List<ProviderPublicModel>.from(result.data);
+      _distanceKmByProviderId
+        ..clear()
+        ..addAll(distanceMap);
+      _sortProviders(sorted);
+
+      if (mounted) {
+        setState(() {
+          _providers = _applySearchPromoOrdering(sorted);
+          _totalResults = result.totalCount < sorted.length
+              ? sorted.length
+              : result.totalCount;
+          _hasMore = result.hasMore;
+          _nextPage = result.nextPage;
+          _showOfflineCachedResults = result.isOfflineFallback;
+          _cacheStatusLabel = _cacheStatusFor(result);
+          _loadError = sorted.isEmpty && result.hasError
+              ? result.errorMessage ?? 'فشل تحميل البيانات'
+              : null;
+        });
       }
     } catch (e) {
       AppLogger.warn(
         'SearchProviderScreen._searchProviders failed',
         error: e,
       );
-      if (mounted) setState(() => _loadError = 'خطأ: $e');
+      if (mounted) {
+        setState(() {
+          _loadError = 'تعذر تحميل النتائج الآن. حاول مرة أخرى.';
+          _showOfflineCachedResults = false;
+          _cacheStatusLabel = null;
+        });
+      }
     }
     if (mounted) setState(() => _loadingProviders = false);
+  }
+
+  Future<void> _loadMoreProviders() async {
+    if (_loadingMore || _loadingProviders || !_hasMore) {
+      return;
+    }
+    final page = _nextPage;
+    if (page == null) {
+      if (mounted) setState(() => _hasMore = false);
+      return;
+    }
+
+    setState(() => _loadingMore = true);
+    try {
+      final result = await ProvidersApiService.fetchProvidersPageResult(
+        page: page,
+        pageSize: 20,
+        query: _searchCtrl.text.trim(),
+        categoryId: _selectedCatId,
+      );
+      if (result.data.isNotEmpty) {
+        final distanceMap = await _buildDistanceMap(
+          result.data,
+          requestPermission: false,
+        );
+        final merged = <int, ProviderPublicModel>{
+          for (final provider in _providers) provider.id: provider,
+          for (final provider in result.data) provider.id: provider,
+        }.values.toList(growable: false);
+        _distanceKmByProviderId.addAll(distanceMap);
+        final sorted = List<ProviderPublicModel>.from(merged);
+        _sortProviders(sorted);
+        if (mounted) {
+          setState(() {
+            _providers = _applySearchPromoOrdering(sorted);
+            _totalResults = result.totalCount < sorted.length
+                ? sorted.length
+                : result.totalCount;
+            _hasMore = result.hasMore;
+            _nextPage = result.nextPage;
+          });
+        }
+      } else if (mounted) {
+        setState(() {
+          _hasMore = result.hasMore;
+          _nextPage = result.nextPage;
+        });
+      }
+    } catch (error, stackTrace) {
+      AppLogger.warn(
+        'SearchProviderScreen._loadMoreProviders failed',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    if (mounted) {
+      setState(() => _loadingMore = false);
+    }
+  }
+
+  void _handleResultsScroll() {
+    if (!_resultsScrollController.hasClients) {
+      return;
+    }
+    final position = _resultsScrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 260) {
+      _loadMoreProviders();
+    }
+  }
+
+  String? _cacheStatusFor(SearchProvidersPageResult result) {
+    if (result.isOfflineFallback) {
+      return 'تُعرض آخر نتائج محفوظة بسبب ضعف الاتصال.';
+    }
+    if (result.fromCache) {
+      return 'تُعرض نتائج محفوظة محليًا لتسريع التصفح.';
+    }
+    return null;
   }
 
   void _sortProviders(List<ProviderPublicModel> list) {
@@ -660,7 +747,10 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
 
   void _onSearchChanged(String _) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), _searchProviders);
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      _searchProviders();
+      _loadSearchPromos();
+    });
   }
 
   void _onCategorySelected(int? catId) {
@@ -672,6 +762,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _resultsScrollController.dispose();
     _debounce?.cancel();
     super.dispose();
   }
@@ -692,7 +783,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
             isDark ? const Color(0xFF120F18) : const Color(0xFFF7F4FB),
         drawer: widget.showDrawer ? const CustomDrawer() : null,
         bottomNavigationBar: widget.showBottomNavigation
-            ? const CustomBottomNav(currentIndex: 2)
+          ? const CustomBottomNav(currentIndex: -1)
             : null,
         body: Container(
           decoration: BoxDecoration(
@@ -711,6 +802,8 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                 if (!_loadingCats && _categories.isNotEmpty)
                   _buildCategoryChips(isDark, purple),
                 _buildSortBar(isDark, purple),
+                if (_cacheStatusLabel != null)
+                  _buildCacheStatusBanner(isDark, purple),
                 Expanded(child: _buildResults(isDark, purple)),
               ],
             ),
@@ -967,6 +1060,9 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   // ═══════════════════════════════════════
 
   Widget _buildSortBar(bool isDark, Color purple) {
+    final resultLabel = _totalResults > _providers.length && _providers.isNotEmpty
+        ? '${_providers.length} من $_totalResults'
+        : '${_providers.length} نتيجة';
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
       child: Container(
@@ -984,42 +1080,65 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
           children: [
             _buildSearchStatChip(
               icon: Icons.analytics_outlined,
-              label: '${_providers.length} نتيجة',
+              label: resultLabel,
               isDark: isDark,
             ),
             const Spacer(),
-            GestureDetector(
+            _buildToolbarPill(
+              icon: Icons.filter_list_rounded,
+              label: 'الفلاتر',
+              isDark: isDark,
+              purple: purple,
+              onTap: () => _openFilterSheet(isDark, purple),
+            ),
+            const SizedBox(width: 8),
+            _buildToolbarPill(
+              icon: Icons.tune_rounded,
+              label: _selectedSortLabel(),
+              isDark: isDark,
+              purple: purple,
               onTap: () => _openSortSheet(isDark, purple),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.05)
-                      : const Color(0xFFF8F4FC),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : const Color(0xFFE5D7F6),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.tune_rounded, size: 14, color: purple),
-                    const SizedBox(width: 5),
-                    Text(
-                      _selectedSortLabel(),
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w800,
-                        fontFamily: 'Cairo',
-                        color: purple,
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolbarPill({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+    required Color purple,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : const Color(0xFFF8F4FC),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFE5D7F6),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: purple),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+                fontFamily: 'Cairo',
+                color: purple,
               ),
             ),
           ],
@@ -1152,6 +1271,244 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     );
   }
 
+  void _openFilterSheet(bool isDark, Color purple) {
+    int? stagedCategoryId = _selectedCatId;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: SafeArea(
+                top: false,
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1B1623) : Colors.white,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(30)).copyWith(
+                      bottomLeft: const Radius.circular(28),
+                      bottomRight: const Radius.circular(28),
+                    ),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : const Color(0xFFE9DDF7),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.14)
+                                : const Color(0xFFD8C7EE),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF8A2E8A), Color(0xFFF0823C)],
+                                begin: Alignment.topRight,
+                                end: Alignment.bottomLeft,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.filter_list_rounded,
+                              color: Colors.white,
+                              size: 17,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'فلاتر البحث',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                fontFamily: 'Cairo',
+                                color: isDark ? Colors.white : const Color(0xFF24182F),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'اختر التصنيف الذي تريد التركيز عليه. ستظل عبارة البحث الحالية كما هي.',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Cairo',
+                          color: isDark ? Colors.white54 : const Color(0xFF7A6B8B),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildFilterChoice(
+                            label: 'الكل',
+                            selected: stagedCategoryId == null,
+                            isDark: isDark,
+                            purple: purple,
+                            onTap: () => setSheetState(() => stagedCategoryId = null),
+                          ),
+                          ..._categories.map(
+                            (category) => _buildFilterChoice(
+                              label: category.name,
+                              selected: stagedCategoryId == category.id,
+                              isDark: isDark,
+                              purple: purple,
+                              onTap: () => setSheetState(() => stagedCategoryId = category.id),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                setState(() => _selectedCatId = null);
+                                Navigator.pop(sheetContext);
+                                _searchProviders();
+                                _loadSearchPromos();
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: purple,
+                                side: BorderSide(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.12)
+                                      : const Color(0xFFD9C9EC),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: const Text(
+                                'مسح الفلاتر',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() => _selectedCatId = stagedCategoryId);
+                                Navigator.pop(sheetContext);
+                                _searchProviders();
+                                _loadSearchPromos();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: purple,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: const Text(
+                                'تطبيق',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildFilterChoice({
+    required String label,
+    required bool selected,
+    required bool isDark,
+    required Color purple,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          gradient: selected
+              ? const LinearGradient(
+                  colors: [Color(0xFF8A2E8A), Color(0xFFF0823C)],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                )
+              : null,
+          color: selected
+              ? null
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : const Color(0xFFF8F4FC)),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? Colors.transparent
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFE5D7F6)),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            fontFamily: 'Cairo',
+            color: selected ? Colors.white : (isDark ? Colors.white70 : purple),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _selectedSortLabel() {
     switch (_selectedSort) {
       case 'nearest':
@@ -1188,6 +1545,68 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     });
     _searchProviders();
     _loadSearchPromos();
+  }
+
+  Widget _buildCacheStatusBanner(bool isDark, Color purple) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: _showOfflineCachedResults
+              ? const Color(0xFFFFF7ED)
+              : (isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8F4FC)),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: _showOfflineCachedResults
+                ? const Color(0xFFF5C28B)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFE5D7F6)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              _showOfflineCachedResults
+                  ? Icons.cloud_off_rounded
+                  : Icons.history_rounded,
+              size: 16,
+              color: _showOfflineCachedResults ? const Color(0xFFB45309) : purple,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _cacheStatusLabel!,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Cairo',
+                  color: _showOfflineCachedResults
+                      ? const Color(0xFF92400E)
+                      : (isDark ? Colors.white70 : const Color(0xFF6A577B)),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _searchProviders(forceRefresh: true),
+              style: TextButton.styleFrom(
+                foregroundColor: _showOfflineCachedResults ? const Color(0xFFB45309) : purple,
+                minimumSize: const Size(0, 30),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                textStyle: const TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              child: const Text('تحديث'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildIconChrome({
@@ -1366,137 +1785,169 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       );
     }
     if (_providers.isEmpty) {
-      return Center(
-        child: Container(
-          margin: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1B1623) : Colors.white,
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : const Color(0xFFE9DDF7),
-            ),
-            boxShadow: isDark
-                ? null
-                : [
-                    BoxShadow(
-                      color: const Color(0xFF3B155D).withValues(alpha: 0.06),
-                      blurRadius: 24,
-                      offset: const Offset(0, 12),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(18, 22, 18, 18),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1B1623) : Colors.white,
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : const Color(0xFFE9DDF7),
                     ),
-                  ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF8E8FF), Color(0xFFFFF1E7)],
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
+                    boxShadow: isDark
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: const Color(0xFF3B155D)
+                                  .withValues(alpha: 0.06),
+                              blurRadius: 24,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
                   ),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(
-                  _loadError != null
-                      ? Icons.cloud_off_rounded
-                      : Icons.search_off_rounded,
-                  size: 28,
-                  color: purple,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                _loadError != null ? 'تعذر تحميل النتائج' : 'لا توجد نتائج حالياً',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'Cairo',
-                  color: isDark ? Colors.white : const Color(0xFF24182F),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _loadError ??
-                    'جرّب تعديل كلمة البحث أو تغيير التصنيف حتى تظهر لك نتائج أقرب.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  height: 1.7,
-                  fontFamily: 'Cairo',
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white54 : const Color(0xFF7A6B8B),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  if (_loadError != null)
-                    ElevatedButton.icon(
-                      onPressed: _searchProviders,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: purple,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFF8E8FF), Color(0xFFFFF1E7)],
+                            begin: Alignment.topRight,
+                            end: Alignment.bottomLeft,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
                         ),
-                        textStyle: const TextStyle(
-                          fontSize: 10,
+                        child: Icon(
+                          _loadError != null
+                              ? Icons.cloud_off_rounded
+                              : Icons.search_off_rounded,
+                          size: 28,
+                          color: purple,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        _loadError != null
+                            ? 'تعذر تحميل النتائج'
+                            : 'لا توجد نتائج حالياً',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
                           fontFamily: 'Cairo',
-                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : const Color(0xFF24182F),
                         ),
                       ),
-                      icon: const Icon(Icons.refresh_rounded, size: 15),
-                      label: const Text('إعادة المحاولة'),
-                    ),
-                  OutlinedButton.icon(
-                    onPressed: _clearSearchFilters,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: purple,
-                      side: BorderSide(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.09)
-                            : const Color(0xFFD9C9EC),
+                      const SizedBox(height: 6),
+                      Text(
+                        _loadError ??
+                            'جرّب تعديل كلمة البحث أو تغيير التصنيف حتى تظهر لك نتائج أقرب.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          height: 1.7,
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? Colors.white54
+                              : const Color(0xFF7A6B8B),
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          if (_loadError != null)
+                            ElevatedButton.icon(
+                              onPressed: _searchProviders,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: purple,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 10,
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              icon: const Icon(Icons.refresh_rounded, size: 15),
+                              label: const Text('إعادة المحاولة'),
+                            ),
+                          OutlinedButton.icon(
+                            onPressed: _clearSearchFilters,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: purple,
+                              side: BorderSide(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.09)
+                                    : const Color(0xFFD9C9EC),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 10,
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.filter_alt_off_rounded,
+                              size: 15,
+                            ),
+                            label: const Text('تصفير الفلاتر'),
+                          ),
+                        ],
                       ),
-                      textStyle: const TextStyle(
-                        fontSize: 10,
-                        fontFamily: 'Cairo',
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    icon: const Icon(Icons.filter_alt_off_rounded, size: 15),
-                    label: const Text('تصفير الفلاتر'),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
     }
 
-    return ListView.builder(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(14, 4, 14, 18),
-      itemCount: _providers.length + (_searchBannerMediaUrl != null ? 1 : 0),
-      itemBuilder: (_, i) {
-        if (_searchBannerMediaUrl != null && i == 0) {
+    final hasBanner = _searchBannerMediaUrl != null;
+    final footerCount = _loadingMore ? 1 : 0;
+
+    return RefreshIndicator(
+      onRefresh: () => _searchProviders(forceRefresh: true),
+      color: purple,
+      child: ListView.builder(
+        controller: _resultsScrollController,
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.fromLTRB(14, 4, 14, 18),
+        itemCount: _providers.length + (hasBanner ? 1 : 0) + footerCount,
+        itemBuilder: (_, i) {
+        if (hasBanner && i == 0) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: GestureDetector(
@@ -1557,9 +2008,37 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
             ),
           );
         }
-        final idx = _searchBannerMediaUrl != null ? i - 1 : i;
+        final idx = hasBanner ? i - 1 : i;
+        if (idx >= _providers.length) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'جاري تحميل المزيد من النتائج...',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Cairo',
+                      color: isDark ? Colors.white54 : const Color(0xFF7A6B8B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return _providerCard(_providers[idx], isDark, purple);
       },
+      ),
     );
   }
 

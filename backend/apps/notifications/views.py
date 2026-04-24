@@ -20,6 +20,7 @@ from .services import (
     get_or_create_notification_preferences,
     _is_pref_locked,
     _notification_entitlement_context,
+    notification_preference_sections_for_response,
     notification_preference_availability,
     notification_tier_to_canonical,
     delete_notifications,
@@ -54,10 +55,10 @@ def _preferred_preferences_for_mode(*, prefs, mode: str):
     return list(selected.values())
 
 
-def _serialize_preferences_for_response(*, user, prefs, mode: str):
+def _serialize_preferences_for_response(*, user, prefs):
     data = []
     entitlement_context = _notification_entitlement_context(user)
-    for pref in _preferred_preferences_for_mode(prefs=prefs, mode=mode):
+    for pref in prefs:
         cfg = NOTIFICATION_CATALOG.get(pref.key, {})
         availability = notification_preference_availability(
             user=user,
@@ -188,8 +189,15 @@ class NotificationPreferencesView(APIView):
     def get(self, request):
         mode = normalize_preference_mode(request.query_params.get("mode"))
         prefs = get_or_create_notification_preferences(request.user, mode=mode, exposed_only=True)
-        data = _serialize_preferences_for_response(user=request.user, prefs=prefs, mode=mode)
-        return Response({"results": data}, status=status.HTTP_200_OK)
+        selected = _preferred_preferences_for_mode(prefs=prefs, mode=mode)
+        data = _serialize_preferences_for_response(user=request.user, prefs=selected)
+        return Response(
+            {
+                "results": data,
+                "sections": notification_preference_sections_for_response(prefs=selected),
+            },
+            status=status.HTTP_200_OK,
+        )
 
     def patch(self, request):
         mode = normalize_preference_mode(request.query_params.get("mode"))
@@ -219,11 +227,13 @@ class NotificationPreferencesView(APIView):
             changed += 1
 
         refreshed = get_or_create_notification_preferences(request.user, mode=mode, exposed_only=True)
+        selected = _preferred_preferences_for_mode(prefs=refreshed, mode=mode)
         return Response(
             {
                 "ok": True,
                 "changed": changed,
-                "results": _serialize_preferences_for_response(user=request.user, prefs=refreshed, mode=mode),
+                "results": _serialize_preferences_for_response(user=request.user, prefs=selected),
+                "sections": notification_preference_sections_for_response(prefs=selected),
             },
             status=status.HTTP_200_OK,
         )

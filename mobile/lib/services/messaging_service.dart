@@ -22,54 +22,89 @@ import 'package:http/http.dart' as http;
 import '../models/chat_thread_model.dart';
 import '../models/chat_message_model.dart';
 import 'api_client.dart';
+import 'local_cache_service.dart';
 import 'upload_optimizer.dart';
 
 class MessagingService {
+  static const Duration _threadsCacheTtl = Duration(minutes: 8);
+  static const int maxMessageLength = 2000;
+  static final Map<String, _ThreadsCacheEntry> _threadsCache =
+      <String, _ThreadsCacheEntry>{};
+
   // ──────────────────────────────────────────
   //  قائمة المحادثات  +  الحالات
   // ──────────────────────────────────────────
 
   /// جلب قائمة المحادثات المباشرة مع دمج الحالات (مفضلة/محظور)
   static Future<List<ChatThread>> fetchThreads({String? mode}) async {
-    // 1) جلب المحادثات
-    final threadPath = mode != null
-        ? '/api/messaging/direct/threads/?mode=$mode'
-        : '/api/messaging/direct/threads/';
-    final threadsRes = await ApiClient.get(threadPath);
+    final result = await fetchThreadsResult(mode: mode);
+    return result.data;
+  }
 
-    if (!threadsRes.isSuccess || threadsRes.dataAsList == null) {
-      return [];
+  static Future<CachedChatThreadsResult> fetchThreadsResult({
+    String? mode,
+    bool forceRefresh = false,
+  }) async {
+    final scope = _cacheScope(mode);
+    final cacheKey = 'messaging_threads_cache_$scope';
+    final memoryCache = _threadsCache[scope];
+    if (!forceRefresh &&
+        memoryCache != null &&
+        memoryCache.isFresh(_threadsCacheTtl)) {
+      return memoryCache.toResult(source: 'memory_cache');
     }
 
-    final threads = threadsRes.dataAsList!
-        .map((e) => ChatThread.fromJson(e as Map<String, dynamic>))
-        .toList();
-
-    // 2) جلب حالات المحادثات ودمجها
-    final statesPath = mode != null
-        ? '/api/messaging/threads/states/?mode=$mode'
-        : '/api/messaging/threads/states/';
-    final statesRes = await ApiClient.get(statesPath);
-
-    if (statesRes.isSuccess && statesRes.dataAsList != null) {
-      final statesMap = <int, ThreadState>{};
-      for (final s in statesRes.dataAsList!) {
-        final state = ThreadState.fromJson(s as Map<String, dynamic>);
-        statesMap[state.threadId] = state;
-      }
-      for (final t in threads) {
-        final st = statesMap[t.threadId];
-        if (st != null) {
-          t.isFavorite = st.isFavorite;
-          t.isArchived = st.isArchived;
-          t.isBlocked = st.isBlocked;
-          t.favoriteLabel = st.favoriteLabel;
-          t.clientLabel = st.clientLabel;
-        }
-      }
+    final diskCache = !forceRefresh ? await _readThreadsDiskCache(cacheKey) : null;
+    if (!forceRefresh && diskCache != null && diskCache.isFresh(_threadsCacheTtl)) {
+      _threadsCache[scope] = _ThreadsCacheEntry(
+        diskCache.data,
+        diskCache.cachedAt ?? DateTime.now(),
+      );
+      return diskCache.copyWith(source: 'disk_cache');
     }
 
-    return threads;
+    final threadsRes = await ApiClient.get(_threadsPath(mode));
+    if (threadsRes.isSuccess && threadsRes.dataAsList != null) {
+      final threads = threadsRes.dataAsList!
+          .map((e) => ChatThread.fromJson(e as Map<String, dynamic>))
+          .toList(growable: false);
+      await _mergeThreadStates(threads, mode: mode);
+      final result = CachedChatThreadsResult(
+        data: threads,
+        source: 'network',
+      );
+      final fetchedAt = DateTime.now();
+      _threadsCache[scope] = _ThreadsCacheEntry(threads, fetchedAt);
+      await _writeThreadsDiskCache(cacheKey, threads);
+      return result.copyWith(cachedAt: fetchedAt);
+    }
+
+    final errorMessage = threadsRes.error ?? 'تعذر تحميل المحادثات الآن';
+    if (memoryCache != null) {
+      return memoryCache.toResult(
+        source: 'memory_cache_stale',
+        errorMessage: errorMessage,
+        statusCode: threadsRes.statusCode,
+        dataOverride: _sanitizeCachedThreads(memoryCache.data),
+      );
+    }
+    if (diskCache != null) {
+      _threadsCache[scope] = _ThreadsCacheEntry(
+        diskCache.data,
+        diskCache.cachedAt ?? DateTime.now(),
+      );
+      return diskCache.copyWith(
+        source: 'disk_cache_stale',
+        errorMessage: errorMessage,
+        statusCode: threadsRes.statusCode,
+      );
+    }
+    return CachedChatThreadsResult(
+      data: const <ChatThread>[],
+      source: 'empty',
+      errorMessage: errorMessage,
+      statusCode: threadsRes.statusCode,
+    );
   }
 
   /// جلب إجمالي الرسائل غير المقروءة للمحادثات المباشرة
@@ -94,24 +129,48 @@ class MessagingService {
     int limit = 30,
     int offset = 0,
   }) async {
+    final result = await fetchMessagesResult(
+      threadId,
+      limit: limit,
+      offset: offset,
+    );
+    return result.page;
+  }
+
+  static Future<MessagesFetchResult> fetchMessagesResult(
+    int threadId, {
+    int limit = 30,
+    int offset = 0,
+  }) async {
     final res = await ApiClient.get(
       '/api/messaging/direct/thread/$threadId/messages/?limit=$limit&offset=$offset',
     );
 
     if (!res.isSuccess || res.dataAsMap == null) {
-      return MessagesPage(messages: [], hasMore: false, totalCount: 0);
+      return MessagesFetchResult(
+        page: MessagesPage(
+          messages: const <ChatMessage>[],
+          hasMore: false,
+          totalCount: 0,
+        ),
+        errorMessage: res.error ?? 'تعذر تحميل الرسائل الآن',
+        statusCode: res.statusCode,
+      );
     }
 
     final data = res.dataAsMap!;
     final results = (data['results'] as List<dynamic>?)
             ?.map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
+            .toList(growable: false) ??
+        const <ChatMessage>[];
 
-    return MessagesPage(
-      messages: results,
-      hasMore: data['next'] != null,
-      totalCount: data['count'] as int? ?? results.length,
+    return MessagesFetchResult(
+      page: MessagesPage(
+        messages: results,
+        hasMore: data['next'] != null,
+        totalCount: data['count'] as int? ?? results.length,
+      ),
+      statusCode: res.statusCode,
     );
   }
 
@@ -280,6 +339,117 @@ class MessagingService {
     );
     return res.dataAsMap?['id'] as int?;
   }
+
+  static void debugResetCaches() {
+    _threadsCache.clear();
+  }
+
+  static String _cacheScope(String? mode) {
+    final normalized = (mode ?? '').trim().toLowerCase();
+    return normalized.isEmpty ? 'shared' : normalized;
+  }
+
+  static String _threadsPath(String? mode) {
+    final normalized = (mode ?? '').trim();
+    return normalized.isNotEmpty
+        ? '/api/messaging/direct/threads/?mode=$normalized'
+        : '/api/messaging/direct/threads/';
+  }
+
+  static String _statesPath(String? mode) {
+    final normalized = (mode ?? '').trim();
+    return normalized.isNotEmpty
+        ? '/api/messaging/threads/states/?mode=$normalized'
+        : '/api/messaging/threads/states/';
+  }
+
+  static Future<void> _mergeThreadStates(
+    List<ChatThread> threads, {
+    String? mode,
+  }) async {
+    final statesRes = await ApiClient.get(_statesPath(mode));
+    if (!statesRes.isSuccess || statesRes.dataAsList == null) {
+      return;
+    }
+    final statesMap = <int, ThreadState>{};
+    for (final stateJson in statesRes.dataAsList!) {
+      final state = ThreadState.fromJson(stateJson as Map<String, dynamic>);
+      statesMap[state.threadId] = state;
+    }
+    for (final thread in threads) {
+      final state = statesMap[thread.threadId];
+      if (state == null) {
+        continue;
+      }
+      thread.isFavorite = state.isFavorite;
+      thread.isArchived = state.isArchived;
+      thread.isBlocked = state.isBlocked;
+      thread.favoriteLabel = state.favoriteLabel;
+      thread.clientLabel = state.clientLabel;
+    }
+  }
+
+  static Future<void> _writeThreadsDiskCache(
+    String cacheKey,
+    List<ChatThread> threads,
+  ) {
+    return LocalCacheService.writeJson(cacheKey, {
+      'threads': threads
+          .take(40)
+          .map(
+            (thread) => thread.toJson(
+              lastMessageOverride: _safeCachedPreview(thread.lastMessage),
+            ),
+          )
+          .toList(growable: false),
+    });
+  }
+
+  static Future<CachedChatThreadsResult?> _readThreadsDiskCache(
+    String cacheKey,
+  ) async {
+    final envelope = await LocalCacheService.readJson(cacheKey);
+    final payload = envelope?.payload;
+    if (payload is! Map) {
+      return null;
+    }
+    final map = Map<String, dynamic>.from(payload);
+    final rows = (map['threads'] as List? ?? const <dynamic>[])
+        .whereType<Map>()
+        .map((row) => ChatThread.fromJson(Map<String, dynamic>.from(row)))
+        .toList(growable: false);
+    return CachedChatThreadsResult(
+      data: rows,
+      source: 'disk_cache',
+      cachedAt: envelope?.cachedAt,
+    );
+  }
+
+  static String _safeCachedPreview(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    if (trimmed.contains('service-request') || trimmed.contains('/requests/')) {
+      return 'طلب خدمة مباشر';
+    }
+    if (trimmed.contains('http://') || trimmed.contains('https://')) {
+      return 'رابط تمت مشاركته';
+    }
+    return 'رسالة حديثة';
+  }
+
+  static List<ChatThread> _sanitizeCachedThreads(List<ChatThread> threads) {
+    return threads
+        .map(
+          (thread) => ChatThread.fromJson(
+            thread.toJson(
+              lastMessageOverride: _safeCachedPreview(thread.lastMessage),
+            ),
+          ),
+        )
+        .toList(growable: false);
+  }
 }
 
 // ──────────────────────────────────────────
@@ -296,6 +466,91 @@ class MessagesPage {
     required this.hasMore,
     required this.totalCount,
   });
+}
+
+class MessagesFetchResult {
+  final MessagesPage page;
+  final String? errorMessage;
+  final int statusCode;
+
+  const MessagesFetchResult({
+    required this.page,
+    this.errorMessage,
+    this.statusCode = 200,
+  });
+
+  bool get hasError => (errorMessage ?? '').trim().isNotEmpty;
+}
+
+class CachedChatThreadsResult {
+  final List<ChatThread> data;
+  final String source;
+  final String? errorMessage;
+  final int statusCode;
+  final DateTime? cachedAt;
+
+  const CachedChatThreadsResult({
+    required this.data,
+    required this.source,
+    this.errorMessage,
+    this.statusCode = 200,
+    this.cachedAt,
+  });
+
+  bool get fromCache => source.contains('cache');
+  bool get isStaleCache => source.endsWith('_stale');
+  bool get isOfflineFallback => isStaleCache && statusCode == 0;
+  bool get hasError => (errorMessage ?? '').trim().isNotEmpty;
+
+  bool isFresh(Duration ttl) {
+    final value = cachedAt;
+    if (value == null) {
+      return false;
+    }
+    return DateTime.now().difference(value) <= ttl;
+  }
+
+  CachedChatThreadsResult copyWith({
+    List<ChatThread>? data,
+    String? source,
+    String? errorMessage,
+    int? statusCode,
+    DateTime? cachedAt,
+  }) {
+    return CachedChatThreadsResult(
+      data: data ?? List<ChatThread>.from(this.data),
+      source: source ?? this.source,
+      errorMessage: errorMessage ?? this.errorMessage,
+      statusCode: statusCode ?? this.statusCode,
+      cachedAt: cachedAt ?? this.cachedAt,
+    );
+  }
+}
+
+class _ThreadsCacheEntry {
+  final List<ChatThread> data;
+  final DateTime fetchedAt;
+
+  const _ThreadsCacheEntry(this.data, this.fetchedAt);
+
+  bool isFresh(Duration ttl) {
+    return DateTime.now().difference(fetchedAt) <= ttl;
+  }
+
+  CachedChatThreadsResult toResult({
+    required String source,
+    String? errorMessage,
+    int statusCode = 200,
+    List<ChatThread>? dataOverride,
+  }) {
+    return CachedChatThreadsResult(
+      data: dataOverride ?? List<ChatThread>.from(data),
+      source: source,
+      errorMessage: errorMessage,
+      statusCode: statusCode,
+      cachedAt: fetchedAt,
+    );
+  }
 }
 
 class SendResult {

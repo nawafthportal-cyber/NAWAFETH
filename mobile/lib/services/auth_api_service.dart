@@ -6,6 +6,8 @@
 /// - POST /api/accounts/complete/      → إكمال بيانات التسجيل (phone_only → client)
 library;
 
+import 'package:flutter/foundation.dart';
+
 import 'api_client.dart';
 import 'auth_service.dart';
 
@@ -49,14 +51,16 @@ class AuthApiService {
 
   /// التحقق من رمز OTP → حفظ التوكنات ← إرجاع بيانات المستخدم
   static Future<OtpVerifyResult> verifyOtp(String phone, String code) async {
+    final body = <String, dynamic>{
+      'phone': phone,
+      'code': code,
+    };
+    if (kDebugMode) {
+      body['mobile_any_otp'] = true;
+    }
     final resp = await ApiClient.post(
       '/api/accounts/otp/verify/',
-      body: {
-        'phone': phone,
-        'code': code,
-        // Mobile QA flow: allow server-side acceptance for any 4-digit OTP.
-        'mobile_any_otp': true,
-      },
+      body: body,
     );
 
     if (!resp.isSuccess) {
@@ -74,12 +78,15 @@ class AuthApiService {
     final access = data['access'] as String?;
     final refresh = data['refresh'] as String?;
 
-    if (access == null || refresh == null) {
-      return OtpVerifyResult(success: false, error: 'لم يتم استلام التوكنات');
+    if ((access ?? '').trim().isEmpty) {
+      return OtpVerifyResult(
+        success: false,
+        error: 'لم يتم استلام بيانات الجلسة من الخادم',
+      );
     }
 
     // ✅ حفظ التوكنات وبيانات المستخدم
-    await AuthService.saveTokens(access: access, refresh: refresh);
+    await AuthService.saveTokens(access: access!, refresh: refresh);
 
     final userId = data['user_id'] as int?;
     final roleState = data['role_state'] as String? ?? 'phone_only';
@@ -271,11 +278,14 @@ class AuthApiService {
 
     final access = data['access'] as String?;
     final refresh = data['refresh'] as String?;
-    if (access == null || refresh == null) {
-      return OtpVerifyResult(success: false, error: 'لم يتم استلام التوكنات');
+    if ((access ?? '').trim().isEmpty) {
+      return OtpVerifyResult(
+        success: false,
+        error: 'لم يتم استلام بيانات الجلسة من الخادم',
+      );
     }
 
-    await AuthService.saveTokens(access: access, refresh: refresh);
+    await AuthService.saveTokens(access: access!, refresh: refresh);
     final userId = data['user_id'] as int?;
     final roleState = data['role_state'] as String? ?? 'phone_only';
     if (userId != null) {
@@ -304,12 +314,38 @@ class AuthApiService {
   // ────────────────────────────────────────
 
   static String _extractError(ApiResponse resp) {
-    if (resp.error != null) return resp.error!;
-    final data = resp.dataAsMap;
-    if (data != null && data.containsKey('detail')) {
-      return data['detail'] as String? ?? 'خطأ غير معروف';
+    if ((resp.error ?? '').trim().isNotEmpty) {
+      return resp.error!.trim();
     }
-    return 'خطأ في الاتصال (${resp.statusCode})';
+    final data = resp.dataAsMap;
+    if (data != null) {
+      final detail = _readString(data['detail'] ?? data['error']);
+      if (detail != null) {
+        return detail;
+      }
+      final fields = _extractFieldErrors(resp);
+      if (fields != null && fields.isNotEmpty) {
+        return fields.values.first;
+      }
+    }
+    switch (resp.statusCode) {
+      case 0:
+        return 'تعذر الاتصال. تحقق من الإنترنت ثم حاول مرة أخرى.';
+      case 400:
+      case 422:
+        return 'البيانات المدخلة غير صحيحة.';
+      case 401:
+        return 'انتهت الجلسة أو الرمز غير صالح. أعد المحاولة.';
+      case 403:
+        return 'لا يمكنك تنفيذ هذا الإجراء حالياً.';
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return 'الخادم غير متاح حالياً. حاول مرة أخرى بعد قليل.';
+      default:
+        return 'تعذر إكمال العملية حالياً. حاول مرة أخرى.';
+    }
   }
 
   static Map<String, String>? _extractFieldErrors(ApiResponse resp) {

@@ -9,9 +9,11 @@ import '../services/marketplace_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/geo_catalog_service.dart';
 import '../services/app_logger.dart';
+import '../services/request_draft_service.dart';
 import '../models/category_model.dart';
 import '../constants/saudi_cities.dart';
 import '../constants/app_theme.dart';
+import '../utils/debounced_save_runner.dart';
 import '../widgets/bottom_nav.dart';
 import 'orders_hub_screen.dart';
 
@@ -24,10 +26,12 @@ class RequestQuoteScreen extends StatefulWidget {
 
 class _RequestQuoteScreenState extends State<RequestQuoteScreen>
     with SingleTickerProviderStateMixin {
+  static const String _draftKey = 'draft_request_quote_v1';
   static const Color _mainColor = AppColors.teal;
   static const Color _inkColor = AppTextStyles.textPrimary;
   final _titleCtrl = TextEditingController();
   final _detailsCtrl = TextEditingController();
+  final DebouncedSaveRunner _draftSaveRunner = DebouncedSaveRunner();
   late final AnimationController _entranceController;
 
   // ── API data ──
@@ -47,6 +51,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
   bool _submitting = false;
   bool _showSuccess = false;
   int? _createdRequestId;
+  bool _draftRestored = false;
 
   // ── Attachments ──
   final List<File> _files = [];
@@ -58,6 +63,8 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _titleCtrl.addListener(_scheduleDraftSave);
+    _detailsCtrl.addListener(_scheduleDraftSave);
     _ensureClientMode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -98,6 +105,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
           _loadingCats = false;
         });
       }
+      await _restoreDraft();
     } catch (error, stackTrace) {
       AppLogger.warn(
         'RequestQuoteScreen._loadReferenceData failed',
@@ -111,6 +119,75 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
   Future<List<SaudiRegionCatalogEntry>> _fetchRegionCatalog() async {
     final result = await GeoCatalogService.fetchRegionCatalogWithFallback();
     return result.catalog;
+  }
+
+  Future<void> _restoreDraft() async {
+    final draft = await RequestDraftService.loadDraft(_draftKey);
+    if (!mounted || draft == null || _categories.isEmpty) {
+      return;
+    }
+
+    final categoryId = RequestDraftService.readInt(draft, 'category_id');
+    final subcategoryId = RequestDraftService.readInt(draft, 'subcategory_id');
+    final selectedCategory = _categories.cast<CategoryModel?>().firstWhere(
+          (category) => category?.id == categoryId,
+          orElse: () => null,
+        );
+    final selectedSubcategory = selectedCategory?.subcategories.cast<SubCategoryModel?>().firstWhere(
+          (subcategory) => subcategory?.id == subcategoryId,
+          orElse: () => null,
+        );
+    final region = RequestDraftService.readString(draft, 'region');
+    final city = RequestDraftService.readString(draft, 'city');
+    final deadlineRaw = RequestDraftService.readString(draft, 'deadline');
+
+    setState(() {
+      _selectedCat = selectedCategory;
+      _selectedSub = selectedSubcategory;
+      _selectedRegion = region.isEmpty ? null : region;
+      _selectedCity = city.isEmpty ? null : city;
+      _deadline = deadlineRaw.isEmpty ? null : DateTime.tryParse(deadlineRaw);
+      _titleCtrl.text = RequestDraftService.readString(draft, 'title');
+      _detailsCtrl.text = RequestDraftService.readString(draft, 'details');
+      _draftRestored = true;
+    });
+  }
+
+  void _scheduleDraftSave() {
+    _draftSaveRunner.schedule(_persistDraft);
+  }
+
+  Future<void> _persistDraft() async {
+    final payload = <String, dynamic>{
+      'category_id': _selectedCat?.id,
+      'subcategory_id': _selectedSub?.id,
+      'region': _selectedRegion,
+      'city': _selectedCity,
+      'deadline': _deadline?.toIso8601String(),
+      'title': _titleCtrl.text.trim(),
+      'details': _detailsCtrl.text.trim(),
+    };
+
+    final hasMeaningfulDraft = [
+      payload['category_id'],
+      payload['subcategory_id'],
+      payload['region'],
+      payload['city'],
+      payload['deadline'],
+      payload['title'],
+      payload['details'],
+    ].any((value) {
+      if (value == null) return false;
+      if (value is String) return value.trim().isNotEmpty;
+      return true;
+    });
+
+    if (!hasMeaningfulDraft) {
+      await RequestDraftService.clearDraft(_draftKey);
+      return;
+    }
+
+    await RequestDraftService.saveDraft(_draftKey, payload);
   }
 
   Future<void> _pickImages() async {
@@ -169,6 +246,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
     setState(() => _submitting = false);
 
     if (res.isSuccess) {
+      await RequestDraftService.clearDraft(_draftKey);
       setState(() {
         _createdRequestId = _extractRequestId(res.data);
         _showSuccess = true;
@@ -217,6 +295,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
 
   @override
   void dispose() {
+    _draftSaveRunner.dispose();
     _titleCtrl.dispose();
     _detailsCtrl.dispose();
     _entranceController.dispose();
@@ -246,7 +325,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: isDark ? const Color(0xFF0B1A1A) : const Color(0xFFF4FBFA),
-        bottomNavigationBar: const CustomBottomNav(currentIndex: 2),
+        bottomNavigationBar: const CustomBottomNav(currentIndex: -1),
         body: SafeArea(
           child: Stack(
             children: [
@@ -306,6 +385,10 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildEntrance(0, _heroCard()),
+        if (_draftRestored) ...[
+          const SizedBox(height: 10),
+          _buildDraftNotice(),
+        ],
         const SizedBox(height: 12),
         _buildEntrance(
           1,
@@ -327,6 +410,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
                   onChanged: (c) => setState(() {
                     _selectedCat = c;
                     _selectedSub = null;
+                    _scheduleDraftSave();
                   }),
                 ),
                 const SizedBox(height: 14),
@@ -338,7 +422,10 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
                   value: _selectedSub,
                   items: _selectedCat?.subcategories ?? [],
                   labelFn: (s) => s.name,
-                  onChanged: (s) => setState(() => _selectedSub = s),
+                  onChanged: (s) => setState(() {
+                    _selectedSub = s;
+                    _scheduleDraftSave();
+                  }),
                 ),
               ],
             ),
@@ -390,6 +477,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
                           setState(() {
                             _selectedRegion = region?.nameAr;
                             _selectedCity = null;
+                            _scheduleDraftSave();
                           });
                         },
                       ),
@@ -402,7 +490,10 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
                         value: _selectedCity,
                         items: _availableCities,
                         labelFn: (city) => city,
-                        onChanged: (city) => setState(() => _selectedCity = city),
+                        onChanged: (city) => setState(() {
+                          _selectedCity = city;
+                          _scheduleDraftSave();
+                        }),
                       ),
                     ),
                   ],
@@ -415,6 +506,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
                       onPressed: () => setState(() {
                         _selectedRegion = null;
                         _selectedCity = null;
+                        _scheduleDraftSave();
                       }),
                       icon: const Icon(Icons.location_off_outlined, size: 14),
                       label: const Text(
@@ -740,6 +832,35 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
     );
   }
 
+  Widget _buildDraftNotice() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.tealSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _mainColor.withValues(alpha: 0.18)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.history_rounded, size: 16, color: _mainColor),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'تم استرجاع آخر مسودة محلية. الملفات لا تُخزن داخل الحفظ المؤقت.',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10.8,
+                fontWeight: FontWeight.w700,
+                color: _inkColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _heroChip(IconData icon, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -841,7 +962,10 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
 
   Widget _deadlineTile(bool isDark) {
     return InkWell(
-      onTap: _pickDeadline,
+      onTap: () async {
+        await _pickDeadline();
+        _scheduleDraftSave();
+      },
       borderRadius: BorderRadius.circular(18),
       child: Container(
         width: double.infinity,
@@ -893,7 +1017,10 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen>
             ),
             if (_deadline != null)
               IconButton(
-                onPressed: () => setState(() => _deadline = null),
+                onPressed: () => setState(() {
+                  _deadline = null;
+                  _scheduleDraftSave();
+                }),
                 icon: const Icon(Icons.close_rounded, size: 18),
                 color: const Color(0xFFB42318),
               ),

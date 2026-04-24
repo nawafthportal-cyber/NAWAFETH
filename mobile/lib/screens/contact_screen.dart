@@ -1249,7 +1249,7 @@ class _ContactScreenState extends State<ContactScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<String>(
-                  value: supportTeams.contains(selectedSupportTeam)
+                  initialValue: supportTeams.contains(selectedSupportTeam)
                       ? selectedSupportTeam
                       : null,
                   items: supportTeams

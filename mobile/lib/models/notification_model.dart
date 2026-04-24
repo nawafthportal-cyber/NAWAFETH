@@ -42,6 +42,22 @@ class NotificationModel {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'body': body,
+      'kind': kind,
+      'url': url,
+      'audience_mode': audienceMode,
+      'is_read': isRead,
+      'is_pinned': isPinned,
+      'is_follow_up': isFollowUp,
+      'is_urgent': isUrgent,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
   NotificationModel copyWith({
     bool? isRead,
     bool? isPinned,
@@ -124,4 +140,43 @@ class NotificationPreference {
       updatedAt: updatedAt,
     );
   }
+}
+
+class NotificationPreferenceSection {
+  final String key;
+  final String title;
+  final String description;
+  final int sortOrder;
+  final String noteTitle;
+  final String noteBody;
+
+  NotificationPreferenceSection({
+    required this.key,
+    required this.title,
+    required this.description,
+    required this.sortOrder,
+    required this.noteTitle,
+    required this.noteBody,
+  });
+
+  factory NotificationPreferenceSection.fromJson(Map<String, dynamic> json) {
+    return NotificationPreferenceSection(
+      key: json['key'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      sortOrder: json['sort_order'] as int? ?? 999,
+      noteTitle: json['note_title'] as String? ?? '',
+      noteBody: json['note_body'] as String? ?? '',
+    );
+  }
+}
+
+class NotificationPreferencesPayload {
+  final List<NotificationPreference> preferences;
+  final List<NotificationPreferenceSection> sections;
+
+  NotificationPreferencesPayload({
+    required this.preferences,
+    required this.sections,
+  });
 }

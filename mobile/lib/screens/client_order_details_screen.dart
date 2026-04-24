@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../constants/request_status_filters.dart';
 import '../models/service_request_model.dart';
 import '../services/account_mode_service.dart';
 import '../services/api_client.dart';
@@ -1786,14 +1787,22 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.circle, size: 8, color: _mainColor),
+                  Icon(
+                    Icons.circle,
+                    size: 8,
+                    color: _statusColor(
+                      RequestStatusFilters.statusGroupForRawStatus(
+                        log.toStatus,
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${log.fromStatus.isNotEmpty ? log.fromStatus : '—'} → ${log.toStatus}',
+                          '${RequestStatusFilters.labelForRawStatus(log.fromStatus)} → ${RequestStatusFilters.labelForRawStatus(log.toStatus)}',
                           style: const TextStyle(
                               fontFamily: 'Cairo',
                               fontSize: 13,

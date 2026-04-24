@@ -8,6 +8,7 @@ import 'package:nawafeth/services/account_mode_service.dart';
 import 'package:nawafeth/services/unread_badge_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../constants/request_status_filters.dart';
 import '../../models/service_request_model.dart';
 import '../../services/api_client.dart';
 import '../../services/marketplace_service.dart';
@@ -218,7 +219,16 @@ class _ProviderOrderDetailsScreenState
     final order = _order;
     if (order == null) return;
 
-    if (order.statusGroup == 'new') {
+    final isPendingProgressApproval =
+        order.status == RequestStatusFilters.inProgressStatus ||
+            _isAwaitingClientProgressUpdate(order);
+    final requiresExecutionInputs =
+        !isPendingProgressApproval &&
+            (order.status == RequestStatusFilters.newStatus ||
+                order.status == RequestStatusFilters.providerAcceptedStatus ||
+                order.status == RequestStatusFilters.awaitingClientStatus);
+
+    if (requiresExecutionInputs) {
       if (_expectedDeliveryAt == null) {
         _snack('حدد موعد التسليم المتوقع');
         return;
@@ -249,9 +259,9 @@ class _ProviderOrderDetailsScreenState
     setState(() => _actionLoading = false);
 
     if (res.isSuccess) {
-      _snack(order.statusGroup == 'new'
-          ? 'تم إرسال تحديثك للعميل بانتظار القرار'
-          : 'تم تحديث التقدم');
+      _snack(isPendingProgressApproval
+          ? 'تم إرسال تحديث التقدم للعميل بانتظار الاعتماد'
+          : 'تم إرسال تفاصيل التنفيذ للعميل بانتظار الاعتماد');
       _loadDetail();
     } else {
       _snack(res.error ?? 'فشلت العملية');
@@ -410,6 +420,15 @@ class _ProviderOrderDetailsScreenState
 
   String _formatDateOnly(DateTime date) =>
       DateFormat('dd/MM/yyyy', 'ar').format(date);
+
+  bool _isAwaitingClientProgressUpdate(ServiceRequest order) {
+    if (order.status != RequestStatusFilters.awaitingClientStatus) {
+      return false;
+    }
+    return order.statusLogs.any(
+      (log) => log.toStatus == RequestStatusFilters.inProgressStatus,
+    );
+  }
 
   Color _statusColor(String sg) {
     switch (sg) {
@@ -1191,7 +1210,11 @@ class _ProviderOrderDetailsScreenState
                       children: List.generate(order.statusLogs.length, (i) {
                         final log = order.statusLogs[i];
                         final isLast = i == order.statusLogs.length - 1;
-                        final dotColor = _statusColor(log.toStatus);
+                        final dotColor = _statusColor(
+                          RequestStatusFilters.statusGroupForRawStatus(
+                            log.toStatus,
+                          ),
+                        );
                         return IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1232,7 +1255,7 @@ class _ProviderOrderDetailsScreenState
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        '${log.fromStatus.isNotEmpty ? log.fromStatus : '—'} → ${log.toStatus}',
+                                        '${RequestStatusFilters.labelForRawStatus(log.fromStatus)} → ${RequestStatusFilters.labelForRawStatus(log.toStatus)}',
                                         style: TextStyle(
                                           fontFamily: 'Cairo',
                                           fontSize: 12.5,
@@ -1321,6 +1344,10 @@ class _ProviderOrderDetailsScreenState
   }
 
   Widget _buildActionsForStatus(ServiceRequest order) {
+    if (order.status == RequestStatusFilters.awaitingClientStatus) {
+      return _awaitingClientActions(order);
+    }
+
     switch (order.statusGroup) {
       case 'new':
         return _newActions();
@@ -1351,13 +1378,22 @@ class _ProviderOrderDetailsScreenState
       return _competitiveAssignedNewActions(order);
     }
 
-    return _assignedNewActions(order);
+    if (order.status == RequestStatusFilters.providerAcceptedStatus) {
+      return _assignedNewActions(order, showAcceptButton: false);
+    }
+
+    return _assignedNewActions(
+      order,
+      showAcceptButton: order.requestType != 'urgent',
+    );
   }
 
-  Widget _assignedNewActions(ServiceRequest order) {
+  Widget _assignedNewActions(
+    ServiceRequest order, {
+    required bool showAcceptButton,
+  }) {
     final rejectedByClient = order.providerInputsApproved == false;
     final rejectionNote = (order.providerInputsDecisionNote ?? '').trim();
-    final showAcceptButton = order.requestType != 'urgent';
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (showAcceptButton) ...[
@@ -1468,6 +1504,79 @@ class _ProviderOrderDetailsScreenState
                   fontFamily: 'Cairo',
                   fontWeight: FontWeight.bold,
                   color: AppColors.error)),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _awaitingClientActions(ServiceRequest order) {
+    final isProgressUpdate = _isAwaitingClientProgressUpdate(order);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _readOnlyBox(
+        label: isProgressUpdate
+            ? 'بانتظار اعتماد العميل لتحديث التقدم'
+            : 'بانتظار اعتماد العميل للتفاصيل',
+        value: isProgressUpdate
+            ? 'تم إرسال تحديث التقدم للعميل. يمكنك تعديل البيانات وإعادة الإرسال عند الحاجة حتى يعتمدها العميل.'
+            : 'تم إرسال تفاصيل التنفيذ للعميل. يمكنك تعديل البيانات وإعادة الإرسال عند الحاجة حتى يعتمدها العميل.',
+        maxLines: 4,
+      ),
+      const SizedBox(height: 12),
+      _sectionTitle(
+        isProgressUpdate ? 'تعديل تحديث التقدم' : 'تعديل تفاصيل التنفيذ',
+      ),
+      _dateLine(
+        label: 'موعد التسليم المتوقع',
+        value: _expectedDeliveryAt,
+        onPick: () async {
+          final picked =
+              await _pickDateTime(_expectedDeliveryAt ?? DateTime.now());
+          if (picked != null && mounted) {
+            setState(() => _expectedDeliveryAt = picked);
+          }
+        },
+      ),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(
+          child: _moneyField(
+            'قيمة الخدمة المقدرة (SR)',
+            _estimatedAmountController,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _moneyField('المبلغ المستلم (SR)', _receivedAmountController),
+        ),
+      ]),
+      const SizedBox(height: 10),
+      _textField(
+        controller: _noteController,
+        enabled: true,
+        hint: 'ملاحظة (اختياري)',
+      ),
+      const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _actionLoading ? null : _updateProgress,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _mainColor,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            elevation: 0,
+          ),
+          child: Text(
+            isProgressUpdate ? 'إعادة إرسال التحديث' : 'إعادة إرسال التفاصيل',
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
     ]);

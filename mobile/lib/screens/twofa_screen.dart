@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
@@ -203,7 +204,8 @@ class _TwoFAScreenState extends State<TwoFAScreen>
     try {
       final result = await ContentService.fetchPublicContent();
       if (!mounted || !result.isSuccess || result.dataAsMap == null) return;
-      final blocks = (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
+      final blocks =
+          (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
       setState(() {
         _content = TwofaContent.fromBlocks(blocks);
       });
@@ -211,6 +213,7 @@ class _TwoFAScreenState extends State<TwoFAScreen>
   }
 
   Future<void> _onVerifyOtp() async {
+    if (_isLoading) return;
     if (!_isCodeComplete) {
       _setError('أدخل رمز التحقق المكوّن من 4 أرقام');
       return;
@@ -221,6 +224,7 @@ class _TwoFAScreenState extends State<TwoFAScreen>
       _errorMessage = null;
     });
 
+    FocusScope.of(context).unfocus();
     final result = await AuthApiService.verifyOtp(widget.phone, _code);
 
     if (!mounted) return;
@@ -260,7 +264,7 @@ class _TwoFAScreenState extends State<TwoFAScreen>
 
     if (result.success) {
       _startCountdown(result.cooldownSeconds ?? widget.initialCooldownSeconds);
-      final text = result.devCode != null
+      final text = result.devCode != null && kDebugMode
           ? '${_content.successResendLabel} - رمز التطوير: ${result.devCode}'
           : _content.successResendLabel;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -299,7 +303,9 @@ class _TwoFAScreenState extends State<TwoFAScreen>
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
     if (minutes < 60) {
-      return remainingSeconds > 0 ? '$minutes د $remainingSeconds ث' : '$minutes د';
+      return remainingSeconds > 0
+          ? '$minutes د $remainingSeconds ث'
+          : '$minutes د';
     }
     final hours = minutes ~/ 60;
     final remainingMinutes = minutes % 60;
@@ -421,47 +427,47 @@ class _TwoFAScreenState extends State<TwoFAScreen>
   Widget _buildOtpBox(int index) {
     final hasValue = _digitControllers[index].text.isNotEmpty;
 
-    return SizedBox(
-      width: 66,
-      child: TextField(
-        controller: _digitControllers[index],
-        focusNode: _digitFocusNodes[index],
-        textAlign: TextAlign.center,
-        keyboardType: TextInputType.number,
-        textInputAction: index == 3 ? TextInputAction.done : TextInputAction.next,
-        autofillHints: const [AutofillHints.oneTimeCode],
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-          LengthLimitingTextInputFormatter(1),
-        ],
-        onSubmitted: (_) {
-          if (index == 3 && _isCodeComplete && !_isLoading) {
-            _onVerifyOtp();
-          }
-        },
-        onChanged: (value) => _onDigitChanged(index, value),
-        style: const TextStyle(
-          fontFamily: 'Cairo',
-          fontSize: 24,
-          fontWeight: FontWeight.w900,
-          color: AppColors.deepPurple,
+    return TextField(
+      controller: _digitControllers[index],
+      focusNode: _digitFocusNodes[index],
+      textAlign: TextAlign.center,
+      keyboardType: TextInputType.number,
+      textInputAction: index == 3 ? TextInputAction.done : TextInputAction.next,
+      autofillHints: const [AutofillHints.oneTimeCode],
+      enableSuggestions: false,
+      autocorrect: false,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(4),
+      ],
+      onSubmitted: (_) {
+        if (index == 3 && _isCodeComplete && !_isLoading) {
+          _onVerifyOtp();
+        }
+      },
+      onTapOutside: (_) => FocusScope.of(context).unfocus(),
+      onChanged: (value) => _onDigitChanged(index, value),
+      style: const TextStyle(
+        fontFamily: 'Cairo',
+        fontSize: 24,
+        fontWeight: FontWeight.w900,
+        color: AppColors.deepPurple,
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 18),
+        filled: true,
+        fillColor: hasValue ? const Color(0xFFF3ECFF) : const Color(0xFFFCFBFE),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: hasValue ? AppColors.deepPurple : const Color(0xFFE2DCEB),
+            width: hasValue ? 1.3 : 1.0,
+          ),
         ),
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18),
-          filled: true,
-          fillColor: hasValue ? const Color(0xFFF3ECFF) : const Color(0xFFFCFBFE),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(
-              color: hasValue ? AppColors.deepPurple : const Color(0xFFE2DCEB),
-              width: hasValue ? 1.3 : 1.0,
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: const BorderSide(color: AppColors.deepPurple, width: 1.5),
-          ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: AppColors.deepPurple, width: 1.5),
         ),
       ),
     );
@@ -485,17 +491,20 @@ class _TwoFAScreenState extends State<TwoFAScreen>
             end: Alignment.bottomCenter,
           ),
         ),
-        child: SafeArea(
-          top: false,
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Column(
-                  children: [
-                    _buildEntrance(0, _buildVerificationCard()),
-                  ],
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SafeArea(
+            top: false,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 520),
+                  child: Column(
+                    children: [
+                      _buildEntrance(0, _buildVerificationCard()),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -598,11 +607,14 @@ class _TwoFAScreenState extends State<TwoFAScreen>
                 ),
               ),
               const SizedBox(height: 14),
-              _buildHeroPoint('أدخل الرمز المكوّن من 4 أرقام لتأكيد الجلسة بسرعة.'),
+              _buildHeroPoint(
+                  'أدخل الرمز المكوّن من 4 أرقام لتأكيد الجلسة بسرعة.'),
               const SizedBox(height: 8),
-              _buildHeroPoint('يمكن إعادة إرسال رمز جديد حسب مهلة الباكند المعتمدة.'),
+              _buildHeroPoint(
+                  'يمكن إعادة إرسال رمز جديد حسب مهلة الباكند المعتمدة.'),
               const SizedBox(height: 8),
-              _buildHeroPoint('معرف الوجه يظهر فقط عندما يكون مربوطاً لنفس رقم الجوال.'),
+              _buildHeroPoint(
+                  'معرف الوجه يظهر فقط عندما يكون مربوطاً لنفس رقم الجوال.'),
               const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
@@ -610,7 +622,8 @@ class _TwoFAScreenState extends State<TwoFAScreen>
                 children: [
                   const _TwofaShowcaseTag(label: 'OTP من 4 أرقام'),
                   const _TwofaShowcaseTag(label: 'مهلة إعادة إرسال'),
-                  if (_faceIdAvailable) const _TwofaShowcaseTag(label: 'معرف الوجه'),
+                  if (_faceIdAvailable)
+                    const _TwofaShowcaseTag(label: 'معرف الوجه'),
                 ],
               ),
             ],
@@ -666,12 +679,25 @@ class _TwoFAScreenState extends State<TwoFAScreen>
           const SizedBox(height: 14),
           _buildPhoneNoticePanel(),
           const SizedBox(height: 16),
-          Directionality(
-            textDirection: TextDirection.ltr,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(4, _buildOtpBox),
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 8.0;
+              final boxWidth =
+                  ((constraints.maxWidth - (gap * 3)) / 4).clamp(54.0, 72.0);
+              return Directionality(
+                textDirection: TextDirection.ltr,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(
+                    4,
+                    (index) => SizedBox(
+                      width: boxWidth,
+                      child: _buildOtpBox(index),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 10),
           _buildHintLine(
@@ -778,7 +804,8 @@ class _TwoFAScreenState extends State<TwoFAScreen>
                 end: Alignment.bottomLeft,
               ),
             ),
-            child: const Icon(Icons.sms_outlined, size: 20, color: Colors.white),
+            child:
+                const Icon(Icons.sms_outlined, size: 20, color: Colors.white),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -874,7 +901,8 @@ class _TwoFAScreenState extends State<TwoFAScreen>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: (_isLoading || _isFaceIdLoading) ? null : _loginWithFaceId,
+              onPressed:
+                  (_isLoading || _isFaceIdLoading) ? null : _loginWithFaceId,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.deepPurple,
                 foregroundColor: Colors.white,
@@ -1278,7 +1306,8 @@ class TwofaContent {
   factory TwofaContent.defaults() {
     return const TwofaContent(
       title: 'التحقق من الرمز',
-      description: 'أدخل رمز التحقق المكوّن من 4 أرقام الذي تم إرساله إلى رقم الجوال.',
+      description:
+          'أدخل رمز التحقق المكوّن من 4 أرقام الذي تم إرساله إلى رقم الجوال.',
       submitLabel: 'تأكيد الرمز',
       resendLabel: 'إعادة الإرسال',
       successResendLabel: 'تم إرسال رمز جديد',
@@ -1303,7 +1332,8 @@ class TwofaContent {
       ),
       submitLabel: resolve('twofa_submit_label', 'تأكيد الرمز'),
       resendLabel: resolve('twofa_resend_label', 'إعادة الإرسال'),
-      successResendLabel: resolve('twofa_success_resend_label', 'تم إرسال رمز جديد'),
+      successResendLabel:
+          resolve('twofa_success_resend_label', 'تم إرسال رمز جديد'),
       phoneNotice: resolve('twofa_phone_notice', 'تم إرسال الرمز إلى'),
       resendPrompt: resolve('twofa_resend_prompt', 'لم يصلك الرمز؟'),
     );

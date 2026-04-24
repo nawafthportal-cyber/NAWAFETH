@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_theme.dart';
 import '../models/notification_model.dart';
+import '../services/account_mode_sync_service.dart';
 import '../services/api_client.dart';
 import '../services/notification_service.dart';
-import '../services/account_mode_service.dart';
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
 import 'chat_detail_screen.dart';
@@ -39,6 +39,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   int _totalCount = 0;
   int _chatUnread = 0;
   String? _errorMessage;
+  String? _cacheStatusMessage;
+  bool _isOfflineFallback = false;
   final ScrollController _scrollController = ScrollController();
   late final AnimationController _entranceController;
   ValueListenable<UnreadBadges>? _badgeHandle;
@@ -46,10 +48,6 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   int get _unreadCount =>
       _notifications.where((notification) => !notification.isRead).length;
-  int get _followUpCount =>
-      _notifications.where((notification) => notification.isFollowUp).length;
-  int get _pinnedCount =>
-      _notifications.where((notification) => notification.isPinned).length;
   String get _modeLabel => _activeMode == 'provider' ? 'وضع مقدم الخدمة' : 'وضع العميل';
 
   @override
@@ -65,19 +63,12 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     _realtimeSubscription =
         NotificationService.realtimeEvents.listen(_handleRealtimeNotification);
     _handleBadgeChange();
-    _initModeAndLoad();
+    _loadNotifications();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _entranceController.forward();
       }
     });
-  }
-
-  Future<void> _initModeAndLoad() async {
-    final mode = await AccountModeService.apiMode();
-    if (!mounted) return;
-    setState(() => _activeMode = mode);
-    _loadNotifications();
   }
 
   @override
@@ -125,6 +116,8 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         }
         _notifications.insert(0, notification);
         _errorMessage = null;
+        _cacheStatusMessage = null;
+        _isOfflineFallback = false;
         _isLoading = false;
       });
       return;
@@ -429,25 +422,28 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _cacheStatusMessage = null;
+      _isOfflineFallback = false;
     });
 
-    try {
-      final page =
-          await NotificationService.fetchNotifications(mode: _activeMode);
-      if (!mounted) return;
-      setState(() {
-        _notifications = page.notifications;
-        _totalCount = page.totalCount;
-        _hasMore = page.hasMore;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'فشل تحميل الإشعارات';
-      });
-    }
+    final mode = await AccountModeSyncService.resolveApiMode();
+    final result = await NotificationService.fetchNotificationsResult(
+      mode: mode,
+      forceRefresh: true,
+    );
+    if (!mounted) return;
+    setState(() {
+      _activeMode = mode;
+      _notifications = result.page.notifications;
+      _totalCount = result.page.totalCount;
+      _hasMore = result.page.hasMore;
+      _isLoading = false;
+      _cacheStatusMessage = _notificationsStatusMessage(result);
+      _isOfflineFallback = result.isOfflineFallback;
+      _errorMessage = result.hasError && result.page.notifications.isEmpty
+          ? (result.errorMessage ?? 'فشل تحميل الإشعارات')
+          : null;
+    });
   }
 
   void _onScroll() {
@@ -461,21 +457,83 @@ class _NotificationsScreenState extends State<NotificationsScreen>
 
   Future<void> _loadMore() async {
     setState(() => _isLoadingMore = true);
-    try {
-      final page = await NotificationService.fetchNotifications(
-        mode: _activeMode,
-        offset: _notifications.length,
+    final result = await NotificationService.fetchNotificationsResult(
+      mode: _activeMode,
+      offset: _notifications.length,
+      forceRefresh: true,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isLoadingMore = false;
+      if (!result.hasError) {
+        _notifications.addAll(result.page.notifications);
+        _hasMore = result.page.hasMore;
+      }
+    });
+    if (result.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.errorMessage ?? 'تعذر تحميل مزيد من الإشعارات الآن',
+            style: const TextStyle(fontFamily: 'Cairo'),
+          ),
+        ),
       );
-      if (!mounted) return;
-      setState(() {
-        _notifications.addAll(page.notifications);
-        _hasMore = page.hasMore;
-        _isLoadingMore = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoadingMore = false);
     }
+  }
+
+  String? _notificationsStatusMessage(CachedNotificationsPageResult result) {
+    if (result.isOfflineFallback) {
+      return 'يتم عرض آخر الإشعارات المحفوظة محليًا بسبب انقطاع الاتصال.';
+    }
+    if (result.isStaleCache) {
+      return 'تعذر تحديث الإشعارات الآن. يتم عرض آخر نسخة محفوظة.';
+    }
+    if (result.source == 'disk_cache') {
+      return 'تم تحميل آخر الإشعارات المحفوظة محليًا.';
+    }
+    return null;
+  }
+
+  Widget _buildDataStatusBanner(bool isDark) {
+    final message = _cacheStatusMessage;
+    if (message == null || message.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final accent = _isOfflineFallback ? AppColors.warning : AppColors.primary;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.bgDark : AppColors.primarySurface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: accent.withValues(alpha: isDark ? 0.35 : 0.28),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _isOfflineFallback ? Icons.cloud_off_rounded : Icons.history_rounded,
+            size: 16,
+            color: accent,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white70 : accent,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ─── تمييز الكل كمقروء ───
@@ -963,6 +1021,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               ),
             ],
           ),
+          if (_cacheStatusMessage != null) _buildDataStatusBanner(isDark),
         ],
       ),
     );

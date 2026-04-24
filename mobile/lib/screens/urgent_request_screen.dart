@@ -5,8 +5,10 @@ import 'package:file_picker/file_picker.dart';
 import '../services/home_service.dart';
 import '../services/marketplace_service.dart';
 import '../services/account_mode_service.dart';
+import '../services/request_draft_service.dart';
 import '../models/category_model.dart';
 import '../constants/saudi_cities.dart';
+import '../utils/debounced_save_runner.dart';
 import '../widgets/bottom_nav.dart';
 import 'providers_map_screen.dart';
 
@@ -19,6 +21,7 @@ class UrgentRequestScreen extends StatefulWidget {
 
 class _UrgentRequestScreenState extends State<UrgentRequestScreen>
   with SingleTickerProviderStateMixin {
+  static const String _draftKey = 'draft_urgent_request_v1';
   static const Color _mainColor = Color(0xFFB45309);
   static const Color _accentColor = Color(0xFF7C2D12);
   static const Color _inkColor = Color(0xFF0F172A);
@@ -55,6 +58,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
   };
 
   final _descCtrl = TextEditingController();
+  final DebouncedSaveRunner _draftSaveRunner = DebouncedSaveRunner();
   late final AnimationController _entranceController;
 
   // ── API data ──
@@ -72,6 +76,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
   String _lastNearestToastKey = '';
   bool _submitting = false;
   bool _showSuccess = false;
+  bool _draftRestored = false;
 
   // ── Attachments ──
   final List<File> _images = [];
@@ -86,6 +91,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _descCtrl.addListener(_scheduleDraftSave);
     _ensureClientMode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -116,10 +122,82 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
   Future<void> _loadCategories() async {
     try {
       final cats = await HomeService.fetchCategories();
-      if (mounted) setState(() { _categories = cats; _loadingCats = false; });
+      if (mounted) {
+        setState(() {
+          _categories = cats;
+          _loadingCats = false;
+        });
+      }
+      await _restoreDraft();
     } catch (_) {
       if (mounted) setState(() => _loadingCats = false);
     }
+  }
+
+  Future<void> _restoreDraft() async {
+    final draft = await RequestDraftService.loadDraft(_draftKey);
+    if (!mounted || draft == null || _categories.isEmpty) {
+      return;
+    }
+
+    final categoryId = RequestDraftService.readInt(draft, 'category_id');
+    final subcategoryId = RequestDraftService.readInt(draft, 'subcategory_id');
+    final selectedCategory = _categories.cast<CategoryModel?>().firstWhere(
+          (category) => category?.id == categoryId,
+          orElse: () => null,
+        );
+    final selectedSubcategory = selectedCategory?.subcategories.cast<SubCategoryModel?>().firstWhere(
+          (subcategory) => subcategory?.id == subcategoryId,
+          orElse: () => null,
+        );
+
+    final region = RequestDraftService.readString(draft, 'region');
+    final city = RequestDraftService.readString(draft, 'city');
+    final dispatchMode = RequestDraftService.readString(draft, 'dispatch_mode');
+
+    setState(() {
+      _selectedCat = selectedCategory;
+      _selectedSub = selectedSubcategory;
+      _selectedRegion = region.isEmpty ? null : region;
+      _selectedCity = city.isEmpty ? null : city;
+      _dispatchMode = dispatchMode.isEmpty ? _dispatchMode : dispatchMode;
+      _descCtrl.text = RequestDraftService.readString(draft, 'description');
+      _draftRestored = true;
+    });
+  }
+
+  void _scheduleDraftSave() {
+    _draftSaveRunner.schedule(_persistDraft);
+  }
+
+  Future<void> _persistDraft() async {
+    final payload = <String, dynamic>{
+      'category_id': _selectedCat?.id,
+      'subcategory_id': _selectedSub?.id,
+      'region': _selectedRegion,
+      'city': _selectedCity,
+      'dispatch_mode': _dispatchMode,
+      'description': _descCtrl.text.trim(),
+    };
+
+    final hasMeaningfulDraft = [
+      payload['category_id'],
+      payload['subcategory_id'],
+      payload['region'],
+      payload['city'],
+      payload['description'],
+    ].any((value) {
+      if (value == null) return false;
+      if (value is String) return value.trim().isNotEmpty;
+      return true;
+    });
+
+    if (!hasMeaningfulDraft) {
+      await RequestDraftService.clearDraft(_draftKey);
+      return;
+    }
+
+    await RequestDraftService.saveDraft(_draftKey, payload);
   }
 
   Future<void> _pickImages() async {
@@ -212,6 +290,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
     setState(() => _submitting = false);
 
     if (res.isSuccess) {
+      await RequestDraftService.clearDraft(_draftKey);
       setState(() => _showSuccess = true);
     } else {
       _snack(res.error ?? 'فشل إرسال الطلب');
@@ -272,6 +351,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
 
   @override
   void dispose() {
+    _draftSaveRunner.dispose();
     _descCtrl.dispose();
     _entranceController.dispose();
     super.dispose();
@@ -300,7 +380,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF5F5FA),
-        bottomNavigationBar: const CustomBottomNav(currentIndex: 2),
+        bottomNavigationBar: const CustomBottomNav(currentIndex: -1),
         body: SafeArea(
           child: Stack(
             children: [
@@ -360,6 +440,10 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildEntrance(0, _heroCard()),
+        if (_draftRestored) ...[
+          const SizedBox(height: 10),
+          _buildDraftNotice(),
+        ],
         const SizedBox(height: 12),
         _buildEntrance(
           1,
@@ -381,6 +465,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                   onChanged: (c) => setState(() {
                     _selectedCat = c;
                     _selectedSub = null;
+                    _scheduleDraftSave();
                   }),
                 ),
                 const SizedBox(height: 14),
@@ -392,7 +477,10 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                   value: _selectedSub,
                   items: _selectedCat?.subcategories ?? [],
                   labelFn: (s) => s.name,
-                  onChanged: (s) => setState(() => _selectedSub = s),
+                  onChanged: (s) => setState(() {
+                    _selectedSub = s;
+                    _scheduleDraftSave();
+                  }),
                 ),
                 const SizedBox(height: 14),
                 _label('طريقة الإرسال', isDark),
@@ -433,6 +521,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                           setState(() {
                             _selectedRegion = region?.nameAr;
                             _selectedCity = null;
+                            _scheduleDraftSave();
                           });
                         },
                       ),
@@ -448,7 +537,10 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                         items: _availableCities,
                         labelFn: (city) => city,
                         onChanged: (city) {
-                          setState(() => _selectedCity = city);
+                          setState(() {
+                            _selectedCity = city;
+                            _scheduleDraftSave();
+                          });
                           _maybeShowNearestMapToast();
                         },
                       ),
@@ -484,6 +576,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                       onPressed: () => setState(() {
                         _selectedRegion = null;
                         _selectedCity = null;
+                        _scheduleDraftSave();
                       }),
                       icon: const Icon(Icons.location_off_outlined, size: 14),
                       label: const Text(
@@ -564,7 +657,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                     color: isDark ? Colors.white54 : Colors.black45)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _mainColor, foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -646,6 +739,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
       onTap: () {
         setState(() {
           _dispatchMode = value;
+          _scheduleDraftSave();
         });
         _maybeShowNearestMapToast();
       },
@@ -867,6 +961,35 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                 ],
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDraftNotice() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFF5C28B)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.history_rounded, size: 16, color: _mainColor),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'تم استرجاع مسودة محلية أخيرة. المرفقات لا تدخل ضمن الحفظ المؤقت.',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10.8,
+                fontWeight: FontWeight.w700,
+                color: _inkColor,
+              ),
+            ),
           ),
         ],
       ),

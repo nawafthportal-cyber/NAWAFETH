@@ -48,7 +48,7 @@ class ChatDetailScreen extends StatefulWidget {
 }
 
 class _ChatDetailScreenState extends State<ChatDetailScreen>
-    with SingleTickerProviderStateMixin {
+  with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
@@ -60,7 +60,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   Timer? _timer;
   Timer? _liveSyncTimer;
   bool _isRefreshingMessages = false;
-  static const Duration _liveSyncInterval = Duration(seconds: 2);
+  static const Duration _liveSyncBaseInterval = Duration(seconds: 6);
+  static const Duration _liveSyncMaxInterval = Duration(seconds: 30);
+  int _liveSyncFailures = 0;
+  bool _isForeground = true;
 
   String? _pendingType;
   dynamic _pendingFile;
@@ -97,12 +100,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     r'(https?:\/\/[^\s]*(?:promotion|promo-payment|subscription|verification)[^\s]*|\/(?:promotion|promo-payment|subscription|verification)(?:\/[^\s]*)?)',
     caseSensitive: false,
   );
-
-  String get _connectionStatusText {
-    if (_isChatConnected) return 'متصل';
-    if (_isReconnecting) return 'جارٍ إعادة الاتصال...';
-    return 'غير متصل';
-  }
 
   bool get _isChatWithClient => widget.peerProviderId == null;
 
@@ -145,11 +142,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         ? _peerNameOverride.trim()
         : widget.peerName.trim();
     return value.isNotEmpty ? value : 'عضو';
-  }
-
-  String get _memberPhone {
-    final value = (widget.peerPhone ?? '').trim();
-    return value.isNotEmpty ? value : 'غير متوفر';
   }
 
   String get _memberCity {
@@ -210,6 +202,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _entranceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -234,6 +227,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     setState(() {
       _notificationUnread = badges.notifications;
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final isForeground =
+        state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+    _isForeground = isForeground;
+    if (!isForeground) {
+      _liveSyncTimer?.cancel();
+      return;
+    }
+    if (_resolvedThreadId != null) {
+      _startLiveSync(immediate: true);
+    }
   }
 
   Future<void> _initAccountContext() async {
@@ -330,17 +337,55 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     }
   }
 
-  void _startLiveSync() {
+  void _startLiveSync({bool immediate = false}) {
     _liveSyncTimer?.cancel();
-    if (_resolvedThreadId == null) return;
+    if (_resolvedThreadId == null || !_isForeground) return;
+    if (immediate) {
+      unawaited(_refreshMessages(liveSync: true));
+    }
+    _scheduleNextLiveSync();
+  }
 
-    _liveSyncTimer = Timer.periodic(_liveSyncInterval, (_) {
-      if (!mounted || _resolvedThreadId == null) return;
-      if (_isLoading || _isLoadingMore || _isSending || _isRefreshingMessages) {
+  void _scheduleNextLiveSync() {
+    _liveSyncTimer?.cancel();
+    if (_resolvedThreadId == null || !_isForeground) {
+      return;
+    }
+    _liveSyncTimer = Timer(_currentLiveSyncInterval, () async {
+      _liveSyncTimer = null;
+      if (!mounted || _resolvedThreadId == null || !_isForeground) {
         return;
       }
-      _refreshMessages(liveSync: true);
+      if (!_isLoading && !_isLoadingMore && !_isSending && !_isRefreshingMessages) {
+        await _refreshMessages(liveSync: true);
+      }
+      if (mounted) {
+        _scheduleNextLiveSync();
+      }
     });
+  }
+
+  Duration get _currentLiveSyncInterval {
+    final cappedFailures = _liveSyncFailures < 0
+        ? 0
+        : (_liveSyncFailures > 2 ? 2 : _liveSyncFailures);
+    final factor = <int>[1, 2, 4][cappedFailures];
+    final seconds = _liveSyncBaseInterval.inSeconds * factor;
+    return Duration(
+      seconds: seconds > _liveSyncMaxInterval.inSeconds
+          ? _liveSyncMaxInterval.inSeconds
+          : seconds,
+    );
+  }
+
+  void _markLiveSyncSuccess() {
+    _liveSyncFailures = 0;
+  }
+
+  void _markLiveSyncFailure() {
+    if (_liveSyncFailures < 3) {
+      _liveSyncFailures += 1;
+    }
   }
 
   Future<void> _loadMessages() async {
@@ -354,30 +399,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       }
     });
 
-    try {
-      final page = await MessagingService.fetchMessages(_resolvedThreadId!);
-      if (!mounted) return;
-      final normalizedMessages = page.messages.reversed.toList();
-      _syncPeerLabelFromMessages(normalizedMessages);
-      setState(() {
-        _messages = normalizedMessages;
-        _hasMore = page.hasMore;
-        _isLoading = false;
-        _isChatConnected = true;
-        _isReconnecting = false;
-      });
-
-      unawaited(_markThreadReadAndRefresh());
-      _scrollToBottom();
-    } catch (_) {
-      if (!mounted) return;
+    final result = await MessagingService.fetchMessagesResult(_resolvedThreadId!);
+    if (!mounted) return;
+    if (result.hasError) {
+      _markLiveSyncFailure();
       setState(() {
         _isLoading = false;
-        _errorMessage = 'فشل تحميل الرسائل';
+        _errorMessage = result.errorMessage ?? 'فشل تحميل الرسائل';
         _isChatConnected = false;
         _isReconnecting = false;
       });
+      return;
     }
+    final page = result.page;
+    final normalizedMessages = page.messages.reversed.toList();
+    _syncPeerLabelFromMessages(normalizedMessages);
+    _markLiveSyncSuccess();
+    setState(() {
+      _messages = normalizedMessages;
+      _hasMore = page.hasMore;
+      _isLoading = false;
+      _isChatConnected = true;
+      _isReconnecting = false;
+    });
+
+    unawaited(_markThreadReadAndRefresh());
+    _scrollToBottom();
   }
 
   void _onScroll() {
@@ -392,12 +439,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     if (_resolvedThreadId == null) return;
     setState(() => _isLoadingMore = true);
 
-    final page = await MessagingService.fetchMessages(
+    final result = await MessagingService.fetchMessagesResult(
       _resolvedThreadId!,
       offset: _messages.length,
     );
 
     if (!mounted) return;
+    if (result.hasError) {
+      setState(() => _isLoadingMore = false);
+      _snack(result.errorMessage ?? 'تعذر تحميل الرسائل الأقدم');
+      return;
+    }
+    final page = result.page;
     final olderMessages = page.messages.reversed.toList();
     setState(() {
       _messages.insertAll(0, olderMessages);
@@ -509,16 +562,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       });
     }
     try {
-      final page =
-          await MessagingService.fetchMessages(_resolvedThreadId!, limit: 30);
+      final result = await MessagingService.fetchMessagesResult(
+        _resolvedThreadId!,
+        limit: 30,
+      );
       if (!mounted) return;
+      if (result.hasError) {
+        _markLiveSyncFailure();
+        setState(() {
+          _isChatConnected = false;
+          _isReconnecting = false;
+        });
+        return;
+      }
+
+      final page = result.page;
 
       final updatedMessages = page.messages.reversed.toList();
       final updatedLastId =
           updatedMessages.isNotEmpty ? updatedMessages.last.id : null;
       final hasNewMessages = updatedMessages.length != previousCount ||
           updatedLastId != previousLastId;
-        _syncPeerLabelFromMessages(updatedMessages);
+      _syncPeerLabelFromMessages(updatedMessages);
+      _markLiveSyncSuccess();
 
       setState(() {
         _messages = updatedMessages;
@@ -534,12 +600,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       if (forceScroll || (hasNewMessages && (wasNearBottom || !liveSync))) {
         _scrollToBottom();
       }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isChatConnected = false;
-        _isReconnecting = false;
-      });
     } finally {
       _isRefreshingMessages = false;
     }
@@ -2232,6 +2292,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       enabled: !_isReplyRestricted,
       minLines: 1,
       maxLines: 5,
+      maxLength: MessagingService.maxMessageLength,
+      inputFormatters: [
+        LengthLimitingTextInputFormatter(MessagingService.maxMessageLength),
+      ],
+      textCapitalization: TextCapitalization.sentences,
       style: TextStyle(
         fontFamily: 'Cairo',
         fontSize: AppTextStyles.bodyLg,
@@ -2250,8 +2315,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
         border: InputBorder.none,
         isDense: true,
         contentPadding: EdgeInsets.zero,
+        counterText: '',
       ),
-      onChanged: (_) => setState(() => _pendingType = 'text'),
+      onChanged: (_) => setState(() {
+        _pendingType = _controller.text.trim().isEmpty ? null : 'text';
+      }),
     );
   }
 
@@ -2683,22 +2751,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
             ),
           ),
         Expanded(
-          child: ListView.builder(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-            itemCount: _messages.length,
-            itemBuilder: (context, index) {
-              final message = _messages[index];
-              final showDivider =
-                  index == 0 || !_isSameMessageDay(_messages[index - 1].createdAt, message.createdAt);
-              return Column(
-                children: [
-                  if (showDivider) _buildDayDivider(message.createdAt),
-                  _buildMessageBubble(message),
-                ],
-              );
-            },
+          child: RefreshIndicator(
+            onRefresh: () => _refreshMessages(forceScroll: false),
+            color: AppColors.primary,
+            child: ListView.builder(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final message = _messages[index];
+                final showDivider = index == 0 ||
+                    !_isSameMessageDay(
+                      _messages[index - 1].createdAt,
+                      message.createdAt,
+                    );
+                return Column(
+                  children: [
+                    if (showDivider) _buildDayDivider(message.createdAt),
+                    _buildMessageBubble(message),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -2802,8 +2880,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 background: AppColors.primary,
                 foreground: Colors.white,
                 isLoading: _isSending,
-                onPressed:
-                    (_isReplyRestricted || _isSending) ? null : _sendMessage,
+                onPressed: (_isReplyRestricted ||
+                        _isSending ||
+                        (_controller.text.trim().isEmpty && !_hasPendingAttachment))
+                    ? null
+                    : _sendMessage,
               ),
             ],
           ),
@@ -2864,6 +2945,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     _liveSyncTimer?.cancel();
     _entranceController.dispose();

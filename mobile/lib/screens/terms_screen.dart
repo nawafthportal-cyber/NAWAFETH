@@ -7,9 +7,6 @@ import '../services/api_client.dart';
 import '../widgets/platform_top_bar.dart';
 
 // ─── color tokens ────────────────────────────────────────────────────────────
-const Color _teal    = Color(0xFF115E59);
-const Color _tealMid = Color(0xFF0F766E);
-
 // ─── helpers ─────────────────────────────────────────────────────────────────
 String _toArabicDigits(String value) {
   const digits = '٠١٢٣٤٥٦٧٨٩';
@@ -370,7 +367,6 @@ const _kDocAccents = <String, Color>{
 
 class _DocCard extends StatefulWidget {
   const _DocCard({
-    super.key,
     required this.doc,
     required this.openDocumentLabel,
     required this.onOpenDocument,

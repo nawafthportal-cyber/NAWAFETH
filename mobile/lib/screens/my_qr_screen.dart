@@ -104,7 +104,9 @@ class _MyQrScreenState extends State<MyQrScreen> {
   Future<void> _shareLink() async {
     final payload = _payload;
     if (payload == null) return;
-    await Share.share(payload.targetUrl, subject: payload.title);
+    await SharePlus.instance.share(
+      ShareParams(text: payload.targetUrl, subject: payload.title),
+    );
     if (payload.providerId != null) {
       unawaited(
         ProviderShareTrackingService.recordProfileShare(

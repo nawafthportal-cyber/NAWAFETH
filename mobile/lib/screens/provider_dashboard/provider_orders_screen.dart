@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:nawafeth/services/account_mode_service.dart';
 import 'package:nawafeth/services/unread_badge_service.dart';
 
+import '../../constants/request_status_filters.dart';
 import '../../models/service_request_model.dart';
 import '../../services/marketplace_service.dart';
 import '../../constants/app_theme.dart';
@@ -126,21 +127,8 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
     });
 
     try {
-      String? statusGroup;
-      switch (_selectedStatus) {
-        case 'جديد':
-          statusGroup = 'new';
-          break;
-        case 'تحت التنفيذ':
-          statusGroup = 'in_progress';
-          break;
-        case 'مكتمل':
-          statusGroup = 'completed';
-          break;
-        case 'ملغي':
-          statusGroup = 'cancelled';
-          break;
-      }
+      final statusGroup =
+          RequestStatusFilters.apiValueForLabel(_selectedStatus);
 
       final results = await Future.wait([
         MarketplaceService.getProviderRequests(statusGroup: statusGroup),
@@ -190,6 +178,10 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
     }
   }
 
+  bool get _isCompactLayout => MediaQuery.sizeOf(context).width < 390;
+
+  bool get _isVeryCompactLayout => MediaQuery.sizeOf(context).width < 360;
+
   String _surfaceTitle() {
     switch (_activeTab) {
       case _ProviderOrdersTab.assigned:
@@ -234,12 +226,17 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
   }
 
   void _onTabChanged(_ProviderOrdersTab tab) {
+    final shouldResetAssignedFilter =
+        tab != _ProviderOrdersTab.assigned && _selectedStatus != null;
     setState(() {
       _activeTab = tab;
-      if (tab != _ProviderOrdersTab.assigned) {
+      if (shouldResetAssignedFilter) {
         _selectedStatus = null;
       }
     });
+    if (shouldResetAssignedFilter) {
+      _loadOrders();
+    }
   }
 
   Future<void> _openDetails(ServiceRequest order) async {
@@ -255,23 +252,25 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
   }
 
   Widget _statusFilterChip(String label) {
-    final isSelected = _selectedStatus == label;
-    final arabicToStatus = {
-      'جديد': 'new',
-      'تحت التنفيذ': 'in_progress',
-      'مكتمل': 'completed',
-      'ملغي': 'cancelled',
-    };
-    final color = _statusColor(arabicToStatus[label] ?? '');
+    final compact = _isCompactLayout;
+    final isAllFilter = label == RequestStatusFilters.allLabel;
+    final isSelected =
+        isAllFilter ? _selectedStatus == null : _selectedStatus == label;
+    final statusGroup = RequestStatusFilters.apiValueForLabel(label);
+    final color = isAllFilter ? _mainColor : _statusColor(statusGroup ?? '');
 
     return Padding(
-      padding: const EdgeInsetsDirectional.only(end: 8),
+      padding: const EdgeInsetsDirectional.only(end: 6),
       child: ChoiceChip(
+        visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        labelPadding:
+            EdgeInsets.symmetric(horizontal: compact ? 4 : 6, vertical: 0),
         label: Text(
           label,
           style: TextStyle(
             fontFamily: 'Cairo',
-            fontSize: 12,
+            fontSize: compact ? 10.5 : 11,
             fontWeight: FontWeight.w800,
             color: isSelected ? Colors.white : color,
           ),
@@ -280,8 +279,10 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
         selectedColor: color,
         backgroundColor: color.withAlpha(24),
         side: BorderSide(color: color.withAlpha(80)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        onSelected: (_) => _onStatusChanged(isSelected ? null : label),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        onSelected: (_) => _onStatusChanged(
+          isAllFilter ? null : (isSelected ? null : label),
+        ),
       ),
     );
   }
@@ -292,15 +293,20 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
     required _ProviderOrdersTab tab,
     required Color color,
   }) {
+    final compact = _isCompactLayout;
     final isSelected = _activeTab == tab;
     return Padding(
-      padding: const EdgeInsetsDirectional.only(end: 8),
+      padding: const EdgeInsetsDirectional.only(end: 6),
       child: ChoiceChip(
+        visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        labelPadding:
+            EdgeInsets.symmetric(horizontal: compact ? 4 : 6, vertical: 0),
         label: Text(
           '$label ($count)',
           style: TextStyle(
             fontFamily: 'Cairo',
-            fontSize: 12,
+            fontSize: compact ? 10.5 : 11,
             fontWeight: FontWeight.w800,
             color: isSelected ? Colors.white : color,
           ),
@@ -309,13 +315,15 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
         selectedColor: color,
         backgroundColor: color.withAlpha(18),
         side: BorderSide(color: color.withAlpha(90)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         onSelected: (_) => _onTabChanged(tab),
       ),
     );
   }
 
   Widget _orderCard(ServiceRequest order, bool isDark) {
+    final compact = _isCompactLayout;
+    final veryCompact = _isVeryCompactLayout;
     final statusColor = _statusColor(order.statusGroup);
     final showAvailableTag =
         _activeTab != _ProviderOrdersTab.assigned && order.provider == null;
@@ -327,21 +335,21 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
 
     return InkWell(
       onTap: () => _openDetails(order),
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(compact ? 18 : 20),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: compact ? 10 : 12),
+        padding: EdgeInsets.all(compact ? 12 : 14),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF102928) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(compact ? 18 : 20),
           border: Border.all(
             color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
           ),
           boxShadow: [
             BoxShadow(
               color: _activeTabColor().withAlpha(18),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+              blurRadius: compact ? 12 : 16,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -352,11 +360,11 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: compact ? 40 : 44,
+                  height: compact ? 40 : 44,
                   decoration: BoxDecoration(
                     color: requestTypeColor.withAlpha(22),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(compact ? 13 : 15),
                   ),
                   child: Icon(
                     order.requestType == 'urgent'
@@ -365,10 +373,10 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
                             ? Icons.request_quote_rounded
                             : Icons.assignment_outlined,
                     color: requestTypeColor,
-                    size: 22,
+                    size: compact ? 19 : 21,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: compact ? 10 : 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,28 +388,28 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
                         style: TextStyle(
                           fontFamily: 'Cairo',
                           fontWeight: FontWeight.w900,
-                          fontSize: 14,
+                          fontSize: compact ? 12.5 : 13.5,
                           color: isDark ? Colors.white : _inkColor,
                         ),
                       ),
                       if ((order.clientName ?? '').trim().isNotEmpty) ...[
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         Text(
                           order.clientName!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'Cairo',
-                            fontSize: 11.5,
+                            fontSize: compact ? 10.2 : 10.8,
                             fontWeight: FontWeight.w700,
                             color: isDark ? Colors.white70 : const Color(0xFF64748B),
                           ),
                         ),
                       ],
-                      const SizedBox(height: 10),
+                      SizedBox(height: compact ? 8 : 10),
                       Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
+                        spacing: compact ? 4 : 6,
+                        runSpacing: compact ? 4 : 6,
                         children: [
                           _miniChip(
                             label: order.statusLabel.isNotEmpty
@@ -421,31 +429,33 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: compact ? 6 : 8),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
-                  size: 16,
+                  size: compact ? 13 : 15,
                   color: isDark ? Colors.white38 : Colors.black38,
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 10 : 12),
             Text(
               order.title,
+              maxLines: veryCompact ? 1 : 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 12,
-                height: 1.7,
+                fontSize: compact ? 10.8 : 11.4,
+                height: 1.5,
                 fontWeight: FontWeight.w700,
                 color: isDark ? Colors.white70 : const Color(0xFF475569),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 10 : 12),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(compact ? 10 : 12),
               decoration: BoxDecoration(
                 color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(compact ? 14 : 16),
                 border: Border.all(
                   color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
                 ),
@@ -460,7 +470,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
                         : (order.city?.trim().isNotEmpty == true ? order.city! : 'غير محدد'),
                     isDark: isDark,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: compact ? 6 : 8),
                   _infoRow(
                     icon: Icons.schedule_rounded,
                     label: 'تاريخ الإنشاء',
@@ -477,6 +487,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
   }
 
   Widget _buildBody(bool isDark) {
+    final compact = _isCompactLayout;
     final filtered = _filteredOrders();
 
     return Container(
@@ -494,155 +505,37 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
               ),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(widget.embedded ? 12 : 16, 12, widget.embedded ? 12 : 16, 16),
+        padding: EdgeInsets.fromLTRB(
+          widget.embedded ? 10 : (compact ? 12 : 14),
+          compact ? 10 : 12,
+          widget.embedded ? 10 : (compact ? 12 : 14),
+          compact ? 12 : 14,
+        ),
         child: Column(
           children: [
-            _buildEntrance(0, _buildHeroCard(isDark)),
-            const SizedBox(height: 12),
-            _buildEntrance(1, _buildControlPanel(isDark)),
-            const SizedBox(height: 12),
-            Expanded(child: _buildEntrance(2, _buildOrdersSurface(isDark, filtered))),
+            _buildEntrance(0, _buildControlPanel(isDark)),
+            SizedBox(height: compact ? 10 : 12),
+            Expanded(child: _buildEntrance(1, _buildOrdersSurface(isDark, filtered))),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeroCard(bool isDark) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF115E59), Color(0xFF0F766E), Color(0xFF14B8A6)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF115E59).withValues(alpha: 0.18),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -30,
-            left: -16,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -52,
-            right: -18,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.embedded ? 'طلباتك كمزوّد' : 'إدارة الطلبات',
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'تابع الطلبات المسندة، التنافسية، والعاجلة من مكان واحد مع وصول أسرع للحالات المتاحة.',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11.5,
-                  height: 1.8,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.84),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _heroStat('المسندة', _assignedOrders.length.toString()),
-                  _heroStat('التنافسية', _competitiveOrders.length.toString()),
-                  _heroStat('العاجلة', _urgentOrders.length.toString()),
-                  _heroStat('غير المقروءة', (_notificationUnread + _chatUnread).toString()),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _heroStat(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              color: Colors.white.withValues(alpha: 0.85),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildControlPanel(bool isDark) {
+    final compact = _isCompactLayout;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF102928) : Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(compact ? 20 : 22),
         border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
             color: _mainColor.withAlpha(12),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            blurRadius: compact ? 12 : 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -660,7 +553,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
               hintText: 'ابحث برقم الطلب أو العميل أو المدينة',
               hintStyle: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 11,
+                fontSize: compact ? 10.2 : 10.8,
                 color: isDark ? Colors.white38 : Colors.grey.shade500,
               ),
               prefixIcon: const Icon(Icons.search_rounded, color: _mainColor),
@@ -672,40 +565,45 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
                     ),
               filled: true,
               fillColor: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF6FBFA),
-              contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+              contentPadding: EdgeInsets.symmetric(
+                vertical: compact ? 12 : 13,
+                horizontal: compact ? 12 : 14,
+              ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(compact ? 15 : 16),
                 borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFDCE7E7)),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(compact ? 15 : 16),
                 borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFDCE7E7)),
               ),
-              focusedBorder: const OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(18)),
-                borderSide: BorderSide(color: _mainColor),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.all(
+                  Radius.circular(compact ? 15 : 16),
+                ),
+                borderSide: const BorderSide(color: _mainColor),
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: compact ? 10 : 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
                 _tabChip(
-                  label: 'المسندة لي',
+                  label: 'المسندة',
                   count: _assignedOrders.length,
                   tab: _ProviderOrdersTab.assigned,
                   color: _mainColor,
                 ),
                 _tabChip(
-                  label: 'عروض الأسعار',
+                  label: 'الأسعار',
                   count: _competitiveOrders.length,
                   tab: _ProviderOrdersTab.competitive,
                   color: _competitiveColor,
                 ),
                 _tabChip(
-                  label: 'العاجلة المتاحة',
+                  label: 'العاجلة',
                   count: _urgentOrders.length,
                   tab: _ProviderOrdersTab.urgent,
                   color: _urgentColor,
@@ -714,11 +612,12 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
             ),
           ),
           if (_activeTab == _ProviderOrdersTab.assigned) ...[
-            const SizedBox(height: 14),
+            SizedBox(height: compact ? 10 : 12),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
+                  _statusFilterChip(RequestStatusFilters.allLabel),
                   _statusFilterChip('جديد'),
                   _statusFilterChip('تحت التنفيذ'),
                   _statusFilterChip('مكتمل'),
@@ -733,18 +632,19 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
   }
 
   Widget _buildOrdersSurface(bool isDark, List<ServiceRequest> filtered) {
+    final compact = _isCompactLayout;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF102928) : Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(compact ? 20 : 22),
         border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
             color: _activeTabColor().withAlpha(12),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            blurRadius: compact ? 12 : 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -761,7 +661,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
                       _surfaceTitle(),
                       style: TextStyle(
                         fontFamily: 'Cairo',
-                        fontSize: 15,
+                        fontSize: compact ? 13 : 14,
                         fontWeight: FontWeight.w900,
                         color: isDark ? Colors.white : _inkColor,
                       ),
@@ -771,7 +671,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
                       '${filtered.length} نتيجة بعد البحث والتصفية',
                       style: TextStyle(
                         fontFamily: 'Cairo',
-                        fontSize: 10.8,
+                        fontSize: compact ? 9.8 : 10.2,
                         fontWeight: FontWeight.w700,
                         color: isDark ? Colors.white60 : const Color(0xFF64748B),
                       ),
@@ -786,7 +686,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: compact ? 10 : 12),
           Expanded(
             child: _loading
                 ? _buildLoadingState()
@@ -810,31 +710,32 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
   }
 
   Widget _buildLoadingState() {
+    final compact = _isCompactLayout;
     return ListView.builder(
       physics: const NeverScrollableScrollPhysics(),
       itemCount: 3,
       itemBuilder: (_, __) => Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: compact ? 10 : 12),
+        padding: EdgeInsets.all(compact ? 12 : 14),
         decoration: BoxDecoration(
           color: const Color(0xFFF3F6F8),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(compact ? 18 : 20),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(height: 14, width: 120, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999))),
-            const SizedBox(height: 10),
-            Container(height: 12, width: double.infinity, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999))),
+            Container(height: 12, width: 110, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999))),
             const SizedBox(height: 8),
-            Container(height: 12, width: 180, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999))),
-            const SizedBox(height: 14),
+            Container(height: 10, width: double.infinity, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999))),
+            const SizedBox(height: 6),
+            Container(height: 10, width: 150, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999))),
+            SizedBox(height: compact ? 10 : 12),
             Row(
               children: List.generate(
                 2,
                 (_) => Padding(
-                  padding: const EdgeInsetsDirectional.only(end: 8),
-                  child: Container(height: 28, width: 72, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999))),
+                  padding: const EdgeInsetsDirectional.only(end: 6),
+                  child: Container(height: 24, width: 64, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999))),
                 ),
               ),
             ),
@@ -855,17 +756,17 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
             _error!,
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
               color: isDark ? Colors.white : _inkColor,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'أعد المحاولة لتحميل الطلبات المتاحة وتحديث القوائم.',
+            'أعد المحاولة لتحديث القائمة.',
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 10.8,
+              fontSize: 10.2,
               fontWeight: FontWeight.w700,
               color: isDark ? Colors.white60 : const Color(0xFF64748B),
             ),
@@ -922,17 +823,17 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 12.5,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
               color: isDark ? Colors.white : _inkColor,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            'جرّب تحديث القائمة أو تبديل التبويب أو تعديل البحث.',
+            'حدّث القائمة أو بدّل التبويب.',
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 10.8,
+              fontSize: 10.2,
               fontWeight: FontWeight.w700,
               color: isDark ? Colors.white60 : const Color(0xFF64748B),
             ),
@@ -943,8 +844,12 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
   }
 
   Widget _miniChip({required String label, required Color color}) {
+    final compact = _isCompactLayout;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 5 : 6,
+      ),
       decoration: BoxDecoration(
         color: color.withAlpha(18),
         borderRadius: BorderRadius.circular(999),
@@ -954,7 +859,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
         label,
         style: TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 10.5,
+          fontSize: compact ? 9.6 : 10.2,
           fontWeight: FontWeight.w800,
           color: color,
         ),
@@ -968,15 +873,16 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
     required String value,
     required bool isDark,
   }) {
+    final compact = _isCompactLayout;
     return Row(
       children: [
-        Icon(icon, size: 16, color: _mainColor),
-        const SizedBox(width: 8),
+        Icon(icon, size: compact ? 14 : 15, color: _mainColor),
+        SizedBox(width: compact ? 6 : 8),
         Text(
           '$label: ',
           style: TextStyle(
             fontFamily: 'Cairo',
-            fontSize: 11,
+            fontSize: compact ? 10 : 10.4,
             fontWeight: FontWeight.w800,
             color: isDark ? Colors.white60 : const Color(0xFF64748B),
           ),
@@ -988,7 +894,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen>
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 11.2,
+              fontSize: compact ? 10.1 : 10.6,
               fontWeight: FontWeight.w700,
               color: isDark ? Colors.white : _inkColor,
             ),

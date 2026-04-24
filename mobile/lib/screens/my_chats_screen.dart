@@ -30,6 +30,8 @@ class _MyChatsScreenState extends State<MyChatsScreen>
   bool _isProviderAccount = false;
   bool _isLoading = true;
   String? _errorMessage;
+  String? _cacheStatusMessage;
+  bool _isOfflineFallback = false;
 
   List<ChatThread> _threads = [];
   late final TextEditingController _searchController;
@@ -74,27 +76,84 @@ class _MyChatsScreenState extends State<MyChatsScreen>
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _cacheStatusMessage = null;
+      _isOfflineFallback = false;
     });
 
-    try {
-      final threads = await MessagingService.fetchThreads(
-        mode: _isProviderAccount ? 'provider' : 'client',
-      );
-      if (!mounted) return;
-      setState(() {
-        _threads = threads;
-        _isLoading = false;
-      });
+    final result = await MessagingService.fetchThreadsResult(
+      mode: _isProviderAccount ? 'provider' : 'client',
+      forceRefresh: true,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _threads = result.data;
+      _isLoading = false;
+      _cacheStatusMessage = _threadsStatusMessage(result);
+      _isOfflineFallback = result.isOfflineFallback;
+      _errorMessage = result.hasError && result.data.isEmpty
+          ? (result.errorMessage ?? 'فشل تحميل المحادثات')
+          : null;
+    });
+    if (_threads.isNotEmpty) {
       _entranceController
         ..reset()
         ..forward();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'فشل تحميل المحادثات';
-      });
     }
+  }
+
+  String? _threadsStatusMessage(CachedChatThreadsResult result) {
+    if (result.isOfflineFallback) {
+      return 'يتم عرض آخر المحادثات المحفوظة محليًا بسبب انقطاع الاتصال.';
+    }
+    if (result.isStaleCache) {
+      return 'تعذر تحديث المحادثات الآن. يتم عرض آخر نسخة محفوظة.';
+    }
+    if (result.source == 'disk_cache') {
+      return 'تم تحميل آخر المحادثات المحفوظة محليًا.';
+    }
+    return null;
+  }
+
+  Widget _buildDataStatusBanner(bool isDark) {
+    final message = _cacheStatusMessage;
+    if (message == null || message.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final accent = _isOfflineFallback ? AppColors.warning : AppColors.primary;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.bgDark : AppColors.primarySurface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: accent.withValues(alpha: isDark ? 0.35 : 0.28),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _isOfflineFallback ? Icons.cloud_off_rounded : Icons.history_rounded,
+            size: 16,
+            color: accent,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white70 : accent,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   List<ChatThread> get _visibleThreads {
@@ -796,6 +855,7 @@ class _MyChatsScreenState extends State<MyChatsScreen>
               ],
             ),
           ),
+          if (_cacheStatusMessage != null) _buildDataStatusBanner(isDark),
         ],
       ),
     );

@@ -62,6 +62,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _promoMessagePlacement;
   bool _promoMessageDismissed = false;
   final Set<int> _seenBannerImpressions = <int>{};
+  String? _syncMessage;
+  _HomeSyncTone _syncTone = _HomeSyncTone.info;
 
   // -- Banner carousel --
   final PageController _bannerPageController = PageController();
@@ -198,20 +200,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final categoriesFuture =
-        HomeService.fetchCategories(forceRefresh: forceRefresh);
-    final providersFuture = HomeService.fetchFeaturedProviders(
+        HomeService.fetchCategoriesResult(forceRefresh: forceRefresh);
+    final providersFuture = HomeService.fetchFeaturedProvidersResult(
       limit: 10,
       forceRefresh: forceRefresh,
     );
-    final bannersFuture = HomeService.fetchHomeBanners(
+    final bannersFuture = HomeService.fetchHomeBannersResult(
       limit: 10,
       forceRefresh: forceRefresh,
     );
-    final spotlightsFuture = HomeService.fetchSpotlightFeed(
+    final spotlightsFuture = HomeService.fetchSpotlightFeedResult(
       limit: 16,
       forceRefresh: forceRefresh,
     );
-    final featuredSpecialistsFuture = HomeService.fetchFeaturedSpecialists(
+    final featuredSpecialistsFuture =
+        HomeService.fetchFeaturedSpecialistsResult(
       limit: 10,
       forceRefresh: forceRefresh,
     );
@@ -221,10 +224,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadPromoPortfolioShowcase();
     _loadPromoMessages();
 
-    categoriesFuture.then((categories) {
+    categoriesFuture.then((result) {
       if (!mounted) return;
       setState(() {
-        _categories = categories;
+        _categories = result.data;
         _isCategoriesLoading = false;
       });
       _startCategoriesAutoScroll();
@@ -233,7 +236,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _isCategoriesLoading = false);
     });
 
-    bannersFuture.then((banners) {
+    bannersFuture.then((result) {
+      final banners = result.data;
       if (!mounted) return;
       setState(() {
         _banners = banners;
@@ -251,7 +255,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _isBannersLoading = false);
     });
 
-    spotlightsFuture.then((spotlights) {
+    spotlightsFuture.then((result) {
+      final spotlights = result.data;
       if (!mounted) return;
       setState(() {
         _spotlights = spotlights;
@@ -263,12 +268,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final providers = await providersFuture;
-      final featuredSpecialists = await featuredSpecialistsFuture;
+      final providersResult = await providersFuture;
+      final featuredSpecialistsResult = await featuredSpecialistsFuture;
       if (!mounted) return;
       setState(() {
-        _providers = providers;
-        _featuredSpecialists = featuredSpecialists;
+        _providers = providersResult.data;
+        _featuredSpecialists = featuredSpecialistsResult.data;
         _isFeaturedLoading = false;
       });
       _startFeaturedSpecialistsAutoRotate();
@@ -282,13 +287,54 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _isFeaturedLoading = false);
     }
 
-    await Future.wait<dynamic>([
-      categoriesFuture.catchError((_) => const <CategoryModel>[]),
-      providersFuture.catchError((_) => const <ProviderPublicModel>[]),
-      featuredSpecialistsFuture
-          .catchError((_) => const <FeaturedSpecialistModel>[]),
-      bannersFuture.catchError((_) => const <BannerModel>[]),
-      spotlightsFuture.catchError((_) => const <MediaItemModel>[]),
+    final categoriesResult = await categoriesFuture.catchError(
+      (_) => const CachedFetchResult<List<CategoryModel>>(
+        data: <CategoryModel>[],
+        source: 'empty',
+        errorMessage: 'تعذر تحميل التصنيفات',
+        statusCode: 0,
+      ),
+    );
+    final providersResult = await providersFuture.catchError(
+      (_) => const CachedFetchResult<List<ProviderPublicModel>>(
+        data: <ProviderPublicModel>[],
+        source: 'empty',
+        errorMessage: 'تعذر تحميل المختصين',
+        statusCode: 0,
+      ),
+    );
+    final featuredSpecialistsResult =
+        await featuredSpecialistsFuture.catchError(
+      (_) => const CachedFetchResult<List<FeaturedSpecialistModel>>(
+        data: <FeaturedSpecialistModel>[],
+        source: 'empty',
+        errorMessage: 'تعذر تحميل المختصين المميزين',
+        statusCode: 0,
+      ),
+    );
+    final bannersResult = await bannersFuture.catchError(
+      (_) => const CachedFetchResult<List<BannerModel>>(
+        data: <BannerModel>[],
+        source: 'empty',
+        errorMessage: 'تعذر تحميل البانرات',
+        statusCode: 0,
+      ),
+    );
+    final spotlightsResult = await spotlightsFuture.catchError(
+      (_) => const CachedFetchResult<List<MediaItemModel>>(
+        data: <MediaItemModel>[],
+        source: 'empty',
+        errorMessage: 'تعذر تحميل اللمحات',
+        statusCode: 0,
+      ),
+    );
+    if (!mounted) return;
+    _updateHomeSyncNotice([
+      categoriesResult,
+      providersResult,
+      featuredSpecialistsResult,
+      bannersResult,
+      spotlightsResult,
     ]);
   }
 
@@ -1082,6 +1128,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           slivers: [
             SliverToBoxAdapter(child: _buildHero()),
+            if ((_syncMessage ?? '').trim().isNotEmpty)
+              SliverToBoxAdapter(child: _buildSyncNotice(isDark)),
             SliverToBoxAdapter(child: _buildReels(isDark)),
             if (_promoMessagePlacement != null && !_promoMessageDismissed)
               SliverToBoxAdapter(child: _buildPromoMessageCard(isDark, purple)),
@@ -1258,8 +1306,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ? _bannerCurrentPage.clamp(0, heroBanners.length - 1).toInt()
         : 0;
     final activeBanner = hasBanners ? heroBanners[safeIndex] : null;
-    final title = (activeBanner?.title ?? '').trim();
-    final provider = (activeBanner?.providerDisplayName ?? '').trim();
+    // activeBanner reserved for future overlay use
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
@@ -1271,8 +1318,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Align(
               alignment: AlignmentDirectional.centerEnd,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.32),
                   borderRadius: BorderRadius.circular(999),
@@ -1289,41 +1335,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           const Spacer(),
-          // Title + provider — plain text on scrim, no glass card.
-          if (title.isNotEmpty)
-            Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: AppTextStyles.h1,
-                fontFamily: 'Cairo',
-                fontWeight: FontWeight.w800,
-                height: 1.25,
-                shadows: [
-                  Shadow(
-                    color: Color(0x66000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
-            ),
-          if (provider.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              provider,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: AppTextStyles.bodySm,
-                fontFamily: 'Cairo',
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
           if (heroBanners.length > 1) ...[
             const SizedBox(height: 12),
             Row(
@@ -1923,6 +1934,96 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _updateHomeSyncNotice(List<dynamic> results) {
+    final typedResults = results.whereType<CachedFetchResult>().toList();
+    final hasAnyData = _categories.isNotEmpty ||
+        _providers.isNotEmpty ||
+        _banners.isNotEmpty ||
+        _spotlights.isNotEmpty;
+    final offlineFallback =
+        typedResults.any((result) => result.isOfflineFallback);
+    final staleFallback = typedResults.any((result) => result.isStaleCache);
+    final hardFailure = typedResults.any(
+      (result) => result.hasError && (result.data as List).isEmpty,
+    );
+
+    String? nextMessage;
+    var nextTone = _HomeSyncTone.info;
+
+    if (offlineFallback && hasAnyData) {
+      nextMessage =
+          'أنت غير متصل حالياً. نعرض آخر نسخة محفوظة على الجهاز إلى أن تعود الشبكة.';
+      nextTone = _HomeSyncTone.warning;
+    } else if (staleFallback && hasAnyData) {
+      nextMessage =
+          'بعض الأقسام معروضة من الكاش المحلي مؤقتاً حتى يكتمل التحديث من الخادم.';
+      nextTone = _HomeSyncTone.info;
+    } else if (hardFailure && !hasAnyData) {
+      nextMessage =
+          'تعذر تحميل بيانات الصفحة الرئيسية حالياً. اسحب لأسفل لإعادة المحاولة.';
+      nextTone = _HomeSyncTone.error;
+    }
+
+    setState(() {
+      _syncMessage = nextMessage;
+      _syncTone = nextTone;
+    });
+  }
+
+  Widget _buildSyncNotice(bool isDark) {
+    final config = switch (_syncTone) {
+      _HomeSyncTone.warning => (
+          icon: Icons.wifi_off_rounded,
+          background: AppColors.warningSurface,
+          foreground: AppColors.warning,
+        ),
+      _HomeSyncTone.error => (
+          icon: Icons.error_outline_rounded,
+          background: AppColors.errorSurface,
+          foreground: AppColors.error,
+        ),
+      _HomeSyncTone.info => (
+          icon: Icons.cloud_done_outlined,
+          background: AppColors.infoSurface,
+          foreground: AppColors.info,
+        ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark
+              ? config.foreground.withValues(alpha: 0.14)
+              : config.background,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+            color: config.foreground.withValues(alpha: isDark ? 0.28 : 0.16),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(config.icon, size: 18, color: config.foreground),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _syncMessage ?? '',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: AppTextStyles.bodySm,
+                  fontWeight: FontWeight.w700,
+                  height: 1.6,
+                  color: isDark ? Colors.white : config.foreground,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Shared empty-state used across home sections for visual consistency.
   Widget _buildEmptyState({
     required bool isDark,
@@ -2226,9 +2327,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ? Colors.white
                                                     .withValues(alpha: 0.06)
                                                 : AppColors.primarySurface,
-                                            borderRadius:
-                                                BorderRadius.circular(
-                                                    AppRadius.md),
+                                            borderRadius: BorderRadius.circular(
+                                                AppRadius.md),
                                           ),
                                           child: Icon(
                                             icon,
@@ -2589,9 +2689,8 @@ class _HomeScreenState extends State<HomeScreen> {
         margin: const EdgeInsetsDirectional.only(end: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.04)
-              : AppColors.bgLight,
+          color:
+              isDark ? Colors.white.withValues(alpha: 0.04) : AppColors.bgLight,
           borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
         child: Column(
@@ -2640,9 +2739,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.cardDark
-                            : Colors.white,
+                        color: isDark ? AppColors.cardDark : Colors.white,
                         shape: BoxShape.circle,
                       ),
                       child: VerifiedBadgeView(
@@ -3088,8 +3185,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 left: 0,
                                 right: 0,
                                 child: Container(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      14, 18, 14, 12),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(14, 18, 14, 12),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
@@ -3446,3 +3543,5 @@ class HomeScreenContent {
     );
   }
 }
+
+enum _HomeSyncTone { info, warning, error }

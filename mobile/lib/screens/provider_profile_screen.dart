@@ -1157,9 +1157,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () async {
-                                await Share.share(
-                                  providerLink,
-                                  subject: 'مشاركة نافذة مقدم الخدمة',
+                                await SharePlus.instance.share(
+                                  ShareParams(
+                                    text: providerLink,
+                                    subject: 'مشاركة نافذة مقدم الخدمة',
+                                  ),
                                 );
                                 final providerId = _resolvedProviderId;
                                 if (providerId != null) {
@@ -2406,7 +2408,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? Colors.grey[850]! : Colors.white;
     final borderColor = isDark ? Colors.grey[700]! : Colors.grey.shade200;
-    final textColor = isDark ? Colors.white : Colors.black;
     final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey[700];
     final hasSocialAccounts =
         providerInstagramUrl.isNotEmpty ||
@@ -3106,8 +3107,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
         subtitle: 'لم يضف مقدم الخدمة خدمات في هذا القسم بعد.',
       );
     }
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ListView.separated(
       shrinkWrap: true,

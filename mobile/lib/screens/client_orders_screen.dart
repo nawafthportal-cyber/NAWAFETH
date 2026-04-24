@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../constants/app_theme.dart';
+import '../constants/request_status_filters.dart';
 import '../models/service_request_model.dart';
 import '../services/account_mode_service.dart';
 import '../services/marketplace_service.dart';
@@ -30,7 +31,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
 
   final TextEditingController _searchController = TextEditingController();
   late final AnimationController _entranceController;
-  String _selectedFilter = 'الكل';
+  String _selectedFilter = RequestStatusFilters.allLabel;
 
   List<ServiceRequest> _orders = [];
   bool _loading = true;
@@ -114,22 +115,8 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
     });
 
     try {
-      // تحويل الفلتر العربي إلى قيمة API
-      String? statusGroup;
-      switch (_selectedFilter) {
-        case 'جديد':
-          statusGroup = 'new';
-          break;
-        case 'تحت التنفيذ':
-          statusGroup = 'in_progress';
-          break;
-        case 'مكتمل':
-          statusGroup = 'completed';
-          break;
-        case 'ملغي':
-          statusGroup = 'cancelled';
-          break;
-      }
+      final statusGroup =
+          RequestStatusFilters.apiValueForLabel(_selectedFilter);
 
       final query = _searchController.text.trim();
       final orders = await MarketplaceService.getClientRequests(

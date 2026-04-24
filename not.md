@@ -129,7 +129,8 @@ flutter run -d emulator-5554 --dart-define=API_TARGET=local
 
 ```powershell
 cd c:\Users\manso\nawafeth\mobile
-flutter run -d emulator-5554 --dart-define=API_TARGET=render```
+flutter run -d emulator-5554 --dart-define=API_TARGET=render
+
 
 تشغيل التطبيق مع رابط API مخصص:
 

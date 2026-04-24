@@ -1,16 +1,78 @@
 {% if dashboard_main_nav_items %}
-  <div class="side-card sidebar-menu-card">
+  <div class="side-card sidebar-menu-card sidebar-accordion" data-sidebar-accordion>
     <h4>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
       القائمة الرئيسية
     </h4>
-    <div class="stack sidebar-menu-stack">
+    <nav class="sidebar-menu-stack" aria-label="القائمة الرئيسية">
       {% for item in dashboard_main_nav_items %}
-        <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">
-          <span class="tab-btn-label">{{ item.label }}</span>
-          {% if item.active %}<span class="tab-btn-indicator"></span>{% endif %}
-        </a>
+        {% if item.has_children %}
+          <div class="sidebar-nav-item sidebar-nav-item--group{% if item.is_open %} is-open{% endif %}{% if item.active %} is-active{% endif %}" data-sidebar-item="{{ item.key }}">
+            <button type="button"
+                    class="sidebar-nav-row sidebar-nav-toggle"
+                    aria-expanded="{% if item.is_open %}true{% else %}false{% endif %}"
+                    aria-controls="sidebar-submenu-{{ item.key }}"
+                    data-sidebar-toggle="{{ item.key }}">
+              <span class="sidebar-nav-bullet" aria-hidden="true"></span>
+              <span class="sidebar-nav-label">{{ item.label }}</span>
+              <span class="sidebar-nav-chevron" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </button>
+            <div id="sidebar-submenu-{{ item.key }}" class="sidebar-nav-panel" role="region" aria-label="القائمة الفرعية لـ {{ item.label }}">
+              <div class="sidebar-nav-panel-inner">
+                {% for child in item.children %}
+                  <a class="sidebar-nav-child{% if child.active %} is-active{% endif %}" href="{{ child.url }}" aria-current="{% if child.active %}page{% else %}false{% endif %}">
+                    <span class="sidebar-nav-child-dot" aria-hidden="true"></span>
+                    <span class="sidebar-nav-child-label">{{ child.label }}</span>
+                  </a>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        {% else %}
+          <a class="sidebar-nav-item sidebar-nav-item--leaf{% if item.active %} is-active{% endif %}" href="{{ item.url }}" aria-current="{% if item.active %}page{% else %}false{% endif %}">
+            <span class="sidebar-nav-bullet" aria-hidden="true"></span>
+            <span class="sidebar-nav-label">{{ item.label }}</span>
+          </a>
+        {% endif %}
       {% endfor %}
-    </div>
+    </nav>
   </div>
+
+  <script>
+    (function () {
+      var root = document.querySelector('[data-sidebar-accordion]');
+      if (!root || root.dataset.sidebarReady === '1') { return; }
+      root.dataset.sidebarReady = '1';
+
+      var items = root.querySelectorAll('[data-sidebar-item]');
+
+      function setOpen(item, open) {
+        var toggle = item.querySelector('[data-sidebar-toggle]');
+        if (open) {
+          item.classList.add('is-open');
+        } else {
+          item.classList.remove('is-open');
+        }
+        if (toggle) {
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+      }
+
+      items.forEach(function (item) {
+        var toggle = item.querySelector('[data-sidebar-toggle]');
+        if (!toggle) { return; }
+        toggle.addEventListener('click', function (event) {
+          event.preventDefault();
+          var isOpen = item.classList.contains('is-open');
+          // Strict accordion: close every other branch first.
+          items.forEach(function (other) {
+            if (other !== item) { setOpen(other, false); }
+          });
+          setOpen(item, !isOpen);
+        });
+      });
+    })();
+  </script>
 {% endif %}

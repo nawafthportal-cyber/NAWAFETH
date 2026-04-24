@@ -8,8 +8,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../services/marketplace_service.dart';
+import '../services/request_draft_service.dart';
 import '../constants/app_theme.dart';
 import '../constants/saudi_cities.dart';
+import '../utils/debounced_save_runner.dart';
 import '../widgets/platform_top_bar.dart';
 
 /// شاشة إنشاء طلب خدمة جديد — مربوطة بالباكند
@@ -33,13 +35,16 @@ class ServiceRequestFormScreen extends StatefulWidget {
 
 class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   with SingleTickerProviderStateMixin {
+  static const String _draftKey = 'draft_service_request_form_v1';
   static const Color _mainColor = AppColors.primary;
   static const Color _surfaceColor = AppColors.bgLight;
   static const Color _inkColor = AppTextStyles.textPrimary;
+  bool _isDark = false;
 
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _detailsController = TextEditingController();
+  final DebouncedSaveRunner _draftSaveRunner = DebouncedSaveRunner();
   final _titleFocus = FocusNode();
   final _detailsFocus = FocusNode();
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
@@ -70,6 +75,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   bool _recorderInitialized = false;
 
   bool _submitting = false;
+  bool _draftRestored = false;
 
   bool get _isProviderRequest => widget.providerId != null;
   String get _effectiveRequestType =>
@@ -84,6 +90,9 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     );
     // إذا جاء من صفحة مزود → نوع عادي تلقائياً
     if (widget.providerId != null) _requestType = 'normal';
+    _titleController.addListener(_scheduleDraftSave);
+    _detailsController.addListener(_scheduleDraftSave);
+    _restoreDraft();
     _loadCategories();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -94,6 +103,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
 
   @override
   void dispose() {
+    _draftSaveRunner.dispose();
     _titleController.dispose();
     _detailsController.dispose();
     _titleFocus.dispose();
@@ -131,6 +141,80 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
 
   String get _selectedScopedCity {
     return SaudiCities.normalizeScopedCity(_selectedCity, region: _selectedRegion);
+  }
+
+  Future<void> _restoreDraft() async {
+    final draft = await RequestDraftService.loadDraft(_draftKey);
+    if (!mounted || draft == null) {
+      return;
+    }
+    final draftProviderId = RequestDraftService.readString(draft, 'provider_id');
+    final currentProviderId = (widget.providerId ?? '').trim();
+    if (draftProviderId != currentProviderId) {
+      return;
+    }
+
+    final requestType = RequestDraftService.readString(draft, 'request_type');
+    final quoteDeadlineRaw = RequestDraftService.readString(draft, 'quote_deadline');
+
+    setState(() {
+      _requestType = _isProviderRequest
+          ? 'normal'
+          : (requestType.isEmpty ? _requestType : requestType);
+      _selectedCategoryId = RequestDraftService.readInt(draft, 'category_id');
+      _selectedSubcategoryId = RequestDraftService.readInt(draft, 'subcategory_id');
+      _selectedRegion = RequestDraftService.readString(draft, 'region').isEmpty
+          ? null
+          : RequestDraftService.readString(draft, 'region');
+      _selectedCity = RequestDraftService.readString(draft, 'city').isEmpty
+          ? null
+          : RequestDraftService.readString(draft, 'city');
+      _titleController.text = RequestDraftService.readString(draft, 'title');
+      _detailsController.text = RequestDraftService.readString(draft, 'details');
+      _quoteDeadline = quoteDeadlineRaw.isEmpty
+          ? null
+          : DateTime.tryParse(quoteDeadlineRaw);
+      _draftRestored = true;
+    });
+  }
+
+  void _scheduleDraftSave() {
+    _draftSaveRunner.schedule(_persistDraft);
+  }
+
+  Future<void> _persistDraft() async {
+    final payload = <String, dynamic>{
+      'provider_id': (widget.providerId ?? '').trim(),
+      'request_type': _effectiveRequestType,
+      'category_id': _selectedCategoryId,
+      'subcategory_id': _selectedSubcategoryId,
+      'region': _selectedRegion,
+      'city': _selectedCity,
+      'title': _titleController.text.trim(),
+      'details': _detailsController.text.trim(),
+      'quote_deadline': _quoteDeadline?.toIso8601String(),
+    };
+
+    final hasMeaningfulDraft = [
+      payload['category_id'],
+      payload['subcategory_id'],
+      payload['region'],
+      payload['city'],
+      payload['title'],
+      payload['details'],
+      payload['quote_deadline'],
+    ].any((value) {
+      if (value == null) return false;
+      if (value is String) return value.trim().isNotEmpty;
+      return true;
+    });
+
+    if (!hasMeaningfulDraft) {
+      await RequestDraftService.clearDraft(_draftKey);
+      return;
+    }
+
+    await RequestDraftService.saveDraft(_draftKey, payload);
   }
 
   // ─── المرفقات ───
@@ -408,6 +492,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     setState(() => _submitting = false);
 
     if (res.isSuccess) {
+      await RequestDraftService.clearDraft(_draftKey);
+      if (!mounted) return;
       HapticFeedback.mediumImpact();
       showDialog(
         context: context,
@@ -468,6 +554,16 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   int get _attachmentsCount =>
       _images.length + _videos.length + _files.length + (_audioPath == null ? 0 : 1);
 
+  double get _completionProgress {
+    int done = 0;
+    if (_effectiveRequestType.isNotEmpty) done++;
+    if (_selectedCategoryId != null) done++;
+    if (_selectedSubcategoryId != null) done++;
+    if (_titleController.text.trim().isNotEmpty) done++;
+    if (_detailsController.text.trim().isNotEmpty) done++;
+    return done / 5;
+  }
+
   String? get _selectedCategoryName {
     if (_selectedCategoryId == null) return null;
     final category = _categories.cast<Map<String, dynamic>>().where(
@@ -490,10 +586,11 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
 
   @override
   Widget build(BuildContext context) {
+    _isDark = Theme.of(context).brightness == Brightness.dark;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _surfaceColor,
+        backgroundColor: _isDark ? AppColors.bgDark : AppColors.bgLight,
         appBar: PlatformTopBar(
           pageLabel: widget.providerName != null
               ? 'طلب خدمة من ${widget.providerName}'
@@ -510,16 +607,32 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
             children: [
-              _buildEntrance(0, _buildHeroCard()),
-              const SizedBox(height: 10),
+              _buildEntrance(0, _buildFormHeader()),
+              if (_draftRestored) ...[
+                const SizedBox(height: 10),
+                _buildDraftNotice(),
+              ],
+              const SizedBox(height: 12),
+              // ─── الخطوة 1: نوع الطلب ───
               _buildEntrance(
                 1,
                 _buildSectionCard(
-                  title: 'إعداد الطلب',
+                  title: 'نوع الطلب',
+                  icon: Icons.tune_rounded,
+                  stepNumber: 1,
+                  child: _requestTypePicker(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // ─── الخطوة 2: التصنيف ───
+              _buildEntrance(
+                2,
+                _buildSectionCard(
+                  title: 'التصنيف',
+                  icon: Icons.category_outlined,
+                  stepNumber: 2,
                   child: Column(
                     children: [
-                      _requestTypePicker(),
-                      const SizedBox(height: 14),
                       _fieldLabel('القسم'),
                       _categoryDropdown(),
                       const SizedBox(height: 12),
@@ -530,10 +643,68 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                 ),
               ),
               const SizedBox(height: 10),
+              // ─── الخطوة 3: العنوان والتفاصيل ───
               _buildEntrance(
-                2,
+                3,
                 _buildSectionCard(
-                  title: 'الموقع والعنوان',
+                  title: 'العنوان والتفاصيل',
+                  icon: Icons.description_outlined,
+                  stepNumber: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _fieldLabel('عنوان الطلب'),
+                      TextFormField(
+                        controller: _titleController,
+                        focusNode: _titleFocus,
+                        maxLength: 50,
+                        textInputAction: TextInputAction.next,
+                        onFieldSubmitted: (_) => _detailsFocus.requestFocus(),
+                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
+                        decoration: _inputDeco(
+                          hint: 'مثال: تركيب مكيف سبليت في غرفة النوم',
+                          counter: '${_titleController.text.length}/50',
+                        ),
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? 'يرجى إدخال عنوان الطلب'
+                                : null,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      const SizedBox(height: 12),
+                      _fieldLabel('وصف الخدمة المطلوبة'),
+                      TextFormField(
+                        controller: _detailsController,
+                        focusNode: _detailsFocus,
+                        maxLength: 500,
+                        maxLines: 6,
+                        textInputAction: TextInputAction.newline,
+                        keyboardType: TextInputType.multiline,
+                        style: const TextStyle(
+                            fontFamily: 'Cairo', fontSize: 13, height: 1.6),
+                        decoration: _inputDeco(
+                          hint:
+                              'اشرح ما تحتاجه بدقة: الموقع، الوقت المناسب، أي تفاصيل تساعد المزود.',
+                          counter: '${_detailsController.text.length}/500',
+                        ),
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? 'يرجى إدخال تفاصيل الطلب'
+                                : null,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // ─── الخطوة 4: الموقع ───
+              _buildEntrance(
+                4,
+                _buildSectionCard(
+                  title: 'الموقع',
+                  icon: Icons.location_on_outlined,
+                  stepNumber: 4,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -558,13 +729,15 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                         onChanged: (value) => setState(() {
                           _selectedRegion = value;
                           _selectedCity = null;
+                          _scheduleDraftSave();
                         }),
                       ),
                       const SizedBox(height: 12),
                       _fieldLabel('المدينة', optional: true),
                       DropdownButtonFormField<String>(
                         initialValue: _selectedCity,
-                        decoration: _inputDeco(hint: 'اختر المدينة (اختياري)'),
+                        decoration:
+                            _inputDeco(hint: 'اختر المدينة (اختياري)'),
                         isExpanded: true,
                         menuMaxHeight: 300,
                         items: _availableCities
@@ -579,7 +752,10 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                                   ),
                                 ))
                             .toList(),
-                        onChanged: (value) => setState(() => _selectedCity = value),
+                        onChanged: (value) => setState(() {
+                          _selectedCity = value;
+                          _scheduleDraftSave();
+                        }),
                       ),
                       if (_selectedScopedCity.isNotEmpty)
                         Align(
@@ -588,6 +764,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                             onPressed: () => setState(() {
                               _selectedRegion = null;
                               _selectedCity = null;
+                              _scheduleDraftSave();
                             }),
                             icon: const Icon(Icons.close_rounded, size: 14),
                             label: const Text(
@@ -601,91 +778,54 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.grey500,
                               minimumSize: const Size(0, 32),
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 6),
                             ),
                           ),
                         ),
-                      const SizedBox(height: 6),
-                      _fieldLabel('عنوان الطلب'),
-                      TextFormField(
-                        controller: _titleController,
-                        focusNode: _titleFocus,
-                        maxLength: 50,
-                        textInputAction: TextInputAction.next,
-                        onFieldSubmitted: (_) =>
-                            _detailsFocus.requestFocus(),
-                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
-                        decoration: _inputDeco(
-                          hint: 'مثال: تركيب مكيف سبليت في غرفة النوم',
-                          counter: '${_titleController.text.length}/50',
-                        ),
-                        validator: (value) => (value == null || value.trim().isEmpty)
-                            ? 'يرجى إدخال عنوان الطلب'
-                            : null,
-                        onChanged: (_) => setState(() {}),
-                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 10),
+              // ─── الخطوة 5: موعد استقبال العروض ───
               _buildEntrance(
-                3,
-                _buildSectionCard(
-                  title: 'تفاصيل الطلب',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _fieldLabel('وصف الخدمة المطلوبة'),
-                      TextFormField(
-                        controller: _detailsController,
-                        focusNode: _detailsFocus,
-                        maxLength: 500,
-                        maxLines: 6,
-                        textInputAction: TextInputAction.newline,
-                        keyboardType: TextInputType.multiline,
-                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 13, height: 1.6),
-                        decoration: _inputDeco(
-                          hint: 'اشرح ما تحتاجه بدقة: الموقع، الوقت المناسب، أي تفاصيل تساعد المزود.',
-                          counter: '${_detailsController.text.length}/500',
-                        ),
-                        validator: (value) => (value == null || value.trim().isEmpty)
-                            ? 'يرجى إدخال تفاصيل الطلب'
-                            : null,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              _buildEntrance(
-                4,
+                5,
                 _buildSectionCard(
                   title: 'موعد استقبال العروض',
+                  icon: Icons.calendar_today_outlined,
+                  stepNumber: 5,
                   trailingHint: 'اختياري',
                   child: _deadlineTile(),
                 ),
               ),
               const SizedBox(height: 10),
-              _buildEntrance(
-                5,
-                _buildSectionCard(
-                  title: 'المرفقات',
-                  trailingHint: _attachmentsCount == 0 ? 'اختياري' : '$_attachmentsCount مرفق',
-                  child: _attachmentsPreview(),
-                ),
-              ),
-              const SizedBox(height: 10),
+              // ─── الخطوة 6: المرفقات والصوت ───
               _buildEntrance(
                 6,
                 _buildSectionCard(
-                  title: 'رسالة صوتية',
-                  trailingHint: 'اختياري',
-                  child: _audioPart(),
+                  title: 'المرفقات والصوت',
+                  icon: Icons.attach_file_rounded,
+                  stepNumber: 6,
+                  trailingHint: _attachmentsCount == 0
+                      ? 'اختياري'
+                      : '$_attachmentsCount مرفق',
+                  child: Column(
+                    children: [
+                      _attachmentsPreview(),
+                      const SizedBox(height: 14),
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppColors.borderLight,
+                      ),
+                      const SizedBox(height: 14),
+                      _audioPart(),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 22),
               _buildEntrance(7, _buildActions()),
             ],
           ),
@@ -703,11 +843,11 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
         children: [
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: AppTextStyles.bodySm,
               fontWeight: FontWeight.w800,
-              color: AppTextStyles.textSecondary,
+              color: _isDark ? AppTextStyles.textSecondaryDark : AppTextStyles.textSecondary,
             ),
           ),
           if (optional) ...[
@@ -739,30 +879,30 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   InputDecoration _inputDeco({String? hint, String? counter}) =>
       InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(
+        hintStyle: TextStyle(
           fontFamily: 'Cairo',
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
-          color: AppColors.grey400,
+          color: _isDark ? AppColors.grey600 : AppColors.grey400,
         ),
         filled: true,
-        fillColor: AppColors.surfaceLight,
+        fillColor: _isDark ? AppColors.cardDark : AppColors.surfaceLight,
         counterText: counter,
-        counterStyle: const TextStyle(
+        counterStyle: TextStyle(
           fontFamily: 'Cairo',
           fontSize: 10.5,
-          color: AppColors.grey500,
+          color: _isDark ? AppColors.grey500 : AppColors.grey500,
         ),
         isDense: true,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.borderLight),
+          borderSide: BorderSide(color: _isDark ? AppColors.borderDark : AppColors.borderLight),
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.borderLight),
+          borderSide: BorderSide(color: _isDark ? AppColors.borderDark : AppColors.borderLight),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
@@ -814,95 +954,99 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       );
     }
 
-    final types = <Map<String, String>>[
+    final types = <Map<String, dynamic>>[
       {
         'key': 'normal',
         'label': 'عادي',
         'hint': 'موجه لمقدم خدمة محدد',
+        'icon': Icons.person_outline_rounded,
       },
       {
         'key': 'competitive',
         'label': 'تنافسي',
         'hint': 'استقبال عدة عروض',
+        'icon': Icons.groups_2_outlined,
       },
       {
         'key': 'urgent',
         'label': 'عاجل',
         'hint': 'تنفيذ مستعجل',
+        'icon': Icons.bolt_rounded,
       },
     ];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _fieldLabel('نوع الطلب'),
-        Row(
-          children: types.map((entry) {
-            final selected = _requestType == entry['key'];
-            return Expanded(
-              child: Padding(
-                padding: EdgeInsetsDirectional.only(
-                  start: entry == types.first ? 0 : 6,
-                ),
-                child: InkWell(
+    return Row(
+      children: types.map((entry) {
+        final selected = _requestType == entry['key'];
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: entry == types.first ? 0 : 6,
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              onTap: () {
+                if (_requestType == entry['key']) return;
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _requestType = entry['key'] as String;
+                  _scheduleDraftSave();
+                });
+              },
+              child: AnimatedContainer(
+                duration: AppDurations.fast,
+                curve: Curves.easeOut,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 12),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.primarySurface
+                      : AppColors.surfaceLight,
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  onTap: () {
-                    if (_requestType == entry['key']) return;
-                    HapticFeedback.selectionClick();
-                    setState(() => _requestType = entry['key']!);
-                  },
-                  child: AnimatedContainer(
-                    duration: AppDurations.fast,
-                    curve: Curves.easeOut,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? AppColors.primarySurface
-                          : AppColors.surfaceLight,
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                      border: Border.all(
-                        color: selected
-                            ? _mainColor
-                            : AppColors.borderLight,
-                        width: selected ? 1.4 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          entry['label']!,
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w900,
-                            color: selected ? _mainColor : _inkColor,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          entry['hint']!,
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: selected
-                                ? _mainColor.withValues(alpha: 0.78)
-                                : AppColors.grey500,
-                          ),
-                        ),
-                      ],
-                    ),
+                  border: Border.all(
+                    color: selected ? _mainColor : AppColors.borderLight,
+                    width: selected ? 1.5 : 1,
                   ),
                 ),
+                child: Column(
+                  children: [
+                    Icon(
+                      entry['icon'] as IconData,
+                      size: 20,
+                      color: selected ? _mainColor : AppColors.grey500,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      entry['label'] as String,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                        color: selected ? _mainColor : _inkColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      entry['hint'] as String,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                        color: selected
+                            ? _mainColor.withValues(alpha: 0.78)
+                            : AppColors.grey500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            );
-          }).toList(),
-        ),
-      ],
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -938,6 +1082,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
         setState(() {
           _selectedCategoryId = val;
           _selectedSubcategoryId = null; // reset sub
+          _scheduleDraftSave();
         });
       },
       validator: (v) => v == null ? 'اختر القسم' : null,
@@ -956,7 +1101,10 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
               child: Text(s['name'] as String,
                   style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5))))
           .toList(),
-      onChanged: (val) => setState(() => _selectedSubcategoryId = val),
+      onChanged: (val) => setState(() {
+        _selectedSubcategoryId = val;
+        _scheduleDraftSave();
+      }),
       validator: (v) => v == null ? 'اختر التصنيف الفرعي' : null,
     );
   }
@@ -964,7 +1112,10 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   Widget _deadlineTile() {
     final hasDate = _quoteDeadline != null;
     return InkWell(
-      onTap: _selectDeadline,
+      onTap: () async {
+        await _selectDeadline();
+        _scheduleDraftSave();
+      },
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
@@ -1018,7 +1169,10 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
           ),
           if (hasDate)
             IconButton(
-              onPressed: () => setState(() => _quoteDeadline = null),
+              onPressed: () => setState(() {
+                _quoteDeadline = null;
+                _scheduleDraftSave();
+              }),
               icon: const Icon(Icons.close_rounded,
                   size: 18, color: AppColors.grey500),
               tooltip: 'مسح',
@@ -1330,6 +1484,88 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     );
   }
 
+  Widget _buildFormHeader() {
+    final progress = _completionProgress;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF60269E), Color(0xFF8B3FC0)],
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.30),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 58,
+            height: 58,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 3.5,
+                  backgroundColor: Colors.white.withValues(alpha: 0.22),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+                Text(
+                  '${(progress * 100).round()}%',
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.providerName != null
+                      ? 'طلب خدمة من ${widget.providerName}'
+                      : 'طلب خدمة جديدة',
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: AppTextStyles.h2,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  _requestTypeDescription,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    height: 1.55,
+                    color: Colors.white.withValues(alpha: 0.82),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeroCard() {
     final summaryChips = <Widget>[
       _buildHeroChip(
@@ -1363,9 +1599,10 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
+        color: _isDark ? AppColors.cardDark : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: AppShadows.card,
+        boxShadow: _isDark ? [] : AppShadows.card,
+        border: _isDark ? Border.all(color: AppColors.borderDark) : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1431,18 +1668,50 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     );
   }
 
+  Widget _buildDraftNotice() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primarySurface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: _mainColor.withValues(alpha: 0.18)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.history_rounded, size: 16, color: _mainColor),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'تم استرجاع آخر مسودة محفوظة محليًا. المرفقات لا تُحفظ داخل المسودة.',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10.8,
+                fontWeight: FontWeight.w700,
+                color: _inkColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionCard({
     required String title,
     required Widget child,
     String? trailingHint,
+    IconData? icon,
+    int? stepNumber,
   }) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: AppColors.surfaceLight,
+        color: _isDark ? AppColors.cardDark : AppColors.surfaceLight,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: AppShadows.card,
+        boxShadow: _isDark ? [] : AppShadows.card,
+        border: _isDark ? Border.all(color: AppColors.borderDark) : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1450,23 +1719,63 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 3,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: _mainColor,
-                  borderRadius: BorderRadius.circular(2),
+              if (icon != null) ...[
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _mainColor.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: Icon(icon, size: 18, color: _mainColor),
+                    ),
+                    if (stepNumber != null)
+                      PositionedDirectional(
+                        top: -5,
+                        end: -5,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: const BoxDecoration(
+                            color: _mainColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '$stepNumber',
+                              style: const TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                fontFamily: 'Cairo',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
+              ] else
+                Container(
+                  width: 3,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: _mainColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              SizedBox(width: icon != null ? 10 : 8),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Cairo',
                     fontSize: AppTextStyles.h2,
                     fontWeight: FontWeight.w900,
-                    color: _inkColor,
+                    color: _isDark ? AppTextStyles.textPrimaryDark : _inkColor,
                   ),
                 ),
               ),
@@ -1574,41 +1883,46 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       children: [
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _submitting ? null : _submitRequest,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _mainColor,
-              disabledBackgroundColor: _mainColor.withValues(alpha: 0.55),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.md),
+          child: Semantics(
+            label: 'تقديم الطلب',
+            button: true,
+            enabled: !_submitting,
+            child: ElevatedButton(
+              onPressed: _submitting ? null : _submitRequest,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _mainColor,
+                disabledBackgroundColor: _mainColor.withValues(alpha: 0.55),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
               ),
-            ),
-            child: AnimatedSwitcher(
-              duration: AppDurations.fast,
-              transitionBuilder: (child, anim) =>
-                  FadeTransition(opacity: anim, child: child),
-              child: _submitting
-                  ? const SizedBox(
-                      key: ValueKey('submit-loading'),
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+              child: AnimatedSwitcher(
+                duration: AppDurations.fast,
+                transitionBuilder: (child, anim) =>
+                    FadeTransition(opacity: anim, child: child),
+                child: _submitting
+                    ? const SizedBox(
+                        key: ValueKey('submit-loading'),
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'تقديم الطلب',
+                        key: ValueKey('submit-label'),
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    )
-                  : const Text(
-                      'تقديم الطلب',
-                      key: ValueKey('submit-label'),
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
+              ),
             ),
           ),
         ),

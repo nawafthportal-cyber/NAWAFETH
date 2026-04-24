@@ -6,6 +6,7 @@ import 'constants/app_theme.dart';
 import 'services/auth_service.dart';
 import 'services/onboarding_service.dart';
 import 'services/account_mode_service.dart';
+import 'services/local_cache_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/payment_return_service.dart';
 
@@ -52,6 +53,7 @@ class MyThemeController extends InheritedWidget {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LocalCacheService.init();
   await PushNotificationService.initialize();
   await PaymentReturnService.initialize();
   final showOnboarding = await OnboardingService.shouldShowOnboarding();
@@ -84,9 +86,9 @@ class _NawafethAppState extends State<NawafethApp> {
   void initState() {
     super.initState();
     _paymentReturnSubscription = PaymentReturnService.stream.listen((payload) {
-      final context = rootNavigatorKey.currentContext;
-      if (context == null) return;
-      PaymentReturnService.showSnackBar(context, payload);
+      final state = rootNavigatorKey.currentState;
+      if (state == null || !state.mounted) return;
+      PaymentReturnService.showSnackBar(state.context, payload);
     });
   }
 
@@ -137,9 +139,7 @@ class _NawafethAppState extends State<NawafethApp> {
         ],
 
         // ✅ المسارات
-        initialRoute: widget.showOnboarding
-          ? '/onboarding'
-          : '/home',
+        initialRoute: widget.showOnboarding ? '/onboarding' : '/home',
         routes: {
           '/onboarding': (context) => const OnboardingScreen(),
           '/home': (context) => const HomeScreen(),

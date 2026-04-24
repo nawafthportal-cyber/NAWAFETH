@@ -1,7 +1,7 @@
 /// خدمة المصادقة — إدارة التوكنات وحالة تسجيل الدخول
 ///
-/// تخزن access و refresh tokens في SharedPreferences
-/// وتوفر واجهة موحدة للتحقق من حالة المصادقة
+/// تحفظ بيانات الجلسة الحساسة في التخزين الآمن، مع إبقاء
+/// التفضيلات العامة فقط في SharedPreferences.
 library;
 
 import 'dart:async';
@@ -22,7 +22,8 @@ class AuthService {
   static const String _faceIdDeviceTokenKey = 'nw_faceid_device_token';
   static const String _securityPinKey = 'nw_security_pin';
   static const String _lastLoginPhoneKey = 'last_login_phone';
-  static final Set<AuthLogoutListener> _logoutListeners = <AuthLogoutListener>{};
+  static final Set<AuthLogoutListener> _logoutListeners =
+      <AuthLogoutListener>{};
 
   static const _secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -39,10 +40,14 @@ class AuthService {
   /// حفظ التوكنات بعد تسجيل الدخول
   static Future<void> saveTokens({
     required String access,
-    required String refresh,
+    String? refresh,
   }) async {
     await _secureStorage.write(key: _accessTokenKey, value: access);
-    await _secureStorage.write(key: _refreshTokenKey, value: refresh);
+    if ((refresh ?? '').trim().isNotEmpty) {
+      await _secureStorage.write(key: _refreshTokenKey, value: refresh);
+    } else {
+      await _secureStorage.delete(key: _refreshTokenKey);
+    }
   }
 
   /// حفظ بيانات المستخدم الأساسية
@@ -50,9 +55,11 @@ class AuthService {
     required int userId,
     required String roleState,
   }) async {
+    await _secureStorage.write(key: _userIdKey, value: '$userId');
+    await _secureStorage.write(key: _roleStateKey, value: roleState);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_userIdKey, userId);
-    await prefs.setString(_roleStateKey, roleState);
+    await prefs.remove(_userIdKey);
+    await prefs.remove(_roleStateKey);
   }
 
   /// استرجاع access token
@@ -73,14 +80,33 @@ class AuthService {
 
   /// استرجاع معرف المستخدم
   static Future<int?> getUserId() async {
+    final secureValue = await _secureStorage.read(key: _userIdKey);
+    final secureUserId = int.tryParse((secureValue ?? '').trim());
+    if (secureUserId != null) {
+      return secureUserId;
+    }
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_userIdKey);
+    final legacyUserId = prefs.getInt(_userIdKey);
+    if (legacyUserId != null) {
+      await _secureStorage.write(key: _userIdKey, value: '$legacyUserId');
+      await prefs.remove(_userIdKey);
+    }
+    return legacyUserId;
   }
 
   /// استرجاع حالة الدور
   static Future<String?> getRoleState() async {
+    final secureRole = (await _secureStorage.read(key: _roleStateKey))?.trim();
+    if ((secureRole ?? '').isNotEmpty) {
+      return secureRole;
+    }
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_roleStateKey);
+    final legacyRole = prefs.getString(_roleStateKey)?.trim();
+    if ((legacyRole ?? '').isNotEmpty) {
+      await _secureStorage.write(key: _roleStateKey, value: legacyRole);
+      await prefs.remove(_roleStateKey);
+    }
+    return legacyRole;
   }
 
   static Future<bool> needsCompletion() async {
@@ -129,7 +155,8 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_faceIdEnabledKey, true);
     await _secureStorage.write(key: _faceIdPhoneKey, value: normalizedPhone);
-    await _secureStorage.write(key: _faceIdDeviceTokenKey, value: normalizedToken);
+    await _secureStorage.write(
+        key: _faceIdDeviceTokenKey, value: normalizedToken);
   }
 
   static Future<BiometricAuthData?> getBiometricCredentials({
@@ -137,8 +164,10 @@ class AuthService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_faceIdEnabledKey) ?? false;
-    final phone = normalizePhoneLocal05(await _secureStorage.read(key: _faceIdPhoneKey));
-    final deviceToken = ((await _secureStorage.read(key: _faceIdDeviceTokenKey)) ?? '').trim();
+    final phone =
+        normalizePhoneLocal05(await _secureStorage.read(key: _faceIdPhoneKey));
+    final deviceToken =
+        ((await _secureStorage.read(key: _faceIdDeviceTokenKey)) ?? '').trim();
 
     if (enabled && phone != null && deviceToken.isNotEmpty) {
       return BiometricAuthData(phone: phone, deviceToken: deviceToken);
@@ -167,7 +196,8 @@ class AuthService {
   }
 
   static Future<String?> getSecurityPin() async {
-    final pin = ((await _secureStorage.read(key: _securityPinKey)) ?? '').trim();
+    final pin =
+        ((await _secureStorage.read(key: _securityPinKey)) ?? '').trim();
     if (RegExp(r'^\d{4,6}$').hasMatch(pin)) return pin;
     return null;
   }
@@ -185,6 +215,8 @@ class AuthService {
   static Future<void> logout() async {
     await _secureStorage.delete(key: _accessTokenKey);
     await _secureStorage.delete(key: _refreshTokenKey);
+    await _secureStorage.delete(key: _userIdKey);
+    await _secureStorage.delete(key: _roleStateKey);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userIdKey);
     await prefs.remove(_roleStateKey);

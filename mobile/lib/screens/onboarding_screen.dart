@@ -57,6 +57,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void initState() {
     super.initState();
     _loadContentFromApi();
+    _refreshContentInBackground();
   }
 
   @override
@@ -65,21 +66,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  Future<void> _loadContentFromApi() async {
-    setState(() {
-      _isLoading = true;
-      _loadError = null;
-    });
+  Future<void> _refreshContentInBackground() async {
+    await _loadContentFromApi(forceRefresh: true, silent: true);
+  }
+
+  Future<void> _loadContentFromApi({
+    bool forceRefresh = false,
+    bool silent = false,
+  }) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
+    }
 
     try {
       final result =
-          await ContentService.fetchPublicContent(forceRefresh: true);
+          await ContentService.fetchPublicContent(forceRefresh: forceRefresh);
       if (!mounted) return;
 
       if (!result.isSuccess || result.dataAsMap == null) {
+        final fallbackSlides = _fallbackSlides();
         setState(() {
           _isLoading = false;
-          _loadError = result.error ?? 'تعذر تحميل شاشة البداية من الخادم.';
+          _slides = fallbackSlides;
+          _loadError = fallbackSlides.isEmpty
+              ? result.error ?? 'تعذر تحميل شاشة البداية من الخادم.'
+              : null;
         });
         return;
       }
@@ -109,23 +123,52 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         appPreviewItem = _buildAppPreviewItem(previewBlock);
       }
 
+      final resolvedSlides = slides.isEmpty ? _fallbackSlides() : slides;
       setState(() {
-        _slides = slides;
+        _slides = resolvedSlides;
         _appPreviewItem = appPreviewItem;
         _currentPage = 0;
         _showAppPreview = false;
         _isLoading = false;
-        _loadError = slides.isEmpty
-            ? 'محتوى شاشة البداية غير مُعد في لوحة التحكم.'
-            : null;
+        _loadError = null;
       });
     } catch (_) {
       if (!mounted) return;
+      final fallbackSlides = _fallbackSlides();
       setState(() {
         _isLoading = false;
-        _loadError = 'تعذر تحميل شاشة البداية من الخادم.';
+        _slides = fallbackSlides;
+        _loadError = fallbackSlides.isEmpty
+            ? 'تعذر تحميل شاشة البداية من الخادم.'
+            : null;
       });
     }
+  }
+
+  List<OnboardItem> _fallbackSlides() {
+    return [
+      OnboardItem(
+        key: 'fallback_discover',
+        icon: _iconForIndex(0),
+        title: 'اكتشف الخدمات بسرعة',
+        desc:
+            'تصفّح التصنيفات والمختصين من شاشة مهيأة للموبايل مع وصول أسرع للمحتوى المهم.',
+      ),
+      OnboardItem(
+        key: 'fallback_secure',
+        icon: _iconForIndex(1),
+        title: 'دخول آمن وسلس',
+        desc:
+            'استخدم رقم الجوال ورمز التحقق لإتمام الدخول بسرعة مع الحفاظ على الجلسة بشكل آمن.',
+      ),
+      OnboardItem(
+        key: 'fallback_start',
+        icon: _iconForIndex(2),
+        title: 'ابدأ من آخر نسخة محفوظة',
+        desc:
+            'التطبيق يعرض المحتوى المخزن محلياً مباشرة ثم يحدّثه عند توفر الاتصال.',
+      ),
+    ];
   }
 
   OnboardItem? _buildApiItem({
@@ -267,7 +310,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildGhostButton(
-                label: 'إعادة المحاولة', onPressed: _loadContentFromApi),
+                label: 'إعادة المحاولة',
+                onPressed: () => _loadContentFromApi(forceRefresh: true)),
             const SizedBox(height: 10),
             TextButton(
               onPressed: _finishOnboarding,

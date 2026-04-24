@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
@@ -25,6 +26,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _phoneController = TextEditingController();
+  final _phoneFocusNode = FocusNode();
   late final AnimationController _entranceController;
   Timer? _sendCooldownTimer;
   bool _isLoading = false;
@@ -58,6 +60,7 @@ class _LoginScreenState extends State<LoginScreen>
     _sendCooldownTimer?.cancel();
     _entranceController.dispose();
     _phoneController.dispose();
+    _phoneFocusNode.dispose();
     super.dispose();
   }
 
@@ -166,6 +169,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   /// ✅ إرسال OTP عبر الـ API
   Future<void> _onSendOtp() async {
+    if (_isLoading) return;
     if (_sendCooldownSeconds > 0) {
       setState(() => _errorMessage =
           'يمكنك إعادة المحاولة بعد ${_formatWaitShort(_sendCooldownSeconds)}');
@@ -190,17 +194,21 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = false);
 
     if (result.success) {
-      // ✅ في بيئة التطوير نعرض الكود
-      if (result.devCode != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('رمز التطوير: ${result.devCode}',
-                style: const TextStyle(fontFamily: 'Cairo')),
-            backgroundColor: Colors.blue,
-            duration: const Duration(seconds: 5),
+      FocusScope.of(context).unfocus();
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            result.devCode != null && kDebugMode
+                ? 'تم إرسال الرمز. رمز التطوير: ${result.devCode}'
+                : 'تم إرسال رمز التحقق إلى $phone',
+            style: const TextStyle(fontFamily: 'Cairo'),
           ),
-        );
-      }
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 3),
+        ),
+      );
 
       // الانتقال لشاشة إدخال الرمز
       Navigator.push(
@@ -387,64 +395,67 @@ class _LoginScreenState extends State<LoginScreen>
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 360;
           final horizontalPadding = compact ? 12.0 : 16.0;
-          return Stack(
-            children: [
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFFF7F3FC),
-                      Color(0xFFFBF8FF),
-                      Color(0xFFF6F9FF),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: -86,
-                right: -54,
-                child: Container(
-                  width: 210,
-                  height: 210,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.deepPurple.withValues(alpha: 0.11),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: -120,
-                left: -66,
-                child: Container(
-                  width: 250,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.accentOrange.withValues(alpha: 0.12),
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.topCenter,
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    compact ? 10 : 16,
-                    horizontalPadding,
-                    18 + viewInsets,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 430),
-                    child: _buildEntrance(
-                      0,
-                      _buildFormCard(compact: compact),
+          return GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Stack(
+              children: [
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFFF7F3FC),
+                        Color(0xFFFBF8FF),
+                        Color(0xFFF6F9FF),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                     ),
                   ),
                 ),
-              ),
-            ],
+                Positioned(
+                  top: -86,
+                  right: -54,
+                  child: Container(
+                    width: 210,
+                    height: 210,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.deepPurple.withValues(alpha: 0.11),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: -120,
+                  left: -66,
+                  child: Container(
+                    width: 250,
+                    height: 250,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.accentOrange.withValues(alpha: 0.12),
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      compact ? 10 : 16,
+                      horizontalPadding,
+                      18 + viewInsets,
+                    ),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 430),
+                      child: _buildEntrance(
+                        0,
+                        _buildFormCard(compact: compact),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -533,14 +544,20 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'برقم الجوال',
+          Text(
+            _content.description,
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF6F6987),
+              fontSize: compact ? 12 : 12.5,
+              fontWeight: FontWeight.w700,
+              height: 1.7,
+              color: const Color(0xFF6F6987),
             ),
+          ),
+          SizedBox(height: compact ? 12 : 14),
+          _buildInfoStrip(
+            icon: Icons.shield_outlined,
+            text: _content.phoneHint,
           ),
           SizedBox(height: compact ? 14 : 16),
           const Text(
@@ -677,8 +694,11 @@ class _LoginScreenState extends State<LoginScreen>
   }) {
     return TextField(
       controller: _phoneController,
+      focusNode: _phoneFocusNode,
       keyboardType: TextInputType.phone,
+      textInputAction: TextInputAction.done,
       textDirection: TextDirection.ltr,
+      autofillHints: const [AutofillHints.telephoneNumberNational],
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(10),
@@ -692,6 +712,9 @@ class _LoginScreenState extends State<LoginScreen>
       }) =>
           null,
       onChanged: (_) => setState(() => _errorMessage = null),
+      onSubmitted: (_) => _onSendOtp(),
+      onTapOutside: (_) => FocusScope.of(context).unfocus(),
+      scrollPadding: const EdgeInsets.only(bottom: 120),
       style: const TextStyle(
         fontFamily: 'Cairo',
         fontSize: 13.5,
@@ -741,6 +764,39 @@ class _LoginScreenState extends State<LoginScreen>
           borderRadius: BorderRadius.circular(fieldRadius),
           borderSide: const BorderSide(color: AppColors.deepPurple, width: 1.4),
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoStrip({
+    required IconData icon,
+    required String text,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F2FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE3D6F5)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: AppColors.deepPurple),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11.5,
+                height: 1.6,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF645B7D),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

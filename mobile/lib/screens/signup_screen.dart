@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../constants/app_theme.dart';
@@ -24,6 +25,7 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen>
     with SingleTickerProviderStateMixin {
   final _firstNameController = TextEditingController();
+  bool _isDark = false;
   final _lastNameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -92,6 +94,26 @@ class _SignUpScreenState extends State<SignUpScreen>
       (_isUsernameAvailable == true) &&
       !_isCheckingUsername &&
       !_isRegionCatalogLoading &&
+      _agreeToTerms;
+
+  bool get _isStep1Complete =>
+      _firstNameController.text.trim().isNotEmpty &&
+      _lastNameController.text.trim().isNotEmpty &&
+      _usernameController.text.trim().isNotEmpty &&
+      _emailController.text.trim().isNotEmpty &&
+      _isUsernameAvailable == true;
+
+  bool get _isStep2Complete =>
+      (_selectedRegion?.isNotEmpty ?? false) &&
+      (_selectedCity?.isNotEmpty ?? false);
+
+  bool get _isStep3Complete =>
+      _isPasswordValid &&
+      _hasLowercase &&
+      _hasUppercase &&
+      _hasNumber &&
+      _hasSpecial &&
+      _passwordController.text == _confirmPasswordController.text &&
       _agreeToTerms;
 
   SaudiRegionCatalogEntry? get _activeRegion {
@@ -307,6 +329,7 @@ class _SignUpScreenState extends State<SignUpScreen>
   Future<void> _onRegisterPressed() async {
     if ((_selectedRegion?.trim().isEmpty ?? true) ||
         (_selectedCity?.trim().isEmpty ?? true)) {
+      HapticFeedback.lightImpact();
       setState(() {
         _regionError = (_selectedRegion?.trim().isEmpty ?? true)
             ? 'اختر المنطقة الإدارية'
@@ -320,6 +343,7 @@ class _SignUpScreenState extends State<SignUpScreen>
 
     if (!_isAllValid || _selectedCity == null) return;
 
+    HapticFeedback.selectionClick();
     setState(() {
       _isLoading = true;
       _generalError = null;
@@ -343,6 +367,7 @@ class _SignUpScreenState extends State<SignUpScreen>
     setState(() => _isLoading = false);
 
     if (result.success) {
+      HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -424,15 +449,15 @@ class _SignUpScreenState extends State<SignUpScreen>
       suffixIcon: suffixIcon,
       isDense: true,
       floatingLabelBehavior: FloatingLabelBehavior.auto,
-      labelStyle: const TextStyle(
+      labelStyle: TextStyle(
         fontFamily: 'Cairo',
-        fontSize: 12.5,
+        fontSize: AppTextStyles.bodyLg,
         fontWeight: FontWeight.w800,
-        color: Color(0xFF655D7B),
+        color: _isDark ? AppTextStyles.textSecondaryDark : AppTextStyles.textSecondary,
       ),
       errorStyle: const TextStyle(
         fontFamily: 'Cairo',
-        fontSize: 11,
+        fontSize: AppTextStyles.bodySm,
         fontWeight: FontWeight.w700,
       ),
       prefixIcon: Padding(
@@ -444,28 +469,28 @@ class _SignUpScreenState extends State<SignUpScreen>
         ),
       ),
       filled: true,
-      fillColor: const Color(0xFFFCFBFE),
-      hintStyle: const TextStyle(
+      fillColor: _isDark ? AppColors.cardDark : AppColors.surfaceLight,
+      hintStyle: TextStyle(
         fontFamily: 'Cairo',
-        fontSize: 12.5,
+        fontSize: AppTextStyles.bodyLg,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF9A93AF),
+        color: _isDark ? AppColors.grey600 : AppColors.grey400,
       ),
       contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 12),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: Color(0xFFE6DFF2)),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderSide: BorderSide(color: _isDark ? AppColors.borderDark : AppColors.borderLight),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
-        borderSide: const BorderSide(color: AppColors.deepPurple, width: 1.45),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.45),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         borderSide: const BorderSide(color: AppColors.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         borderSide: const BorderSide(color: AppColors.error, width: 1.35),
       ),
     );
@@ -488,9 +513,9 @@ class _SignUpScreenState extends State<SignUpScreen>
       keyboardType: keyboardType,
       style: const TextStyle(
         fontFamily: 'Cairo',
-        fontSize: 13,
+        fontSize: AppTextStyles.bodyLg,
         fontWeight: FontWeight.w800,
-        color: Color(0xFF201830),
+        color: AppTextStyles.textPrimary,
       ),
       onChanged: onChanged ??
           (_) {
@@ -543,13 +568,13 @@ class _SignUpScreenState extends State<SignUpScreen>
     Color color;
     switch (tone) {
       case _HintTone.ok:
-        color = const Color(0xFF1B8A5A);
+        color = AppColors.success;
         break;
       case _HintTone.bad:
-        color = const Color(0xFFBB4257);
+        color = AppColors.error;
         break;
       case _HintTone.neutral:
-        color = const Color(0xFF7C748F);
+        color = AppColors.grey500;
         break;
     }
 
@@ -576,7 +601,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                 message,
                 style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 11,
+                  fontSize: AppTextStyles.bodySm,
                   fontWeight: FontWeight.w700,
                   color: color,
                 ),
@@ -617,9 +642,9 @@ class _SignUpScreenState extends State<SignUpScreen>
       menuMaxHeight: 320,
       style: const TextStyle(
         fontFamily: 'Cairo',
-        fontSize: 13,
+        fontSize: AppTextStyles.bodyLg,
         fontWeight: FontWeight.w800,
-        color: Color(0xFF201830),
+        color: AppTextStyles.textPrimary,
       ),
       icon: const Icon(Icons.keyboard_arrow_down_rounded),
       decoration: _inputDecoration(
@@ -636,7 +661,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                 city,
                 style: const TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 13,
+                  fontSize: AppTextStyles.bodyLg,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -654,9 +679,9 @@ class _SignUpScreenState extends State<SignUpScreen>
       menuMaxHeight: 320,
       style: const TextStyle(
         fontFamily: 'Cairo',
-        fontSize: 13,
+        fontSize: AppTextStyles.bodyLg,
         fontWeight: FontWeight.w800,
-        color: Color(0xFF201830),
+        color: AppTextStyles.textPrimary,
       ),
       icon: const Icon(Icons.keyboard_arrow_down_rounded),
       decoration: _inputDecoration(
@@ -674,7 +699,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                 region.displayName,
                 style: const TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 13,
+                  fontSize: AppTextStyles.bodyLg,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -690,9 +715,9 @@ class _SignUpScreenState extends State<SignUpScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9F6FD),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8DCF6)),
+        color: AppColors.primarySurface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Wrap(
         runSpacing: 6,
@@ -709,12 +734,12 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   Widget _buildValidationPill(String text, bool valid) {
-    final color = valid ? const Color(0xFF1B8A5A) : const Color(0xFF8C85A2);
+    final color = valid ? AppColors.success : AppTextStyles.textTertiary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: valid ? const Color(0xFFECF8F2) : const Color(0xFFF3F0F8),
-        borderRadius: BorderRadius.circular(999),
+        color: valid ? AppColors.successSurface : AppColors.primarySurface,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -729,7 +754,7 @@ class _SignUpScreenState extends State<SignUpScreen>
             text,
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 10.5,
+              fontSize: AppTextStyles.caption,
               fontWeight: FontWeight.w800,
               color: color,
             ),
@@ -741,19 +766,20 @@ class _SignUpScreenState extends State<SignUpScreen>
 
   Widget _buildTermsSection() {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
+      duration: AppDurations.normal,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFBFAFE),
-        borderRadius: BorderRadius.circular(22),
+        color: AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
         border: Border.all(
-          color:
-              _agreeToTerms ? const Color(0xFFD7C7F0) : const Color(0xFFE8E0F4),
+          color: _agreeToTerms
+              ? AppColors.primary.withValues(alpha: 0.28)
+              : AppColors.borderLight,
         ),
         boxShadow: _agreeToTerms
             ? [
                 BoxShadow(
-                  color: AppColors.deepPurple.withValues(alpha: 0.07),
+                  color: AppColors.primary.withValues(alpha: 0.07),
                   blurRadius: 16,
                   offset: const Offset(0, 8),
                 ),
@@ -765,7 +791,7 @@ class _SignUpScreenState extends State<SignUpScreen>
           Checkbox(
             value: _agreeToTerms,
             visualDensity: VisualDensity.compact,
-            activeColor: AppColors.deepPurple,
+            activeColor: AppColors.primary,
             onChanged: _isLoading
                 ? null
                 : (value) {
@@ -782,9 +808,9 @@ class _SignUpScreenState extends State<SignUpScreen>
                   _content.termsLabelPrefix,
                   style: const TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 12,
+                    fontSize: AppTextStyles.bodyMd,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF534D6A),
+                    color: AppTextStyles.textSecondary,
                   ),
                 ),
                 GestureDetector(
@@ -793,9 +819,9 @@ class _SignUpScreenState extends State<SignUpScreen>
                     _content.termsLabelLink,
                     style: const TextStyle(
                       fontFamily: 'Cairo',
-                      fontSize: 12,
+                      fontSize: AppTextStyles.bodyMd,
                       fontWeight: FontWeight.w900,
-                      color: AppColors.deepPurple,
+                      color: AppColors.primary,
                       decoration: TextDecoration.underline,
                     ),
                   ),
@@ -810,8 +836,10 @@ class _SignUpScreenState extends State<SignUpScreen>
 
   @override
   Widget build(BuildContext context) {
+    _isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = _isDark;
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F3FC),
+      backgroundColor: isDark ? AppColors.bgDark : AppColors.bgLight,
       appBar: PlatformTopBar(
         pageLabel: _content.title,
         showBackButton: true,
@@ -819,9 +847,11 @@ class _SignUpScreenState extends State<SignUpScreen>
         showChatAction: false,
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFFF8F4FF), Color(0xFFFDFBFE), Color(0xFFF7FBFF)],
+            colors: isDark
+                ? [AppColors.cardDark, AppColors.bgDark, AppColors.bgDark]
+                : [AppColors.primarySurface, AppColors.bgLight, AppColors.bgLight],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -947,13 +977,13 @@ class _SignUpScreenState extends State<SignUpScreen>
 
   Widget _buildHeroHeader() {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(AppRadius.xxl),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(22, 26, 22, 26),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF1E0E42), Color(0xFF3C216F), Color(0xFF5433A8)],
+            colors: [AppColors.primaryDark, AppColors.primary, AppColors.primaryLight],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
           ),
@@ -984,7 +1014,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF9B6DFF).withValues(alpha: 0.22),
+                      AppColors.primaryLight.withValues(alpha: 0.22),
                       Colors.transparent,
                     ],
                   ),
@@ -999,7 +1029,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                 height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFFD2A14C).withValues(alpha: 0.12),
+                  color: AppColors.accent.withValues(alpha: 0.12),
                 ),
               ),
             ),
@@ -1014,7 +1044,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                           horizontal: 11, vertical: 5),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
                         border: Border.all(
                             color: Colors.white.withValues(alpha: 0.18)),
                       ),
@@ -1022,7 +1052,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                         'إكمال التسجيل',
                         style: TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 10.5,
+                          fontSize: AppTextStyles.caption,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFFFFF5D8),
                         ),
@@ -1033,14 +1063,14 @@ class _SignUpScreenState extends State<SignUpScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFD2A14C).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(999),
+                        color: AppColors.accent.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: const Text(
                         'نوافذ',
                         style: TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 11,
+                          fontSize: AppTextStyles.bodySm,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFFFFD98A),
                         ),
@@ -1053,7 +1083,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                   _content.title,
                   style: const TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 24,
+                    fontSize: AppTextStyles.display1,
                     height: 1.3,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
@@ -1064,7 +1094,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                   _content.description,
                   style: TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 12,
+                    fontSize: AppTextStyles.bodyMd,
                     height: 1.85,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.78),
@@ -1074,11 +1104,16 @@ class _SignUpScreenState extends State<SignUpScreen>
                 // Step progress indicators
                 Row(
                   children: [
-                    _buildHeroStep('01', 'بيانات شخصية', true),
+                    _buildHeroStep('01', 'بيانات شخصية', !_isStep1Complete,
+                        done: _isStep1Complete),
                     _buildHeroStepLine(),
-                    _buildHeroStep('02', 'الموقع', false),
+                    _buildHeroStep('02', 'الموقع',
+                        _isStep1Complete && !_isStep2Complete,
+                        done: _isStep2Complete),
                     _buildHeroStepLine(),
-                    _buildHeroStep('03', 'كلمة المرور', false),
+                    _buildHeroStep('03', 'كلمة المرور',
+                        _isStep2Complete && !_isStep3Complete,
+                        done: _isStep3Complete),
                   ],
                 ),
               ],
@@ -1089,36 +1124,46 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
-  Widget _buildHeroStep(String num, String label, bool active) {
+  Widget _buildHeroStep(String num, String label, bool active,
+      {bool done = false}) {
     return Column(
       children: [
-        Container(
+        AnimatedContainer(
+          duration: AppDurations.slow,
+          curve: Curves.easeOutCubic,
           width: 28,
           height: 28,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: active
-                ? const Color(0xFFD2A14C)
-                : Colors.white.withValues(alpha: 0.15),
+            color: done
+                ? AppColors.success
+                : active
+                    ? AppColors.accent
+                    : Colors.white.withValues(alpha: 0.15),
             border: Border.all(
-              color: active
-                  ? const Color(0xFFD2A14C)
-                  : Colors.white.withValues(alpha: 0.22),
+              color: done
+                  ? AppColors.success
+                  : active
+                      ? AppColors.accent
+                      : Colors.white.withValues(alpha: 0.22),
               width: 1.5,
             ),
           ),
           child: Center(
-            child: Text(
-              num,
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 9.5,
-                fontWeight: FontWeight.w900,
-                color: active
-                    ? const Color(0xFF1E0E42)
-                    : Colors.white.withValues(alpha: 0.7),
-              ),
-            ),
+            child: done
+                ? const Icon(Icons.check_rounded,
+                    size: 14, color: Colors.white)
+                : Text(
+                    num,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: AppTextStyles.micro,
+                      fontWeight: FontWeight.w900,
+                      color: active
+                          ? AppColors.primaryDark
+                          : Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
           ),
         ),
         const SizedBox(height: 5),
@@ -1126,11 +1171,13 @@ class _SignUpScreenState extends State<SignUpScreen>
           label,
           style: TextStyle(
             fontFamily: 'Cairo',
-            fontSize: 9.5,
+            fontSize: AppTextStyles.micro,
             fontWeight: FontWeight.w800,
-            color: active
-                ? const Color(0xFFFFD98A)
-                : Colors.white.withValues(alpha: 0.55),
+            color: done
+                ? const Color(0xFF86EFAC)
+                : active
+                    ? const Color(0xFFFFD98A)
+                    : Colors.white.withValues(alpha: 0.55),
           ),
         ),
       ],
@@ -1168,15 +1215,15 @@ class _SignUpScreenState extends State<SignUpScreen>
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadius.md),
             gradient: const LinearGradient(
-              colors: [Color(0xFF3C216F), Color(0xFF6941C6)],
+              colors: [AppColors.primaryDark, AppColors.primaryLight],
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF3C216F).withValues(alpha: 0.28),
+                color: AppColors.primaryDark.withValues(alpha: 0.28),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1192,25 +1239,25 @@ class _SignUpScreenState extends State<SignUpScreen>
             title,
             style: const TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 14,
+              fontSize: AppTextStyles.h2,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF1F1738),
+              color: AppTextStyles.textPrimary,
             ),
           ),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFFF1EAFE),
-            borderRadius: BorderRadius.circular(999),
+            color: AppColors.primarySurface,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: Text(
             step,
             style: const TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 10,
+              fontSize: AppTextStyles.micro,
               fontWeight: FontWeight.w900,
-              color: Color(0xFF4D2997),
+              color: AppColors.primaryDark,
             ),
           ),
         ),
@@ -1235,31 +1282,51 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
+  Widget _buildSignupSectionCard({required Widget child, bool isDark = false}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.cardDark : AppColors.surfaceLight,
+        borderRadius: BorderRadius.circular(AppRadius.xxl),
+        border: isDark ? Border.all(color: AppColors.borderDark) : null,
+        boxShadow: isDark ? [] : [
+          BoxShadow(
+            color: AppColors.primaryDark.withValues(alpha: 0.065),
+            blurRadius: 22,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   Widget _buildErrorBanner(String error) {
     return Container(
       key: ValueKey(error),
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
-          color: const Color(0xFFBB4257).withValues(alpha: 0.2),
+          color: AppColors.error.withValues(alpha: 0.2),
         ),
-        color: const Color(0xFFFFF1F4),
+        color: AppColors.errorSurface,
       ),
       child: Row(
         children: [
           const Icon(Icons.error_outline_rounded,
-              size: 18, color: Color(0xFFBB4257)),
+              size: 18, color: AppColors.error),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               error,
               style: const TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 11.5,
+                fontSize: AppTextStyles.bodySm,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFFBB4257),
+                color: AppColors.error,
               ),
             ),
           ),
@@ -1276,10 +1343,10 @@ class _SignUpScreenState extends State<SignUpScreen>
       width: fullWidth ? double.infinity : null,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
           gradient: enabled
               ? const LinearGradient(
-                  colors: [Color(0xFF3C216F), Color(0xFF6941C6)],
+                  colors: [AppColors.primaryDark, AppColors.primaryLight],
                   begin: Alignment.centerRight,
                   end: Alignment.centerLeft,
                 )
@@ -1287,25 +1354,29 @@ class _SignUpScreenState extends State<SignUpScreen>
           boxShadow: enabled
               ? [
                   BoxShadow(
-                    color: const Color(0xFF3C216F).withValues(alpha: 0.35),
+                    color: AppColors.primaryDark.withValues(alpha: 0.35),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
                 ]
               : null,
         ),
-        child: ElevatedButton(
+        child: Semantics(
+          label: '\u0625\u0643\u0645\u0627\u0644 \u0627\u0644\u062a\u0633\u062c\u064a\u0644',
+          button: true,
+          enabled: enabled,
+          child: ElevatedButton(
           onPressed: enabled ? _onRegisterPressed : null,
           style: ElevatedButton.styleFrom(
             backgroundColor:
-                enabled ? Colors.transparent : AppColors.deepPurple.withValues(alpha: 0.38),
+                enabled ? Colors.transparent : AppColors.primary.withValues(alpha: 0.38),
             disabledBackgroundColor:
-                AppColors.deepPurple.withValues(alpha: 0.38),
+                AppColors.primary.withValues(alpha: 0.38),
             shadowColor: Colors.transparent,
             elevation: 0,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(AppRadius.xl),
             ),
           ),
           child: _isLoading
@@ -1334,6 +1405,7 @@ class _SignUpScreenState extends State<SignUpScreen>
                     ),
                   ],
                 ),
+        ),
         ),
       ),
     );
@@ -1382,6 +1454,7 @@ class _SignUpScreenState extends State<SignUpScreen>
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 430;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final stackActions = constraints.maxWidth < 540;
 
         return Column(
@@ -1401,176 +1474,192 @@ class _SignUpScreenState extends State<SignUpScreen>
             if (_generalError != null) const SizedBox(height: 16),
 
             // ══ SECTION 01 — البيانات الشخصية ═══════════════════════════════
-            _buildSectionHeader(
-              icon: FontAwesomeIcons.userPen,
-              title: 'البيانات الشخصية',
-              step: '01',
-            ),
-            const SizedBox(height: 14),
-            _buildAdaptiveTwoColumn(
-              isWide: isWide,
-              first: _buildTextField(
-                label: 'الاسم الأول',
-                controller: _firstNameController,
-                icon: FontAwesomeIcons.user,
-                hintText: 'مثال: خالد',
-                errorText: _fieldErrors?['first_name'],
-              ),
-              second: _buildTextField(
-                label: 'الاسم الأخير',
-                controller: _lastNameController,
-                icon: FontAwesomeIcons.user,
-                hintText: 'مثال: العتيبي',
-                errorText: _fieldErrors?['last_name'],
+            _buildSignupSectionCard(
+              isDark: isDark,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSectionHeader(
+                    icon: FontAwesomeIcons.userPen,
+                    title: 'البيانات الشخصية',
+                    step: '01',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildAdaptiveTwoColumn(
+                    isWide: isWide,
+                    first: _buildTextField(
+                      label: 'الاسم الأول',
+                      controller: _firstNameController,
+                      icon: FontAwesomeIcons.user,
+                      hintText: 'مثال: خالد',
+                      errorText: _fieldErrors?['first_name'],
+                    ),
+                    second: _buildTextField(
+                      label: 'الاسم الأخير',
+                      controller: _lastNameController,
+                      icon: FontAwesomeIcons.user,
+                      hintText: 'مثال: العتيبي',
+                      errorText: _fieldErrors?['last_name'],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTextField(
+                    label: 'اسم المستخدم',
+                    controller: _usernameController,
+                    icon: FontAwesomeIcons.at,
+                    hintText: 'username.example',
+                    suffixIcon: _buildUsernameSuffix(),
+                    onChanged: _onUsernameChanged,
+                    errorText: _fieldErrors?['username'],
+                  ),
+                  _buildUsernameStatusHint(),
+                  const SizedBox(height: 12),
+                  _buildTextField(
+                    label: 'البريد الإلكتروني',
+                    controller: _emailController,
+                    icon: FontAwesomeIcons.envelope,
+                    hintText: 'name@example.com',
+                    keyboardType: TextInputType.emailAddress,
+                    errorText: _fieldErrors?['email'],
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
-            _buildTextField(
-              label: 'اسم المستخدم',
-              controller: _usernameController,
-              icon: FontAwesomeIcons.at,
-              hintText: 'username.example',
-              suffixIcon: _buildUsernameSuffix(),
-              onChanged: _onUsernameChanged,
-              errorText: _fieldErrors?['username'],
-            ),
-            _buildUsernameStatusHint(),
-            const SizedBox(height: 12),
-            _buildTextField(
-              label: 'البريد الإلكتروني',
-              controller: _emailController,
-              icon: FontAwesomeIcons.envelope,
-              hintText: 'name@example.com',
-              keyboardType: TextInputType.emailAddress,
-              errorText: _fieldErrors?['email'],
-            ),
-            const SizedBox(height: 22),
-            _buildSectionDivider(),
-            const SizedBox(height: 22),
 
             // ══ SECTION 02 — الموقع الجغرافي ════════════════════════════════
-            _buildSectionHeader(
-              icon: FontAwesomeIcons.locationDot,
-              title: 'الموقع الجغرافي',
-              step: '02',
+            _buildSignupSectionCard(
+              isDark: isDark,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSectionHeader(
+                    icon: FontAwesomeIcons.locationDot,
+                    title: 'الموقع الجغرافي',
+                    step: '02',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildLocationCallout(),
+                  const SizedBox(height: 12),
+                  _buildAdaptiveTwoColumn(
+                    isWide: isWide,
+                    first: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildRegionDropdown(),
+                        _buildHintLine(
+                          _regionHintText,
+                          tone: _regionHintState == true
+                              ? _HintTone.ok
+                              : _HintTone.neutral,
+                        ),
+                      ],
+                    ),
+                    second: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildCityDropdown(),
+                        _buildHintLine(
+                          _cityHintText,
+                          tone: _cityHintState == true
+                              ? _HintTone.ok
+                              : _HintTone.neutral,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 14),
-            _buildLocationCallout(),
             const SizedBox(height: 12),
-            _buildAdaptiveTwoColumn(
-              isWide: isWide,
-              first: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildRegionDropdown(),
-                  _buildHintLine(
-                    _regionHintText,
-                    tone: _regionHintState == true
-                        ? _HintTone.ok
-                        : _HintTone.neutral,
-                  ),
-                ],
-              ),
-              second: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildCityDropdown(),
-                  _buildHintLine(
-                    _cityHintText,
-                    tone: _cityHintState == true
-                        ? _HintTone.ok
-                        : _HintTone.neutral,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
-            _buildSectionDivider(),
-            const SizedBox(height: 22),
 
             // ══ SECTION 03 — كلمة المرور والأمان ════════════════════════════
-            _buildSectionHeader(
-              icon: FontAwesomeIcons.shieldHalved,
-              title: 'كلمة المرور والأمان',
-              step: '03',
+            _buildSignupSectionCard(
+              isDark: isDark,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildSectionHeader(
+                    icon: FontAwesomeIcons.shieldHalved,
+                    title: 'كلمة المرور والأمان',
+                    step: '03',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildAdaptiveTwoColumn(
+                    isWide: isWide,
+                    first: _buildTextField(
+                      label: 'كلمة المرور',
+                      controller: _passwordController,
+                      icon: FontAwesomeIcons.lock,
+                      hintText: '••••••••',
+                      obscure: _obscurePassword,
+                      errorText: _fieldErrors?['password'],
+                      onChanged: (_) {
+                        _clearServerErrors();
+                        _clearLocationErrors();
+                        setState(() {});
+                      },
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                        ),
+                        onPressed: () {
+                          setState(() => _obscurePassword = !_obscurePassword);
+                        },
+                      ),
+                    ),
+                    second: _buildTextField(
+                      label: 'تأكيد كلمة المرور',
+                      controller: _confirmPasswordController,
+                      icon: FontAwesomeIcons.lockOpen,
+                      hintText: '••••••••',
+                      obscure: _obscureConfirmPassword,
+                      errorText: _fieldErrors?['password_confirm'],
+                      onChanged: (_) {
+                        _clearServerErrors();
+                        _clearLocationErrors();
+                        setState(() {});
+                      },
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                        ),
+                        onPressed: () {
+                          setState(
+                            () => _obscureConfirmPassword =
+                                !_obscureConfirmPassword,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _buildPasswordValidation(),
+                  const SizedBox(height: 16),
+                  _buildTermsSection(),
+                  if (_fieldErrors?['accept_terms'] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, right: 4),
+                      child: Text(
+                        _fieldErrors!['accept_terms']!,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFBB4257),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-            const SizedBox(height: 14),
-            _buildAdaptiveTwoColumn(
-              isWide: isWide,
-              first: _buildTextField(
-                label: 'كلمة المرور',
-                controller: _passwordController,
-                icon: FontAwesomeIcons.lock,
-                hintText: '••••••••',
-                obscure: _obscurePassword,
-                errorText: _fieldErrors?['password'],
-                onChanged: (_) {
-                  _clearServerErrors();
-                  _clearLocationErrors();
-                  setState(() {});
-                },
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 18,
-                  ),
-                  onPressed: () {
-                    setState(() => _obscurePassword = !_obscurePassword);
-                  },
-                ),
-              ),
-              second: _buildTextField(
-                label: 'تأكيد كلمة المرور',
-                controller: _confirmPasswordController,
-                icon: FontAwesomeIcons.lockOpen,
-                hintText: '••••••••',
-                obscure: _obscureConfirmPassword,
-                errorText: _fieldErrors?['password_confirm'],
-                onChanged: (_) {
-                  _clearServerErrors();
-                  _clearLocationErrors();
-                  setState(() {});
-                },
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureConfirmPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    size: 18,
-                  ),
-                  onPressed: () {
-                    setState(
-                      () =>
-                          _obscureConfirmPassword = !_obscureConfirmPassword,
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _buildPasswordValidation(),
-            const SizedBox(height: 22),
-            _buildSectionDivider(),
-            const SizedBox(height: 18),
-
-            // ── Terms ─────────────────────────────────────────────────────────
-            _buildTermsSection(),
-            if (_fieldErrors?['accept_terms'] != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6, right: 4),
-                child: Text(
-                  _fieldErrors!['accept_terms']!,
-                  style: const TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFFBB4257),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 20),
 
             // ── Action buttons ────────────────────────────────────────────────
             if (stackActions) ...[

@@ -952,34 +952,46 @@ body.home-mobile-layout .home-section--categories .cat-name {
 
 .featured-specialists-scroll {
   gap: 14px;
-  padding: 0 2px 10px;
+  padding: 4px 2px 14px;
 }
 
 .featured-specialists-scroll .featured-specialist-card {
-  flex: 0 0 96px;
-  width: 96px;
+  flex: 0 0 132px;
+  width: 132px;
   scroll-snap-align: start;
   text-decoration: none;
   color: inherit;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 4px 2px;
+  gap: 10px;
+  padding: 14px 10px 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbf7ff 100%);
+  border: 1px solid #ece4f6;
+  border-radius: 18px;
+  box-shadow: 0 6px 18px -10px rgba(72, 28, 96, 0.18);
+  cursor: pointer;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.featured-specialists-scroll .featured-specialist-card:hover {
+  transform: translateY(-3px);
+  border-color: #d8c7ee;
+  box-shadow: 0 14px 28px -12px rgba(141, 42, 122, 0.32);
 }
 
 .featured-specialists-scroll .featured-specialist-avatar-shell {
   position: relative;
-  width: 78px;
-  height: 78px;
+  width: 80px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .featured-specialists-scroll .featured-specialist-avatar-ring {
-  width: 78px;
-  height: 78px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   padding: 3px;
   background: linear-gradient(145deg, #f59e0b, #d946ef);
@@ -1038,14 +1050,20 @@ body.home-mobile-layout .home-section--categories .cat-name {
 
 .featured-specialists-scroll .featured-specialist-name {
   width: 100%;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
-  line-height: 1.35;
+  line-height: 1.4;
   color: #24182f;
   text-align: center;
-  white-space: nowrap;
+  letter-spacing: -0.1px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  min-height: calc(13px * 1.4 * 2);
 }
 
 .featured-specialists-scroll .featured-specialist-meta {
@@ -1089,8 +1107,8 @@ body.home-mobile-layout .home-section--categories .cat-name {
 }
 
 .featured-specialists-scroll .skeleton-featured-specialist .featured-specialist-avatar {
-  width: 78px;
-  height: 78px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
 }
 
@@ -1188,24 +1206,23 @@ body.home-mobile-layout .home-section--categories .cat-name {
   }
 
   .featured-specialists-scroll .featured-specialist-card {
-    flex-basis: clamp(82px, 26vw, 96px);
-    width: clamp(82px, 26vw, 96px);
+    flex-basis: clamp(112px, 32vw, 128px);
+    width: clamp(112px, 32vw, 128px);
+    padding: 12px 8px 10px;
+    border-radius: 16px;
   }
 
   .featured-specialists-scroll .featured-specialist-avatar-shell,
   .featured-specialists-scroll .featured-specialist-avatar-ring,
   .featured-specialists-scroll .featured-specialist-avatar,
   .featured-specialists-scroll .skeleton-featured-specialist .featured-specialist-avatar {
-    width: clamp(68px, 21vw, 78px);
-    height: clamp(68px, 21vw, 78px);
+    width: clamp(64px, 20vw, 74px);
+    height: clamp(64px, 20vw, 74px);
   }
 
   .featured-specialists-scroll .featured-specialist-name {
-    white-space: normal;
-    display: -webkit-box;
-    line-clamp: 2;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    font-size: 12px;
+    min-height: calc(12px * 1.4 * 2);
   }
 
   body.home-mobile-layout .home-section--promo .sponsor-card {

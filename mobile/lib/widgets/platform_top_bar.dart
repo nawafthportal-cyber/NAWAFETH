@@ -235,14 +235,7 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 380;
                   final buttonSize = compact ? 40.0 : 44.0;
-                  final sideReserve = compact ? 120.0 : 136.0;
-                  final brandMaxWidth =
-                      constraints.maxWidth - (sideReserve * 2);
                   final faceHeight = compact ? 40.0 : 44.0;
-                  final faceWidth = _resolveCenterFaceWidth(
-                    availableWidth: brandMaxWidth,
-                    faceHeight: faceHeight,
-                  );
                   final actions = <Widget>[
                     ...widget.trailingActions,
                     if (widget.trailingActions.isNotEmpty &&
@@ -272,6 +265,25 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                         onTap: widget.onChatsTap,
                       ),
                   ];
+                  final actionButtonCount = widget.trailingActions.length +
+                      (widget.showNotificationAction ? 1 : 0) +
+                      (widget.showChatAction ? 1 : 0);
+                  final actionGapCount = actionButtonCount > 0
+                      ? actionButtonCount - 1
+                      : 0;
+                  final leadingReserve = buttonSize + 8;
+                  final trailingReserve = math.max(
+                    compact ? 120.0 : 136.0,
+                    (actionButtonCount * buttonSize) + (actionGapCount * 4) + 12,
+                  );
+                  final brandMaxWidth = math.max(
+                    80.0,
+                    constraints.maxWidth - leadingReserve - trailingReserve,
+                  );
+                  final faceWidth = _resolveCenterFaceWidth(
+                    availableWidth: brandMaxWidth,
+                    faceHeight: faceHeight,
+                  );
 
                   return Stack(
                     alignment: Alignment.center,
@@ -279,8 +291,10 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                       Positioned.fill(
                         child: Center(
                           child: Padding(
-                            padding:
-                                EdgeInsets.symmetric(horizontal: sideReserve),
+                            padding: EdgeInsets.only(
+                              left: trailingReserve,
+                              right: leadingReserve,
+                            ),
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
                                 maxWidth:
@@ -328,7 +342,7 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: SizedBox(
-                          width: sideReserve,
+                          width: leadingReserve,
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: _buildLeadingButton(
@@ -346,7 +360,7 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: SizedBox(
-                          width: sideReserve,
+                          width: trailingReserve,
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Row(

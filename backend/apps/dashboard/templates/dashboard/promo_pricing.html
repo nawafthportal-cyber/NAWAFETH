@@ -287,14 +287,6 @@
       <aside class="panel side-panel">
         <div class="stack">
           {% include 'dashboard/_sidebar_main_nav.html' %}
-          <div class="side-card">
-            <h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> القائمة الفرعية</h4>
-            <div class="stack sidebar-menu-stack">
-              {% for item in nav_items %}
-                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}"><span class="tab-btn-label">{{ item.label }}</span></a>
-              {% endfor %}
-            </div>
-          </div>
         </div>
       </aside>
     </main>

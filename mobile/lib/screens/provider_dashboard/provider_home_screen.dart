@@ -618,57 +618,20 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     );
   }
 
-  // عنصر إحصائية بسيط
-  Widget _statItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    VoidCallback? onTap,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: mainColor),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                fontFamily: "Cairo",
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: "Cairo",
-                fontSize: 11,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // أزرار التنقل الثلاثة
   Widget _dashboardButton(IconData icon, String label, VoidCallback onTap) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const purple = Color(0xFF5E35B1);
+    final compact = MediaQuery.sizeOf(context).width < 390;
+    const purple = AppColors.primary;
+
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          margin: EdgeInsets.symmetric(horizontal: compact ? 3 : 4),
+          padding: EdgeInsets.symmetric(vertical: compact ? 10 : 11),
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(compact ? 14 : 16),
             border: Border.all(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.08)
@@ -687,15 +650,15 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: purple, size: 22),
-              const SizedBox(height: 5),
+              Icon(icon, color: purple, size: compact ? 19 : 21),
+              SizedBox(height: compact ? 4 : 5),
               Text(
                 label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: compact ? 10 : 10.5,
                   fontWeight: FontWeight.w700,
-                  fontFamily: "Cairo",
+                  fontFamily: 'Cairo',
                   color: isDark ? Colors.white : Colors.black87,
                 ),
               ),
@@ -870,9 +833,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   Widget _buildHeader() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
-    final coverHeight = screenWidth < 380 ? 178.0 : 194.0;
-    final avatarBottom = screenWidth < 380 ? -34.0 : -40.0;
-    final nameBottom = screenWidth < 380 ? -98.0 : -104.0;
+    final isCompact = screenWidth < 390;
+    final isVeryCompact = screenWidth < 360;
+    final coverHeight = isVeryCompact ? 158.0 : (isCompact ? 170.0 : 186.0);
+    final avatarBottom = isVeryCompact ? -30.0 : (isCompact ? -34.0 : -38.0);
+    final nameBottom = isVeryCompact ? -86.0 : (isCompact ? -92.0 : -100.0);
     // ✅ تحديد مصدر صورة الغلاف (محلية أولاً، ثم من API)
     final coverUrl = ApiClient.buildMediaUrl(_resolvedCoverImagePath);
     ImageProvider? coverImageProvider;
@@ -985,14 +950,14 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                       ],
                     ),
                     child: CircleAvatar(
-                      radius: screenWidth < 380 ? 36 : 38,
+                      radius: isVeryCompact ? 31 : (isCompact ? 33 : 36),
                       backgroundColor: Colors.grey[300],
                       backgroundImage: profileImageProvider,
                       child: profileImageProvider == null
-                          ? const Icon(
+                          ? Icon(
                               Icons.person,
                               color: Colors.white,
-                              size: 38,
+                              size: isCompact ? 32 : 36,
                             )
                           : null,
                     ),
@@ -1065,7 +1030,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 17,
+                  fontSize: isCompact ? 15.5 : 16.5,
                   fontWeight: FontWeight.w800,
                   color: isDark ? Colors.white : Colors.black87,
                 ),
@@ -1077,7 +1042,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 12,
+                  fontSize: isCompact ? 10.8 : 11.4,
                   color: Colors.grey.shade600,
                 ),
               ),
@@ -1123,8 +1088,12 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     required IconData icon,
     required Color color,
   }) {
+    final compact = MediaQuery.sizeOf(context).width < 390;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 3 : 4,
+      ),
       decoration: BoxDecoration(
         color: color.withAlpha(26),
         borderRadius: BorderRadius.circular(999),
@@ -1133,14 +1102,14 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
+          Icon(icon, size: compact ? 12 : 13, color: color),
           const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
               color: color,
               fontFamily: 'Cairo',
-              fontSize: 11,
+              fontSize: compact ? 9.8 : 10.2,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1263,9 +1232,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   // إدارة الطلبات
   Widget _ordersCard() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const purple = Color(0xFF5E35B1);
+    final compact = MediaQuery.sizeOf(context).width < 390;
+    const purple = AppColors.primary;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 14, vertical: 4),
       child: GestureDetector(
         onTap: () {
           Navigator.push(
@@ -1274,10 +1244,15 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           );
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: EdgeInsets.fromLTRB(
+            compact ? 12 : 14,
+            compact ? 12 : 14,
+            compact ? 12 : 14,
+            compact ? 10 : 12,
+          ),
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(compact ? 18 : 20),
             border: Border.all(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.08)
@@ -1288,95 +1263,160 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 : [
                     BoxShadow(
                       color: purple.withValues(alpha: 0.06),
-                      blurRadius: 8,
+                      blurRadius: compact ? 6 : 8,
                       offset: const Offset(0, 3),
                     ),
                   ],
           ),
-          child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: purple.withValues(alpha: 0.12),
-                ),
-                child: const Icon(Icons.list_alt, color: purple, size: 18),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  "إدارة الطلبات",
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: "Cairo",
+                Row(
+                  children: [
+                    Container(
+                      width: compact ? 40 : 44,
+                      height: compact ? 40 : 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(compact ? 12 : 14),
+                        gradient: const LinearGradient(
+                          colors: [AppColors.primaryLight, AppColors.primary],
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: purple.withValues(alpha: 0.18),
+                            blurRadius: compact ? 8 : 12,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.inventory_2_rounded,
+                          color: Colors.white, size: 20),
                   ),
-                ),
+                    SizedBox(width: compact ? 10 : 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "إدارة الطلبات",
+                            style: TextStyle(
+                              color: isDark ? Colors.white : const Color(0xFF111827),
+                              fontSize: compact ? 13.2 : 14,
+                              fontWeight: FontWeight.w900,
+                              fontFamily: "Cairo",
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "تابع العاجلة والعروض والمسندة بسرعة.",
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white70
+                                  : const Color(0xFF6B7280),
+                              fontSize: compact ? 9.8 : 10.4,
+                              height: 1.35,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: "Cairo",
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: compact ? 6 : 8),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: compact ? 8 : 10,
+                        vertical: compact ? 6 : 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : purple.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(compact ? 10 : 12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'فتح',
+                            style: TextStyle(
+                              color: isDark ? Colors.white : purple,
+                              fontSize: compact ? 9.8 : 10.2,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Cairo',
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: compact ? 9 : 10,
+                            color: isDark ? Colors.white : purple,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
               ),
-              Flexible(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
+                SizedBox(height: compact ? 10 : 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _ordersMetricBadge(
+                      label: 'العاجلة',
+                      count: _urgentOrdersCount,
+                      accent: AppColors.error,
+                      isDark: isDark,
+                    ),
+                    _ordersMetricBadge(
+                      label: 'عروض الأسعار',
+                      count: _competitiveOrdersCount,
+                      accent: AppColors.info,
+                      isDark: isDark,
+                    ),
+                    _ordersMetricBadge(
+                      label: 'المسندة',
+                      count: _newOrdersCount,
+                      accent: Colors.amber.shade700,
+                      isDark: isDark,
+                    ),
+                  ],
+                ),
+                SizedBox(height: compact ? 10 : 12),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 10 : 12,
+                    vertical: compact ? 8 : 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : AppColors.primarySurface,
+                    borderRadius: BorderRadius.circular(compact ? 12 : 14),
+                  ),
                   child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.error,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          "$_urgentOrdersCount عاجلة",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: "Cairo",
-                          ),
-                        ),
+                      Icon(
+                        Icons.bolt_rounded,
+                        size: compact ? 14 : 16,
+                        color: isDark ? const Color(0xFFD8C7FF) : purple,
                       ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.info.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.info.withValues(alpha: 0.5)),
-                        ),
+                      SizedBox(width: compact ? 6 : 8),
+                      Expanded(
                         child: Text(
-                          "$_competitiveOrdersCount عروض",
+                          'فرز سريع للحالات والطلبات المتاحة.',
                           style: TextStyle(
-                            color: AppColors.info,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: "Cairo",
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade50,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.amber),
-                        ),
-                        child: Text(
-                          "$_newOrdersCount مسندة",
-                          style: const TextStyle(
-                            color: Colors.black87,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: "Cairo",
+                            color: isDark ? Colors.white70 : const Color(0xFF5B5670),
+                            fontSize: compact ? 9.8 : 10.2,
+                            height: 1.35,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Cairo',
                           ),
                         ),
                       ),
                     ],
-                  ),
                 ),
               ),
             ],
@@ -1385,6 +1425,55 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       ),
     );
   }
+
+  Widget _ordersMetricBadge({
+      required String label,
+      required int count,
+      required Color accent,
+      required bool isDark,
+    }) {
+      final compact = MediaQuery.sizeOf(context).width < 390;
+      return Container(
+        constraints: BoxConstraints(minWidth: compact ? 84 : 92),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 12,
+          vertical: compact ? 8 : 10,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : accent.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(compact ? 13 : 15),
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.08) : accent.withValues(alpha: 0.24),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              count.toString(),
+              style: TextStyle(
+                color: isDark ? Colors.white : accent,
+                fontSize: compact ? 15 : 17,
+                fontWeight: FontWeight.w900,
+                fontFamily: 'Cairo',
+                height: 1,
+              ),
+            ),
+            SizedBox(height: compact ? 3 : 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isDark ? Colors.white70 : const Color(0xFF4B5563),
+                fontSize: compact ? 9.6 : 10.2,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Cairo',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
   // لمحات المزود: إضافة + عرض + حذف
   Widget _reelsRow() {
@@ -1698,6 +1787,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final compact = MediaQuery.sizeOf(context).width < 390;
+    final headerSpacing = compact ? 106.0 : 116.0;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -1710,7 +1801,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                padding: EdgeInsets.fromLTRB(12, compact ? 4 : 6, 12, 0),
                 child: PlatformTopBar(
                   overlay: false,
                   height: 62,
@@ -1768,25 +1859,30 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                       child: Column(
                         children: [
                           _buildHeader(),
-                          const SizedBox(height: 118),
+                          SizedBox(height: headerSpacing),
                           // زر التبديل بين الحسابات
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                            padding: EdgeInsets.fromLTRB(
+                              compact ? 12 : 14,
+                              compact ? 4 : 6,
+                              compact ? 12 : 14,
+                              compact ? 8 : 10,
+                            ),
                             child: _buildModeToggle(),
                           ),
                           // بطاقة رئيسية تحت الغلاف
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 14),
                             child: Column(
                               children: [
                                 // الإحصائيات + الباقة + اكتمال الملف
                                 Container(
-                                  padding: const EdgeInsets.all(14),
+                                  padding: EdgeInsets.all(compact ? 12 : 14),
                                   decoration: BoxDecoration(
                                     color: isDark
                                         ? Colors.white.withValues(alpha: 0.06)
                                         : Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius: BorderRadius.circular(compact ? 18 : 20),
                                     border: Border.all(
                                       color: isDark
                                           ? Colors.white.withValues(alpha: 0.08)
@@ -1808,14 +1904,14 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                                     children: [
                                       // ── إحصائيات المزود المضغوطة ──
                                       _buildProviderStatsStrip(isDark),
-                                      const SizedBox(height: 10),
+                                      SizedBox(height: compact ? 8 : 10),
                                       _planCard(),
-                                      const SizedBox(height: 10),
+                                      SizedBox(height: compact ? 8 : 10),
                                       _profileCompletionCard(),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(height: 10),
+                                SizedBox(height: compact ? 8 : 10),
                                 _ordersCard(),
                               ],
                             ),

@@ -69,6 +69,32 @@ class ChatThread {
     );
   }
 
+  Map<String, dynamic> toJson({String? lastMessageOverride}) {
+    return {
+      'thread_id': threadId,
+      'peer_id': peerId,
+      'peer_provider_id': peerProviderId,
+      'peer_name': peerName,
+      'peer_first_name': peerFirstName,
+      'peer_last_name': peerLastName,
+      'peer_username': peerUsername,
+      'peer_phone': peerPhone,
+      'peer_city': peerCity,
+      'peer_city_display': peerCityDisplay,
+      'peer_profile_image': peerProfileImage,
+      'peer_excellence_badges':
+          peerExcellenceBadges.map((item) => item.toJson()).toList(growable: false),
+      'last_message': lastMessageOverride ?? lastMessage,
+      'last_message_at': lastMessageAt.toIso8601String(),
+      'unread_count': unreadCount,
+      'is_favorite': isFavorite,
+      'is_archived': isArchived,
+      'is_blocked': isBlocked,
+      'favorite_label': favoriteLabel,
+      'client_label': clientLabel,
+    };
+  }
+
   static List<ExcellenceBadgeModel> _parsePeerExcellence(dynamic value) {
     if (value is! List) return const [];
     return value
@@ -133,5 +159,20 @@ class ThreadState {
       systemSenderLabel: (json['system_sender_label'] ?? '') as String,
       isSystemThread: json['is_system_thread'] == true,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'thread': threadId,
+      'is_favorite': isFavorite,
+      'favorite_label': favoriteLabel,
+      'client_label': clientLabel,
+      'is_archived': isArchived,
+      'is_blocked': isBlocked,
+      'reply_restricted_to_me': replyRestrictedToMe,
+      'reply_restriction_reason': replyRestrictionReason,
+      'system_sender_label': systemSenderLabel,
+      'is_system_thread': isSystemThread,
+    };
   }
 }

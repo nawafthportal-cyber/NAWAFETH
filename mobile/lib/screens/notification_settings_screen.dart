@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/notification_model.dart';
-import '../services/account_mode_service.dart';
+import '../services/account_mode_sync_service.dart';
 import '../services/api_client.dart';
 import '../services/notification_service.dart';
 import '../services/unread_badge_service.dart';
@@ -23,66 +23,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     with SingleTickerProviderStateMixin {
   static const _tierOrder = ['basic', 'pioneer', 'professional', 'extra'];
 
-  static const _tierLabels = {
-    'basic': 'الباقة الأساسية',
-    'pioneer': 'الباقة الريادية',
-    'professional': 'الباقة الاحترافية',
-    'extra': 'تنبيهات الخدمات الإضافية',
-  };
-
-  static const _tierDescriptions = {
-    'basic': 'تنبيهات التشغيل الأساسية المرتبطة بالطلبات والرسائل والتحديثات العامة.',
-    'pioneer': 'تنبيهات التفاعل والنمو المرتبطة بالمتابعات والتعليقات واهتمام العملاء.',
-    'professional': 'تنبيهات متقدمة للمراجعات والمنافسة والظهور التجاري.',
-    'extra': 'تنبيهات مرتبطة بالخدمات الإضافية والبوابات التشغيلية المتخصصة.',
-  };
-
   static const _tierIcons = {
     'basic': Icons.star_rounded,
     'pioneer': Icons.rocket_launch_rounded,
     'professional': Icons.workspace_premium_rounded,
     'extra': Icons.diamond_rounded,
   };
-
-  static const _tierItems = {
-    'basic': [
-      'new_request',
-      'request_status_change',
-      'urgent_request',
-      'report_status_change',
-      'new_chat_message',
-      'service_reply',
-      'platform_recommendations',
-    ],
-    'pioneer': [
-      'new_follow',
-      'new_comment_services',
-      'new_like_profile',
-      'new_like_services',
-      'competitive_offer_request',
-    ],
-    'professional': [
-      'positive_review',
-      'negative_review',
-      'new_provider_same_category',
-      'highlight_same_category',
-      'ads_and_offers',
-    ],
-    'extra': [
-      'new_payment',
-      'new_ad_visit',
-      'report_completed',
-      'verification_completed',
-      'paid_subscription_completed',
-      'customer_service_package_completed',
-      'finance_package_completed',
-      'scheduled_ticket_reminder',
-    ],
-  };
-
-  static const _extraNoteTitle = 'إدارة العملاء';
-  static const _extraNoteBody =
-      'مخصص للعملاء وخدمتهم المتكررة مثل الصيانة الدورية، ويشمل مواعيد ورسائل تنبيه.';
 
   static const _panelTints = {
     'basic': Color(0xFF6D5DF6),
@@ -95,6 +41,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   final Set<String> _openSections = <String>{'basic'};
 
   List<NotificationPreference> _preferences = [];
+  List<NotificationPreferenceSection> _sections = [];
   String _activeMode = 'client';
   bool _isLoading = true;
   int _chatUnread = 0;
@@ -119,7 +66,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     _badgeHandle = UnreadBadgeService.acquire();
     _badgeHandle?.addListener(_handleBadgeChange);
     _handleBadgeChange();
-    _initModeAndLoad();
+    _loadPreferences();
   }
 
   @override
@@ -141,13 +88,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     });
   }
 
-  Future<void> _initModeAndLoad() async {
-    final mode = await AccountModeService.apiMode();
-    if (!mounted) return;
-    setState(() => _activeMode = mode);
-    await _loadPreferences();
-  }
-
   Future<void> _loadPreferences() async {
     setState(() {
       _isLoading = true;
@@ -155,11 +95,15 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     });
 
     try {
-      final prefs = await NotificationService.fetchPreferences(mode: _activeMode);
+      final mode = await AccountModeSyncService.resolveApiMode();
+      final payload = await NotificationService.fetchPreferences(mode: mode);
+      final prefs = payload.preferences;
       if (!mounted) return;
       _syncOpenSections(prefs.map((pref) => pref.tier));
       setState(() {
+        _activeMode = mode;
         _preferences = prefs;
+        _sections = payload.sections;
         _isLoading = false;
       });
       _entranceController
@@ -206,6 +150,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       setState(() {
         if (result.preferences.isNotEmpty) {
           _preferences = result.preferences;
+          if (result.sections.isNotEmpty) {
+            _sections = result.sections;
+          }
         } else {
           final index = _preferences.indexWhere((item) => item.key == pref.key);
           if (index >= 0) {
@@ -236,6 +183,20 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   List<String> _sortedTiers(List<String> tiers) {
+    if (_sections.isNotEmpty) {
+      final available = tiers.toSet();
+      final ordered = _sections
+          .map((section) => section.key)
+          .where(available.contains)
+          .toList();
+      for (final tier in tiers) {
+        if (!ordered.contains(tier)) {
+          ordered.add(tier);
+        }
+      }
+      return ordered;
+    }
+
     final sorted = _tierOrder.where(tiers.contains).toList();
     for (final tier in tiers) {
       if (!sorted.contains(tier)) {
@@ -249,20 +210,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     String tier,
     List<NotificationPreference> prefs,
   ) {
-    final preferredOrder = _tierItems[tier] ?? const <String>[];
-    if (preferredOrder.isEmpty) {
-      return [...prefs]..sort((a, b) => a.title.compareTo(b.title));
-    }
-
-    final byKey = {for (final pref in prefs) pref.key: pref};
-    final ordered = preferredOrder
-        .map((key) => byKey[key])
-        .whereType<NotificationPreference>()
-        .toList();
-    final rest = prefs.where((pref) => !preferredOrder.contains(pref.key)).toList()
-      ..sort((a, b) => a.title.compareTo(b.title));
-    ordered.addAll(rest);
-    return ordered;
+    return List<NotificationPreference>.from(prefs);
   }
 
   void _toggleSection(String tier) {
@@ -276,9 +224,23 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   String _formatTierLabel(String tier) {
+    final section = _sectionForTier(tier);
+    if (section != null && section.title.trim().isNotEmpty) {
+      return section.title.trim();
+    }
     final normalized = tier.trim().toLowerCase();
     if (normalized.isEmpty) return 'إعدادات إضافية';
-    return _tierLabels[normalized] ?? normalized.replaceAll('_', ' ');
+    return normalized.replaceAll('_', ' ');
+  }
+
+  NotificationPreferenceSection? _sectionForTier(String tier) {
+    final normalized = tier.trim().toLowerCase();
+    for (final section in _sections) {
+      if (section.key.trim().toLowerCase() == normalized) {
+        return section;
+      }
+    }
+    return null;
   }
 
   String? _sectionLockedReason(String tier, List<NotificationPreference> prefs) {
@@ -756,14 +718,19 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   Widget _buildTierPanel(String tier, List<NotificationPreference> prefs) {
+    final section = _sectionForTier(tier);
     final tint = _panelTints[tier] ?? const Color(0xFF6D5DF6);
     final isOpen = _openSections.contains(tier);
     final activeCount = prefs.where((pref) => pref.enabled && !pref.locked).length;
     final isFullyLocked = prefs.isNotEmpty && prefs.every((pref) => pref.locked);
     final lockedReason = _sectionLockedReason(tier, prefs);
     final title = _formatTierLabel(tier);
-    final description = _tierDescriptions[tier] ?? 'إعدادات إضافية مرتبطة بهذا القسم.';
+    final description = (section?.description ?? '').trim().isNotEmpty
+        ? section!.description.trim()
+        : 'إعدادات إضافية مرتبطة بهذا القسم.';
     final icon = _tierIcons[tier] ?? Icons.notifications_active_outlined;
+    final noteTitle = section?.noteTitle.trim() ?? '';
+    final noteBody = section?.noteBody.trim() ?? '';
 
     return Container(
       decoration: BoxDecoration(
@@ -913,7 +880,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _buildPreferenceTile(pref, tint: tint),
                         )),
-                    if (tier == 'extra') ...[
+                    if (noteTitle.isNotEmpty || noteBody.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Container(
                         width: double.infinity,
@@ -925,18 +892,18 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
+                          children: [
                             Row(
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.south_rounded,
                                   color: Color(0xFFAA4C7D),
                                   size: 18,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
-                                  _extraNoteTitle,
-                                  style: TextStyle(
+                                  noteTitle,
+                                  style: const TextStyle(
                                     fontFamily: 'Cairo',
                                     fontSize: 13,
                                     fontWeight: FontWeight.w800,
@@ -945,10 +912,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               ],
                             ),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             Text(
-                              _extraNoteBody,
-                              style: TextStyle(
+                              noteBody,
+                              style: const TextStyle(
                                 fontFamily: 'Cairo',
                                 fontSize: 12,
                                 height: 1.7,

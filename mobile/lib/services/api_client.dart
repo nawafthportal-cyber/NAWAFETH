@@ -41,17 +41,20 @@ class ApiClient {
   }
 
   /// POST request مع مصادقة
-  static Future<ApiResponse> post(String path, {Map<String, dynamic>? body}) async {
+  static Future<ApiResponse> post(String path,
+      {Map<String, dynamic>? body}) async {
     return _request('POST', path, body: body);
   }
 
   /// PATCH request مع مصادقة
-  static Future<ApiResponse> patch(String path, {Map<String, dynamic>? body}) async {
+  static Future<ApiResponse> patch(String path,
+      {Map<String, dynamic>? body}) async {
     return _request('PATCH', path, body: body);
   }
 
   /// PUT request مع مصادقة
-  static Future<ApiResponse> put(String path, {Map<String, dynamic>? body}) async {
+  static Future<ApiResponse> put(String path,
+      {Map<String, dynamic>? body}) async {
     return _request('PUT', path, body: body);
   }
 
@@ -93,17 +96,23 @@ class ApiClient {
           break;
         case 'POST':
           response = await _httpClient
-              .post(url, headers: headers, body: body != null ? jsonEncode(body) : null)
+              .post(url,
+                  headers: headers,
+                  body: body != null ? jsonEncode(body) : null)
               .timeout(const Duration(seconds: 15));
           break;
         case 'PATCH':
           response = await _httpClient
-              .patch(url, headers: headers, body: body != null ? jsonEncode(body) : null)
+              .patch(url,
+                  headers: headers,
+                  body: body != null ? jsonEncode(body) : null)
               .timeout(const Duration(seconds: 15));
           break;
         case 'PUT':
           response = await _httpClient
-              .put(url, headers: headers, body: body != null ? jsonEncode(body) : null)
+              .put(url,
+                  headers: headers,
+                  body: body != null ? jsonEncode(body) : null)
               .timeout(const Duration(seconds: 15));
           break;
         case 'DELETE':
@@ -135,12 +144,12 @@ class ApiClient {
     } on TimeoutException {
       return ApiResponse(
         statusCode: 0,
-        error: 'انتهت مهلة الاتصال بالخادم. تحقق من تشغيل الـ API.',
+        error: 'انتهت مهلة الاتصال. تحقق من الإنترنت ثم حاول مرة أخرى.',
       );
     } on SocketException {
       return ApiResponse(
         statusCode: 0,
-        error: 'تعذر الوصول إلى الخادم. تحقق من عنوان الـ API والشبكة.',
+        error: 'لا يوجد اتصال بالإنترنت أو تعذر الوصول إلى الخادم.',
       );
     } catch (e, stackTrace) {
       AppLogger.error(
@@ -148,7 +157,10 @@ class ApiClient {
         error: e,
         stackTrace: stackTrace,
       );
-      return ApiResponse(statusCode: 0, error: 'خطأ في الاتصال: $e');
+      return ApiResponse(
+        statusCode: 0,
+        error: 'تعذر إتمام الطلب الآن. حاول مرة أخرى بعد قليل.',
+      );
     }
   }
 
@@ -177,15 +189,17 @@ class ApiClient {
 
     try {
       final url = _buildUri('/api/accounts/token/refresh/');
-      final response = await _httpClient.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-Account-Mode': activeMode,
-        },
-        body: jsonEncode({'refresh': refreshToken}),
-      ).timeout(const Duration(seconds: 10));
+      final response = await _httpClient
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-Account-Mode': activeMode,
+            },
+            body: jsonEncode({'refresh': refreshToken}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -246,22 +260,11 @@ class ApiClient {
       return ApiResponse(statusCode: statusCode, data: data);
     }
 
-    String errorMessage = _defaultErrorMessage(statusCode);
-    if (data is Map) {
-      errorMessage = data['detail'] as String? ??
-          data['error'] as String? ??
-          data.toString();
-    } else if (body.isNotEmpty) {
-      final plain = body
-          .replaceAll(RegExp(r'<[^>]*>'), ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
-      if (plain.isNotEmpty) {
-        errorMessage = plain.length > 220
-            ? '${plain.substring(0, 220)}...'
-            : plain;
-      }
-    }
+    final errorMessage = _resolveErrorMessage(
+      statusCode: statusCode,
+      data: data,
+      body: body,
+    );
 
     return ApiResponse(
       statusCode: statusCode,
@@ -294,6 +297,79 @@ class ApiClient {
       default:
         return 'حدث خطأ غير متوقع';
     }
+  }
+
+  static String _resolveErrorMessage({
+    required int statusCode,
+    required dynamic data,
+    required String body,
+  }) {
+    final defaultMessage = _defaultErrorMessage(statusCode);
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      final detail = _cleanMessage(
+        map['detail']?.toString() ?? map['error']?.toString(),
+      );
+      if (detail != null) {
+        return detail;
+      }
+      final fieldError = _extractFieldErrorMessage(map);
+      if (fieldError != null) {
+        return fieldError;
+      }
+      return defaultMessage;
+    }
+
+    final plain = _cleanPlainBody(body);
+    if (plain != null && !_looksTechnical(plain)) {
+      return plain;
+    }
+    return defaultMessage;
+  }
+
+  static String? _extractFieldErrorMessage(Map<String, dynamic> map) {
+    for (final entry in map.entries) {
+      if (entry.key == 'detail' || entry.key == 'error') {
+        continue;
+      }
+      final value = entry.value;
+      if (value is List && value.isNotEmpty) {
+        final first = _cleanMessage(value.first?.toString());
+        if (first != null) {
+          return first;
+        }
+      }
+      final direct = _cleanMessage(value?.toString());
+      if (direct != null) {
+        return direct;
+      }
+    }
+    return null;
+  }
+
+  static String? _cleanPlainBody(String? body) {
+    final plain = (body ?? '')
+        .replaceAll(RegExp(r'<[^>]*>'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return _cleanMessage(plain);
+  }
+
+  static String? _cleanMessage(String? message) {
+    final text = (message ?? '').trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    return text.length > 220 ? '${text.substring(0, 220)}...' : text;
+  }
+
+  static bool _looksTechnical(String message) {
+    final lowered = message.toLowerCase();
+    return lowered.contains('traceback') ||
+        lowered.contains('exception') ||
+        lowered.contains('stack trace') ||
+        lowered.contains('html') ||
+        lowered.contains('<!doctype');
   }
 
   /// بناء URL كامل لملف وسائط (صورة/فيديو)
@@ -361,12 +437,12 @@ class ApiClient {
     } on TimeoutException {
       return ApiResponse(
         statusCode: 0,
-        error: 'انتهت مهلة الاتصال بالخادم.',
+        error: 'انتهت مهلة الاتصال. حاول مرة أخرى.',
       );
     } on SocketException {
       return ApiResponse(
         statusCode: 0,
-        error: 'تعذر الوصول إلى الخادم. تحقق من الاتصال.',
+        error: 'لا يوجد اتصال بالإنترنت أو تعذر الوصول إلى الخادم.',
       );
     } catch (e, stackTrace) {
       AppLogger.error(
@@ -374,7 +450,10 @@ class ApiClient {
         error: e,
         stackTrace: stackTrace,
       );
-      return ApiResponse(statusCode: 0, error: 'خطأ في الاتصال: $e');
+      return ApiResponse(
+        statusCode: 0,
+        error: 'تعذر إتمام الطلب الآن. حاول مرة أخرى بعد قليل.',
+      );
     }
   }
 }

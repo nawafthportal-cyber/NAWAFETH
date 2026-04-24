@@ -26,6 +26,7 @@ class InteractiveScreen extends StatefulWidget {
 class _InteractiveScreenState extends State<InteractiveScreen>
     with SingleTickerProviderStateMixin {
   TabController? _tabController;
+  int _loadEpoch = 0;
 
   bool _isProviderMode = false;
   bool _isLoggedIn = false;
@@ -42,34 +43,70 @@ class _InteractiveScreenState extends State<InteractiveScreen>
   String? _followingError;
   String? _followersError;
   String? _favoritesError;
+  String? _followingStatus;
+  String? _followersStatus;
+  String? _favoritesStatus;
+  bool _followingOfflineFallback = false;
+  bool _followersOfflineFallback = false;
+  bool _favoritesOfflineFallback = false;
 
   @override
   void initState() {
     super.initState();
-    _loadAllData();
+    AccountModeService.addListener(_handleAccountModeChanged);
+    _loadAllData(forceRefresh: true);
   }
 
-  Future<void> _loadAllData() async {
+  void _handleAccountModeChanged(bool _) {
+    _loadAllData(forceRefresh: true);
+  }
+
+  Future<void> _loadAllData({bool forceRefresh = false}) async {
+    final requestEpoch = ++_loadEpoch;
     final loggedIn = await AuthService.isLoggedIn();
-    if (!mounted) return;
+    if (!mounted || requestEpoch != _loadEpoch) return;
     setState(() { _isLoggedIn = loggedIn; _authChecked = true; });
     if (!loggedIn) return;
 
     final isProviderMode = await AccountModeService.isProviderMode();
+    if (!mounted || requestEpoch != _loadEpoch) return;
 
     if (mounted) {
-      setState(() => _isProviderMode = isProviderMode);
+      setState(() {
+        _isProviderMode = isProviderMode;
+        _following = [];
+        _followers = [];
+        _favorites = [];
+        _followingLoading = true;
+        _followersLoading = isProviderMode;
+        _favoritesLoading = true;
+        _followingError = null;
+        _followersError = null;
+        _favoritesError = null;
+        _followingStatus = null;
+        _followersStatus = null;
+        _favoritesStatus = null;
+        _followingOfflineFallback = false;
+        _followersOfflineFallback = false;
+        _favoritesOfflineFallback = false;
+      });
       _initTabController();
     }
 
     await Future.wait([
-      _loadFollowing(),
-      if (_isProviderMode) _loadFollowers(),
-      _loadFavorites(),
+      _loadFollowing(forceRefresh: forceRefresh, requestEpoch: requestEpoch),
+      if (_isProviderMode)
+        _loadFollowers(forceRefresh: forceRefresh, requestEpoch: requestEpoch),
+      _loadFavorites(forceRefresh: forceRefresh, requestEpoch: requestEpoch),
     ]);
 
-    if (!_isProviderMode && mounted) {
-      setState(() { _followersLoading = false; _followers = []; });
+    if (!_isProviderMode && mounted && requestEpoch == _loadEpoch) {
+      setState(() {
+        _followersLoading = false;
+        _followers = [];
+        _followersStatus = null;
+        _followersOfflineFallback = false;
+      });
     }
   }
 
@@ -79,48 +116,86 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     _tabController = TabController(length: tabCount, vsync: this);
   }
 
-  Future<void> _loadFollowing() async {
+  Future<void> _loadFollowing({
+    bool forceRefresh = false,
+    int? requestEpoch,
+  }) async {
     if (!mounted) return;
     setState(() { _followingLoading = true; _followingError = null; });
-    final result = await InteractiveService.fetchFollowing();
-    if (!mounted) return;
+    final result = await InteractiveService.fetchFollowingResult(
+      forceRefresh: forceRefresh,
+    );
+    if (!mounted || (requestEpoch != null && requestEpoch != _loadEpoch)) return;
     setState(() {
       _followingLoading = false;
-      if (result.isSuccess) { _following = result.items; }
-      else { _followingError = result.error; }
+      _following = result.data;
+      _followingStatus = _cacheStatusMessage(result);
+      _followingOfflineFallback = result.isOfflineFallback;
+      _followingError = result.data.isEmpty && result.hasError
+          ? result.errorMessage
+          : null;
     });
   }
 
-  Future<void> _loadFollowers() async {
+  Future<void> _loadFollowers({
+    bool forceRefresh = false,
+    int? requestEpoch,
+  }) async {
     if (!mounted) return;
     setState(() { _followersLoading = true; _followersError = null; });
     if (!_isProviderMode) {
       if (mounted) setState(() { _followersLoading = false; _followers = []; });
       return;
     }
-    final result = await InteractiveService.fetchFollowers();
-    if (!mounted) return;
+    final result = await InteractiveService.fetchFollowersResult(
+      forceRefresh: forceRefresh,
+    );
+    if (!mounted || (requestEpoch != null && requestEpoch != _loadEpoch)) return;
     setState(() {
       _followersLoading = false;
-      if (result.isSuccess) { _followers = result.items; }
-      else { _followersError = result.error; }
+      _followers = result.data;
+      _followersStatus = _cacheStatusMessage(result);
+      _followersOfflineFallback = result.isOfflineFallback;
+      _followersError = result.data.isEmpty && result.hasError
+          ? result.errorMessage
+          : null;
     });
   }
 
-  Future<void> _loadFavorites() async {
+  Future<void> _loadFavorites({
+    bool forceRefresh = false,
+    int? requestEpoch,
+  }) async {
     if (!mounted) return;
     setState(() { _favoritesLoading = true; _favoritesError = null; });
-    final result = await InteractiveService.fetchFavorites();
-    if (!mounted) return;
+    final result = await InteractiveService.fetchFavoritesResult(
+      forceRefresh: forceRefresh,
+    );
+    if (!mounted || (requestEpoch != null && requestEpoch != _loadEpoch)) return;
     setState(() {
       _favoritesLoading = false;
-      if (result.isSuccess) { _favorites = result.items; }
-      else { _favoritesError = result.error; }
+      _favorites = result.data;
+      _favoritesStatus = _cacheStatusMessage(result);
+      _favoritesOfflineFallback = result.isOfflineFallback;
+      _favoritesError = result.data.isEmpty && result.hasError
+          ? result.errorMessage
+          : null;
     });
+  }
+
+  String? _cacheStatusMessage(CachedListResult<dynamic> result) {
+    if (result.isOfflineFallback) {
+      return 'تُعرض بيانات محفوظة مؤقتًا بسبب ضعف الاتصال.';
+    }
+    if (result.fromCache) {
+      return 'تم تحميل البيانات من الكاش المحلي لتسريع التصفح.';
+    }
+    return null;
   }
 
   @override
   void dispose() {
+    AccountModeService.removeListener(_handleAccountModeChanged);
     _tabController?.dispose();
     super.dispose();
   }
@@ -154,6 +229,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
       purple,
       body: Column(
         children: [
+          _buildHeaderSummary(isDark, purple),
           // -- Custom Tab Bar --
           _buildTabBar(isDark, purple),
           // -- Tab Content --
@@ -163,6 +239,113 @@ class _InteractiveScreenState extends State<InteractiveScreen>
               children: _isProviderMode
                   ? [_buildFollowingTab(isDark, purple), _buildFollowersTab(isDark, purple), _buildFavoritesTab(isDark, purple)]
                   : [_buildFollowingTab(isDark, purple), _buildFavoritesTab(isDark, purple)],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderSummary(bool isDark, Color purple) {
+    final hasFollowersTab = _isProviderMode;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: purple.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(Icons.hub_rounded, color: purple, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'شبكة تفاعلاتك',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'تابع من ترتبط بهم، راجع من يتابعك، وارجع إلى العناصر المحفوظة بسرعة.',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 10.5,
+                          height: 1.6,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white54 : Colors.black45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _summaryChip(Icons.people_outline_rounded, 'أتابع ${_following.length}', isDark, purple),
+                if (hasFollowersTab)
+                  _summaryChip(Icons.person_outline_rounded, 'يتابعني ${_followers.length}', isDark, purple),
+                _summaryChip(Icons.bookmark_outline_rounded, 'محفوظ ${_favorites.length}', isDark, purple),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryChip(IconData icon, String label, bool isDark, Color purple) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : purple.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: purple),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white70 : purple,
             ),
           ),
         ],
@@ -337,21 +520,40 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     if (_followingError != null) return _errorState(_followingError!, _loadFollowing, isDark);
     if (_following.isEmpty) return _emptyState(Icons.group_off_rounded, 'لا تتابع أي مزود خدمة حتى الآن', isDark);
 
-    return RefreshIndicator(
-      onRefresh: _loadFollowing,
-      color: purple,
-      child: GridView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 0.72,
+    return Column(
+      children: [
+        if (_followingStatus != null)
+          _buildCacheBanner(
+            message: _followingStatus!,
+            isDark: isDark,
+            accent: purple,
+            isOffline: _followingOfflineFallback,
+            onRefresh: () => _loadFollowing(forceRefresh: true),
+          ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => _loadFollowing(forceRefresh: true),
+            color: purple,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = constraints.maxWidth < 360 ? 1 : 2;
+                return GridView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: constraints.maxWidth < 360 ? 1.5 : 0.72,
+                  ),
+                  itemCount: _following.length,
+                  itemBuilder: (context, index) => _followingCard(_following[index], isDark, purple),
+                );
+              },
+            ),
+          ),
         ),
-        itemCount: _following.length,
-        itemBuilder: (context, index) => _followingCard(_following[index], isDark, purple),
-      ),
+      ],
     );
   }
 
@@ -555,15 +757,29 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     if (_followersError != null) return _errorState(_followersError!, _loadFollowers, isDark);
     if (_followers.isEmpty) return _emptyState(Icons.person_off_rounded, 'لا يوجد متابعون بعد', isDark);
 
-    return RefreshIndicator(
-      onRefresh: _loadFollowers,
-      color: purple,
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
-        itemCount: _followers.length,
-        itemBuilder: (context, index) => _followerTile(_followers[index], isDark, purple),
-      ),
+    return Column(
+      children: [
+        if (_followersStatus != null)
+          _buildCacheBanner(
+            message: _followersStatus!,
+            isDark: isDark,
+            accent: purple,
+            isOffline: _followersOfflineFallback,
+            onRefresh: () => _loadFollowers(forceRefresh: true),
+          ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => _loadFollowers(forceRefresh: true),
+            color: purple,
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(12),
+              itemCount: _followers.length,
+              itemBuilder: (context, index) => _followerTile(_followers[index], isDark, purple),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -648,20 +864,103 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     if (_favoritesError != null) return _errorState(_favoritesError!, _loadFavorites, isDark);
     if (_favorites.isEmpty) return _emptyState(Icons.bookmark_outline_rounded, 'لا توجد عناصر محفوظة في المفضلة', isDark);
 
-    return RefreshIndicator(
-      onRefresh: _loadFavorites,
-      color: purple,
-      child: GridView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 0.85,
+    return Column(
+      children: [
+        if (_favoritesStatus != null)
+          _buildCacheBanner(
+            message: _favoritesStatus!,
+            isDark: isDark,
+            accent: purple,
+            isOffline: _favoritesOfflineFallback,
+            onRefresh: () => _loadFavorites(forceRefresh: true),
+          ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => _loadFavorites(forceRefresh: true),
+            color: purple,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = constraints.maxWidth < 360 ? 1 : 2;
+                return GridView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: constraints.maxWidth < 360 ? 1.25 : 0.85,
+                  ),
+                  itemCount: _favorites.length,
+                  itemBuilder: (context, index) => _favoriteCard(_favorites[index], index, isDark, purple),
+                );
+              },
+            ),
+          ),
         ),
-        itemCount: _favorites.length,
-        itemBuilder: (context, index) => _favoriteCard(_favorites[index], index, isDark, purple),
+      ],
+    );
+  }
+
+  Widget _buildCacheBanner({
+    required String message,
+    required bool isDark,
+    required Color accent,
+    required bool isOffline,
+    required Future<void> Function() onRefresh,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isOffline
+              ? const Color(0xFFFFF7ED)
+              : (isDark ? Colors.white.withValues(alpha: 0.05) : accent.withValues(alpha: 0.06)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isOffline
+                ? const Color(0xFFF5C28B)
+                : (isDark ? Colors.white.withValues(alpha: 0.06) : accent.withValues(alpha: 0.18)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isOffline ? Icons.cloud_off_rounded : Icons.history_rounded,
+              size: 16,
+              color: isOffline ? const Color(0xFFB45309) : accent,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: isOffline
+                      ? const Color(0xFF92400E)
+                      : (isDark ? Colors.white70 : Colors.black54),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onRefresh,
+              style: TextButton.styleFrom(
+                foregroundColor: isOffline ? const Color(0xFFB45309) : accent,
+                minimumSize: const Size(0, 30),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                textStyle: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              child: const Text('تحديث'),
+            ),
+          ],
+        ),
       ),
     );
   }
