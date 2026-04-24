@@ -1327,14 +1327,15 @@ const SearchPage = (() => {
     });
 
     const media = UI.el('div', { className: 'provider-search-cover' });
+    const mediaFrame = UI.el('div', { className: 'provider-search-cover-frame' });
     if (coverUrl) {
-      media.appendChild(UI.lazyImg(coverUrl, displayName));
+      mediaFrame.appendChild(UI.lazyImg(coverUrl, displayName));
     } else {
       const fallback = UI.el('div', { className: 'provider-search-cover-fallback' });
       fallback.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M7 14l3-3 3 3 4-4 3 3"></path></svg>';
-      media.appendChild(fallback);
+      mediaFrame.appendChild(fallback);
     }
-    media.appendChild(UI.el('div', { className: 'provider-search-cover-overlay' }));
+    mediaFrame.appendChild(UI.el('div', { className: 'provider-search-cover-overlay' }));
 
     const mediaTags = UI.el('div', { className: 'provider-search-media-tags' });
     if (isFeatured) {
@@ -1350,8 +1351,9 @@ const SearchPage = (() => {
       }));
     }
     if (mediaTags.childNodes.length) {
-      media.appendChild(mediaTags);
+      mediaFrame.appendChild(mediaTags);
     }
+    media.appendChild(mediaFrame);
 
     const avatar = UI.el('div', { className: 'provider-search-avatar' });
     if (profileUrl) avatar.appendChild(UI.lazyImg(profileUrl, displayName));

@@ -2795,9 +2795,16 @@ body.page-search.page-search-providers .provider-search-cover {
   max-height: 92px;
   margin: 10px 10px 0;
   border-radius: 16px;
+  overflow: visible;
   background:
     radial-gradient(120% 100% at 0% 0%, rgba(103, 58, 183, 0.18), transparent 55%),
     linear-gradient(135deg, #6d4ab3 0%, #c97a1d 120%);
+}
+body.page-search.page-search-providers .provider-search-cover-frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
 }
 body.page-search.page-search-providers .provider-search-cover img {
   height: 92px;
