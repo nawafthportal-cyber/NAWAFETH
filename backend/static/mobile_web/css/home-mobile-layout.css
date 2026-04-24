@@ -956,8 +956,8 @@ body.home-mobile-layout .home-section--categories .cat-name {
 }
 
 .featured-specialists-scroll .featured-specialist-card {
-  flex: 0 0 132px;
-  width: 132px;
+  flex: 0 0 152px;
+  width: 152px;
   scroll-snap-align: start;
   text-decoration: none;
   color: inherit;
@@ -965,10 +965,10 @@ body.home-mobile-layout .home-section--categories .cat-name {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 14px 10px 12px;
+  padding: 16px 12px 14px;
   background: linear-gradient(180deg, #ffffff 0%, #fbf7ff 100%);
   border: 1px solid #ece4f6;
-  border-radius: 18px;
+  border-radius: 20px;
   box-shadow: 0 6px 18px -10px rgba(72, 28, 96, 0.18);
   cursor: pointer;
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
@@ -1057,8 +1057,8 @@ body.home-mobile-layout .home-section--categories .cat-name {
   text-align: center;
   letter-spacing: -0.1px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: keep-all;
@@ -1206,10 +1206,10 @@ body.home-mobile-layout .home-section--categories .cat-name {
   }
 
   .featured-specialists-scroll .featured-specialist-card {
-    flex-basis: clamp(112px, 32vw, 128px);
-    width: clamp(112px, 32vw, 128px);
-    padding: 12px 8px 10px;
-    border-radius: 16px;
+    flex-basis: clamp(128px, 38vw, 144px);
+    width: clamp(128px, 38vw, 144px);
+    padding: 14px 10px 12px;
+    border-radius: 18px;
   }
 
   .featured-specialists-scroll .featured-specialist-avatar-shell,

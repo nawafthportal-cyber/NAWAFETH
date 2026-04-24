@@ -2754,6 +2754,323 @@ body.page-search.page-search-providers .empty-state p {
     opacity: 0 !important;
   }
 }
+
+/* ============================================================
+   PREMIUM REDESIGN — compact, elegant, info-dense, scannable
+   Last layer (wins by source order). 2026-04-24 polish pass.
+   ============================================================ */
+body.page-search.page-search-providers .providers-list-compact {
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  body.page-search.page-search-providers .providers-list-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
+@media (min-width: 1180px) {
+  body.page-search.page-search-providers .providers-list-compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Card: tighter, modern, glassy header */
+body.page-search.page-search-providers .provider-search-card {
+  border-radius: 22px;
+  background:
+    radial-gradient(140% 90% at 100% 0%, rgba(103, 58, 183, 0.10), transparent 55%),
+    linear-gradient(180deg, #ffffff 0%, #fbfaff 100%);
+  box-shadow:
+    0 10px 28px -18px rgba(15, 23, 42, 0.30),
+    0 4px 10px -6px rgba(103, 58, 183, 0.10);
+}
+body.page-search.page-search-providers .provider-search-card::after {
+  border-radius: 21px;
+}
+
+/* Cover → slim brand banner (image still shows but capped) */
+body.page-search.page-search-providers .provider-search-cover {
+  min-height: 80px;
+  max-height: 92px;
+  margin: 10px 10px 0;
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(103, 58, 183, 0.18), transparent 55%),
+    linear-gradient(135deg, #6d4ab3 0%, #c97a1d 120%);
+}
+body.page-search.page-search-providers .provider-search-cover img {
+  height: 92px;
+  object-fit: cover;
+}
+body.page-search.page-search-providers .provider-search-cover-overlay {
+  height: 100%;
+  background: linear-gradient(180deg, rgba(11, 22, 35, 0.05) 0%, rgba(11, 22, 35, 0.45) 100%);
+}
+
+/* Tighter media tags */
+body.page-search.page-search-providers .provider-search-media-tags {
+  top: 8px;
+  inset-inline: 10px auto;
+  gap: 5px;
+}
+body.page-search.page-search-providers .provider-search-featured,
+body.page-search.page-search-providers .provider-search-distance-tag {
+  min-height: 22px;
+  padding: 0 9px;
+  font-size: 9.5px;
+}
+
+/* Avatar — circular, prominent, beautifully overlapped */
+body.page-search.page-search-providers .provider-search-avatar {
+  inset-inline-start: 14px;
+  bottom: -28px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 4px solid #ffffff;
+  box-shadow:
+    0 12px 26px -10px rgba(15, 23, 42, 0.28),
+    0 0 0 4px rgba(103, 58, 183, 0.12);
+}
+body.page-search.page-search-providers .provider-search-card:hover .provider-search-avatar {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow:
+    0 16px 32px -12px rgba(15, 23, 42, 0.32),
+    0 0 0 5px rgba(103, 58, 183, 0.20);
+}
+body.page-search.page-search-providers .provider-search-avatar span {
+  font-size: 24px;
+}
+
+/* Body — compact spacing */
+body.page-search.page-search-providers .provider-search-body {
+  gap: 10px;
+  padding: 38px 16px 14px 16px;
+  padding-inline-start: 102px;     /* leave room for the floating avatar */
+  min-height: auto;
+}
+@media (max-width: 480px) {
+  body.page-search.page-search-providers .provider-search-body {
+    padding-inline-start: 16px;
+    padding-top: 36px;
+  }
+  body.page-search.page-search-providers .provider-search-avatar {
+    width: 68px;
+    height: 68px;
+    bottom: -24px;
+    inset-inline-start: 12px;
+  }
+}
+
+/* Title row aligned cleanly */
+body.page-search.page-search-providers .provider-search-title-row {
+  align-items: center;
+  gap: 8px;
+}
+body.page-search.page-search-providers .provider-search-name {
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+/* Badges row → compact chips */
+body.page-search.page-search-providers .provider-search-badges {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+body.page-search.page-search-providers .provider-search-badge {
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+/* META → inline horizontal chips (was vertical rows) */
+body.page-search.page-search-providers .provider-search-meta {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+body.page-search.page-search-providers .provider-search-meta-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(103, 58, 183, 0.06);
+  border: 1px solid rgba(103, 58, 183, 0.10);
+  color: #2d2745;
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.page-search.page-search-providers .provider-search-meta-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.page-search.page-search-providers .provider-search-meta-row svg {
+  flex-shrink: 0;
+}
+
+/* Snippet — limited to 2 lines */
+body.page-search.page-search-providers .provider-search-snippet {
+  margin: 0;
+  color: #4d4860;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* STATS → unified single-row pill strip */
+body.page-search.page-search-providers .provider-search-stats {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 8px 4px !important;
+  background: linear-gradient(180deg, #faf7ff 0%, #f5efff 100%);
+  border: 1px solid rgba(103, 58, 183, 0.10);
+  border-radius: 14px;
+  justify-content: space-around;
+}
+body.page-search.page-search-providers .provider-search-stat {
+  display: inline-flex !important;
+  flex: 1 1 0;
+  flex-direction: column !important;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border: none !important;
+  background: transparent !important;
+  position: relative;
+  min-width: 0;
+  text-align: center;
+}
+body.page-search.page-search-providers .provider-search-stat + .provider-search-stat {
+  border-inline-start: 1px solid rgba(103, 58, 183, 0.12) !important;
+}
+body.page-search.page-search-providers .provider-search-stat-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(103, 58, 183, 0.10);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+body.page-search.page-search-providers .provider-search-stat-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+}
+body.page-search.page-search-providers .provider-search-stat-copy strong {
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  font-weight: 900;
+  color: #1f1633;
+}
+body.page-search.page-search-providers .provider-search-stat-copy span {
+  font-family: 'Cairo', sans-serif;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #6b5f86;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* ACTION — sleek single-line CTA with elegant gradient */
+body.page-search.page-search-providers .provider-search-actions {
+  margin-top: 2px;
+}
+body.page-search.page-search-providers .provider-search-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #14958a 0%, #0b5e57 55%, #6d4ab3 100%);
+  color: #ffffff;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13.5px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow:
+    0 10px 22px -10px rgba(20, 149, 138, 0.55),
+    0 4px 10px -6px rgba(103, 58, 183, 0.30);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+body.page-search.page-search-providers .provider-search-primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow:
+    0 14px 28px -10px rgba(20, 149, 138, 0.65),
+    0 6px 14px -6px rgba(103, 58, 183, 0.40);
+}
+body.page-search.page-search-providers .provider-search-primary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+}
+body.page-search.page-search-providers .provider-search-primary-copy {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+body.page-search.page-search-providers .provider-search-primary-copy strong {
+  font-size: 13.5px;
+  font-weight: 900;
+  color: #ffffff;
+}
+body.page-search.page-search-providers .provider-search-primary-copy small {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+}
+body.page-search.page-search-providers .provider-search-primary-tail {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}
+@media (max-width: 380px) {
+  body.page-search.page-search-providers .provider-search-primary-copy small {
+    display: none;
+  }
+}
+
+/* Featured stripe — subtler */
+body.page-search.page-search-providers .provider-search-card.promo-featured::before {
+  height: 3px;
+}
 </style>
 {% endblock %}
 
