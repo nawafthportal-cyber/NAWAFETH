@@ -35,11 +35,34 @@ def create_otp(phone: str, request) -> str:
 
 
 def verify_otp(phone: str, code: str) -> bool:
-    """Verify OTP code and mark it used. Returns True if valid."""
+    """Verify OTP code and mark it used. Returns True if valid.
+
+    Accepts any 4-digit code when accept_any_otp_code() is True,
+    or specific dev test code via matches_dev_test_code().
+    """
     from .models import OTP
     otp = OTP.objects.filter(phone=phone, is_used=False).order_by("-id").first()
-    if not otp or otp.expires_at < timezone.now() or otp.code != code:
+    if not otp or otp.expires_at < timezone.now():
         return False
+
+    # Normalize input
+    code_str = str(code or "").strip()
+
+    # Check for exact match
+    if otp.code == code_str:
+        valid = True
+    # Dev/test explicit code
+    elif matches_dev_test_code(code_str):
+        valid = True
+    # Accept any 4-digit numeric code when bypass enabled
+    elif accept_any_otp_code() and code_str.isdigit() and len(code_str) == 4:
+        valid = True
+    else:
+        valid = False
+
+    if not valid:
+        return False
+
     otp.is_used = True
     otp.save(update_fields=["is_used"])
     return True
