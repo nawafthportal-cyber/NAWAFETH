@@ -157,6 +157,8 @@ class ServiceRequest {
   // بيانات العميل
   final String? clientName;
   final String? clientPhone;
+  final List<String> availableActions;
+  final String? providerInputsStage;
 
   // بيانات التفاصيل (تأتي فقط في endpoint التفاصيل)
   final List<RequestAttachment> attachments;
@@ -202,6 +204,8 @@ class ServiceRequest {
     this.categoryName,
     this.clientName,
     this.clientPhone,
+    this.availableActions = const [],
+    this.providerInputsStage,
     this.attachments = const [],
     this.statusLogs = const [],
   });
@@ -229,6 +233,7 @@ class ServiceRequest {
   double? get remainingAmt => _parseAmount(remainingAmount);
   double? get actualAmount => _parseAmount(actualServiceAmount);
   String get locationDisplay => SaudiCities.formatCityDisplay(cityDisplay ?? city);
+  bool hasAction(String action) => availableActions.contains(action.trim());
 
   static double? _parseAmount(String? s) {
     if (s == null || s.isEmpty) return null;
@@ -287,6 +292,13 @@ class ServiceRequest {
       categoryName: json['category_name'] as String?,
       clientName: json['client_name'] as String?,
       clientPhone: json['client_phone'] as String?,
+      availableActions: json['available_actions'] is List
+          ? (json['available_actions'] as List)
+              .map((item) => item.toString().trim())
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false)
+          : const [],
+      providerInputsStage: json['provider_inputs_stage'] as String?,
       attachments: json['attachments'] is List
           ? (json['attachments'] as List)
               .map((a) =>

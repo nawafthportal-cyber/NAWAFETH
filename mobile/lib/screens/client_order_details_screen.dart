@@ -12,6 +12,7 @@ import '../services/marketplace_service.dart';
 import '../services/reviews_service.dart';
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
+import 'chat_detail_screen.dart';
 import 'notifications_screen.dart';
 import 'provider_profile_screen.dart';
 
@@ -258,16 +259,167 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
   String _formatDateOnly(DateTime date) =>
       DateFormat('dd/MM/yyyy', 'ar').format(date);
 
+  bool _canEditOrder(ServiceRequest order) {
+    if (order.availableActions.isNotEmpty) {
+      return order.hasAction('send');
+    }
+    return order.status == RequestStatusFilters.newStatus;
+  }
+
+  bool _canDecideProviderInputs(ServiceRequest order) {
+    if (order.providerInputsApproved != null) return false;
+    if (order.availableActions.isNotEmpty) {
+      return order.hasAction('approve_inputs') ||
+          order.hasAction('reject_inputs');
+    }
+    return order.status == RequestStatusFilters.awaitingClientStatus;
+  }
+
+  bool _canCancelOrder(ServiceRequest order) {
+    if (order.availableActions.isNotEmpty) {
+      return order.hasAction('cancel');
+    }
+    if (order.status == RequestStatusFilters.newStatus) {
+      return order.provider == null || order.requestType == 'urgent';
+    }
+    return order.requestType == 'urgent' &&
+        order.statusGroup == 'new' &&
+        order.providerInputsStage != 'progress_update';
+  }
+
+  bool _canReopenOrder(ServiceRequest order) {
+    if (order.availableActions.isNotEmpty) {
+      return order.hasAction('reopen');
+    }
+    return order.status == RequestStatusFilters.cancelledStatus;
+  }
+
   String _formatMoney(double? value) {
     if (value == null) return '-';
     return '${value.toStringAsFixed(0)} ر.س';
   }
 
-  void _openChat() {
+  String _formatQuoteDeadline(String? rawValue) {
+    final value = (rawValue ?? '').trim();
+    if (value.isEmpty) return '-';
+    final parsed = DateTime.tryParse(value);
+    return parsed == null ? value : _formatDateOnly(parsed);
+  }
+
+  Future<void> _openChat() async {
+    final order = _order;
+    final providerId = order?.provider;
+    if (order == null || providerId == null || providerId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'المحادثة تصبح متاحة بعد تحديد مقدم الخدمة لهذا الطلب',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+        ),
+      );
+      return;
+    }
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatDetailScreen(
+          peerName: (order.providerName ?? '').trim().isNotEmpty
+              ? order.providerName!.trim()
+              : 'مقدم الخدمة',
+          peerProviderId: providerId,
+        ),
+      ),
+    );
+    await UnreadBadgeService.refresh(force: true);
+  }
+
+  Future<void> _cancelRequest() async {
+    final order = _order;
+    if (order == null) return;
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text(
+            'إلغاء الطلب',
+            style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w900),
+          ),
+          content: TextField(
+            controller: reasonController,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              labelText: 'سبب الإلغاء (اختياري)',
+              border: OutlineInputBorder(),
+            ),
+            style: const TextStyle(fontFamily: 'Cairo'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('تراجع', style: TextStyle(fontFamily: 'Cairo')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+              child: const Text('إلغاء الطلب', style: TextStyle(fontFamily: 'Cairo')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _saving = true);
+    final res = await MarketplaceService.cancelRequest(
+      order.id,
+      reason: reasonController.text.trim().isEmpty ? null : reasonController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (res.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم إلغاء الطلب بنجاح', style: TextStyle(fontFamily: 'Cairo')),
+        ),
+      );
+      await _loadDetail();
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('سيتم فتح المحادثة مع مقدم الخدمة قريباً',
-            style: TextStyle(fontFamily: 'Cairo')),
+      SnackBar(
+        content: Text(
+          res.error ?? 'تعذر إلغاء الطلب',
+          style: const TextStyle(fontFamily: 'Cairo'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _reopenRequest() async {
+    final order = _order;
+    if (order == null) return;
+    setState(() => _saving = true);
+    final res = await MarketplaceService.reopenRequest(order.id);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (res.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تمت إعادة فتح الطلب', style: TextStyle(fontFamily: 'Cairo')),
+        ),
+      );
+      await _loadDetail();
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          res.error ?? 'تعذر إعادة فتح الطلب',
+          style: const TextStyle(fontFamily: 'Cairo'),
+        ),
       ),
     );
   }
@@ -277,7 +429,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
     final order = _order;
     if (order == null) return;
 
-    if (order.status != 'new') {
+    if (!_canEditOrder(order)) {
       Navigator.pop(context, true);
       return;
     }

@@ -740,7 +740,7 @@ const ProviderDetailPage = (() => {
     const endpoint = _withMode(isFollowers
       ? '/api/providers/' + _providerId + '/followers/'
       : '/api/providers/' + _providerId + '/following/');
-    const title = isFollowers ? 'المتابِعون' : 'المتابَعون';
+    const title = isFollowers ? 'المتابعون' : 'المتابعين';
     const subtitle = isFollowers ? 'الذين يتابعون مقدم الخدمة' : 'الذين يتابعهم مقدم الخدمة';
     const countEl = isFollowers ? document.getElementById('stat-followers') : document.getElementById('btn-show-following');
     const count = countEl ? (parseInt(isFollowers ? countEl.textContent : countEl.dataset.count, 10) || 0) : 0;

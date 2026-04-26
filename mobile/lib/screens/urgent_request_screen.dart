@@ -2,11 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/home_service.dart';
 import '../services/marketplace_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/request_draft_service.dart';
 import '../models/category_model.dart';
+import '../models/service_provider_location.dart';
 import '../constants/saudi_cities.dart';
 import '../utils/debounced_save_runner.dart';
 import '../widgets/bottom_nav.dart';
@@ -77,6 +79,8 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
   bool _submitting = false;
   bool _showSuccess = false;
   bool _draftRestored = false;
+  Position? _nearestPosition;
+  ServiceProviderLocation? _selectedNearestProvider;
 
   // ── Attachments ──
   final List<File> _images = [];
@@ -272,6 +276,14 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
       return;
     }
 
+    Position? nearestPosition;
+    if (_dispatchMode == 'nearest') {
+      nearestPosition = await _ensureNearestPosition();
+      if (nearestPosition == null) {
+        return;
+      }
+    }
+
     setState(() => _submitting = true);
     final res = await MarketplaceService.createRequest(
       title: 'طلب عاجل - ${_selectedCat?.name ?? ''}',
@@ -279,7 +291,12 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
       requestType: 'urgent',
       subcategory: _selectedSub!.id,
       city: _selectedScopedCity.isEmpty ? null : _selectedScopedCity,
+      provider: _dispatchMode == 'nearest'
+          ? int.tryParse(_selectedNearestProvider?.id ?? '')
+          : null,
       dispatchMode: _dispatchMode,
+      requestLat: nearestPosition?.latitude,
+      requestLng: nearestPosition?.longitude,
       images: _images,
       videos: _videos,
       files: _files,
@@ -304,10 +321,36 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
     );
   }
 
-  void _openMapForCity(String city) {
+  Future<Position?> _ensureNearestPosition() async {
+    if (_nearestPosition != null) return _nearestPosition;
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _snack('فعّل إذن الموقع لاستخدام البحث عن الأقرب');
+        return null;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      if (!mounted) return position;
+      setState(() => _nearestPosition = position);
+      return position;
+    } catch (_) {
+      _snack('تعذر تحديد موقعك الحالي');
+      return null;
+    }
+  }
+
+  Future<void> _openMapForCity(String city) async {
     final cityValue = city.trim();
     if (cityValue.isEmpty) return;
-    Navigator.push(
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (_) => ProvidersMapScreen(
@@ -316,9 +359,15 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
           requestDescription: _descCtrl.text.trim(),
           cityFilter: cityValue,
           urgentOnly: true,
+          enableSelection: true,
         ),
       ),
     );
+    if (!mounted || result == null) return;
+    final provider = result['provider'];
+    if (provider is! ServiceProviderLocation) return;
+    setState(() => _selectedNearestProvider = provider);
+    _snack('تم اختيار ${provider.name} كأفضل تطابق قريب');
   }
 
   void _hintSnack(String msg, {String? city}) {
@@ -539,6 +588,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                         onChanged: (city) {
                           setState(() {
                             _selectedCity = city;
+                            _selectedNearestProvider = null;
                             _scheduleDraftSave();
                           });
                           _maybeShowNearestMapToast();
@@ -567,6 +617,42 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
                       ),
                     ),
                   ),
+                  if (_selectedNearestProvider != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _accentColor.withValues(alpha: 0.18)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.verified_user_outlined, color: _accentColor, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'المزوّد المختار: ${_selectedNearestProvider!.name}',
+                              style: const TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: _inkColor,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => setState(() => _selectedNearestProvider = null),
+                            child: const Text(
+                              'إلغاء',
+                              style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
                 if (_dispatchMode == 'all' && _selectedScopedCity.isNotEmpty) ...[
                   const SizedBox(height: 6),
@@ -739,6 +825,9 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen>
       onTap: () {
         setState(() {
           _dispatchMode = value;
+          if (value != 'nearest') {
+            _selectedNearestProvider = null;
+          }
           _scheduleDraftSave();
         });
         _maybeShowNearestMapToast();

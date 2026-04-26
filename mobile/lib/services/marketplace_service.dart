@@ -41,6 +41,8 @@ class MarketplaceService {
     int? provider,
     String? dispatchMode,
     String? quoteDeadline,
+    double? requestLat,
+    double? requestLng,
     List<File> images = const [],
     List<File> videos = const [],
     List<File> files = const [],
@@ -81,6 +83,12 @@ class MarketplaceService {
         }
         if (quoteDeadline != null) {
           request.fields['quote_deadline'] = quoteDeadline;
+        }
+        if (requestLat != null) {
+          request.fields['request_lat'] = requestLat.toString();
+        }
+        if (requestLng != null) {
+          request.fields['request_lng'] = requestLng.toString();
         }
 
         for (final img in optimizedImages) {

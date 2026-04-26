@@ -27,6 +27,7 @@ class ProvidersMapScreen extends StatefulWidget {
   final List<String>? attachments;
   final String? cityFilter;
   final bool urgentOnly;
+  final bool enableSelection;
 
   const ProvidersMapScreen({
     super.key,
@@ -36,6 +37,7 @@ class ProvidersMapScreen extends StatefulWidget {
     this.attachments,
     this.cityFilter,
     this.urgentOnly = false,
+    this.enableSelection = false,
   });
 
   @override
@@ -360,6 +362,31 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen>
                     ],
                   ),
                 ),
+                if (widget.enableSelection) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        Navigator.pop(context, {'provider': provider});
+                      },
+                      icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                      label: const Text(
+                        'اختيار هذا المزوّد للطلب',
+                        style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.deepPurple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
               ],
             ),

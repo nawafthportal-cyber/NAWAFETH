@@ -9,6 +9,7 @@ class UserPublicModel {
   final String displayName;
   final int? providerId;
   final String? profileImage;
+  final String? followRoleContext;
 
   UserPublicModel({
     required this.id,
@@ -16,6 +17,7 @@ class UserPublicModel {
     required this.displayName,
     this.providerId,
     this.profileImage,
+    this.followRoleContext,
   });
 
   factory UserPublicModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class UserPublicModel {
       providerId: json['provider_id'] as int?,
       profileImage:
           (json['profile_image'] as String?) ?? (json['avatar'] as String?),
+      followRoleContext: json['follow_role_context'] as String?,
     );
   }
 
@@ -34,4 +37,15 @@ class UserPublicModel {
 
   /// هل المستخدم لديه ملف مزود خدمة
   bool get hasProviderProfile => providerId != null;
+
+  String get followerBadgeLabel {
+    switch (followRoleContext) {
+      case 'provider':
+        return 'مزود خدمة';
+      case 'client':
+        return 'عميل';
+      default:
+        return hasProviderProfile ? 'مزود خدمة' : 'مستخدم';
+    }
+  }
 }

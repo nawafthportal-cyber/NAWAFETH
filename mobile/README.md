@@ -8,10 +8,10 @@ Supported keys:
 - `API_TARGET=auto|local|render`
 - `API_BASE_URL=https://example.com` (highest priority if provided)
 - `API_LOCAL_BASE_URL=http://192.168.1.10:8000` (optional local override)
-- `API_RENDER_BASE_URL=https://nawafeth-2290.onrender.com` (optional render override)
+- `API_RENDER_BASE_URL=https://www.nawafthportal.com` (optional production override)
 
 Default behavior:
-- Uses production backend (`https://nawafeth-2290.onrender.com`) unless overridden via `--dart-define`.
+- Uses production backend (`https://www.nawafthportal.com`) unless overridden via `--dart-define`.
 
 ## Run commands
 
@@ -30,7 +30,7 @@ flutter run -d emulator-5554 --dart-define=API_TARGET=render
 Force a specific API URL (local or remote):
 
 ```bash
-flutter run -d emulator-5554 --dart-define=API_BASE_URL=https://nawafeth-2290.onrender.com
+flutter run -d emulator-5554 --dart-define=API_BASE_URL=https://www.nawafthportal.com
 ```
 
 ## Push notifications (FCM + sound)

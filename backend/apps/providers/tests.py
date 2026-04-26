@@ -195,6 +195,32 @@ class ProviderFollowersRoleIsolationTests(TestCase):
         self.assertIsNone(rows[0]["provider_id"])
         self.assertEqual(rows[0]["display_name"], "عميل متابع")
 
+    def test_public_followers_is_scoped_to_provider_mode(self):
+        response = self.client.get(
+            f"{reverse('providers:provider_followers', kwargs={'provider_id': self.owner_provider.id})}?mode=provider"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._rows_from_payload(response.json())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["id"], self.follower_user.id)
+        self.assertEqual(rows[0]["follow_role_context"], "provider")
+        self.assertEqual(rows[0]["provider_id"], self.follower_provider.id)
+        self.assertEqual(rows[0]["display_name"], self.follower_provider.display_name)
+
+    def test_public_followers_respects_client_mode(self):
+        response = self.client.get(
+            f"{reverse('providers:provider_followers', kwargs={'provider_id': self.owner_provider.id})}?mode=client"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._rows_from_payload(response.json())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["id"], self.follower_user.id)
+        self.assertEqual(rows[0]["follow_role_context"], "client")
+        self.assertIsNone(rows[0]["provider_id"])
+        self.assertEqual(rows[0]["display_name"], "عميل متابع")
+
 
 class ProviderRatingDisplayTests(TestCase):
     def setUp(self):

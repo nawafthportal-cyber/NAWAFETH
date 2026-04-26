@@ -1011,19 +1011,19 @@ class MyProviderLikersView(generics.ListAPIView):
 
 class ProviderFollowersView(generics.ListAPIView):
 	"""Public: Users who follow a specific provider."""
-	serializer_class = UserPublicSerializer
+	serializer_class = ProviderFollowerSerializer
 	permission_classes = [permissions.AllowAny]
 
 	def get_queryset(self):
 		provider_id = self.kwargs.get("provider_id")
-		user_ids = (
-			ProviderFollow.objects.filter(provider_id=provider_id)
-			.values_list("user_id", flat=True)
-			.distinct()
-		)
+		role = get_active_role(self.request, fallback="client")
 		return (
-			User.objects.filter(id__in=user_ids)
-			.order_by("-id")
+			ProviderFollow.objects.filter(
+				provider_id=provider_id,
+				role_context=role,
+			)
+			.select_related("user", "user__provider_profile")
+			.order_by("-created_at", "-id")
 		)
 
 

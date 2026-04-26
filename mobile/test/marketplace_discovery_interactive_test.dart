@@ -180,7 +180,8 @@ void main() {
     expect(cached.data.first.displayName, 'نجار الرياض');
   });
 
-  test('interactive following falls back to cached data when offline', () async {
+  test('interactive following falls back to cached data when offline',
+      () async {
     ApiClient.debugSetHttpClient(
       _RecordingClient((request) async {
         expect(request.url.path, '/api/providers/me/following/');
@@ -212,6 +213,38 @@ void main() {
     expect(cached.data.first.displayName, 'مزود متابع');
   });
 
+  test('interactive followers use scoped endpoint and preserve role context',
+      () async {
+    await AccountModeService.setProviderMode(true);
+    await AuthService.saveUserBasicInfo(userId: 7, roleState: 'provider');
+    ApiClient.debugSetHttpClient(
+      _RecordingClient((request) async {
+        expect(request.url.path, '/api/providers/me/followers/');
+        expect(request.url.queryParameters['mode'], 'provider');
+        return _jsonStreamedResponse([
+          {
+            'id': 88,
+            'username': 'client.follower',
+            'display_name': 'عميل متابع',
+            'provider_id': null,
+            'profile_image': '',
+            'follow_role_context': 'client',
+          },
+        ], 200);
+      }),
+    );
+
+    final result = await InteractiveService.fetchFollowersResult(
+      forceRefresh: true,
+    );
+
+    expect(result.source, 'network');
+    expect(result.data, hasLength(1));
+    expect(result.data.first.followRoleContext, 'client');
+    expect(result.data.first.followerBadgeLabel, 'عميل');
+    expect(result.data.first.providerId, isNull);
+  });
+
   test('notifications fall back to cached data when offline', () async {
     ApiClient.debugSetHttpClient(
       _RecordingClient((request) async {
@@ -220,7 +253,8 @@ void main() {
           'count': 1,
           'next': null,
           'results': [
-            _notificationJson(id: 91, title: 'تنبيه جديد', body: 'تم تحديث الطلب'),
+            _notificationJson(
+                id: 91, title: 'تنبيه جديد', body: 'تم تحديث الطلب'),
           ],
         }, 200);
       }),
@@ -250,7 +284,8 @@ void main() {
     expect(cached.page.notifications.first.title, 'تنبيه جديد');
   });
 
-  test('messaging threads fall back to cached summaries when offline', () async {
+  test('messaging threads fall back to cached summaries when offline',
+      () async {
     ApiClient.debugSetHttpClient(
       _RecordingClient((request) async {
         if (request.url.path == '/api/messaging/direct/threads/') {
@@ -301,7 +336,8 @@ void main() {
 class _RecordingClient extends http.BaseClient {
   _RecordingClient(this._handler);
 
-  final Future<http.StreamedResponse> Function(http.BaseRequest request) _handler;
+  final Future<http.StreamedResponse> Function(http.BaseRequest request)
+      _handler;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {

@@ -1248,14 +1248,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                 ? '@${follower.username.trim()}'
                 : '',
             'image': _normalizeMediaUrl((follower.profileImage ?? '').trim()),
-            'badge': follower.providerId != null ? 'مزود خدمة' : 'مستخدم',
+            'badge': follower.followerBadgeLabel,
             'providerId': follower.providerId,
           },
         )
         .toList(growable: false);
 
     await _showConnectionsSheet(
-      title: 'المتابِعون',
+      title: 'المتابعون',
       subtitle: 'الذين يتابعون مقدم الخدمة',
       count: _followersCount,
       icon: Icons.groups_rounded,
@@ -1296,7 +1296,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
         .toList(growable: false);
 
     await _showConnectionsSheet(
-      title: 'المتابَعون',
+      title: 'المتابعين',
       subtitle: 'الذين يتابعهم مقدم الخدمة',
       count: _followingCount,
       icon: Icons.person_add_alt_1_rounded,
@@ -2214,7 +2214,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           child: const Text(
-            'عرض المتابعين',
+            'المتابعون',
             style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: 10.5,
@@ -2237,7 +2237,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
           child: const Text(
-            'عرض المتابَعين',
+            'المتابعين',
             style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: 10.5,

@@ -17,7 +17,6 @@ import 'api_client.dart';
 import 'account_mode_service.dart';
 import 'auth_service.dart';
 import 'local_cache_service.dart';
-import 'profile_service.dart';
 import '../models/provider_public_model.dart';
 import '../models/user_public_model.dart';
 import '../models/media_item_model.dart';
@@ -151,18 +150,7 @@ class InteractiveService {
       return diskCache.copyWith(source: 'disk_cache');
     }
 
-    final profile = await ProfileService.fetchMyProfile();
-    final providerId = profile.data?.providerProfileId;
-    if (providerId == null || providerId <= 0) {
-      return const CachedListResult<UserPublicModel>(
-        data: <UserPublicModel>[],
-        source: 'empty',
-        errorMessage: 'لا يوجد ملف مزود نشط لعرض المتابعين',
-        statusCode: 404,
-      );
-    }
-
-    final path = '/api/providers/$providerId/followers/';
+    final path = await _withMode('/api/providers/me/followers/');
     final resp = await ApiClient.get(path);
     if (resp.isSuccess) {
       final items = _parseList(resp)
@@ -661,6 +649,7 @@ class InteractiveService {
       'display_name': user.displayName,
       'provider_id': user.providerId,
       'profile_image': user.profileImage,
+      'follow_role_context': user.followRoleContext,
     };
   }
 

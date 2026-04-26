@@ -340,6 +340,14 @@ class MessagingService {
     return res.dataAsMap?['id'] as int?;
   }
 
+  static Future<int?> getOrCreateDirectThreadForRequest(int requestId) async {
+    final res = await ApiClient.post(
+      '/api/messaging/direct/thread/',
+      body: {'request_id': requestId},
+    );
+    return res.dataAsMap?['id'] as int?;
+  }
+
   static void debugResetCaches() {
     _threadsCache.clear();
   }
