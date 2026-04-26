@@ -55,9 +55,6 @@ class AuthApiService {
       'phone': phone,
       'code': code,
     };
-    if (kDebugMode) {
-      body['mobile_any_otp'] = true;
-    }
     final resp = await ApiClient.post(
       '/api/accounts/otp/verify/',
       body: body,
