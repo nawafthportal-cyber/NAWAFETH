@@ -130,6 +130,10 @@ const OnboardingPage = (() => {
   }
 
   function _finish() {
+    if (Auth.isLoggedIn()) {
+      window.location.href = '/';
+      return;
+    }
     window.location.href = '/login/';
   }
 

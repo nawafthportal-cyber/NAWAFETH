@@ -95,6 +95,9 @@ class _HomeScreenState extends State<HomeScreen> {
   static const Duration _reelsResumeDelay = Duration(seconds: 3);
   static const Duration _featuredSpecialistsResumeDelay = Duration(seconds: 3);
   static const Duration _featuredSpecialistsRotateDelay = Duration(seconds: 5);
+  static const int _homeBannersLimit = 16;
+  static const int _portfolioShowcaseLimit = 16;
+  static const int _portfolioShowcaseFetchLimit = 40;
 
   static const _reelFallbackLogos = [
     'assets/images/32.jpeg',
@@ -170,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _seedFromCachedData() {
     final cached = HomeService.getCachedHomeData(
       providersLimit: 10,
-      bannersLimit: 10,
+      bannersLimit: _homeBannersLimit,
       spotlightsLimit: 16,
     );
     if (!cached.hasAnyData) return false;
@@ -206,7 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
       forceRefresh: forceRefresh,
     );
     final bannersFuture = HomeService.fetchHomeBannersResult(
-      limit: 10,
+      limit: _homeBannersLimit,
       forceRefresh: forceRefresh,
     );
     final spotlightsFuture = HomeService.fetchSpotlightFeedResult(
@@ -372,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _syncHomeBanners() async {
     try {
       final latest = await HomeService.fetchHomeBanners(
-        limit: 10,
+        limit: _homeBannersLimit,
         forceRefresh: true,
       );
       if (!mounted) return;
@@ -457,9 +460,11 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final promoItems = await HomeService.fetchPromoActiveRows(
         serviceType: 'portfolio_showcase',
-        limit: 10,
+        limit: _portfolioShowcaseFetchLimit,
       );
-      final feedItems = await HomeService.fetchPortfolioFeedRows(limit: 10);
+      final feedItems = await HomeService.fetchPortfolioFeedRows(
+        limit: _portfolioShowcaseFetchLimit,
+      );
       if (!mounted) return;
 
       final promoMedia = <MediaItemModel>[];
@@ -493,7 +498,7 @@ class _HomeScreenState extends State<HomeScreen> {
         promoMedia: promoMedia,
         promoPlacements: promoPlacements,
         organicMedia: organicMedia,
-        limit: 10,
+        limit: _portfolioShowcaseLimit,
       );
       if (!mounted) return;
       setState(() {
@@ -518,9 +523,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final random = Random();
     final mergedRows = <Map<String, dynamic>>[];
     final seenKeys = <String>{};
-    final normalizedLimit = limit == 0 ? 10 : limit;
+    final normalizedLimit = limit == 0 ? _portfolioShowcaseLimit : limit;
     final maxItems = max(1, normalizedLimit);
-    final sponsoredCap = max(1, (maxItems * 0.4).ceil());
 
     void push({
       required MediaItemModel media,
@@ -559,66 +563,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final sponsored = mergedRows
         .where((row) => (row['source'] as String? ?? '') == 'promo')
-        .toList(growable: true)
-      ..shuffle(random);
+        .toList(growable: false);
     final organic = mergedRows
         .where((row) => (row['source'] as String? ?? '') != 'promo')
         .toList(growable: true)
       ..shuffle(random);
 
     final resultRows = <Map<String, dynamic>>[];
-    var s = 0;
-    var o = 0;
-    var sponsoredUsed = 0;
-    var organicUsed = 0;
-    var preferOrganic = random.nextBool();
-
-    while (resultRows.length < maxItems &&
-        (s < sponsored.length || o < organic.length)) {
-      if (preferOrganic) {
-        if (o < organic.length) {
-          resultRows.add(organic[o++]);
-          organicUsed += 1;
-        } else if (s < sponsored.length && sponsoredUsed < sponsoredCap) {
-          resultRows.add(sponsored[s++]);
-          sponsoredUsed += 1;
-        } else if (s < sponsored.length && organicUsed == 0) {
-          resultRows.add(sponsored[s++]);
-          sponsoredUsed += 1;
-        }
-      } else {
-        if (s < sponsored.length && sponsoredUsed < sponsoredCap) {
-          resultRows.add(sponsored[s++]);
-          sponsoredUsed += 1;
-        } else if (o < organic.length) {
-          resultRows.add(organic[o++]);
-          organicUsed += 1;
-        } else if (s < sponsored.length && organicUsed == 0) {
-          resultRows.add(sponsored[s++]);
-          sponsoredUsed += 1;
-        }
-      }
-      preferOrganic = !preferOrganic;
+    resultRows.addAll(sponsored.take(maxItems));
+    if (resultRows.length < maxItems) {
+      resultRows.addAll(organic.take(maxItems - resultRows.length));
     }
 
-    while (resultRows.length < maxItems && o < organic.length) {
-      resultRows.add(organic[o++]);
-    }
-    while (resultRows.length < maxItems &&
-        s < sponsored.length &&
-        sponsoredUsed < sponsoredCap) {
-      resultRows.add(sponsored[s++]);
-      sponsoredUsed += 1;
-    }
-    while (resultRows.length < maxItems &&
-        s < sponsored.length &&
-        organicUsed == 0) {
-      resultRows.add(sponsored[s++]);
-    }
-
-    final finalRows = List<Map<String, dynamic>>.from(resultRows)
-      ..shuffle(random);
-    final selectedRows = finalRows.take(maxItems).toList(growable: false);
+    final selectedRows = resultRows.take(maxItems).toList(growable: false);
     final mergedMedia = selectedRows
         .map((row) => row['media'])
         .whereType<MediaItemModel>()

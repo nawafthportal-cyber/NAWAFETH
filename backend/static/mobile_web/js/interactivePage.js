@@ -365,6 +365,14 @@ const InteractivePage = (() => {
     }
     meta.appendChild(nameRow);
 
+    const usernameRaw = String(provider.username || '').trim();
+    if (usernameRaw) {
+      meta.appendChild(UI.el('p', {
+        className: 'interactive-following-handle',
+        textContent: '@' + usernameRaw,
+      }));
+    }
+
     const excellence = UI.buildExcellenceBadges(excellenceItems, {
       className: 'excellence-badges compact interactive-excellence-badges',
       compact: true,
@@ -482,13 +490,18 @@ const InteractivePage = (() => {
 
     const avatar = UI.el('div', { className: 'interactive-follower-avatar' });
     const displayName = String(user.display_name || user.name || user.username || 'مستخدم').trim() || 'مستخدم';
-    avatar.appendChild(UI.text(displayName.charAt(0) || '؟'));
+    const profileUrl = ApiClient.mediaUrl(user.profile_image || user.avatar || '');
+    if (profileUrl) avatar.appendChild(UI.lazyImg(profileUrl, displayName));
+    else avatar.appendChild(UI.text(displayName.charAt(0) || '؟'));
     header.appendChild(avatar);
 
     const meta = UI.el('div', { className: 'interactive-person-meta interactive-follower-meta' });
     meta.appendChild(UI.el('strong', { className: 'interactive-follower-name', textContent: displayName }));
-    const handle = String(user.username_display || user.username || '').trim();
-    meta.appendChild(UI.el('span', { className: 'interactive-follower-handle', textContent: handle || '@-' }));
+    const handleRaw = String(user.username_display || user.username || '').trim();
+    const handle = handleRaw
+      ? (handleRaw.startsWith('@') ? handleRaw : ('@' + handleRaw))
+      : '@-';
+    meta.appendChild(UI.el('span', { className: 'interactive-follower-handle', textContent: handle }));
     header.appendChild(meta);
     tile.appendChild(header);
 

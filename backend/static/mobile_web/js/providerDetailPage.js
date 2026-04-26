@@ -740,7 +740,8 @@ const ProviderDetailPage = (() => {
     const endpoint = _withMode(isFollowers
       ? '/api/providers/' + _providerId + '/followers/'
       : '/api/providers/' + _providerId + '/following/');
-    const title = isFollowers ? 'متابعون' : 'يتابع';
+    const title = isFollowers ? 'المتابِعون' : 'المتابَعون';
+    const subtitle = isFollowers ? 'الذين يتابعون مقدم الخدمة' : 'الذين يتابعهم مقدم الخدمة';
     const countEl = isFollowers ? document.getElementById('stat-followers') : document.getElementById('btn-show-following');
     const count = countEl ? (parseInt(isFollowers ? countEl.textContent : countEl.dataset.count, 10) || 0) : 0;
 
@@ -749,14 +750,26 @@ const ProviderDetailPage = (() => {
       ? (Array.isArray(res.data) ? res.data : (res.data?.results || []))
       : [];
 
-    const backdrop = UI.el('div', { className: 'pd-sheet-backdrop' });
-    const sheet = UI.el('div', { className: 'pd-sheet' });
+    const backdrop = UI.el('div', { className: 'pd-sheet-backdrop pd-connections-sheet-backdrop' });
+    const sheet = UI.el('div', { className: 'pd-sheet pd-connections-sheet' });
     const handle = UI.el('div', { className: 'pd-sheet-handle' });
-    const header = UI.el('div', { className: 'pd-sheet-header' });
-    const heading = UI.el('div', {
+    const header = UI.el('div', { className: 'pd-sheet-header pd-connections-sheet-header' });
+    const headingWrap = UI.el('div', { className: 'pd-connections-heading' });
+    const headingIcon = UI.el('span', { className: 'pd-connections-heading-icon' });
+    headingIcon.innerHTML = isFollowers
+      ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+      : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>';
+    const headingMeta = UI.el('div', { className: 'pd-connections-heading-meta' });
+    headingMeta.appendChild(UI.el('div', {
       className: 'pd-sheet-title',
       textContent: title + ' (' + count + ')',
-    });
+    }));
+    headingMeta.appendChild(UI.el('div', {
+      className: 'pd-connections-subtitle',
+      textContent: subtitle,
+    }));
+    headingWrap.appendChild(headingIcon);
+    headingWrap.appendChild(headingMeta);
     const closeBtn = UI.el('button', {
       className: 'pd-sheet-close',
       type: 'button',
@@ -765,12 +778,13 @@ const ProviderDetailPage = (() => {
     closeBtn.setAttribute('aria-label', 'إغلاق');
     closeBtn.addEventListener('click', closeSheet);
 
-    header.appendChild(heading);
+    header.appendChild(headingWrap);
     header.appendChild(closeBtn);
     sheet.appendChild(handle);
     sheet.appendChild(header);
 
     const body = UI.el('div', { className: 'pd-sheet-body' });
+    let noticeTimer = null;
 
     if (!res.ok && !items.length) {
       body.appendChild(UI.el('div', {
@@ -783,13 +797,15 @@ const ProviderDetailPage = (() => {
         textContent: isFollowers ? 'لا يوجد متابعون بعد' : 'لا يوجد متابَعون بعد',
       }));
     } else {
-      const list = UI.el('div', { className: 'pd-sheet-list' });
+      const list = UI.el('div', { className: 'pd-sheet-list pd-connections-list' });
       items.forEach(item => {
         const name = String(item.display_name || item.name || item.username || 'مستخدم').trim() || 'مستخدم';
         const username = String(item.username || item.username_display || '').trim();
-        const avatarUrl = ApiClient.mediaUrl(item.profile_image || item.avatar || '');
+        const avatarUrl = ApiClient.mediaUrl(item.profile_image || item.provider_profile_image || item.avatar || '');
+        const providerId = _safeInt(item.provider_id || item.id);
+        const badge = providerId ? 'مزود خدمة' : (isFollowers ? 'مستخدم' : 'مزود خدمة');
 
-        const row = UI.el('div', { className: 'pd-sheet-item' });
+        const row = UI.el('div', { className: 'pd-sheet-item pd-connections-item' });
         const avatar = UI.el('div', { className: 'pd-sheet-avatar' });
         if (avatarUrl) avatar.appendChild(UI.lazyImg(avatarUrl, name));
         else avatar.appendChild(UI.el('span', { textContent: name.charAt(0) }));
@@ -798,9 +814,25 @@ const ProviderDetailPage = (() => {
         const meta = UI.el('div', { className: 'pd-sheet-meta' });
         meta.appendChild(UI.el('div', { className: 'pd-sheet-name', textContent: name }));
         if (username) {
-          meta.appendChild(UI.el('div', { className: 'pd-sheet-handle-text', textContent: '@' + username }));
+          const usernameBtn = UI.el('button', {
+            className: 'pd-sheet-handle-text pd-connections-handle-btn',
+            type: 'button',
+            textContent: '@' + username,
+          });
+          usernameBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (providerId > 0) {
+              closeSheet();
+              window.location.href = '/provider/' + encodeURIComponent(String(providerId)) + '/';
+              return;
+            }
+            showNotProviderNotice(name);
+          });
+          meta.appendChild(usernameBtn);
         }
         row.appendChild(meta);
+        row.appendChild(UI.el('span', { className: 'pd-connections-badge', textContent: badge }));
         list.appendChild(row);
       });
       body.appendChild(list);
@@ -817,7 +849,33 @@ const ProviderDetailPage = (() => {
 
     function closeSheet() {
       backdrop.classList.remove('open');
+      if (noticeTimer) {
+        window.clearTimeout(noticeTimer);
+        noticeTimer = null;
+      }
       setTimeout(() => backdrop.remove(), 180);
+    }
+
+    function showNotProviderNotice(name) {
+      const existing = document.querySelector('.pd-connections-notice');
+      if (existing) existing.remove();
+
+      const notice = UI.el('div', { className: 'pd-connections-notice' });
+      const icon = UI.el('span', { className: 'pd-connections-notice-icon' });
+      icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.5A3.5 3.5 0 1 0 10 7a3.5 3.5 0 0 0 0 7.5Z"/><path d="M3.5 20a6.5 6.5 0 0 1 13 0"/><path d="m17 8 4 4"/><path d="m21 8-4 4"/></svg>';
+      const textWrap = UI.el('div', { className: 'pd-connections-notice-text' });
+      textWrap.appendChild(UI.el('strong', { textContent: 'الحساب ليس مزود خدمة' }));
+      textWrap.appendChild(UI.el('span', {
+        textContent: (name || 'هذا الحساب') + ' لا يملك ملف مزود خدمة حالياً.',
+      }));
+      notice.appendChild(icon);
+      notice.appendChild(textWrap);
+      document.body.appendChild(notice);
+      requestAnimationFrame(() => notice.classList.add('show'));
+      noticeTimer = window.setTimeout(() => {
+        notice.classList.remove('show');
+        window.setTimeout(() => notice.remove(), 200);
+      }, 2200);
     }
   }
 

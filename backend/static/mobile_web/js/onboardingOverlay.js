@@ -274,7 +274,7 @@ const OnboardingOverlay = (() => {
     if (_index >= _slides.length - 1) {
       /* After slides → promo (if available) → login */
       if (_introBlock && _introBlock.mediaUrl) _showPromoScreen();
-      else _showLoginScreen();
+      else _openPostOnboardingDestination();
       return;
     }
     _goTo(_index + 1);
@@ -317,6 +317,14 @@ const OnboardingOverlay = (() => {
   /* ================================================================
      PHASE 2 — PROMO / INTRO SHOWCASE
      ================================================================ */
+  function _openPostOnboardingDestination() {
+    if (Auth.isLoggedIn()) {
+      _dismissFinal();
+      return;
+    }
+    _showLoginScreen();
+  }
+
   function _showPromoScreen() {
     _phase = 'promo';
 
@@ -369,7 +377,7 @@ const OnboardingOverlay = (() => {
     const continueBtn = document.createElement('button');
     continueBtn.className = 'ob-promo-continue';
     continueBtn.innerHTML = '<span>متابعة</span>' + _arrowSvg();
-    continueBtn.addEventListener('click', _showLoginScreen);
+    continueBtn.addEventListener('click', _openPostOnboardingDestination);
     bottomBar.appendChild(continueBtn);
 
     wrap.appendChild(bottomBar);
@@ -640,7 +648,7 @@ const OnboardingOverlay = (() => {
         return;
       }
       if (_phase === 'promo') {
-        if (e.key === 'Enter' || e.key === ' ') _showLoginScreen();
+        if (e.key === 'Enter' || e.key === ' ') _openPostOnboardingDestination();
         else if (e.key === 'Escape') _dismissFinal();
         return;
       }

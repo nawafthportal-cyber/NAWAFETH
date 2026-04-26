@@ -131,44 +131,198 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     final action = await showDialog<String>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text(
-            title,
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          content: Text(
-            (message != null && message.isNotEmpty)
-                ? message
-                : 'لا توجد رسالة مضافة للرعاية حالياً.',
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              height: 1.7,
-            ),
-          ),
-          actions: [
-            if (canOpen)
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop('open'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+        final dialogMessage = (message != null && message.isNotEmpty)
+            ? message
+            : 'لا توجد رسالة مضافة للرعاية حالياً.';
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+          backgroundColor: Colors.transparent,
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF1B1C3A),
+                    Color(0xFF26264C),
+                    Color(0xFF35235A)
+                  ],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
                 ),
-                child: const Text(
-                  'فتح الرابط',
-                  style: TextStyle(fontFamily: 'Cairo'),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1C163A).withValues(alpha: 0.30),
+                    blurRadius: 28,
+                    offset: const Offset(0, 16),
+                  ),
+                ],
+                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.26),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.workspace_premium_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'الراعي الرسمي',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop('close'),
+                          splashRadius: 20,
+                          icon: const Icon(Icons.close_rounded,
+                              color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.10),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.18),
+                            ),
+                          ),
+                          alignment: Alignment.center,
+                          child: _SponsorBadge(
+                            assetUrl: sponsor.assetUrl,
+                            fallbackLabel: title,
+                            overlay: false,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.14)),
+                      ),
+                      child: Text(
+                        dialogMessage,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 13,
+                          height: 1.85,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFEDE9FE),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.of(context).pop('close'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.34),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              'إغلاق',
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (canOpen) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () =>
+                                  Navigator.of(context).pop('open'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF8B5CF6),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              icon: const Icon(Icons.open_in_new_rounded,
+                                  size: 16),
+                              label: const Text(
+                                'زيارة الراعي',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
               ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop('close'),
-              child: const Text(
-                'إغلاق',
-                style: TextStyle(fontFamily: 'Cairo'),
-              ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -268,13 +422,14 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                   final actionButtonCount = widget.trailingActions.length +
                       (widget.showNotificationAction ? 1 : 0) +
                       (widget.showChatAction ? 1 : 0);
-                  final actionGapCount = actionButtonCount > 0
-                      ? actionButtonCount - 1
-                      : 0;
+                  final actionGapCount =
+                      actionButtonCount > 0 ? actionButtonCount - 1 : 0;
                   final leadingReserve = buttonSize + 8;
                   final trailingReserve = math.max(
                     compact ? 120.0 : 136.0,
-                    (actionButtonCount * buttonSize) + (actionGapCount * 4) + 12,
+                    (actionButtonCount * buttonSize) +
+                        (actionGapCount * 4) +
+                        12,
                   );
                   final brandMaxWidth = math.max(
                     80.0,
@@ -670,9 +825,8 @@ class _AppBadge extends StatelessWidget {
             child: Text(
               'ن',
               style: TextStyle(
-                color: overlay
-                    ? const Color(0xFF8D5FD3)
-                    : const Color(0xFF5B2F88),
+                color:
+                    overlay ? const Color(0xFF8D5FD3) : const Color(0xFF5B2F88),
                 fontFamily: 'Cairo',
                 fontWeight: FontWeight.w900,
                 fontSize: 16,

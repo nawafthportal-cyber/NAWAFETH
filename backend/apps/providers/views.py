@@ -344,7 +344,9 @@ class ProviderListView(generics.ListAPIView):
 				user__is_active=True,
 			)
 			.annotate(
-				followers_count=Count("followers", distinct=True),
+				# Keep parity with profile stats: count unique follower users,
+				# not follow rows per role_context.
+				followers_count=Count("followers__user", distinct=True),
 				likes_count=Count("likes", distinct=True),
 				completed_requests=Count(
 					"assigned_requests",
@@ -414,7 +416,9 @@ class ProviderDetailView(generics.RetrieveAPIView):
 				user__is_active=True,
 			)
 			.annotate(
-				followers_count=Count("followers", distinct=True),
+				# Keep parity with profile stats: count unique follower users,
+				# not follow rows per role_context.
+				followers_count=Count("followers__user", distinct=True),
 				likes_count=Count("likes", distinct=True),
 				completed_requests=Count(
 					"assigned_requests",

@@ -23,6 +23,7 @@ import '../utils/value_parsing.dart';
 import '../models/media_item_model.dart';
 import '../models/provider_public_model.dart';
 import '../widgets/excellence_badges_wrap.dart';
+import '../widgets/login_required_prompt.dart';
 import '../widgets/verified_badge_view.dart';
 import '../widgets/spotlight_viewer.dart';
 import 'chat_detail_screen.dart';
@@ -70,7 +71,7 @@ class ProviderProfileScreen extends StatefulWidget {
 }
 
 class _ProviderProfileScreenState extends State<ProviderProfileScreen>
-  with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   final Color mainColor = const Color(0xFF5E35B1);
   late final AnimationController _entranceController;
 
@@ -325,8 +326,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
   String get providerAccountType =>
       (_providerDetail?.providerTypeLabel ?? '').trim();
 
-  String get providerServicesDetails =>
-      _providerDetail?.bio ?? '';
+  String get providerServicesDetails => _providerDetail?.bio ?? '';
 
   String get providerBioSummary {
     final bio = (_providerDetail?.bio ?? '').trim();
@@ -346,7 +346,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       list.map((e) {
         if (e is Map) {
           final map = Map<String, dynamic>.from(e);
-          return (map['name'] ?? map['subcategory_name'] ?? '').toString().trim();
+          return (map['name'] ?? map['subcategory_name'] ?? '')
+              .toString()
+              .trim();
         }
         return e.toString().trim();
       }),
@@ -971,8 +973,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     final loggedIn = await AuthService.isLoggedIn();
     if (!loggedIn) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سجل دخولك أولًا للمتابعة')),
+      await showLoginRequiredPromptDialog(
+        context,
+        title: 'يلزم تسجيل الدخول للمتابعة',
+        message: 'حتى تتمكن من متابعة مقدم الخدمة، سجّل دخولك أولاً.',
       );
       return;
     }
@@ -1133,7 +1137,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                                 final providerId = _resolvedProviderId;
                                 if (providerId != null) {
                                   unawaited(
-                                    ProviderShareTrackingService.recordProfileShare(
+                                    ProviderShareTrackingService
+                                        .recordProfileShare(
                                       providerId: providerId,
                                       channel: 'copy_link',
                                     ),
@@ -1166,7 +1171,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                                 final providerId = _resolvedProviderId;
                                 if (providerId != null) {
                                   unawaited(
-                                    ProviderShareTrackingService.recordProfileShare(
+                                    ProviderShareTrackingService
+                                        .recordProfileShare(
                                       providerId: providerId,
                                       channel: 'other',
                                     ),
@@ -1205,7 +1211,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                       contextValue: 'مزود خدمة',
                     );
                   },
-                  leading: const Icon(Icons.flag_outlined, color: AppColors.error),
+                  leading:
+                      const Icon(Icons.flag_outlined, color: AppColors.error),
                   title: const Text('الإبلاغ عن مقدم الخدمة',
                       style: TextStyle(fontFamily: 'Cairo')),
                 ),
@@ -1231,123 +1238,30 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     final followers = result.items;
     final error = result.error;
 
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: SizedBox(
-            height: 380,
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 48,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.groups_rounded, color: Colors.black87),
-                      const SizedBox(width: 10),
-                      Text(
-                        'متابعون ($_followersCount)',
-                        style: const TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(Icons.close),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: error != null && followers.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Text(
-                              error,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontFamily: 'Cairo',
-                                fontSize: 12,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ),
-                        )
-                      : followers.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'لا يوجد متابعون بعد',
-                                style: TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 12,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            )
-                          : ListView.separated(
-                              itemCount: followers.length,
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
-                              itemBuilder: (_, index) {
-                                final follower = followers[index];
-                                final name =
-                                    follower.displayName.trim().isNotEmpty
-                                        ? follower.displayName.trim()
-                                        : 'مستخدم';
-                                final initial = name[0];
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor:
-                                        mainColor.withValues(alpha: 0.12),
-                                    child: Text(
-                                      initial,
-                                      style: TextStyle(
-                                        fontFamily: 'Cairo',
-                                        color: mainColor,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    name,
-                                    style: const TextStyle(fontFamily: 'Cairo'),
-                                  ),
-                                  subtitle: Text(
-                                    follower.usernameDisplay,
-                                    style: const TextStyle(
-                                      fontFamily: 'Cairo',
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    final entries = followers
+        .map(
+          (follower) => {
+            'name': follower.displayName.trim().isNotEmpty
+                ? follower.displayName.trim()
+                : 'مستخدم',
+            'username': follower.username.trim().isNotEmpty
+                ? '@${follower.username.trim()}'
+                : '',
+            'image': _normalizeMediaUrl((follower.profileImage ?? '').trim()),
+            'badge': follower.providerId != null ? 'مزود خدمة' : 'مستخدم',
+            'providerId': follower.providerId,
+          },
+        )
+        .toList(growable: false);
+
+    await _showConnectionsSheet(
+      title: 'المتابِعون',
+      subtitle: 'الذين يتابعون مقدم الخدمة',
+      count: _followersCount,
+      icon: Icons.groups_rounded,
+      entries: entries,
+      error: error,
+      emptyMessage: 'لا يوجد متابعون بعد',
     );
   }
 
@@ -1365,25 +1279,72 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     final following = result.items;
     final error = result.error;
 
+    final entries = following
+        .map(
+          (provider) => {
+            'name': provider.displayName.trim().isNotEmpty
+                ? provider.displayName.trim()
+                : 'مزود خدمة',
+            'username': provider.username?.trim().isNotEmpty == true
+                ? '@${provider.username!.trim()}'
+                : '',
+            'image': _normalizeMediaUrl((provider.profileImage ?? '').trim()),
+            'badge': 'مزود خدمة',
+            'providerId': provider.id,
+          },
+        )
+        .toList(growable: false);
+
+    await _showConnectionsSheet(
+      title: 'المتابَعون',
+      subtitle: 'الذين يتابعهم مقدم الخدمة',
+      count: _followingCount,
+      icon: Icons.person_add_alt_1_rounded,
+      entries: entries,
+      error: error,
+      emptyMessage: 'لا يوجد متابَعون بعد',
+    );
+  }
+
+  Future<void> _showConnectionsSheet({
+    required String title,
+    required String subtitle,
+    required int count,
+    required IconData icon,
+    required List<Map<String, dynamic>> entries,
+    required String? error,
+    required String emptyMessage,
+  }) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     await showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (sheetContext) {
         return Directionality(
           textDirection: TextDirection.rtl,
-          child: SizedBox(
-            height: 380,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.82,
+              minHeight: 360,
+            ),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF101424) : const Color(0xFFF8FAFF),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+              border: Border.all(
+                color: mainColor.withValues(alpha: isDark ? 0.26 : 0.14),
+              ),
+            ),
             child: Column(
               children: [
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Container(
-                  width: 48,
-                  height: 4,
+                  width: 56,
+                  height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: (isDark ? Colors.white : mainColor)
+                        .withValues(alpha: 0.24),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -1392,101 +1353,415 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.person_add_alt_1_rounded,
-                        color: Colors.black87,
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              mainColor,
+                              mainColor.withValues(alpha: 0.74),
+                            ],
+                            begin: Alignment.topRight,
+                            end: Alignment.bottomLeft,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: mainColor.withValues(alpha: 0.28),
+                              blurRadius: 14,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 22),
                       ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'يتابع ($_followingCount)',
-                        style: const TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$title ($count)',
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: isDark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle,
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? Colors.white70
+                                    : Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const Spacer(),
                       IconButton(
                         onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(Icons.close),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const Divider(height: 1),
+                const SizedBox(height: 10),
                 Expanded(
-                  child: error != null && following.isEmpty
+                  child: error != null && entries.isEmpty
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.all(20),
                             child: Text(
                               error,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Cairo',
                                 fontSize: 12,
-                                color: Colors.black54,
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? Colors.white70
+                                    : Colors.grey.shade700,
                               ),
                             ),
                           ),
                         )
-                      : following.isEmpty
-                          ? const Center(
+                      : entries.isEmpty
+                          ? Center(
                               child: Text(
-                                'لا يوجد متابَعون بعد',
+                                emptyMessage,
                                 style: TextStyle(
                                   fontFamily: 'Cairo',
                                   fontSize: 12,
-                                  color: Colors.black54,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? Colors.white70
+                                      : Colors.grey.shade700,
                                 ),
                               ),
                             )
                           : ListView.separated(
-                              itemCount: following.length,
+                              padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+                              itemCount: entries.length,
                               separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
+                                  const SizedBox(height: 10),
                               itemBuilder: (_, index) {
-                                final provider = following[index];
-                                final name =
-                                    provider.displayName.trim().isNotEmpty
-                                        ? provider.displayName.trim()
-                                        : 'مزود خدمة';
-                                final handle =
-                                    provider.username?.trim().isNotEmpty == true
-                                        ? '@${provider.username!.trim()}'
-                                        : '';
-                                final initial = name[0];
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor:
-                                        mainColor.withValues(alpha: 0.12),
-                                    child: Text(
-                                      initial,
-                                      style: TextStyle(
-                                        fontFamily: 'Cairo',
-                                        color: mainColor,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                final entry = entries[index];
+                                final name = (entry['name'] ?? '').trim();
+                                final username =
+                                    (entry['username'] ?? '').trim();
+                                final imageUrl = (entry['image'] ?? '').trim();
+                                final badge = (entry['badge'] ?? '').trim();
+                                final providerId = entry['providerId'] as int?;
+                                final initial = name.isNotEmpty ? name[0] : 'م';
+
+                                return Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.07)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.14)
+                                          : mainColor.withValues(alpha: 0.14),
                                     ),
+                                    boxShadow: isDark
+                                        ? null
+                                        : [
+                                            BoxShadow(
+                                              color: mainColor.withValues(
+                                                  alpha: 0.08),
+                                              blurRadius: 14,
+                                              offset: const Offset(0, 6),
+                                            )
+                                          ],
                                   ),
-                                  title: Text(
-                                    name,
-                                    style: const TextStyle(fontFamily: 'Cairo'),
-                                  ),
-                                  subtitle: handle.isEmpty
-                                      ? null
-                                      : Text(
-                                          handle,
-                                          style: const TextStyle(
-                                            fontFamily: 'Cairo',
-                                            fontSize: 11,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 48,
+                                        height: 48,
+                                        padding: const EdgeInsets.all(2.5),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              mainColor.withValues(alpha: 0.9),
+                                              const Color(0xFF8E66E8),
+                                            ],
+                                            begin: Alignment.topRight,
+                                            end: Alignment.bottomLeft,
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                          child: imageUrl.isNotEmpty
+                                              ? CachedNetworkImage(
+                                                  imageUrl: imageUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorWidget: (_, __, ___) =>
+                                                      Container(
+                                                    color: isDark
+                                                        ? Colors.white
+                                                            .withValues(
+                                                                alpha: 0.12)
+                                                        : Colors.white,
+                                                    alignment: Alignment.center,
+                                                    child: Text(
+                                                      initial,
+                                                      style: TextStyle(
+                                                        fontFamily: 'Cairo',
+                                                        color: mainColor,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                )
+                                              : Container(
+                                                  color: isDark
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.12)
+                                                      : Colors.white,
+                                                  alignment: Alignment.center,
+                                                  child: Text(
+                                                    initial,
+                                                    style: TextStyle(
+                                                      fontFamily: 'Cairo',
+                                                      color: mainColor,
+                                                      fontWeight:
+                                                          FontWeight.w900,
+                                                    ),
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontFamily: 'Cairo',
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w800,
+                                                color: isDark
+                                                    ? Colors.white
+                                                    : Colors.black87,
+                                              ),
+                                            ),
+                                            if (username.isNotEmpty) ...[
+                                              const SizedBox(height: 2),
+                                              TextButton(
+                                                onPressed: () =>
+                                                    _handleConnectionUsernameTap(
+                                                  sheetContext: sheetContext,
+                                                  providerId: providerId,
+                                                  displayName: name,
+                                                ),
+                                                style: TextButton.styleFrom(
+                                                  padding: EdgeInsets.zero,
+                                                  minimumSize: Size.zero,
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  alignment:
+                                                      Alignment.centerRight,
+                                                ),
+                                                child: Text(
+                                                  username,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontFamily: 'Cairo',
+                                                    fontSize: 10.5,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: isDark
+                                                        ? const Color(
+                                                            0xFFB39DFF)
+                                                        : mainColor,
+                                                    decoration: TextDecoration
+                                                        .underline,
+                                                    decorationColor: isDark
+                                                        ? const Color(
+                                                            0xFFB39DFF)
+                                                        : mainColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      if (badge.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: mainColor.withValues(
+                                                alpha: 0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                          ),
+                                          child: Text(
+                                            badge,
+                                            style: TextStyle(
+                                              fontFamily: 'Cairo',
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: mainColor,
+                                            ),
                                           ),
                                         ),
+                                    ],
+                                  ),
                                 );
                               },
                             ),
                 ),
               ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleConnectionUsernameTap({
+    required BuildContext sheetContext,
+    required int? providerId,
+    required String displayName,
+  }) async {
+    if (providerId != null && providerId > 0) {
+      Navigator.pop(sheetContext);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProviderProfileScreen(providerId: '$providerId'),
+        ),
+      );
+      return;
+    }
+    await _showNotProviderDialog(displayName: displayName);
+  }
+
+  Future<void> _showNotProviderDialog({required String displayName}) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF5E35B1), Color(0xFF7C4DFF)],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF5E35B1).withValues(alpha: 0.35),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.person_off_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'الحساب ليس مزود خدمة',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$displayName لا يملك ملف مزود خدمة حالياً.',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: 0.95),
+                      height: 1.55,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: mainColor,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'تم',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (isDark) const SizedBox(height: 2),
+                ],
+              ),
             ),
           ),
         );
@@ -1517,61 +1792,66 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                 decoration: BoxDecoration(
                   gradient: isDark
                       ? const LinearGradient(
-                          colors: [Color(0xFF0F0A1E), Color(0xFF120E28), Color(0xFF180E32)],
+                          colors: [
+                            Color(0xFF0F0A1E),
+                            Color(0xFF120E28),
+                            Color(0xFF180E32)
+                          ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         )
                       : const LinearGradient(
-                          colors: [Color(0xFFF2ECFF), Color(0xFFF7F4FF), Color(0xFFFAF8FF)],
+                          colors: [
+                            Color(0xFFF2ECFF),
+                            Color(0xFFF7F4FF),
+                            Color(0xFFFAF8FF)
+                          ],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         ),
                 ),
                 child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: _buildEntrance(
-                      0,
-                      _buildProviderHeader(
-                        isDark,
-                        bgColor,
-                        textColor,
-                        secondaryTextColor,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _buildEntrance(
+                        0,
+                        _buildProviderHeader(
+                          isDark,
+                          bgColor,
+                          textColor,
+                          secondaryTextColor,
+                        ),
                       ),
                     ),
-                  ),
-
-                  if (_highlightsVideos.isNotEmpty)
+                    if (_highlightsVideos.isNotEmpty)
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                        sliver: SliverToBoxAdapter(
+                          child:
+                              _buildEntrance(1, _highlightsRow(isDark: isDark)),
+                        ),
+                      ),
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                       sliver: SliverToBoxAdapter(
-                        child: _buildEntrance(1, _highlightsRow(isDark: isDark)),
+                        child: _buildEntrance(2, _buildActionButtons(isDark)),
                       ),
                     ),
-
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                    sliver: SliverToBoxAdapter(
-                      child: _buildEntrance(2, _buildActionButtons(isDark)),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: _buildEntrance(3, _buildTabsBar(isDark)),
+                      ),
                     ),
-                  ),
-
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 14),
-                      child: _buildEntrance(3, _buildTabsBar(isDark)),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
+                      sliver: SliverToBoxAdapter(
+                        child: _buildEntrance(4, _buildTabContent()),
+                      ),
                     ),
-                  ),
-
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
-                    sliver: SliverToBoxAdapter(
-                      child: _buildEntrance(4, _buildTabContent()),
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               ),
       ),
     );
@@ -1778,9 +2058,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                 fontSize: 12,
                 fontFamily: 'Cairo',
                 fontWeight: FontWeight.w700,
-                color: isDark
-                    ? Colors.grey.shade400
-                    : const Color(0xFF7860A0),
+                color: isDark ? Colors.grey.shade400 : const Color(0xFF7860A0),
               ),
             ),
           ),
@@ -1797,9 +2075,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
               style: TextStyle(
                 fontSize: 11,
                 fontFamily: 'Cairo',
-                color: isDark
-                    ? Colors.grey.shade500
-                    : const Color(0xFF625C79),
+                color: isDark ? Colors.grey.shade500 : const Color(0xFF625C79),
               ),
             ),
           ),
@@ -1877,10 +2153,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.07)
+            : Colors.white.withValues(alpha: 0.98),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.10)
+              : const Color(0xFFE2E8F0),
         ),
         boxShadow: [
           BoxShadow(
@@ -2021,10 +2301,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.07)
+            : Colors.white.withValues(alpha: 0.98),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.10)
+              : const Color(0xFFE2E8F0),
         ),
         boxShadow: [
           BoxShadow(
@@ -2050,7 +2334,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                 boxShadow: !_isFollowing && !_isFollowLoading
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF5E35B1).withValues(alpha: 0.28),
+                          color:
+                              const Color(0xFF5E35B1).withValues(alpha: 0.28),
                           blurRadius: 14,
                           offset: const Offset(0, 6),
                         ),
@@ -2058,56 +2343,57 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                     : null,
               ),
               child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: _isFollowing
-                    ? mainColor.withValues(alpha: isDark ? 0.18 : 0.12)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
+                height: 48,
+                decoration: BoxDecoration(
                   color: _isFollowing
-                      ? mainColor.withValues(alpha: 0.28)
-                      : (isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : mainColor.withValues(alpha: 0.18)),
+                      ? mainColor.withValues(alpha: isDark ? 0.18 : 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _isFollowing
+                        ? mainColor.withValues(alpha: 0.28)
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : mainColor.withValues(alpha: 0.18)),
+                  ),
                 ),
-              ),
-              child: TextButton.icon(
-                onPressed: _isFollowLoading ? null : _toggleFollow,
-                icon: _isFollowLoading
-                    ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(mainColor),
+                child: TextButton.icon(
+                  onPressed: _isFollowLoading ? null : _toggleFollow,
+                  icon: _isFollowLoading
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(mainColor),
+                          ),
+                        )
+                      : Icon(
+                          _isFollowing
+                              ? Icons.person_remove_alt_1_rounded
+                              : Icons.person_add_alt_1_rounded,
+                          size: 18,
+                          color: _isFollowing ? mainColor : Colors.white,
                         ),
-                      )
-                    : Icon(
-                        _isFollowing
-                            ? Icons.person_remove_alt_1_rounded
-                            : Icons.person_add_alt_1_rounded,
-                        size: 18,
-                        color: _isFollowing ? mainColor : Colors.white,
-                      ),
-                label: Text(
-                  _isFollowing ? 'متابَع' : 'متابعة',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: _isFollowing ? mainColor : Colors.white,
+                  label: Text(
+                    _isFollowing ? 'متابَع' : 'متابعة',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: _isFollowing ? mainColor : Colors.white,
+                    ),
                   ),
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: _isFollowing ? mainColor : Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _isFollowing ? mainColor : Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                 ),
               ),
-            ),
             ),
           ),
           const SizedBox(width: 8),
@@ -2282,8 +2568,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     final loggedIn = await AuthService.isLoggedIn();
     if (!loggedIn) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('سجل دخولك أولًا لعرض المفضلة')),
+      await showLoginRequiredPromptDialog(
+        context,
+        title: 'يلزم تسجيل الدخول',
+        message: 'عرض قائمة المفضلة يحتاج تسجيل الدخول إلى حسابك.',
       );
       return;
     }
@@ -2409,8 +2697,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     final cardColor = isDark ? Colors.grey[850]! : Colors.white;
     final borderColor = isDark ? Colors.grey[700]! : Colors.grey.shade200;
     final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey[700];
-    final hasSocialAccounts =
-        providerInstagramUrl.isNotEmpty ||
+    final hasSocialAccounts = providerInstagramUrl.isNotEmpty ||
         providerXUrl.isNotEmpty ||
         providerSnapchatUrl.isNotEmpty;
 
@@ -2552,7 +2839,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                     borderColor: borderColor,
                     isDark: isDark,
                   ),
-                if (providerInstagramUrl.isNotEmpty && (providerXUrl.isNotEmpty || providerSnapchatUrl.isNotEmpty))
+                if (providerInstagramUrl.isNotEmpty &&
+                    (providerXUrl.isNotEmpty || providerSnapchatUrl.isNotEmpty))
                   const SizedBox(height: 10),
                 if (providerXUrl.isNotEmpty)
                   _socialAccountRow(
@@ -2623,10 +2911,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.07)
+            : Colors.white.withValues(alpha: 0.98),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.10)
+              : const Color(0xFFE2E8F0),
         ),
         boxShadow: [
           BoxShadow(
@@ -2645,12 +2937,20 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       decoration: BoxDecoration(
         gradient: isDark
             ? const LinearGradient(
-                colors: [Color(0xFF0F0A1E), Color(0xFF120E28), Color(0xFF180E32)],
+                colors: [
+                  Color(0xFF0F0A1E),
+                  Color(0xFF120E28),
+                  Color(0xFF180E32)
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               )
             : const LinearGradient(
-                colors: [Color(0xFFF2ECFF), Color(0xFFF7F4FF), Color(0xFFFAF8FF)],
+                colors: [
+                  Color(0xFFF2ECFF),
+                  Color(0xFFF7F4FF),
+                  Color(0xFFFAF8FF)
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -2707,10 +3007,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.07)
+            : Colors.white.withValues(alpha: 0.98),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.10)
+              : const Color(0xFFE2E8F0),
         ),
         boxShadow: [
           BoxShadow(
@@ -2725,7 +3029,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           Expanded(
             child: _overviewItem(
               label: 'المدينة',
-              value: providerCityName.isNotEmpty ? providerCityName : 'غير محددة',
+              value:
+                  providerCityName.isNotEmpty ? providerCityName : 'غير محددة',
               isDark: isDark,
             ),
           ),
@@ -2733,7 +3038,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           Expanded(
             child: _overviewItem(
               label: 'الخبرة',
-              value: providerExperienceYears.isNotEmpty ? providerExperienceYears : 'غير مذكورة',
+              value: providerExperienceYears.isNotEmpty
+                  ? providerExperienceYears
+                  : 'غير مذكورة',
               isDark: isDark,
             ),
           ),
@@ -2833,8 +3140,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF5E35B1)
-                                .withValues(alpha: 0.32),
+                            color:
+                                const Color(0xFF5E35B1).withValues(alpha: 0.32),
                             blurRadius: 12,
                             offset: const Offset(0, 5),
                           ),
@@ -2849,9 +3156,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                       size: 17,
                       color: isSelected
                           ? Colors.white
-                          : (isDark
-                              ? Colors.grey[400]
-                              : Colors.grey.shade500),
+                          : (isDark ? Colors.grey[400] : Colors.grey.shade500),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -2863,14 +3168,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                         fontFamily: 'Cairo',
                         fontSize: 9.5,
                         height: 1.1,
-                        fontWeight: isSelected
-                            ? FontWeight.w900
-                            : FontWeight.w600,
+                        fontWeight:
+                            isSelected ? FontWeight.w900 : FontWeight.w600,
                         color: isSelected
                             ? Colors.white
-                            : (isDark
-                                ? Colors.white60
-                                : Colors.grey.shade600),
+                            : (isDark ? Colors.white60 : Colors.grey.shade600),
                       ),
                     ),
                   ],
@@ -3116,8 +3418,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       itemBuilder: (context, index) {
         final service = _servicesData[index];
         final title = (service["title"] ?? '').toString().trim();
-        final description =
-            (service["description"] ?? '').toString().trim();
+        final description = (service["description"] ?? '').toString().trim();
         final serviceTitle = title.isNotEmpty ? title : 'خدمة بدون اسم';
         final categoryLabel = _serviceCategoryFromService(service);
         final subCategoryLabel = _serviceSubCategoryFromService(service);
@@ -3218,7 +3519,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+              color:
+                  isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: borderColor),
             ),
@@ -3379,7 +3681,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                               fontFamily: 'Cairo',
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                              color: isDark
+                                  ? Colors.grey.shade500
+                                  : Colors.grey.shade600,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -3404,7 +3708,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
               const SizedBox(width: 10),
               Container(
                 constraints: const BoxConstraints(minWidth: 106),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                 decoration: BoxDecoration(
                   color: mainColor.withValues(alpha: isDark ? 0.22 : 0.10),
                   borderRadius: BorderRadius.circular(14),
@@ -3419,7 +3724,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                         fontFamily: 'Cairo',
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        color: isDark
+                            ? Colors.grey.shade400
+                            : Colors.grey.shade600,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -3589,8 +3896,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                       color: mainColor.withValues(alpha: isDark ? 0.22 : 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.layers_outlined,
-                        size: 15, color: mainColor),
+                    child:
+                        Icon(Icons.layers_outlined, size: 15, color: mainColor),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -3605,11 +3912,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color:
-                          mainColor.withValues(alpha: isDark ? 0.18 : 0.09),
+                      color: mainColor.withValues(alpha: isDark ? 0.18 : 0.09),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(

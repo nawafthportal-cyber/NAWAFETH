@@ -13,6 +13,7 @@ import '../models/provider_public_model.dart';
 import '../models/user_public_model.dart';
 import '../models/media_item_model.dart';
 import '../widgets/excellence_badges_wrap.dart';
+import '../widgets/login_required_prompt.dart';
 import '../widgets/spotlight_viewer.dart';
 import '../widgets/verified_badge_view.dart';
 
@@ -65,7 +66,10 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     final requestEpoch = ++_loadEpoch;
     final loggedIn = await AuthService.isLoggedIn();
     if (!mounted || requestEpoch != _loadEpoch) return;
-    setState(() { _isLoggedIn = loggedIn; _authChecked = true; });
+    setState(() {
+      _isLoggedIn = loggedIn;
+      _authChecked = true;
+    });
     if (!loggedIn) return;
 
     final isProviderMode = await AccountModeService.isProviderMode();
@@ -121,19 +125,22 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     int? requestEpoch,
   }) async {
     if (!mounted) return;
-    setState(() { _followingLoading = true; _followingError = null; });
+    setState(() {
+      _followingLoading = true;
+      _followingError = null;
+    });
     final result = await InteractiveService.fetchFollowingResult(
       forceRefresh: forceRefresh,
     );
-    if (!mounted || (requestEpoch != null && requestEpoch != _loadEpoch)) return;
+    if (!mounted || (requestEpoch != null && requestEpoch != _loadEpoch))
+      return;
     setState(() {
       _followingLoading = false;
       _following = result.data;
       _followingStatus = _cacheStatusMessage(result);
       _followingOfflineFallback = result.isOfflineFallback;
-      _followingError = result.data.isEmpty && result.hasError
-          ? result.errorMessage
-          : null;
+      _followingError =
+          result.data.isEmpty && result.hasError ? result.errorMessage : null;
     });
   }
 
@@ -142,23 +149,30 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     int? requestEpoch,
   }) async {
     if (!mounted) return;
-    setState(() { _followersLoading = true; _followersError = null; });
+    setState(() {
+      _followersLoading = true;
+      _followersError = null;
+    });
     if (!_isProviderMode) {
-      if (mounted) setState(() { _followersLoading = false; _followers = []; });
+      if (mounted)
+        setState(() {
+          _followersLoading = false;
+          _followers = [];
+        });
       return;
     }
     final result = await InteractiveService.fetchFollowersResult(
       forceRefresh: forceRefresh,
     );
-    if (!mounted || (requestEpoch != null && requestEpoch != _loadEpoch)) return;
+    if (!mounted || (requestEpoch != null && requestEpoch != _loadEpoch))
+      return;
     setState(() {
       _followersLoading = false;
       _followers = result.data;
       _followersStatus = _cacheStatusMessage(result);
       _followersOfflineFallback = result.isOfflineFallback;
-      _followersError = result.data.isEmpty && result.hasError
-          ? result.errorMessage
-          : null;
+      _followersError =
+          result.data.isEmpty && result.hasError ? result.errorMessage : null;
     });
   }
 
@@ -167,19 +181,22 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     int? requestEpoch,
   }) async {
     if (!mounted) return;
-    setState(() { _favoritesLoading = true; _favoritesError = null; });
+    setState(() {
+      _favoritesLoading = true;
+      _favoritesError = null;
+    });
     final result = await InteractiveService.fetchFavoritesResult(
       forceRefresh: forceRefresh,
     );
-    if (!mounted || (requestEpoch != null && requestEpoch != _loadEpoch)) return;
+    if (!mounted || (requestEpoch != null && requestEpoch != _loadEpoch))
+      return;
     setState(() {
       _favoritesLoading = false;
       _favorites = result.data;
       _favoritesStatus = _cacheStatusMessage(result);
       _favoritesOfflineFallback = result.isOfflineFallback;
-      _favoritesError = result.data.isEmpty && result.hasError
-          ? result.errorMessage
-          : null;
+      _favoritesError =
+          result.data.isEmpty && result.hasError ? result.errorMessage : null;
     });
   }
 
@@ -212,16 +229,20 @@ class _InteractiveScreenState extends State<InteractiveScreen>
 
     // Still checking auth
     if (!_authChecked) {
-      return _shell(isDark, purple, body: const Center(child: CircularProgressIndicator(color: Colors.deepPurple)));
+      return _shell(isDark, purple,
+          body: const Center(
+              child: CircularProgressIndicator(color: Colors.deepPurple)));
     }
 
     // Not logged in — show login prompt
     if (!_isLoggedIn) {
-      return _shell(isDark, purple, body: _loginRequiredState(isDark, purple));
+      return _shell(isDark, purple, body: _loginRequiredState());
     }
 
     if (_tabController == null) {
-      return _shell(isDark, purple, body: const Center(child: CircularProgressIndicator(color: Colors.deepPurple)));
+      return _shell(isDark, purple,
+          body: const Center(
+              child: CircularProgressIndicator(color: Colors.deepPurple)));
     }
 
     return _shell(
@@ -237,8 +258,15 @@ class _InteractiveScreenState extends State<InteractiveScreen>
             child: TabBarView(
               controller: _tabController,
               children: _isProviderMode
-                  ? [_buildFollowingTab(isDark, purple), _buildFollowersTab(isDark, purple), _buildFavoritesTab(isDark, purple)]
-                  : [_buildFollowingTab(isDark, purple), _buildFavoritesTab(isDark, purple)],
+                  ? [
+                      _buildFollowingTab(isDark, purple),
+                      _buildFollowersTab(isDark, purple),
+                      _buildFavoritesTab(isDark, purple)
+                    ]
+                  : [
+                      _buildFollowingTab(isDark, purple),
+                      _buildFavoritesTab(isDark, purple)
+                    ],
             ),
           ),
         ],
@@ -315,10 +343,13 @@ class _InteractiveScreenState extends State<InteractiveScreen>
               spacing: 8,
               runSpacing: 8,
               children: [
-                _summaryChip(Icons.people_outline_rounded, 'أتابع ${_following.length}', isDark, purple),
+                _summaryChip(Icons.people_outline_rounded,
+                    'أتابع ${_following.length}', isDark, purple),
                 if (hasFollowersTab)
-                  _summaryChip(Icons.person_outline_rounded, 'يتابعني ${_followers.length}', isDark, purple),
-                _summaryChip(Icons.bookmark_outline_rounded, 'محفوظ ${_favorites.length}', isDark, purple),
+                  _summaryChip(Icons.person_outline_rounded,
+                      'يتابعني ${_followers.length}', isDark, purple),
+                _summaryChip(Icons.bookmark_outline_rounded,
+                    'محفوظ ${_favorites.length}', isDark, purple),
               ],
             ),
           ],
@@ -331,7 +362,9 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : purple.withValues(alpha: 0.06),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : purple.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -355,7 +388,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
 
   Widget _shell(bool isDark, Color purple, {required Widget body}) {
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
+      backgroundColor:
+          isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
       drawer: const CustomDrawer(),
       bottomNavigationBar: const CustomBottomNav(currentIndex: 2),
       body: SafeArea(child: body),
@@ -368,7 +402,9 @@ class _InteractiveScreenState extends State<InteractiveScreen>
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade200,
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.grey.shade200,
         borderRadius: BorderRadius.circular(14),
       ),
       child: TabBar(
@@ -378,14 +414,22 @@ class _InteractiveScreenState extends State<InteractiveScreen>
           borderRadius: BorderRadius.circular(11),
           boxShadow: isDark
               ? null
-              : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 1))],
+              : [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1))
+                ],
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
         labelColor: isDark ? Colors.white : purple,
-        unselectedLabelColor: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
-        labelStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 11.5, fontWeight: FontWeight.w500),
+        unselectedLabelColor:
+            isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+        labelStyle: const TextStyle(
+            fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: const TextStyle(
+            fontFamily: 'Cairo', fontSize: 11.5, fontWeight: FontWeight.w500),
         tabs: _isProviderMode
             ? [
                 _tabItem(Icons.people_outline_rounded, 'من أتابع'),
@@ -420,7 +464,10 @@ class _InteractiveScreenState extends State<InteractiveScreen>
   // =============================================
 
   Widget _loadingState() {
-    return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator(color: Colors.deepPurple)));
+    return const Center(
+        child: Padding(
+            padding: EdgeInsets.all(40),
+            child: CircularProgressIndicator(color: Colors.deepPurple)));
   }
 
   Widget _errorState(String message, VoidCallback onRetry, bool isDark) {
@@ -430,18 +477,28 @@ class _InteractiveScreenState extends State<InteractiveScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_rounded, size: 44, color: Colors.grey.shade400),
+            Icon(Icons.cloud_off_rounded,
+                size: 44, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: isDark ? Colors.white54 : Colors.black45)),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12,
+                    color: isDark ? Colors.white54 : Colors.black45)),
             const SizedBox(height: 14),
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh, size: 15, color: Colors.white),
-              label: const Text('إعادة المحاولة', style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: Colors.white)),
+              label: const Text('إعادة المحاولة',
+                  style: TextStyle(
+                      fontFamily: 'Cairo', fontSize: 11, color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ],
@@ -466,48 +523,23 @@ class _InteractiveScreenState extends State<InteractiveScreen>
               child: Icon(icon, size: 36, color: Colors.grey.shade400),
             ),
             const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center, style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: isDark ? Colors.white54 : Colors.grey.shade600)),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12,
+                    color: isDark ? Colors.white54 : Colors.grey.shade600)),
           ],
         ),
       ),
     );
   }
 
-  Widget _loginRequiredState(bool isDark, Color purple) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: purple.withValues(alpha: 0.06),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.lock_outline_rounded, size: 36, color: Colors.grey.shade400),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'يجب تسجيل الدخول لعرض هذه الصفحة',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black54),
-            ),
-            const SizedBox(height: 14),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/login'),
-              icon: const Icon(Icons.login_rounded, size: 16, color: Colors.white),
-              label: const Text('تسجيل الدخول', style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: purple,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-      ),
+  Widget _loginRequiredState() {
+    return LoginRequiredPrompt(
+      title: 'تسجيل الدخول مطلوب',
+      message: 'للوصول إلى المتابعة والمتابعين والمفضلة، سجّل دخولك أولاً.',
+      onLoginTap: () => Navigator.pushNamed(context, '/login'),
     );
   }
 
@@ -517,8 +549,11 @@ class _InteractiveScreenState extends State<InteractiveScreen>
 
   Widget _buildFollowingTab(bool isDark, Color purple) {
     if (_followingLoading) return _loadingState();
-    if (_followingError != null) return _errorState(_followingError!, _loadFollowing, isDark);
-    if (_following.isEmpty) return _emptyState(Icons.group_off_rounded, 'لا تتابع أي مزود خدمة حتى الآن', isDark);
+    if (_followingError != null)
+      return _errorState(_followingError!, _loadFollowing, isDark);
+    if (_following.isEmpty)
+      return _emptyState(
+          Icons.group_off_rounded, 'لا تتابع أي مزود خدمة حتى الآن', isDark);
 
     return Column(
       children: [
@@ -547,7 +582,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                     childAspectRatio: constraints.maxWidth < 360 ? 1.5 : 0.72,
                   ),
                   itemCount: _following.length,
-                  itemBuilder: (context, index) => _followingCard(_following[index], isDark, purple),
+                  itemBuilder: (context, index) =>
+                      _followingCard(_following[index], isDark, purple),
                 );
               },
             ),
@@ -557,9 +593,13 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     );
   }
 
-  Widget _followingCard(ProviderPublicModel provider, bool isDark, Color purple) {
+  Widget _followingCard(
+      ProviderPublicModel provider, bool isDark, Color purple) {
     final coverUrl = ApiClient.buildMediaUrl(provider.coverImage);
     final profileUrl = ApiClient.buildMediaUrl(provider.profileImage);
+    final username = provider.username?.trim().isNotEmpty == true
+        ? '@${provider.username!.trim()}'
+        : '';
 
     return GestureDetector(
       onTap: () => _navigateToProvider(provider),
@@ -569,171 +609,223 @@ class _InteractiveScreenState extends State<InteractiveScreen>
           borderRadius: BorderRadius.circular(14),
           boxShadow: isDark
               ? null
-            : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: Column(
-        children: [
-          // Provider header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
-            child: Row(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    CircleAvatar(
-                      radius: 14,
-                      backgroundColor: purple.withValues(alpha: 0.1),
-                      backgroundImage: profileUrl != null ? CachedNetworkImageProvider(profileUrl) : null,
-                      child: profileUrl == null
-                          ? Text(
-                              provider.displayName.isNotEmpty ? provider.displayName[0] : '؟',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: purple),
-                            )
-                          : null,
-                    ),
-                    if (provider.hasExcellenceBadges)
-                      Positioned(
-                        top: -8,
-                        left: -6,
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 84),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black87,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            provider.excellenceBadges.first.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              height: 1.1,
+              : [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2))
+                ],
+        ),
+        child: Column(
+          children: [
+            // Provider header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+              child: Row(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: purple.withValues(alpha: 0.1),
+                        backgroundImage: profileUrl != null
+                            ? CachedNetworkImageProvider(profileUrl)
+                            : null,
+                        child: profileUrl == null
+                            ? Text(
+                                provider.displayName.isNotEmpty
+                                    ? provider.displayName[0]
+                                    : '؟',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: purple),
+                              )
+                            : null,
+                      ),
+                      if (provider.hasExcellenceBadges)
+                        Positioned(
+                          top: -8,
+                          left: -6,
+                          child: Container(
+                            constraints: const BoxConstraints(maxWidth: 84),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              provider.excellenceBadges.first.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Cairo',
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                height: 1.1,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              provider.displayName,
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (provider.isVerified) ...[
-                            const SizedBox(width: 3),
-                            VerifiedBadgeView(
-                              isVerifiedBlue: provider.isVerifiedBlue,
-                              isVerifiedGreen: provider.isVerifiedGreen,
-                              iconSize: 12,
-                            ),
-                          ],
-                          if (provider.hasExcellenceBadges) ...[
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: ExcellenceBadgesWrap(
-                                badges: provider.excellenceBadges,
-                                compact: true,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      if (provider.locationDisplay.trim().isNotEmpty)
-                        Text(provider.locationDisplay, style: TextStyle(fontSize: 9, fontFamily: 'Cairo', color: isDark ? Colors.grey.shade600 : Colors.grey.shade500)),
                     ],
                   ),
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ChatDetailScreen(
-                      peerName: provider.displayName,
-                      peerPhone: provider.phone,
-                      peerCity: provider.locationDisplay,
-                      peerProviderId: provider.id,
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                provider.displayName,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'Cairo',
+                                    color:
+                                        isDark ? Colors.white : Colors.black87),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (provider.isVerified) ...[
+                              const SizedBox(width: 3),
+                              VerifiedBadgeView(
+                                isVerifiedBlue: provider.isVerifiedBlue,
+                                isVerifiedGreen: provider.isVerifiedGreen,
+                                iconSize: 12,
+                              ),
+                            ],
+                            if (provider.hasExcellenceBadges) ...[
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: ExcellenceBadgesWrap(
+                                  badges: provider.excellenceBadges,
+                                  compact: true,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (provider.locationDisplay.trim().isNotEmpty)
+                          const SizedBox(height: 1),
+                        if (username.isNotEmpty)
+                          Text(
+                            username,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontFamily: 'Cairo',
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? Colors.deepPurple.shade100
+                                  : Colors.deepPurple.shade500,
+                            ),
+                          ),
+                        if (provider.locationDisplay.trim().isNotEmpty)
+                          Text(provider.locationDisplay,
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  fontFamily: 'Cairo',
+                                  color: isDark
+                                      ? Colors.grey.shade600
+                                      : Colors.grey.shade500)),
+                      ],
                     ),
-                  )),
-                  child: Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: purple.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Icon(Icons.chat_bubble_outline_rounded, size: 14, color: purple),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Cover image
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: coverUrl != null
-                    ? CachedNetworkImage(imageUrl: coverUrl, fit: BoxFit.cover, width: double.infinity,
-                        errorWidget: (_, __, ___) => _imgPlaceholder(isDark))
-                    : _imgPlaceholder(isDark),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatDetailScreen(
+                            peerName: provider.displayName,
+                            peerPhone: provider.phone,
+                            peerCity: provider.locationDisplay,
+                            peerProviderId: provider.id,
+                          ),
+                        )),
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: purple.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Icon(Icons.chat_bubble_outline_rounded,
+                          size: 14, color: purple),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
 
-          // Stats row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _miniStat(Icons.people_outline, '${provider.followersCount}', isDark),
-                _miniStat(Icons.favorite_outline, '${provider.likesCount}', isDark),
-                if (provider.ratingAvg > 0)
-                  _miniStat(Icons.star_outline_rounded, provider.ratingAvg.toStringAsFixed(1), isDark),
-              ],
+            // Cover image
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 6),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: coverUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: coverUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorWidget: (_, __, ___) => _imgPlaceholder(isDark))
+                      : _imgPlaceholder(isDark),
+                ),
+              ),
             ),
-          ),
-        ],
-      ),
+
+            // Stats row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _miniStat(Icons.people_outline, '${provider.followersCount}',
+                      isDark),
+                  _miniStat(
+                      Icons.favorite_outline, '${provider.likesCount}', isDark),
+                  if (provider.ratingAvg > 0)
+                    _miniStat(Icons.star_outline_rounded,
+                        provider.ratingAvg.toStringAsFixed(1), isDark),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   void _navigateToProvider(ProviderPublicModel p) {
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => ProviderProfileScreen(
-        providerId: p.id.toString(),
-        providerName: p.displayName,
-        providerRating: p.ratingAvg,
-        providerOperations: p.completedRequests,
-        providerImage: ApiClient.buildMediaUrl(p.profileImage),
-        providerVerifiedBlue: p.isVerifiedBlue,
-        providerVerifiedGreen: p.isVerifiedGreen,
-        providerPhone: p.phone,
-        providerLat: p.lat,
-        providerLng: p.lng,
-      ),
-    ));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProviderProfileScreen(
+            providerId: p.id.toString(),
+            providerName: p.displayName,
+            providerRating: p.ratingAvg,
+            providerOperations: p.completedRequests,
+            providerImage: ApiClient.buildMediaUrl(p.profileImage),
+            providerVerifiedBlue: p.isVerifiedBlue,
+            providerVerifiedGreen: p.isVerifiedGreen,
+            providerPhone: p.phone,
+            providerLat: p.lat,
+            providerLng: p.lng,
+          ),
+        ));
   }
 
   Widget _imgPlaceholder(bool isDark) {
     return Container(
       color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-      child: Center(child: Icon(Icons.image_outlined, size: 28, color: isDark ? Colors.grey.shade600 : Colors.grey.shade400)),
+      child: Center(
+          child: Icon(Icons.image_outlined,
+              size: 28,
+              color: isDark ? Colors.grey.shade600 : Colors.grey.shade400)),
     );
   }
 
@@ -741,9 +833,15 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 11, color: isDark ? Colors.grey.shade500 : Colors.grey.shade500),
+        Icon(icon,
+            size: 11,
+            color: isDark ? Colors.grey.shade500 : Colors.grey.shade500),
         const SizedBox(width: 2),
-        Text(value, style: TextStyle(fontSize: 10, fontFamily: 'Cairo', color: isDark ? Colors.grey.shade400 : Colors.grey.shade600)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 10,
+                fontFamily: 'Cairo',
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600)),
       ],
     );
   }
@@ -754,8 +852,11 @@ class _InteractiveScreenState extends State<InteractiveScreen>
 
   Widget _buildFollowersTab(bool isDark, Color purple) {
     if (_followersLoading) return _loadingState();
-    if (_followersError != null) return _errorState(_followersError!, _loadFollowers, isDark);
-    if (_followers.isEmpty) return _emptyState(Icons.person_off_rounded, 'لا يوجد متابعون بعد', isDark);
+    if (_followersError != null)
+      return _errorState(_followersError!, _loadFollowers, isDark);
+    if (_followers.isEmpty)
+      return _emptyState(
+          Icons.person_off_rounded, 'لا يوجد متابعون بعد', isDark);
 
     return Column(
       children: [
@@ -775,7 +876,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(12),
               itemCount: _followers.length,
-              itemBuilder: (context, index) => _followerTile(_followers[index], isDark, purple),
+              itemBuilder: (context, index) =>
+                  _followerTile(_followers[index], isDark, purple),
             ),
           ),
         ),
@@ -784,6 +886,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
   }
 
   Widget _followerTile(UserPublicModel user, bool isDark, Color purple) {
+    final profileUrl = ApiClient.buildMediaUrl(user.profileImage);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -791,7 +894,12 @@ class _InteractiveScreenState extends State<InteractiveScreen>
         borderRadius: BorderRadius.circular(12),
         boxShadow: isDark
             ? null
-            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 5, offset: const Offset(0, 2))],
+            : [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2))
+              ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -800,9 +908,18 @@ class _InteractiveScreenState extends State<InteractiveScreen>
             CircleAvatar(
               radius: 18,
               backgroundColor: purple.withValues(alpha: 0.1),
+              backgroundImage: profileUrl != null
+                  ? CachedNetworkImageProvider(profileUrl)
+                  : null,
               child: Text(
-                user.displayName.isNotEmpty ? user.displayName[0] : '؟',
-                style: TextStyle(color: purple, fontWeight: FontWeight.w700, fontSize: 13),
+                profileUrl == null
+                    ? (user.displayName.isNotEmpty ? user.displayName[0] : '؟')
+                    : '',
+                style: TextStyle(
+                  color: purple,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -810,31 +927,50 @@ class _InteractiveScreenState extends State<InteractiveScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(user.displayName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87)),
-                  Text(user.usernameDisplay, style: TextStyle(fontSize: 10, fontFamily: 'Cairo', color: isDark ? Colors.grey.shade500 : Colors.grey.shade500)),
+                  Text(user.displayName,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Cairo',
+                          color: isDark ? Colors.white : Colors.black87)),
+                  Text(user.usernameDisplay,
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontFamily: 'Cairo',
+                          color: isDark
+                              ? Colors.grey.shade500
+                              : Colors.grey.shade500)),
                 ],
               ),
             ),
             GestureDetector(
               onTap: () {
                 if (user.hasProviderProfile) {
-                  Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ChatDetailScreen(peerName: user.displayName, peerProviderId: user.providerId),
-                  ));
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatDetailScreen(
+                            peerName: user.displayName,
+                            peerProviderId: user.providerId),
+                      ));
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('لا يمكن مراسلة هذا المستخدم — ليس لديه ملف مزود خدمة', style: TextStyle(fontFamily: 'Cairo', fontSize: 11)),
+                      content: const Text(
+                          'لا يمكن مراسلة هذا المستخدم — ليس لديه ملف مزود خدمة',
+                          style: TextStyle(fontFamily: 'Cairo', fontSize: 11)),
                       backgroundColor: Colors.orange.shade700,
                       behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                       duration: const Duration(seconds: 2),
                     ),
                   );
                 }
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: purple,
                   borderRadius: BorderRadius.circular(16),
@@ -842,9 +978,15 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.chat_bubble_outline_rounded, size: 12, color: Colors.white),
+                    Icon(Icons.chat_bubble_outline_rounded,
+                        size: 12, color: Colors.white),
                     SizedBox(width: 4),
-                    Text('مراسلة', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Cairo')),
+                    Text('مراسلة',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Cairo')),
                   ],
                 ),
               ),
@@ -861,8 +1003,11 @@ class _InteractiveScreenState extends State<InteractiveScreen>
 
   Widget _buildFavoritesTab(bool isDark, Color purple) {
     if (_favoritesLoading) return _loadingState();
-    if (_favoritesError != null) return _errorState(_favoritesError!, _loadFavorites, isDark);
-    if (_favorites.isEmpty) return _emptyState(Icons.bookmark_outline_rounded, 'لا توجد عناصر محفوظة في المفضلة', isDark);
+    if (_favoritesError != null)
+      return _errorState(_favoritesError!, _loadFavorites, isDark);
+    if (_favorites.isEmpty)
+      return _emptyState(Icons.bookmark_outline_rounded,
+          'لا توجد عناصر محفوظة في المفضلة', isDark);
 
     return Column(
       children: [
@@ -891,7 +1036,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                     childAspectRatio: constraints.maxWidth < 360 ? 1.25 : 0.85,
                   ),
                   itemCount: _favorites.length,
-                  itemBuilder: (context, index) => _favoriteCard(_favorites[index], index, isDark, purple),
+                  itemBuilder: (context, index) =>
+                      _favoriteCard(_favorites[index], index, isDark, purple),
                 );
               },
             ),
@@ -916,12 +1062,16 @@ class _InteractiveScreenState extends State<InteractiveScreen>
         decoration: BoxDecoration(
           color: isOffline
               ? const Color(0xFFFFF7ED)
-              : (isDark ? Colors.white.withValues(alpha: 0.05) : accent.withValues(alpha: 0.06)),
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : accent.withValues(alpha: 0.06)),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isOffline
                 ? const Color(0xFFF5C28B)
-                : (isDark ? Colors.white.withValues(alpha: 0.06) : accent.withValues(alpha: 0.18)),
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : accent.withValues(alpha: 0.18)),
           ),
         ),
         child: Row(
@@ -965,144 +1115,161 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     );
   }
 
-  Widget _favoriteCard(MediaItemModel item, int index, bool isDark, Color purple) {
+  Widget _favoriteCard(
+      MediaItemModel item, int index, bool isDark, Color purple) {
     final imageUrl = ApiClient.buildMediaUrl(item.thumbnailUrl ?? item.fileUrl);
 
     return GestureDetector(
       onTap: () => _openFavoriteViewer(index),
       child: ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Image
-          imageUrl != null
-              ? CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => _brokenImgPlaceholder(isDark))
-              : _brokenImgPlaceholder(isDark),
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Image
+            imageUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, __, ___) => _brokenImgPlaceholder(isDark))
+                : _brokenImgPlaceholder(isDark),
 
-          // Video icon
-          if (item.isVideo)
+            // Video icon
+            if (item.isVideo)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.play_arrow_rounded,
+                      color: Colors.white, size: 14),
+                ),
+              ),
+
+            // Source badge
+            Positioned(
+              top: 6,
+              left: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: item.source == MediaItemSource.spotlight
+                      ? Colors.amber.shade700
+                      : purple,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  item.source == MediaItemSource.spotlight ? 'أضواء' : 'معرض',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+
             Positioned(
               top: 6,
               right: 6,
               child: Container(
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(6),
+                  color: Colors.black.withValues(alpha: 0.52),
+                  borderRadius: BorderRadius.circular(7),
                 ),
-                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 14),
-              ),
-            ),
-
-          // Source badge
-          Positioned(
-            top: 6,
-            left: 6,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: item.source == MediaItemSource.spotlight
-                    ? Colors.amber.shade700
-                    : purple,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                item.source == MediaItemSource.spotlight ? 'أضواء' : 'معرض',
-                style: const TextStyle(color: Colors.white, fontSize: 9, fontFamily: 'Cairo', fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
-
-          Positioned(
-            top: 6,
-            right: 6,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.52),
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    item.isLiked ? Icons.favorite : Icons.favorite_border,
-                    size: 12,
-                    color: item.isLiked ? purple : Colors.white,
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    '${item.likesCount}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.5,
-                      fontFamily: 'Cairo',
-                      fontWeight: FontWeight.w700,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item.isLiked ? Icons.favorite : Icons.favorite_border,
+                      size: 12,
+                      color: item.isLiked ? purple : Colors.white,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    item.isSaved ? Icons.bookmark : Icons.bookmark_border,
-                    size: 12,
-                    color: item.isSaved ? purple : Colors.white,
-                  ),
-                  const SizedBox(width: 3),
-                  Text(
-                    '${item.savesCount}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.5,
-                      fontFamily: 'Cairo',
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Bottom bar
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.providerDisplayName,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 10.5, fontFamily: 'Cairo'),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => _showRemoveConfirmDialog(index, isDark, purple),
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${item.likesCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w700,
                       ),
-                      child: const Icon(Icons.bookmark_rounded, color: Colors.white, size: 14),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Icon(
+                      item.isSaved ? Icons.bookmark : Icons.bookmark_border,
+                      size: 12,
+                      color: item.isSaved ? purple : Colors.white,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      '${item.savesCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+
+            // Bottom bar
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.7),
+                      Colors.transparent
+                    ],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.providerDisplayName,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 10.5,
+                            fontFamily: 'Cairo'),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () =>
+                          _showRemoveConfirmDialog(index, isDark, purple),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(Icons.bookmark_rounded,
+                            color: Colors.white, size: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1127,7 +1294,9 @@ class _InteractiveScreenState extends State<InteractiveScreen>
   Widget _brokenImgPlaceholder(bool isDark) {
     return Container(
       color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
-      child: Center(child: Icon(Icons.broken_image_outlined, size: 28, color: isDark ? Colors.grey.shade600 : Colors.grey)),
+      child: Center(
+          child: Icon(Icons.broken_image_outlined,
+              size: 28, color: isDark ? Colors.grey.shade600 : Colors.grey)),
     );
   }
 
@@ -1143,19 +1312,33 @@ class _InteractiveScreenState extends State<InteractiveScreen>
       builder: (ctx) => AlertDialog(
         backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('تأكيد الإزالة', style: TextStyle(fontWeight: FontWeight.w700, fontFamily: 'Cairo', fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
-        content: Text('هل تريد إزالة المحتوى من المفضلة؟', style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: isDark ? Colors.white70 : Colors.black54)),
+        title: Text('تأكيد الإزالة',
+            style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Cairo',
+                fontSize: 14,
+                color: isDark ? Colors.white : Colors.black87)),
+        content: Text('هل تريد إزالة المحتوى من المفضلة؟',
+            style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                color: isDark ? Colors.white70 : Colors.black54)),
         actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('إلغاء', style: TextStyle(color: isDark ? Colors.grey.shade500 : Colors.grey, fontFamily: 'Cairo', fontSize: 12)),
+            child: Text('إلغاء',
+                style: TextStyle(
+                    color: isDark ? Colors.grey.shade500 : Colors.grey,
+                    fontFamily: 'Cairo',
+                    fontSize: 12)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: purple,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -1165,27 +1348,33 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                   setState(() => _favorites.removeAt(index));
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('تم إزالة العنصر من المفضلة', style: TextStyle(fontFamily: 'Cairo', fontSize: 11)),
+                      content: const Text('تم إزالة العنصر من المفضلة',
+                          style: TextStyle(fontFamily: 'Cairo', fontSize: 11)),
                       backgroundColor: Colors.green,
                       behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                       duration: const Duration(seconds: 2),
                     ),
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('فشل إزالة العنصر — حاول مرة أخرى', style: TextStyle(fontFamily: 'Cairo', fontSize: 11)),
+                      content: const Text('فشل إزالة العنصر — حاول مرة أخرى',
+                          style: TextStyle(fontFamily: 'Cairo', fontSize: 11)),
                       backgroundColor: Colors.red,
                       behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                       duration: const Duration(seconds: 2),
                     ),
                   );
                 }
               }
             },
-            child: const Text('تأكيد', style: TextStyle(color: Colors.white, fontFamily: 'Cairo', fontSize: 11)),
+            child: const Text('تأكيد',
+                style: TextStyle(
+                    color: Colors.white, fontFamily: 'Cairo', fontSize: 11)),
           ),
         ],
       ),

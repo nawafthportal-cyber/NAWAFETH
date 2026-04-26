@@ -13,6 +13,7 @@ import '../services/profile_service.dart';
 import '../services/api_client.dart';
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
+import '../widgets/login_required_prompt.dart';
 import '../models/user_profile.dart';
 import 'registration/register_service_provider.dart';
 import 'provider_dashboard/provider_home_screen.dart';
@@ -228,12 +229,20 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         decoration: BoxDecoration(
           gradient: isDark
               ? const LinearGradient(
-                  colors: [Color(0xFF0D1724), Color(0xFF111D2C), Color(0xFF172331)],
+                  colors: [
+                    Color(0xFF0D1724),
+                    Color(0xFF111D2C),
+                    Color(0xFF172331)
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 )
               : const LinearGradient(
-                  colors: [Color(0xFFF5F0FF), Color(0xFFF7F4FF), Color(0xFFF9F7FF)],
+                  colors: [
+                    Color(0xFFF5F0FF),
+                    Color(0xFFF7F4FF),
+                    Color(0xFFF9F7FF)
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -297,7 +306,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 sliver: SliverToBoxAdapter(
-                  child: _buildEntrance(4, _buildMenuSection(isDark, accent, profile)),
+                  child: _buildEntrance(
+                      4, _buildMenuSection(isDark, accent, profile)),
                 ),
               ),
               if (!isProviderRegistered)
@@ -385,24 +395,24 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                   ),
                 ),
                 child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _miniIconBtn(
-                      icon: Icons.camera_alt_outlined,
-                      onTap: () => _pickImage(isCover: true),
-                    ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: Column(
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: _miniIconBtn(
+                          icon: Icons.camera_alt_outlined,
+                          onTap: () => _pickImage(isCover: true),
+                        ),
+                      ),
+                      const Spacer(),
+                    ],
                   ),
-                  const Spacer(),
-                ],
-              ),
-            ),
+                ),
               ),
             ),
           ),
-
           Positioned(
             top: avatarTop,
             left: 0,
@@ -458,7 +468,9 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     fontFamily: 'Cairo',
-                    color: isDark ? const Color(0xFF91A4B9) : const Color(0xFF4F657D),
+                    color: isDark
+                        ? const Color(0xFF91A4B9)
+                        : const Color(0xFF4F657D),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -645,7 +657,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF5E35B1).withValues(alpha: isDark ? 0.10 : 0.06),
+            color:
+                const Color(0xFF5E35B1).withValues(alpha: isDark ? 0.10 : 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -679,7 +692,9 @@ class _MyProfileScreenState extends State<MyProfileScreen>
               style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w700,
-                  color: isDark ? const Color(0xFF92A6BA) : const Color(0xFF4F657D),
+                  color: isDark
+                      ? const Color(0xFF92A6BA)
+                      : const Color(0xFF4F657D),
                   fontFamily: 'Cairo')),
         ],
       ),
@@ -719,7 +734,9 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1036) : Colors.white.withValues(alpha: 0.92),
+        color: isDark
+            ? const Color(0xFF1A1036)
+            : Colors.white.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: isDark
@@ -728,7 +745,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF5E35B1).withValues(alpha: isDark ? 0.10 : 0.06),
+            color:
+                const Color(0xFF5E35B1).withValues(alpha: isDark ? 0.10 : 0.06),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -819,7 +837,9 @@ class _MyProfileScreenState extends State<MyProfileScreen>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1036) : Colors.white.withValues(alpha: 0.94),
+        color: isDark
+            ? const Color(0xFF1A1036)
+            : Colors.white.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: isDark
@@ -828,7 +848,8 @@ class _MyProfileScreenState extends State<MyProfileScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF5E35B1).withValues(alpha: isDark ? 0.10 : 0.06),
+            color:
+                const Color(0xFF5E35B1).withValues(alpha: isDark ? 0.10 : 0.06),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -925,7 +946,9 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                             fontSize: 12.5,
                             fontWeight: FontWeight.w800,
                             fontFamily: 'Cairo',
-                            color: isDark ? Colors.white : const Color(0xFF0F172A))),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF0F172A))),
                     if (subtitle != null && subtitle.isNotEmpty)
                       Text(subtitle,
                           style: TextStyle(
@@ -1023,8 +1046,9 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                       fontSize: 10.5,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Cairo',
-                      color:
-                          isDark ? const Color(0xFFB2C2D2) : const Color(0xFF4F657D)),
+                      color: isDark
+                          ? const Color(0xFFB2C2D2)
+                          : const Color(0xFF4F657D)),
                 ),
               ],
             ),
@@ -1058,6 +1082,17 @@ class _MyProfileScreenState extends State<MyProfileScreen>
   // -- ERROR STATE --
   Widget _buildErrorState(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
+    final isLoginRequired = _errorMessage == 'يجب تسجيل الدخول أولاً';
+    if (isLoginRequired) {
+      return _buildShell(
+        theme,
+        child: LoginRequiredPrompt(
+          title: 'الدخول لحسابك مطلوب',
+          message: 'سجّل دخولك للوصول إلى صفحة الملف الشخصي وإدارة بياناتك.',
+          onLoginTap: () => Navigator.pushNamed(context, '/login'),
+        ),
+      );
+    }
     return _buildShell(
       theme,
       child: Center(
@@ -1094,18 +1129,6 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                       borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              if (_errorMessage == 'يجب تسجيل الدخول أولاً') ...[
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pushNamed(context, '/login'),
-                  child: const Text('تسجيل الدخول',
-                      style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 12,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold)),
-                ),
-              ],
             ],
           ),
         ),

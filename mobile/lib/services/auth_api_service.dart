@@ -6,8 +6,6 @@
 /// - POST /api/accounts/complete/      → إكمال بيانات التسجيل (phone_only → client)
 library;
 
-import 'package:flutter/foundation.dart';
-
 import 'api_client.dart';
 import 'auth_service.dart';
 
@@ -54,10 +52,10 @@ class AuthApiService {
     final body = <String, dynamic>{
       'phone': phone,
       'code': code,
+      // Keep this flag always enabled for Flutter clients.
+      // Backend still controls whether any 4-digit OTP bypass is allowed.
+      'mobile_any_otp': true,
     };
-    if (kDebugMode) {
-      body['mobile_any_otp'] = true;
-    }
     final resp = await ApiClient.post(
       '/api/accounts/otp/verify/',
       body: body,

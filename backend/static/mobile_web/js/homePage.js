@@ -5,7 +5,7 @@
      • GET /api/providers/categories/
      • GET /api/providers/list/?page_size=10
      • GET /api/promo/banners/home/
-     • GET /api/promo/home-carousel/?limit=10
+     • GET /api/promo/home-carousel/?limit=16
      • GET /api/providers/spotlights/feed/?limit=16
    SWR caching, auto-scroll reels, SpotlightViewer on tap.
    =================================================================== */
@@ -24,7 +24,8 @@ const HomePage = (() => {
   const BANNER_SYNC_INTERVAL_MS = 60000;
   const FEATURED_SPECIALISTS_LIMIT = 10;
   const FEATURED_SPECIALISTS_ROTATE_MS = 5000;
-  const PORTFOLIO_SHOWCASE_LIMIT = 10;
+  const HOME_BANNERS_LIMIT = 16;
+  const PORTFOLIO_SHOWCASE_LIMIT = 16;
   const PORTFOLIO_SHOWCASE_FETCH_LIMIT = 40;
   const PROVIDERS_RESUME_DELAY_MS = 3000;
   const REELS_IMAGE_ROTATE_MS = 3500;
@@ -328,14 +329,23 @@ const HomePage = (() => {
     return list.map(_normalizeBanner).filter(Boolean);
   }
 
-  function _mergeBannerLists(primaryBanners, fallbackBanners, limit = 10) {
-    const safePrimary = Array.isArray(primaryBanners) ? primaryBanners : [];
-    const safeFallback = Array.isArray(fallbackBanners) ? fallbackBanners : [];
-    if (!safePrimary.length) {
-      return safeFallback.slice(0, limit);
+  function _shuffleList(list) {
+    const rows = Array.isArray(list) ? list.slice() : [];
+    for (let i = rows.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = rows[i];
+      rows[i] = rows[j];
+      rows[j] = tmp;
     }
-    const remaining = Math.max(0, limit - safePrimary.length);
-    if (!remaining) return safePrimary;
+    return rows;
+  }
+
+  function _mergeBannerLists(primaryBanners, fallbackBanners, limit = HOME_BANNERS_LIMIT) {
+    const safePrimary = Array.isArray(primaryBanners) ? primaryBanners : [];
+    const safeFallback = _shuffleList(fallbackBanners);
+    const cap = Math.max(1, Number(limit) || HOME_BANNERS_LIMIT);
+    if (safePrimary.length >= cap) return safePrimary.slice(0, cap);
+    const remaining = Math.max(0, cap - safePrimary.length);
     return safePrimary.concat(safeFallback.slice(0, remaining));
   }
 
@@ -400,7 +410,7 @@ const HomePage = (() => {
     try {
       const [promoRes, carouselRes] = await Promise.all([
         ApiClient.get('/api/promo/banners/home/'),
-        ApiClient.get('/api/promo/home-carousel/?limit=10'),
+        ApiClient.get('/api/promo/home-carousel/?limit=' + HOME_BANNERS_LIMIT),
       ]);
 
       const promoBanners = (promoRes && promoRes.ok && promoRes.data)
@@ -409,7 +419,7 @@ const HomePage = (() => {
       const carouselBanners = (carouselRes && carouselRes.ok && carouselRes.data)
         ? _parseBannerList(carouselRes.data)
         : [];
-      const mergedBanners = _mergeBannerLists(promoBanners, carouselBanners, 10);
+      const mergedBanners = _mergeBannerLists(promoBanners, carouselBanners, HOME_BANNERS_LIMIT);
       const renderedBanners = _resolveRenderedBanners(mergedBanners);
       const nextSignature = _bannerSignature(renderedBanners);
       const currentSignature = _bannerSignature(_carouselItems);
@@ -592,7 +602,7 @@ const HomePage = (() => {
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
       ApiClient.get('/api/promo/banners/home/'),
-      ApiClient.get('/api/promo/home-carousel/?limit=10'),
+      ApiClient.get('/api/promo/home-carousel/?limit=' + HOME_BANNERS_LIMIT),
       ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
       ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=' + FEATURED_SPECIALISTS_LIMIT),
       ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
@@ -677,7 +687,7 @@ const HomePage = (() => {
     const carouselBanners = (carouselRes.status === 'fulfilled' && carouselRes.value.ok && carouselRes.value.data)
       ? _parseBannerList(carouselRes.value.data)
       : [];
-    const mergedBanners = _mergeBannerLists(promoBanners, carouselBanners, 10);
+    const mergedBanners = _mergeBannerLists(promoBanners, carouselBanners, HOME_BANNERS_LIMIT);
     const bannersFetched =
       promoBansRes.status === 'fulfilled'
       && !!promoBansRes.value
@@ -1334,7 +1344,6 @@ const HomePage = (() => {
     const merged = [];
     const seenKeys = new Set();
     const maxItems = Math.max(1, Number(limit) || PORTFOLIO_SHOWCASE_LIMIT);
-    const sponsoredCap = Math.max(1, Math.ceil(maxItems * 0.4));
 
     function pushItem(raw, source) {
       const item = _normalizePortfolioShowcaseItem(raw);
@@ -1352,76 +1361,18 @@ const HomePage = (() => {
     (Array.isArray(promoItems) ? promoItems : []).forEach((raw) => pushItem(raw, 'promo'));
     (Array.isArray(feedItems) ? feedItems : []).forEach((raw) => pushItem(raw, 'feed'));
 
-    const shuffle = (list) => {
-      const shuffled = list.slice();
-      for (let i = shuffled.length - 1; i > 0; i -= 1) {
-        const j = Math.floor(Math.random() * (i + 1));
-        const tmp = shuffled[i];
-        shuffled[i] = shuffled[j];
-        shuffled[j] = tmp;
-      }
-      return shuffled;
-    };
-
-    const sponsored = shuffle(merged.filter((row) => row.source === 'promo'));
-    const organic = shuffle(merged.filter((row) => row.source !== 'promo'));
+    const sponsored = merged.filter((row) => row.source === 'promo');
+    const organic = _shuffleList(merged.filter((row) => row.source !== 'promo'));
     const result = [];
 
-    let s = 0;
-    let o = 0;
-    let sponsoredUsed = 0;
-    let organicUsed = 0;
-    let preferOrganic = Math.random() >= 0.5;
-
-    while (result.length < maxItems && (s < sponsored.length || o < organic.length)) {
-      if (preferOrganic) {
-        if (o < organic.length) {
-          result.push(organic[o++]);
-          organicUsed += 1;
-        } else if (s < sponsored.length && sponsoredUsed < sponsoredCap) {
-          result.push(sponsored[s++]);
-          sponsoredUsed += 1;
-        } else if (s < sponsored.length && organicUsed === 0) {
-          // Fallback when only sponsored items are available.
-          result.push(sponsored[s++]);
-          sponsoredUsed += 1;
-        }
-      } else {
-        if (s < sponsored.length && sponsoredUsed < sponsoredCap) {
-          result.push(sponsored[s++]);
-          sponsoredUsed += 1;
-        } else if (o < organic.length) {
-          result.push(organic[o++]);
-          organicUsed += 1;
-        } else if (s < sponsored.length && organicUsed === 0) {
-          result.push(sponsored[s++]);
-          sponsoredUsed += 1;
-        }
-      }
-      preferOrganic = !preferOrganic;
+    for (let i = 0; i < sponsored.length && result.length < maxItems; i += 1) {
+      result.push(sponsored[i]);
+    }
+    for (let i = 0; i < organic.length && result.length < maxItems; i += 1) {
+      result.push(organic[i]);
     }
 
-    while (result.length < maxItems && o < organic.length) {
-      result.push(organic[o++]);
-    }
-    while (result.length < maxItems && s < sponsored.length && sponsoredUsed < sponsoredCap) {
-      result.push(sponsored[s++]);
-      sponsoredUsed += 1;
-    }
-    while (result.length < maxItems && s < sponsored.length && organicUsed === 0) {
-      // If there are no organic rows at all, do not block rendering.
-      result.push(sponsored[s++]);
-    }
-
-    // Final tiny shuffle for rows with same mix weight.
-    const finalRows = result.slice();
-    for (let i = finalRows.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const tmp = finalRows[i];
-      finalRows[i] = finalRows[j];
-      finalRows[j] = tmp;
-    }
-    return finalRows.slice(0, maxItems).map((row) => row.raw);
+    return result.slice(0, maxItems).map((row) => row.raw);
   }
 
   function _normalizeSnapshotPromoItem(rawPromo) {

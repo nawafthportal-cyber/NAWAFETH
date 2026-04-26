@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+import logging
 from urllib.parse import urlencode
 from django.conf import settings
 from django.db import transaction
@@ -28,6 +29,8 @@ from .models import (
     VerificationRequirement,
     VerificationRequirementAttachment,
 )
+
+logger = logging.getLogger("apps.verification")
 
 
 REQUIREMENTS_CATALOG: dict[str, dict[str, dict[str, str]]] = {
@@ -942,6 +945,10 @@ def _notify_requester_review_outcome(*, vr: VerificationRequest, by_user, reqs=N
         try:
             thread = _send_verification_system_message(vr=vr, sender=actor, body=message_body)
         except Exception:
+            logger.exception(
+                "Failed to send verification system message",
+                extra={"verification_request_id": getattr(vr, "id", None)},
+            )
             thread = None
 
     if vr.status == VerificationStatus.PENDING_PAYMENT:
@@ -974,7 +981,10 @@ def _notify_requester_review_outcome(*, vr: VerificationRequest, by_user, reqs=N
             audience_mode="provider",
         )
     except Exception:
-        pass
+        logger.exception(
+            "Failed to send verification status notification",
+            extra={"verification_request_id": getattr(vr, "id", None), "status": getattr(vr, "status", "")},
+        )
 
 
 def _notify_requester_payment_reversal(*, vr: VerificationRequest, from_status: str, to_status: str) -> None:
@@ -982,6 +992,10 @@ def _notify_requester_payment_reversal(*, vr: VerificationRequest, from_status: 
         from apps.notifications.models import EventType
         from apps.notifications.services import create_notification
     except Exception:
+        logger.exception(
+            "Failed to import notification dependencies for verification payment reversal",
+            extra={"verification_request_id": getattr(vr, "id", None)},
+        )
         return
 
     request_code = vr.code or f"AD{vr.id:06d}"
@@ -1028,7 +1042,14 @@ def _notify_requester_payment_reversal(*, vr: VerificationRequest, from_status: 
             audience_mode="provider",
         )
     except Exception:
-        pass
+        logger.exception(
+            "Failed to send verification payment reversal notification",
+            extra={
+                "verification_request_id": getattr(vr, "id", None),
+                "from_status": from_status,
+                "to_status": to_status,
+            },
+        )
 
 
 @transaction.atomic

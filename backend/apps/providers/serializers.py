@@ -874,6 +874,7 @@ class ProviderSpotlightItemCreateSerializer(serializers.ModelSerializer):
 class UserPublicSerializer(serializers.ModelSerializer):
     display_name = serializers.SerializerMethodField()
     provider_id = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -882,6 +883,7 @@ class UserPublicSerializer(serializers.ModelSerializer):
             "username",
             "display_name",
             "provider_id",
+            "profile_image",
         )
 
     def get_display_name(self, obj: User) -> str:
@@ -896,12 +898,20 @@ class UserPublicSerializer(serializers.ModelSerializer):
         profile = getattr(obj, "provider_profile", None)
         return profile.id if profile else None
 
+    def get_profile_image(self, obj: User) -> str:
+        profile = getattr(obj, "provider_profile", None)
+        provider_image = _safe_file_url(getattr(profile, "profile_image", None)) if profile is not None else ""
+        if provider_image:
+            return provider_image
+        return _safe_file_url(getattr(obj, "profile_image", None))
+
 
 class ProviderFollowerSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="user.id", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
     display_name = serializers.SerializerMethodField()
     provider_id = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
     follow_role_context = serializers.CharField(source="role_context", read_only=True)
 
     class Meta:
@@ -911,6 +921,7 @@ class ProviderFollowerSerializer(serializers.ModelSerializer):
             "username",
             "display_name",
             "provider_id",
+            "profile_image",
             "follow_role_context",
             "created_at",
         )
@@ -937,6 +948,16 @@ class ProviderFollowerSerializer(serializers.ModelSerializer):
         user = getattr(obj, "user", None)
         profile = getattr(user, "provider_profile", None) if user is not None else None
         return profile.id if profile else None
+
+    def get_profile_image(self, obj: ProviderFollow) -> str:
+        user = getattr(obj, "user", None)
+        if user is None:
+            return ""
+        profile = getattr(user, "provider_profile", None)
+        provider_image = _safe_file_url(getattr(profile, "profile_image", None)) if profile is not None else ""
+        if provider_image:
+            return provider_image
+        return _safe_file_url(getattr(user, "profile_image", None))
 
 
 class MyProviderSubcategoriesSerializer(serializers.Serializer):

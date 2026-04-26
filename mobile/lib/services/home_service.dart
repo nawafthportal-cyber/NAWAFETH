@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'api_client.dart';
 import '../models/category_model.dart';
 import '../models/banner_model.dart';
@@ -235,6 +237,38 @@ class HomeService {
       result.add(banner);
     }
     return List<BannerModel>.unmodifiable(result);
+  }
+
+  static List<BannerModel> _shuffleBanners(List<BannerModel> banners) {
+    final random = Random();
+    final rows = List<BannerModel>.from(banners);
+    for (var i = rows.length - 1; i > 0; i -= 1) {
+      final j = random.nextInt(i + 1);
+      final temp = rows[i];
+      rows[i] = rows[j];
+      rows[j] = temp;
+    }
+    return rows;
+  }
+
+  static List<BannerModel> _mergePrioritizedHomeBanners({
+    required List<BannerModel> sponsored,
+    required List<BannerModel> organic,
+    required int limit,
+  }) {
+    final cap = limit <= 0 ? 16 : limit;
+    final sponsoredRows = _dedupeBanners(sponsored);
+    final organicRows = _shuffleBanners(_dedupeBanners(organic));
+    if (sponsoredRows.length >= cap) {
+      return List<BannerModel>.unmodifiable(sponsoredRows.take(cap));
+    }
+    final remaining = cap - sponsoredRows.length;
+    return List<BannerModel>.unmodifiable(
+      <BannerModel>[
+        ...sponsoredRows,
+        ...organicRows.take(remaining),
+      ],
+    );
   }
 
   static String _readText(dynamic value) {
@@ -708,14 +742,10 @@ class HomeService {
         ? _parseBannerList(promoRes.data)
         : <BannerModel>[];
 
-    final remaining =
-        limit > promoBanners.length ? limit - promoBanners.length : 0;
-    final fallbackLimit = remaining > 0 ? remaining : 0;
-
     List<BannerModel> carouselBanners = const <BannerModel>[];
     bool carouselFetched = false;
-    if (fallbackLimit > 0 || promoBanners.isEmpty) {
-      final carouselLimit = promoBanners.isEmpty ? limit : fallbackLimit;
+    if (promoBanners.length < limit || promoBanners.isEmpty) {
+      final carouselLimit = limit;
       final carouselRes =
           await ApiClient.get('/api/promo/home-carousel/?limit=$carouselLimit');
       if (carouselRes.isSuccess && carouselRes.data != null) {
@@ -724,10 +754,11 @@ class HomeService {
       carouselFetched = carouselRes.isSuccess;
     }
 
-    final parsed = _dedupeBanners(<BannerModel>[
-      ...promoBanners,
-      ...carouselBanners,
-    ]);
+    final parsed = _mergePrioritizedHomeBanners(
+      sponsored: promoBanners,
+      organic: carouselBanners,
+      limit: limit,
+    );
 
     if (parsed.isNotEmpty) {
       _homeBannersCache[limit] = _CacheEntry<List<BannerModel>>(

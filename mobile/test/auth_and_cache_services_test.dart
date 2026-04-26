@@ -109,6 +109,8 @@ void main() {
     ApiClient.debugSetHttpClient(
       MockClient((request) async {
         expect(request.url.path, '/api/accounts/otp/verify/');
+        final payload = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(payload['mobile_any_otp'], isTrue);
         return http.Response(
           jsonEncode({
             'access': 'access-token',

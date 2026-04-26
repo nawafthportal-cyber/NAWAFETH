@@ -25,8 +25,8 @@ import '../models/media_item_model.dart';
 class InteractiveService {
   static const Duration _cacheTtl = Duration(minutes: 10);
 
-  static final Map<String, _ListCacheEntry<ProviderPublicModel>> _followingCache =
-      <String, _ListCacheEntry<ProviderPublicModel>>{};
+  static final Map<String, _ListCacheEntry<ProviderPublicModel>>
+      _followingCache = <String, _ListCacheEntry<ProviderPublicModel>>{};
   static final Map<String, _ListCacheEntry<UserPublicModel>> _followersCache =
       <String, _ListCacheEntry<UserPublicModel>>{};
   static final Map<String, _ListCacheEntry<MediaItemModel>> _favoritesCache =
@@ -56,7 +56,9 @@ class InteractiveService {
     final scope = await _cacheScope();
     final cacheKey = 'interactive_following_$scope';
     final memoryCache = _followingCache[scope];
-    if (!forceRefresh && memoryCache != null && memoryCache.isFresh(_cacheTtl)) {
+    if (!forceRefresh &&
+        memoryCache != null &&
+        memoryCache.isFresh(_cacheTtl)) {
       return memoryCache.toResult(source: 'memory_cache');
     }
 
@@ -131,7 +133,9 @@ class InteractiveService {
     final scope = await _cacheScope();
     final cacheKey = 'interactive_followers_$scope';
     final memoryCache = _followersCache[scope];
-    if (!forceRefresh && memoryCache != null && memoryCache.isFresh(_cacheTtl)) {
+    if (!forceRefresh &&
+        memoryCache != null &&
+        memoryCache.isFresh(_cacheTtl)) {
       return memoryCache.toResult(source: 'memory_cache');
     }
 
@@ -247,7 +251,9 @@ class InteractiveService {
     final scope = await _cacheScope();
     final cacheKey = 'interactive_favorites_$scope';
     final memoryCache = _favoritesCache[scope];
-    if (!forceRefresh && memoryCache != null && memoryCache.isFresh(_cacheTtl)) {
+    if (!forceRefresh &&
+        memoryCache != null &&
+        memoryCache.isFresh(_cacheTtl)) {
       final copy = List<MediaItemModel>.from(memoryCache.data);
       MediaItemModel.applyInteractionOverrides(copy);
       return memoryCache.toResult(
@@ -318,9 +324,10 @@ class InteractiveService {
         errorMessage: (!portfolioResp.isSuccess || !spotlightResp.isSuccess)
             ? (portfolioResp.error ?? spotlightResp.error)
             : null,
-        statusCode: (!portfolioResp.isSuccess && portfolioResp.statusCode != 200)
-            ? portfolioResp.statusCode
-            : spotlightResp.statusCode,
+        statusCode:
+            (!portfolioResp.isSuccess && portfolioResp.statusCode != 200)
+                ? portfolioResp.statusCode
+                : spotlightResp.statusCode,
       );
       _favoritesCache[scope] = _ListCacheEntry(immutable, DateTime.now());
       await _writeDiskListCache(
@@ -335,8 +342,12 @@ class InteractiveService {
       MediaItemModel.applyInteractionOverrides(copy);
       return memoryCache.toResult(
         source: 'memory_cache_stale',
-        errorMessage: portfolioResp.error ?? spotlightResp.error ?? 'تعذر تحديث المفضلة الآن',
-        statusCode: portfolioResp.statusCode != 200 ? portfolioResp.statusCode : spotlightResp.statusCode,
+        errorMessage: portfolioResp.error ??
+            spotlightResp.error ??
+            'تعذر تحديث المفضلة الآن',
+        statusCode: portfolioResp.statusCode != 200
+            ? portfolioResp.statusCode
+            : spotlightResp.statusCode,
         dataOverride: copy,
       );
     }
@@ -349,16 +360,23 @@ class InteractiveService {
       MediaItemModel.applyInteractionOverrides(copy);
       return diskCache.copyWith(
         source: 'disk_cache_stale',
-        errorMessage: portfolioResp.error ?? spotlightResp.error ?? 'تعذر تحديث المفضلة الآن',
-        statusCode: portfolioResp.statusCode != 200 ? portfolioResp.statusCode : spotlightResp.statusCode,
+        errorMessage: portfolioResp.error ??
+            spotlightResp.error ??
+            'تعذر تحديث المفضلة الآن',
+        statusCode: portfolioResp.statusCode != 200
+            ? portfolioResp.statusCode
+            : spotlightResp.statusCode,
         dataOverride: copy,
       );
     }
     return CachedListResult<MediaItemModel>(
       data: const <MediaItemModel>[],
       source: 'empty',
-      errorMessage: portfolioResp.error ?? spotlightResp.error ?? 'خطأ في جلب المفضلة',
-      statusCode: portfolioResp.statusCode != 200 ? portfolioResp.statusCode : spotlightResp.statusCode,
+      errorMessage:
+          portfolioResp.error ?? spotlightResp.error ?? 'خطأ في جلب المفضلة',
+      statusCode: portfolioResp.statusCode != 200
+          ? portfolioResp.statusCode
+          : spotlightResp.statusCode,
     );
   }
 
@@ -642,6 +660,7 @@ class InteractiveService {
       'username': user.username,
       'display_name': user.displayName,
       'provider_id': user.providerId,
+      'profile_image': user.profileImage,
     };
   }
 

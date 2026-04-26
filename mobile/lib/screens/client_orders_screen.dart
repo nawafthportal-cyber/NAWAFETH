@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../constants/app_theme.dart';
-import '../constants/request_status_filters.dart';
 import '../models/service_request_model.dart';
 import '../services/account_mode_service.dart';
 import '../services/marketplace_service.dart';
@@ -31,7 +30,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
 
   final TextEditingController _searchController = TextEditingController();
   late final AnimationController _entranceController;
-  String _selectedFilter = RequestStatusFilters.allLabel;
+  _ClientOrderTypeFilter _selectedTypeFilter = _ClientOrderTypeFilter.direct;
 
   List<ServiceRequest> _orders = [];
   bool _loading = true;
@@ -115,12 +114,9 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
     });
 
     try {
-      final statusGroup =
-          RequestStatusFilters.apiValueForLabel(_selectedFilter);
-
       final query = _searchController.text.trim();
       final orders = await MarketplaceService.getClientRequests(
-        statusGroup: statusGroup,
+        type: _selectedTypeFilter.apiValue,
         query: query.isNotEmpty ? query : null,
       );
 
@@ -157,39 +153,9 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
     return DateFormat('HH:mm  dd/MM/yyyy', 'ar').format(date);
   }
 
-  Widget _filterChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? _mainColor.withAlpha(22) : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(
-            color: selected ? _mainColor : AppColors.grey300,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Cairo',
-            fontSize: AppTextStyles.bodyMd,
-            fontWeight: FontWeight.w600,
-            color: selected ? _mainColor : AppTextStyles.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _onFilterChanged(String filter) {
-    setState(() => _selectedFilter = filter);
+  void _onTypeFilterChanged(_ClientOrderTypeFilter filter) {
+    if (_selectedTypeFilter == filter) return;
+    setState(() => _selectedTypeFilter = filter);
     _loadOrders();
   }
 
@@ -262,21 +228,26 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
   }
 
   Widget _buildBody({required bool isDark}) {
-    final totalCount = _orders.length;
-    final activeCount = _orders.where((o) =>
-        o.statusGroup == 'new' || o.statusGroup == 'in_progress').length;
     final resultsCount = _orders.length;
 
     return Container(
       decoration: BoxDecoration(
         gradient: isDark
             ? const LinearGradient(
-                colors: [Color(0xFF0E1726), Color(0xFF122235), Color(0xFF17293D)],
+                colors: [
+                  Color(0xFF0E1726),
+                  Color(0xFF122235),
+                  Color(0xFF17293D)
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               )
             : const LinearGradient(
-                colors: [Color(0xFFEEF5FB), Color(0xFFF4F7FB), Color(0xFFF7F8FC)],
+                colors: [
+                  Color(0xFFEEF5FB),
+                  Color(0xFFF4F7FB),
+                  Color(0xFFF7F8FC)
+                ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -287,17 +258,6 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
             child: _buildEntrance(
               0,
-              _buildHeroCard(
-                isDark: isDark,
-                totalCount: totalCount,
-                activeCount: activeCount,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: _buildEntrance(
-              1,
               _buildControlPanel(
                 isDark: isDark,
                 resultsCount: resultsCount,
@@ -307,7 +267,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
           Expanded(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-              child: _buildEntrance(2, _buildOrdersSurface(isDark: isDark)),
+              child: _buildEntrance(1, _buildOrdersSurface(isDark: isDark)),
             ),
           ),
         ],
@@ -343,19 +303,25 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                       fontFamily: 'Cairo',
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? const Color(0xFFB8C7D9) : const Color(0xFF667085),
+                      color: isDark
+                          ? const Color(0xFFB8C7D9)
+                          : const Color(0xFF667085),
                     ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.32)),
+                    border:
+                        Border.all(color: statusColor.withValues(alpha: 0.32)),
                   ),
                   child: Text(
-                    order.statusLabel.isNotEmpty ? order.statusLabel : order.statusGroup,
+                    order.statusLabel.isNotEmpty
+                        ? order.statusLabel
+                        : order.statusGroup,
                     style: TextStyle(
                       color: statusColor,
                       fontFamily: 'Cairo',
@@ -373,7 +339,9 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
               children: [
                 _buildOrderChip(
                   label: order.displayId,
-                  background: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF8FAFC),
+                  background: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : const Color(0xFFF8FAFC),
                   color: isDark ? Colors.white : const Color(0xFF0F172A),
                 ),
                 if (order.requestType != 'normal')
@@ -411,21 +379,26 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                   fontSize: AppTextStyles.bodySm,
                   height: 1.7,
                   fontWeight: FontWeight.w500,
-                  color: isDark ? const Color(0xFFB8C7D9) : AppTextStyles.textSecondary,
+                  color: isDark
+                      ? const Color(0xFFB8C7D9)
+                      : AppTextStyles.textSecondary,
                 ),
               ),
             ],
             const SizedBox(height: 8),
             Row(
               children: [
-                if (order.providerName != null && order.providerName!.isNotEmpty)
+                if (order.providerName != null &&
+                    order.providerName!.isNotEmpty)
                   Expanded(
                     child: Row(
                       children: [
                         Icon(
                           Icons.storefront_outlined,
                           size: 15,
-                          color: isDark ? const Color(0xFFB8C7D9) : const Color(0xFF667085),
+                          color: isDark
+                              ? const Color(0xFFB8C7D9)
+                              : const Color(0xFF667085),
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -436,7 +409,9 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                               fontFamily: 'Cairo',
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
-                              color: isDark ? const Color(0xFFB8C7D9) : const Color(0xFF667085),
+                              color: isDark
+                                  ? const Color(0xFFB8C7D9)
+                                  : const Color(0xFF667085),
                             ),
                           ),
                         ),
@@ -468,176 +443,22 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
     );
   }
 
-  Widget _buildHeroCard({
-    required bool isDark,
-    required int totalCount,
-    required int activeCount,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF183B64), Color(0xFF22577A), Color(0xFF0F766E)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: 0.16),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -36,
-            left: -20,
-            child: Container(
-              width: 132,
-              height: 132,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -58,
-            right: -18,
-            child: Container(
-              width: 156,
-              height: 156,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: const Icon(
-                      Icons.assignment_outlined,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'لوحة الطلبات',
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 21,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'تصفح طلباتك، راقب حالتها، وافتح التفاصيل بضغطة واحدة.',
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 11.5,
-                            height: 1.8,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _heroStat(
-                      value: totalCount.toString(),
-                      label: 'إجمالي الطلبات',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _heroStat(
-                      value: activeCount.toString(),
-                      label: 'طلبات نشطة',
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _heroStat({required String value, required String label}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              color: Colors.white70,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildControlPanel({required bool isDark, required int resultsCount}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.96),
+        color: isDark
+            ? const Color(0xFF132637)
+            : Colors.white.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
           color: isDark ? Colors.white10 : const Color(0x220E5E85),
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
+            color:
+                const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -653,7 +474,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'قائمة الطلبات',
+                      'طلباتي',
                       style: TextStyle(
                         fontFamily: 'Cairo',
                         fontSize: 14,
@@ -663,21 +484,26 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'فلترة وبحث سريع للوصول إلى الطلب المطلوب.',
+                      'فلترة حسب نوع الطلب مع بحث سريع.',
                       style: TextStyle(
                         fontFamily: 'Cairo',
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: isDark ? const Color(0xFFB8C7D9) : const Color(0xFF667085),
+                        color: isDark
+                            ? const Color(0xFFB8C7D9)
+                            : const Color(0xFF667085),
                       ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFF8FAFC),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
                     color: isDark ? Colors.white10 : const Color(0xFFE4EBF1),
@@ -709,7 +535,9 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
               children: [
                 Icon(
                   Icons.search_rounded,
-                  color: isDark ? const Color(0xFFB8C7D9) : const Color(0xFF667085),
+                  color: isDark
+                      ? const Color(0xFFB8C7D9)
+                      : const Color(0xFF667085),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -737,41 +565,24 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
             ),
           ),
           const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _filterChip(
-                  label: 'الكل',
-                  selected: _selectedFilter == 'الكل',
-                  onTap: () => _onFilterChanged('الكل'),
-                ),
-                const SizedBox(width: 8),
-                _filterChip(
-                  label: 'جديد',
-                  selected: _selectedFilter == 'جديد',
-                  onTap: () => _onFilterChanged('جديد'),
-                ),
-                const SizedBox(width: 8),
-                _filterChip(
-                  label: 'تحت التنفيذ',
-                  selected: _selectedFilter == 'تحت التنفيذ',
-                  onTap: () => _onFilterChanged('تحت التنفيذ'),
-                ),
-                const SizedBox(width: 8),
-                _filterChip(
-                  label: 'مكتمل',
-                  selected: _selectedFilter == 'مكتمل',
-                  onTap: () => _onFilterChanged('مكتمل'),
-                ),
-                const SizedBox(width: 8),
-                _filterChip(
-                  label: 'ملغي',
-                  selected: _selectedFilter == 'ملغي',
-                  onTap: () => _onFilterChanged('ملغي'),
-                ),
-              ],
-            ),
+          Row(
+            children: _ClientOrderTypeFilter.values
+                .map(
+                  (filter) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: filter == _ClientOrderTypeFilter.direct ? 0 : 6,
+                      ),
+                      child: _buildTypeFilterButton(
+                        filter: filter,
+                        selected: _selectedTypeFilter == filter,
+                        isDark: isDark,
+                        onTap: () => _onTypeFilterChanged(filter),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
         ],
       ),
@@ -782,14 +593,17 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.94),
+        color: isDark
+            ? const Color(0xFF132637)
+            : Colors.white.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
           color: isDark ? Colors.white10 : const Color(0x220E5E85),
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
+            color:
+                const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -841,7 +655,8 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade400),
+            Icon(Icons.error_outline_rounded,
+                size: 48, color: Colors.red.shade400),
             const SizedBox(height: 12),
             Text(
               _error!,
@@ -850,7 +665,8 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                 fontFamily: 'Cairo',
                 fontSize: 12.5,
                 fontWeight: FontWeight.w700,
-                color: isDark ? const Color(0xFFB8C7D9) : const Color(0xFF667085),
+                color:
+                    isDark ? const Color(0xFFB8C7D9) : const Color(0xFF667085),
               ),
             ),
             const SizedBox(height: 14),
@@ -859,7 +675,8 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: _accentColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -907,14 +724,15 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
             Text(
               _searchController.text.trim().isNotEmpty
                   ? 'جرّب تعديل عبارة البحث أو تغيير حالة الفلترة الحالية.'
-                  : 'ستظهر هنا طلباتك الحالية والسابقة بمجرد إنشائها.',
+                  : 'لا توجد نتائج في فلتر "${_selectedTypeFilter.label}" حالياً.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'Cairo',
                 fontSize: 11.5,
                 height: 1.8,
                 fontWeight: FontWeight.w700,
-                color: isDark ? const Color(0xFF92A6BA) : const Color(0xFF52637A),
+                color:
+                    isDark ? const Color(0xFF92A6BA) : const Color(0xFF52637A),
               ),
             ),
           ],
@@ -946,6 +764,88 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
     );
   }
 
+  Widget _buildTypeFilterButton({
+    required _ClientOrderTypeFilter filter,
+    required bool selected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    final Color iconColor = selected
+        ? Colors.white
+        : (isDark ? const Color(0xFFE2ECF8) : filter.accent);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: selected
+              ? LinearGradient(
+                  colors: filter.selectedGradient,
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                )
+              : null,
+          color: selected
+              ? null
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : const Color(0xFFF8FBFF)),
+          border: Border.all(
+            color: selected
+                ? Colors.transparent
+                : (isDark ? Colors.white12 : const Color(0xFFDCE6ED)),
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color:
+                        filter.selectedGradient.first.withValues(alpha: 0.26),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected
+                    ? Colors.white.withValues(alpha: 0.18)
+                    : filter.accent.withValues(alpha: isDark ? 0.18 : 0.12),
+              ),
+              child: Icon(filter.icon, size: 15, color: iconColor),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              filter.label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10.5,
+                fontWeight: FontWeight.w900,
+                color: selected
+                    ? Colors.white
+                    : (isDark
+                        ? const Color(0xFFE2ECF8)
+                        : const Color(0xFF0F172A)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEntrance(int index, Widget child) {
     final begin = (0.08 * index).clamp(0.0, 0.8).toDouble();
     final end = (begin + 0.34).clamp(0.0, 1.0).toDouble();
@@ -965,4 +865,42 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
       ),
     );
   }
+}
+
+enum _ClientOrderTypeFilter {
+  direct(
+    label: 'طلب مباشر',
+    apiValue: 'normal',
+    icon: Icons.flash_on_rounded,
+    accent: Color(0xFF0F766E),
+    selectedGradient: [Color(0xFF159B91), Color(0xFF0F766E)],
+  ),
+  urgent(
+    label: 'طلب عاجل',
+    apiValue: 'urgent',
+    icon: Icons.local_fire_department_rounded,
+    accent: Color(0xFFE85D04),
+    selectedGradient: [Color(0xFFF97316), Color(0xFFEA580C)],
+  ),
+  quote(
+    label: 'عروض أسعار',
+    apiValue: 'competitive',
+    icon: Icons.price_change_rounded,
+    accent: Color(0xFF2563EB),
+    selectedGradient: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+  );
+
+  const _ClientOrderTypeFilter({
+    required this.label,
+    required this.apiValue,
+    required this.icon,
+    required this.accent,
+    required this.selectedGradient,
+  });
+
+  final String label;
+  final String apiValue;
+  final IconData icon;
+  final Color accent;
+  final List<Color> selectedGradient;
 }

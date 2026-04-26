@@ -360,7 +360,10 @@ def _notify_promo_status_change(*, pr: PromoRequest, status: str, actor=None) ->
             audience_mode="provider",
         )
     except Exception:
-        pass
+        logger.exception(
+            "Failed to send promo status notification",
+            extra={"promo_request_id": getattr(pr, "id", None), "status": status},
+        )
 
 
 def _notify_promo_ops_completed(*, pr: PromoRequest, actor=None) -> None:
@@ -387,7 +390,10 @@ def _notify_promo_ops_completed(*, pr: PromoRequest, actor=None) -> None:
             audience_mode="provider",
         )
     except Exception:
-        pass
+        logger.exception(
+            "Failed to send promo completion notification",
+            extra={"promo_request_id": getattr(pr, "id", None), "status": getattr(pr, "status", "")},
+        )
 
 
 def _promo_unified_status(pr: PromoRequest) -> str:

@@ -49,6 +49,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
   bool _showAppPreview = false;
   bool _isLoading = true;
+  bool _isLoggedIn = false;
+  bool _authStateResolved = false;
   String? _loadError;
   List<OnboardItem> _slides = const [];
   OnboardItem? _appPreviewItem;
@@ -56,8 +58,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
+    _resolveAuthState();
     _loadContentFromApi();
     _refreshContentInBackground();
+  }
+
+  Future<void> _resolveAuthState() async {
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!mounted) return;
+    setState(() {
+      _isLoggedIn = loggedIn;
+      _authStateResolved = true;
+    });
   }
 
   @override
@@ -255,7 +267,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _finishOnboarding() async {
     await OnboardingService.markSeen();
-    final isLoggedIn = await AuthService.isLoggedIn();
+    final isLoggedIn =
+        _authStateResolved ? _isLoggedIn : await AuthService.isLoggedIn();
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, isLoggedIn ? '/home' : '/login');
   }
@@ -607,9 +620,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             return Column(
               children: [
                 Row(
-                  children: const [
+                  children: [
                     Text(
-                      'آخر خطوة قبل تسجيل الدخول',
+                      _isLoggedIn
+                          ? 'آخر خطوة قبل الدخول للرئيسية'
+                          : 'آخر خطوة قبل تسجيل الدخول',
                       style: TextStyle(
                         fontFamily: 'Cairo',
                         fontSize: 11,
@@ -618,7 +633,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
                     ),
                     Spacer(),
-                    _OnboardMetaChip(label: 'بروفة التطبيق'),
+                    const _OnboardMetaChip(label: 'بروفة التطبيق'),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -731,10 +746,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
               icon: const Icon(Icons.arrow_forward_rounded),
-              label: const FittedBox(
+              label: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  'تسجيل الدخول',
+                  _isLoggedIn ? 'الدخول للرئيسية' : 'تسجيل الدخول',
                   style: TextStyle(
                     fontFamily: 'Cairo',
                     fontSize: 14,

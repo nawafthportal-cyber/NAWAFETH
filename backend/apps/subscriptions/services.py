@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
+import logging
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -24,6 +25,8 @@ CURRENT_SUBSCRIPTION_STATUSES = (
 )
 
 MAX_SUBSCRIPTION_DURATION_COUNT = 10
+
+logger = logging.getLogger("apps.subscriptions")
 
 
 def _locked_subscription_queryset():
@@ -237,6 +240,10 @@ def _send_subscription_activation_notification(*, sub: Subscription, actor=None,
     try:
         from apps.notifications.services import create_notification
     except Exception:
+        logger.exception(
+            "Failed to import notification service for subscription activation notification",
+            extra={"subscription_id": getattr(sub, "id", None)},
+        )
         return
 
     title, body = _subscription_activation_copy(sub=sub, is_upgrade=is_upgrade)
@@ -267,7 +274,10 @@ def _send_subscription_activation_notification(*, sub: Subscription, actor=None,
             audience_mode="provider",
         )
     except Exception:
-        pass
+        logger.exception(
+            "Failed to send subscription activation notification",
+            extra={"subscription_id": getattr(sub, "id", None), "is_upgrade": bool(is_upgrade)},
+        )
 
 
 def _dispatch_subscription_activation_communications(*, sub: Subscription, actor=None, assigned_user=None, is_upgrade: bool) -> None:
@@ -294,6 +304,10 @@ def _send_subscription_lifecycle_notification(*, sub: Subscription, transition: 
         from apps.notifications.models import EventType
         from apps.notifications.services import create_notification
     except Exception:
+        logger.exception(
+            "Failed to import notification dependencies for subscription lifecycle notification",
+            extra={"subscription_id": getattr(sub, "id", None), "transition": transition},
+        )
         return
 
     transition_key = str(transition or "").strip().lower()
@@ -338,7 +352,10 @@ def _send_subscription_lifecycle_notification(*, sub: Subscription, transition: 
             audience_mode="provider",
         )
     except Exception:
-        pass
+        logger.exception(
+            "Failed to send subscription lifecycle notification",
+            extra={"subscription_id": getattr(sub, "id", None), "transition": transition_key},
+        )
 
 
 def is_current_subscription_status(status: str) -> bool:

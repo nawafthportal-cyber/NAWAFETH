@@ -8,12 +8,14 @@ class UserPublicModel {
   final String username;
   final String displayName;
   final int? providerId;
+  final String? profileImage;
 
   UserPublicModel({
     required this.id,
     required this.username,
     required this.displayName,
     this.providerId,
+    this.profileImage,
   });
 
   factory UserPublicModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +24,8 @@ class UserPublicModel {
       username: json['username'] as String? ?? '',
       displayName: json['display_name'] as String? ?? 'مستخدم',
       providerId: json['provider_id'] as int?,
+      profileImage:
+          (json['profile_image'] as String?) ?? (json['avatar'] as String?),
     );
   }
 
