@@ -1010,51 +1010,94 @@ class MyProviderLikersView(generics.ListAPIView):
 
 
 class ProviderFollowersView(generics.ListAPIView):
-	"""Public: Users who follow a specific provider."""
+	"""Public: Users who follow a specific provider.
+
+	By default the list is scoped to the viewer's active role mode
+	(client vs provider) so it stays consistent with the same-mode counts
+	used inside the app. Public profile UIs that show the *total* followers
+	count across both modes can opt-in to the cross-mode list by passing
+	``?scope=all``; in that case rows are de-duplicated per user, preferring
+	the ``provider`` role context so the bond to a provider profile is kept.
+	"""
 	serializer_class = ProviderFollowerSerializer
 	permission_classes = [permissions.AllowAny]
 
 	def get_queryset(self):
 		provider_id = self.kwargs.get("provider_id")
-		role = get_active_role(self.request, fallback="client")
-		return (
-			ProviderFollow.objects.filter(
-				provider_id=provider_id,
-				role_context=role,
-			)
+		scope = (self.request.query_params.get("scope") or "").strip().lower()
+		qs = (
+			ProviderFollow.objects.filter(provider_id=provider_id)
 			.select_related("user", "user__provider_profile")
-			.order_by("-created_at", "-id")
 		)
+		if scope == "all":
+			# Prefer the "provider" role row per user (so provider_id is exposed),
+			# falling back to the most recent client-mode follow otherwise.
+			seen: set[int] = set()
+			ordered = list(
+				qs.order_by(
+					"user_id",
+					# 'provider' < 'client' alphabetically, so this prioritises provider rows
+					"role_context",
+					"-created_at",
+					"-id",
+				)
+			)
+			deduped_ids: list[int] = []
+			for row in ordered:
+				uid = row.user_id
+				if uid in seen:
+					continue
+				seen.add(uid)
+				deduped_ids.append(row.id)
+			return (
+				qs.filter(id__in=deduped_ids)
+				.order_by("-created_at", "-id")
+			)
+		role = get_active_role(self.request, fallback="client")
+		return qs.filter(role_context=role).order_by("-created_at", "-id")
 
 
 class ProviderFollowingView(generics.ListAPIView):
-	"""Public: Providers that a specific provider follows (scoped by role)."""
+	"""Public: Providers that a specific provider follows.
+
+	By default the list is scoped to the viewer's active role mode. Pass
+	``?scope=all`` to return every provider followed by this user across
+	both modes (de-duplicated per provider), matching the public total.
+	"""
 	serializer_class = ProviderPublicSerializer
 	permission_classes = [permissions.AllowAny]
 
 	def get_queryset(self):
 		provider_id = self.kwargs.get("provider_id")
-		role = get_active_role(self.request, fallback="provider")
+		scope = (self.request.query_params.get("scope") or "").strip().lower()
 		try:
 			provider = ProviderProfile.objects.get(id=provider_id)
-			user = provider.user
-			followed_by_provider_user = ProviderFollow.objects.filter(
+		except ProviderProfile.DoesNotExist:
+			return ProviderProfile.objects.none()
+
+		user = provider.user
+		if scope == "all":
+			follow_filter = ProviderFollow.objects.filter(
+				provider=OuterRef("pk"),
+				user=user,
+			)
+		else:
+			role = get_active_role(self.request, fallback="provider")
+			follow_filter = ProviderFollow.objects.filter(
 				provider=OuterRef("pk"),
 				user=user,
 				role_context=role,
 			)
-			return _with_rating_annotations(
-				ProviderProfile.objects.annotate(_is_followed=Exists(followed_by_provider_user))
-				.filter(_is_followed=True)
-				.annotate(
-					followers_count=Count("followers__user", distinct=True),
-					likes_count=Count("likes__user", distinct=True),
-				)
-				.distinct()
-				.order_by("-id")
+		return _with_rating_annotations(
+			ProviderProfile.objects.annotate(_is_followed=Exists(follow_filter))
+			.filter(_is_followed=True)
+			.annotate(
+				followers_count=Count("followers__user", distinct=True),
+				likes_count=Count("likes__user", distinct=True),
 			)
-		except ProviderProfile.DoesNotExist:
-			return ProviderProfile.objects.none()
+			.distinct()
+			.order_by("-id")
+		)
 
 
 class ProviderPublicStatsView(APIView):

@@ -738,8 +738,8 @@ const ProviderDetailPage = (() => {
   async function _openConnectionsSheet(kind) {
     const isFollowers = kind === 'followers';
     const endpoint = _withMode(isFollowers
-      ? '/api/providers/' + _providerId + '/followers/'
-      : '/api/providers/' + _providerId + '/following/');
+      ? '/api/providers/' + _providerId + '/followers/?scope=all'
+      : '/api/providers/' + _providerId + '/following/?scope=all');
     const title = isFollowers ? 'المتابعون' : 'المتابعين';
     const subtitle = isFollowers ? 'الذين يتابعون مقدم الخدمة' : 'الذين يتابعهم مقدم الخدمة';
     const countEl = isFollowers ? document.getElementById('stat-followers') : document.getElementById('btn-show-following');
