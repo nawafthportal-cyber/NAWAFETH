@@ -580,14 +580,23 @@ def otp_send(request):
     if phone_daily_limit > 0:
         local_now = timezone.localtime(now)
         today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-        cnt = OTP.objects.filter(phone=phone, created_at__gte=today_start).count()
+        phone_daily_block_seconds = max(
+            0,
+            int(getattr(settings, "OTP_PHONE_DAILY_BLOCK_SECONDS", 180) or 180),
+        )
+        phone_daily_qs = OTP.objects.filter(phone=phone, created_at__gte=today_start).order_by("-created_at")
+        cnt = phone_daily_qs.count()
         if cnt >= phone_daily_limit:
-            next_reset = today_start + timedelta(days=1)
-            return throttled_response(
-                "تم تجاوز الحد اليومي لإرسال الرموز لهذا الرقم",
-                (next_reset - local_now).total_seconds(),
-                code="otp_phone_daily_limit",
-            )
+            latest = phone_daily_qs.first()
+            retry_after = phone_daily_block_seconds
+            if latest:
+                retry_after = phone_daily_block_seconds - (now - latest.created_at).total_seconds()
+            if retry_after > 0:
+                return throttled_response(
+                    "تم تجاوز حد إرسال الرموز لهذا الرقم مؤقتًا",
+                    retry_after,
+                    code="otp_phone_daily_limit",
+                )
 
     # Per-IP hourly limit (best-effort)
     ip_hourly_limit = int(getattr(settings, "OTP_IP_HOURLY_LIMIT", 0) or 0)

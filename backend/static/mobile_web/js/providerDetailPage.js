@@ -797,45 +797,111 @@ const ProviderDetailPage = (() => {
         textContent: isFollowers ? 'لا يوجد متابعون بعد' : 'لا يوجد متابَعون بعد',
       }));
     } else {
+      // Search input (premium UX) — filter rows by name/username
+      const searchWrap = UI.el('div', { className: 'pd-connections-search' });
+      const searchIcon = UI.el('span', { className: 'pd-connections-search-icon' });
+      searchIcon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>';
+      const searchInput = UI.el('input', {
+        type: 'search',
+        className: 'pd-connections-search-input',
+        placeholder: 'ابحث بالاسم أو المعرّف…',
+      });
+      searchInput.setAttribute('autocomplete', 'off');
+      searchInput.setAttribute('aria-label', 'ابحث في القائمة');
+      searchWrap.appendChild(searchIcon);
+      searchWrap.appendChild(searchInput);
+      body.appendChild(searchWrap);
+
       const list = UI.el('div', { className: 'pd-sheet-list pd-connections-list' });
+      const rowRecords = [];
+
       items.forEach(item => {
         const name = String(item.display_name || item.name || item.username || 'مستخدم').trim() || 'مستخدم';
         const username = String(item.username || item.username_display || '').trim();
         const avatarUrl = ApiClient.mediaUrl(item.profile_image || item.provider_profile_image || item.avatar || '');
-        const providerId = _safeInt(item.provider_id || item.id);
-        const badge = providerId ? 'مزود خدمة' : (isFollowers ? 'مستخدم' : 'مزود خدمة');
 
-        const row = UI.el('div', { className: 'pd-sheet-item pd-connections-item' });
+        // Determine provider status.
+        // Followers endpoint: item.provider_id is set only for providers.
+        // Following endpoint: every item is a provider (item.id IS the provider id).
+        const followerProviderId = _safeInt(item.provider_id);
+        const isProvider = isFollowers ? followerProviderId > 0 : true;
+        const linkProviderId = isFollowers ? followerProviderId : _safeInt(item.id);
+
+        const row = UI.el('button', {
+          type: 'button',
+          className: 'pd-sheet-item pd-connections-item' + (isProvider ? ' is-provider' : ' is-client'),
+        });
+        row.setAttribute('aria-label', isProvider
+          ? ('فتح ملف ' + name)
+          : (name + ' — ليس مزود خدمة'));
+
         const avatar = UI.el('div', { className: 'pd-sheet-avatar' });
         if (avatarUrl) avatar.appendChild(UI.lazyImg(avatarUrl, name));
         else avatar.appendChild(UI.el('span', { textContent: name.charAt(0) }));
         row.appendChild(avatar);
 
         const meta = UI.el('div', { className: 'pd-sheet-meta' });
-        meta.appendChild(UI.el('div', { className: 'pd-sheet-name', textContent: name }));
+        const nameRow = UI.el('div', { className: 'pd-connections-name-row' });
+        nameRow.appendChild(UI.el('span', { className: 'pd-sheet-name', textContent: name }));
+        if (isProvider) {
+          const verifiedTick = UI.el('span', { className: 'pd-connections-verified', title: 'مزود خدمة' });
+          verifiedTick.setAttribute('aria-hidden', 'true');
+          verifiedTick.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5 14.32 4l3.42-.18.7 3.36 3.06 1.55-1.32 3.18 1.32 3.18-3.06 1.55-.7 3.36L14.32 20 12 22.5 9.68 20l-3.42.18-.7-3.36-3.06-1.55 1.32-3.18L2.5 8.91l3.06-1.55.7-3.36L9.68 4 12 1.5Zm-1.06 13.06 5.3-5.3-1.42-1.42-3.88 3.89-1.76-1.77-1.42 1.42 3.18 3.18Z"/></svg>';
+          nameRow.appendChild(verifiedTick);
+        }
+        meta.appendChild(nameRow);
         if (username) {
-          const usernameBtn = UI.el('button', {
-            className: 'pd-sheet-handle-text pd-connections-handle-btn',
-            type: 'button',
+          meta.appendChild(UI.el('span', {
+            className: 'pd-sheet-handle-text pd-connections-handle-text',
             textContent: '@' + username,
-          });
-          usernameBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            if (providerId > 0) {
-              closeSheet();
-              window.location.href = '/provider/' + encodeURIComponent(String(providerId)) + '/';
-              return;
-            }
-            showNotProviderNotice(name);
-          });
-          meta.appendChild(usernameBtn);
+          }));
         }
         row.appendChild(meta);
-        row.appendChild(UI.el('span', { className: 'pd-connections-badge', textContent: badge }));
+
+        const badge = UI.el('span', {
+          className: 'pd-connections-badge ' + (isProvider ? 'is-provider' : 'is-client'),
+          textContent: isProvider ? 'مزود خدمة' : 'عميل',
+        });
+        row.appendChild(badge);
+
+        const chevron = UI.el('span', { className: 'pd-connections-chevron' });
+        chevron.setAttribute('aria-hidden', 'true');
+        chevron.innerHTML = isProvider
+          ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>'
+          : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
+        row.appendChild(chevron);
+
+        row.addEventListener('click', (event) => {
+          event.preventDefault();
+          if (isProvider && linkProviderId > 0) {
+            closeSheet();
+            window.location.href = '/provider/' + encodeURIComponent(String(linkProviderId)) + '/';
+            return;
+          }
+          showNotProviderModal(name, avatarUrl, username);
+        });
+
         list.appendChild(row);
+        rowRecords.push({ row, haystack: (name + ' ' + username).toLowerCase() });
       });
       body.appendChild(list);
+
+      const emptySearch = UI.el('div', {
+        className: 'pd-sheet-empty pd-connections-empty-search hidden',
+        textContent: 'لا توجد نتائج مطابقة',
+      });
+      body.appendChild(emptySearch);
+
+      searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        let visible = 0;
+        rowRecords.forEach(rec => {
+          const match = !q || rec.haystack.indexOf(q) !== -1;
+          rec.row.classList.toggle('hidden', !match);
+          if (match) visible += 1;
+        });
+        emptySearch.classList.toggle('hidden', visible !== 0);
+      });
     }
 
     sheet.appendChild(body);
@@ -856,26 +922,69 @@ const ProviderDetailPage = (() => {
       setTimeout(() => backdrop.remove(), 180);
     }
 
-    function showNotProviderNotice(name) {
-      const existing = document.querySelector('.pd-connections-notice');
+    function showNotProviderModal(name, avatarUrl, username) {
+      const existing = document.querySelector('.pd-not-provider-modal');
       if (existing) existing.remove();
 
-      const notice = UI.el('div', { className: 'pd-connections-notice' });
-      const icon = UI.el('span', { className: 'pd-connections-notice-icon' });
-      icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.5A3.5 3.5 0 1 0 10 7a3.5 3.5 0 0 0 0 7.5Z"/><path d="M3.5 20a6.5 6.5 0 0 1 13 0"/><path d="m17 8 4 4"/><path d="m21 8-4 4"/></svg>';
-      const textWrap = UI.el('div', { className: 'pd-connections-notice-text' });
-      textWrap.appendChild(UI.el('strong', { textContent: 'الحساب ليس مزود خدمة' }));
-      textWrap.appendChild(UI.el('span', {
-        textContent: (name || 'هذا الحساب') + ' لا يملك ملف مزود خدمة حالياً.',
+      const modalBackdrop = UI.el('div', { className: 'pd-not-provider-modal' });
+      const card = UI.el('div', { className: 'pd-not-provider-card' });
+
+      const avatarBubble = UI.el('div', { className: 'pd-not-provider-avatar' });
+      if (avatarUrl) avatarBubble.appendChild(UI.lazyImg(avatarUrl, name));
+      else avatarBubble.appendChild(UI.el('span', { textContent: (name || 'م').charAt(0) }));
+
+      const lockBadge = UI.el('span', { className: 'pd-not-provider-lock' });
+      lockBadge.setAttribute('aria-hidden', 'true');
+      lockBadge.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/></svg>';
+      avatarBubble.appendChild(lockBadge);
+      card.appendChild(avatarBubble);
+
+      card.appendChild(UI.el('div', {
+        className: 'pd-not-provider-title',
+        textContent: 'هذا الحساب ليس مزود خدمة',
       }));
-      notice.appendChild(icon);
-      notice.appendChild(textWrap);
-      document.body.appendChild(notice);
-      requestAnimationFrame(() => notice.classList.add('show'));
-      noticeTimer = window.setTimeout(() => {
-        notice.classList.remove('show');
-        window.setTimeout(() => notice.remove(), 200);
-      }, 2200);
+      card.appendChild(UI.el('div', {
+        className: 'pd-not-provider-name',
+        textContent: name + (username ? ' (@' + username + ')' : ''),
+      }));
+      card.appendChild(UI.el('p', {
+        className: 'pd-not-provider-message',
+        textContent: 'هذا الحساب مسجّل كعميل في منصة نوافذ ولا يملك ملفًا عامًا لمقدم خدمة، لذلك لا يمكن فتح صفحته.',
+      }));
+
+      const okBtn = UI.el('button', {
+        type: 'button',
+        className: 'pd-not-provider-ok',
+        textContent: 'حسناً، فهمت',
+      });
+      const closeIcon = UI.el('button', {
+        type: 'button',
+        className: 'pd-not-provider-close',
+        textContent: '×',
+      });
+      closeIcon.setAttribute('aria-label', 'إغلاق');
+
+      card.appendChild(okBtn);
+      card.appendChild(closeIcon);
+      modalBackdrop.appendChild(card);
+      document.body.appendChild(modalBackdrop);
+      requestAnimationFrame(() => modalBackdrop.classList.add('open'));
+
+      function dismiss() {
+        modalBackdrop.classList.remove('open');
+        window.setTimeout(() => modalBackdrop.remove(), 200);
+        document.removeEventListener('keydown', onKey);
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') dismiss();
+      }
+      okBtn.addEventListener('click', dismiss);
+      closeIcon.addEventListener('click', dismiss);
+      modalBackdrop.addEventListener('click', (e) => {
+        if (e.target === modalBackdrop) dismiss();
+      });
+      document.addEventListener('keydown', onKey);
+      try { okBtn.focus({ preventScroll: true }); } catch (_) { okBtn.focus(); }
     }
   }
 
