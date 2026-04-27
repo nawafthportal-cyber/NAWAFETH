@@ -1,3 +1,11 @@
+# =============================
+# IMPORTANT: Health Endpoints
+# =============================
+# /api/health and /api/core/health (no DB query):
+#   Use these for load balancer and uptime checks.
+# /api/core/health/ready (DB + migrations):
+#   Use ONLY for manual readiness checks, not for frequent polling.
+# =============================
 import importlib
 
 from django.conf import settings

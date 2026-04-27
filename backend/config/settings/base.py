@@ -231,14 +231,20 @@ if REDIS_URL:
     SESSION_CACHE_ALIAS = "default"
 
 # Database
+
+# Database connection settings
 DATABASE_URL = os.getenv("DATABASE_URL", "")
-DB_CONN_MAX_AGE = int(os.getenv("DB_CONN_MAX_AGE", "300"))
+# Use 600s (10 min) for production, 0 for PgBouncer transaction pooling
+DB_CONN_MAX_AGE = int(os.getenv("DB_CONN_MAX_AGE", "600"))
 DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
 DB_APPLICATION_NAME = (os.getenv("DB_APPLICATION_NAME", "nawafeth") or "nawafeth").strip()
 DB_OUTAGE_TTL_SECONDS = int(os.getenv("DB_OUTAGE_TTL_SECONDS", "30"))
 DB_OUTAGE_LOG_THROTTLE_SECONDS = int(os.getenv("DB_OUTAGE_LOG_THROTTLE_SECONDS", "30"))
+
+# PgBouncer compatibility (set PGBOUNCER_ENABLED=1 in Render env if using PgBouncer)
+PGBOUNCER_ENABLED = os.getenv("PGBOUNCER_ENABLED", "0") == "1"
+
 if DATABASE_URL:
-    # Render style DATABASE_URL
     import dj_database_url  # type: ignore
     DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=DB_CONN_MAX_AGE)}
 else:
@@ -249,9 +255,15 @@ else:
         }
     }
 
+# Optimize connection reuse and pooling
 if DATABASES["default"]["ENGINE"] != "django.db.backends.sqlite3":
-    DATABASES["default"]["CONN_MAX_AGE"] = DB_CONN_MAX_AGE
-    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+    if PGBOUNCER_ENABLED:
+        # Transaction pooling: connections must be short-lived
+        DATABASES["default"]["CONN_MAX_AGE"] = 0
+        DATABASES["default"].pop("CONN_HEALTH_CHECKS", None)
+    else:
+        DATABASES["default"]["CONN_MAX_AGE"] = DB_CONN_MAX_AGE
+        DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
     database_options = DATABASES["default"].setdefault("OPTIONS", {})
     database_options.setdefault("connect_timeout", DB_CONNECT_TIMEOUT)
     database_options.setdefault("application_name", DB_APPLICATION_NAME)
@@ -282,17 +294,17 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
     "marketplace-dispatch-ready-urgent": {
         "task": "marketplace.dispatch_ready_urgent_windows",
-        "schedule": timedelta(minutes=1),
+        "schedule": timedelta(minutes=5),  # Was 1 min, now 5 min
         "args": (200,),
     },
     "marketplace-dispatch-due-competitive": {
         "task": "marketplace.dispatch_due_competitive_request_notifications",
-        "schedule": timedelta(minutes=1),
+        "schedule": timedelta(minutes=5),  # Was 1 min, now 5 min
         "args": (200,),
     },
     "extras-portal-send-due-scheduled-messages": {
         "task": "extras_portal.send_due_scheduled_messages",
-        "schedule": timedelta(minutes=1),
+        "schedule": timedelta(minutes=10),  # Was 1 min, now 10 min
         "args": (200,),
     },
     "extras-portal-expire-due-subscriptions": {
@@ -302,7 +314,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     "extras-portal-process-due-client-reminders": {
         "task": "extras_portal.process_due_client_reminders",
-        "schedule": timedelta(minutes=1),
+        "schedule": timedelta(minutes=10),  # Was 1 min, now 10 min
         "args": (500,),
     },
     "verification-expire-badges": {

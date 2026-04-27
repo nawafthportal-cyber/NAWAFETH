@@ -1,3 +1,18 @@
+# Database performance logging
+LOGGING = globals().get("LOGGING", {})
+LOGGING.setdefault("version", 1)
+LOGGING.setdefault("disable_existing_loggers", False)
+LOGGING.setdefault("handlers", {})
+LOGGING.setdefault("loggers", {})
+LOGGING["handlers"].setdefault("console", {"class": "logging.StreamHandler"})
+LOGGING["loggers"].setdefault("django.db.backends", {
+	"handlers": ["console"],
+	"level": "WARNING",  # Change to INFO for more details
+	"propagate": False,
+})
+
+# Enable slow query logging (PostgreSQL side recommended)
+# In PostgreSQL: set log_min_duration_statement = 500 (ms) for slow query detection
 from .base import *  # noqa
 
 import os
