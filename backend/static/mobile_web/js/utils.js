@@ -85,13 +85,22 @@ const UI = (() => {
 
   function findRegionEntry(catalog, regionValue) {
     const normalized = _cleanText(regionValue);
+    const stripped = _stripRegionPrefix(normalized);
     if (!normalized || !Array.isArray(catalog)) return null;
-    return catalog.find((entry) => (
-      entry && (
-        _cleanText(entry.value) === normalized ||
-        _cleanText(entry.region) === _stripRegionPrefix(normalized)
-      )
-    )) || null;
+    return catalog.find((entry) => {
+      if (!entry) return false;
+      // طابق مع أو بدون بادئة "منطقة"
+      const entryValue = _cleanText(entry.value);
+      const entryRegion = _cleanText(entry.region);
+      const entryStripped = _stripRegionPrefix(entryValue);
+      return (
+        entryValue === normalized ||
+        entryRegion === stripped ||
+        entryStripped === stripped ||
+        entryRegion === normalized ||
+        entryStripped === normalized
+      );
+    }) || null;
   }
 
   function inferRegionByCity(city) {
