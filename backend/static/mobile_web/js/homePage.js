@@ -493,9 +493,18 @@ const HomePage = (() => {
     const isMuted = !frame || frame.getAttribute('data-user-muted') !== 'false';
     slide.querySelectorAll('video').forEach(video => {
       video.muted = true;
+      video.defaultMuted = true;
+      video.volume = 0;
       if (shouldPlay) {
         if (video.classList.contains('carousel-media-video')) {
           video.muted = isMuted;
+          video.defaultMuted = isMuted;
+          video.volume = isMuted ? 0 : 1;
+          if (isMuted) {
+            video.setAttribute('muted', '');
+          } else {
+            video.removeAttribute('muted');
+          }
         }
         try { video.currentTime = 0; } catch (_) {}
         const playPromise = video.play();
@@ -553,15 +562,26 @@ const HomePage = (() => {
     };
 
     [muteBtn].forEach((button) => {
-      button.addEventListener('click', stopPropagation);
       button.addEventListener('pointerdown', stopPropagation);
       button.addEventListener('touchstart', stopPropagation, { passive: false });
     });
 
-    muteBtn.addEventListener('click', () => {
+    muteBtn.addEventListener('click', (event) => {
+      stopPropagation(event);
       const nextMuted = !(frame.getAttribute('data-user-muted') !== 'false');
       frame.setAttribute('data-user-muted', nextMuted ? 'true' : 'false');
       mainVideo.muted = nextMuted;
+      mainVideo.defaultMuted = nextMuted;
+      mainVideo.volume = nextMuted ? 0 : 1;
+      if (nextMuted) {
+        mainVideo.setAttribute('muted', '');
+      } else {
+        mainVideo.removeAttribute('muted');
+        const playPromise = mainVideo.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {});
+        }
+      }
       _syncCarouselVideoControlState(frame);
     });
 
@@ -597,6 +617,8 @@ const HomePage = (() => {
         'aria-hidden': 'true',
       });
       backdropVid.muted = true;
+      backdropVid.defaultMuted = true;
+      backdropVid.volume = 0;
       backdropVid.loop = shouldLoopSingleVideo;
       backdropVid.playsInline = true;
       backdropVid.setAttribute('playsinline', '');
@@ -632,6 +654,8 @@ const HomePage = (() => {
       });
       vid.autoplay = false;
       vid.muted = true;
+      vid.defaultMuted = true;
+      vid.volume = 0;
       vid.loop = shouldLoopSingleVideo;
       vid.playsInline = true;
       vid.setAttribute('playsinline', '');

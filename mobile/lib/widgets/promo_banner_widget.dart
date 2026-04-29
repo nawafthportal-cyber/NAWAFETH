@@ -155,7 +155,10 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return;
     final nextMuted = !_isMuted;
-    await controller.setVolume(nextMuted ? 0 : 1);
+    await controller.setVolume(nextMuted ? 0.0 : 1.0);
+    if (!nextMuted && widget.isActive && !controller.value.isPlaying) {
+      await controller.play();
+    }
     if (!mounted) return;
     setState(() => _isMuted = nextMuted);
   }
