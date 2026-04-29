@@ -817,12 +817,16 @@ var AdditionalServicesPage = (function () {
       return false;
     }
 
-    if (state.form.reports.enabled && state.form.reports.start_at && state.form.reports.end_at) {
-      if (state.form.reports.start_at > state.form.reports.end_at) {
-        setActiveSection("reports");
-        setSubmitError("تاريخ نهاية التقرير يجب أن يكون بعد تاريخ البداية.");
-        return false;
-      }
+    if (state.form.reports.enabled && (!state.form.reports.start_at || !state.form.reports.end_at)) {
+      setActiveSection("reports");
+      setSubmitError("حدد تاريخ بداية ونهاية التقرير.");
+      return false;
+    }
+
+    if (state.form.reports.enabled && state.form.reports.start_at > state.form.reports.end_at) {
+      setActiveSection("reports");
+      setSubmitError("تاريخ نهاية التقرير يجب أن يكون بعد تاريخ البداية.");
+      return false;
     }
 
     if (state.form.clients.enabled && state.form.clients.options.length < 1) {

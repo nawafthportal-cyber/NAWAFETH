@@ -5,8 +5,20 @@
 {% block content %}
 <main class="page-shell">
   <div class="page-header">
-    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <h1>التقييمات</h1>
+    <div class="page-header-copy">
+      <span class="page-header-kicker">تجربة العملاء</span>
+      <h1>التقييمات</h1>
+      <p class="page-header-lead">لوحة مراجعة موحدة لقراءة الانطباع العام، تحليل المحاور، واستعراض أحدث آراء العملاء بشكل أوضح على الشاشات الكبيرة.</p>
+    </div>
+    <div class="page-header-meta">
+      <div class="page-header-note">
+        <strong>قراءة أسرع</strong>
+        <span>ملخص ثابت على اليمين وقائمة تقييمات تستفيد من عرض الشاشة بدل التكدس في المنتصف.</span>
+      </div>
+      <button class="btn-back" onclick="history.back()" aria-label="العودة">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
   </div>
 
   <div id="rv-loading" class="loading-center"><div class="spinner"></div></div>

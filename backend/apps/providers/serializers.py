@@ -912,6 +912,8 @@ class ProviderFollowerSerializer(serializers.ModelSerializer):
     display_name = serializers.SerializerMethodField()
     provider_id = serializers.SerializerMethodField()
     profile_image = serializers.SerializerMethodField()
+    is_verified_blue = serializers.SerializerMethodField()
+    is_verified_green = serializers.SerializerMethodField()
     follow_role_context = serializers.CharField(source="role_context", read_only=True)
 
     class Meta:
@@ -922,6 +924,8 @@ class ProviderFollowerSerializer(serializers.ModelSerializer):
             "display_name",
             "provider_id",
             "profile_image",
+            "is_verified_blue",
+            "is_verified_green",
             "follow_role_context",
             "created_at",
         )
@@ -958,6 +962,16 @@ class ProviderFollowerSerializer(serializers.ModelSerializer):
         if provider_image:
             return provider_image
         return _safe_file_url(getattr(user, "profile_image", None))
+
+    def get_is_verified_blue(self, obj: ProviderFollow) -> bool:
+        user = getattr(obj, "user", None)
+        profile = getattr(user, "provider_profile", None) if user is not None else None
+        return bool(getattr(profile, "is_verified_blue", False))
+
+    def get_is_verified_green(self, obj: ProviderFollow) -> bool:
+        user = getattr(obj, "user", None)
+        profile = getattr(user, "provider_profile", None) if user is not None else None
+        return bool(getattr(profile, "is_verified_green", False))
 
 
 class MyProviderSubcategoriesSerializer(serializers.Serializer):

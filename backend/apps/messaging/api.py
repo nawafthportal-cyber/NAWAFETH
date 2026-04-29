@@ -11,7 +11,7 @@ import os
 from django.db import DatabaseError, OperationalError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import OuterRef, Q, Subquery
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -69,9 +69,28 @@ def _invalidate_direct_thread_badges(thread: Thread) -> None:
 def _direct_threads_count_for_user(user) -> int:
 	if not getattr(user, "pk", None):
 		return 0
-	return Thread.objects.filter(is_direct=True).filter(
-		Q(participant_1=user) | Q(participant_2=user)
-	).distinct().count()
+	first_sender_subquery = Subquery(
+		Message.objects.filter(
+			thread=OuterRef("pk"),
+			is_system_generated=False,
+		)
+		.order_by("created_at", "id")
+		.values("sender_id")[:1]
+	)
+	return (
+		Thread.objects.filter(is_direct=True, is_system_thread=False)
+		.filter(Q(participant_1=user) | Q(participant_2=user))
+		.annotate(first_sender_id=first_sender_subquery)
+		.filter(first_sender_id=getattr(user, "id", None))
+		.distinct()
+		.count()
+	)
+
+
+def _direct_thread_consumes_quota(thread: Thread) -> bool:
+	if not getattr(thread, "is_direct", False):
+		return False
+	return Message.objects.filter(thread=thread, is_system_generated=False).exists()
 
 
 def _provider_direct_chat_limit_exceeded(user) -> bool:
@@ -327,16 +346,6 @@ class DirectThreadGetOrCreateView(APIView):
 				user_b_mode=recipient_mode,
 			)
 		else:
-			provider_users = []
-			for candidate in (me, recipient_user):
-				if getattr(candidate, "provider_profile", None) and candidate not in provider_users:
-					provider_users.append(candidate)
-			for candidate in provider_users:
-				if _provider_direct_chat_limit_exceeded(candidate):
-					return Response(
-						{"error": "تم بلوغ الحد الأقصى للمحادثات المباشرة في الباقة الحالية"},
-						status=status.HTTP_403_FORBIDDEN,
-					)
 			thread = Thread.objects.create(
 				is_direct=True,
 				context_mode=desired_mode,
@@ -406,6 +415,17 @@ class DirectThreadSendMessageView(APIView):
 
 		serializer = MessageCreateSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
+		if not _direct_thread_consumes_quota(thread):
+			provider_users = []
+			for candidate in (thread.participant_1, thread.participant_2):
+				if getattr(candidate, "provider_profile", None) and candidate not in provider_users:
+					provider_users.append(candidate)
+			for candidate in provider_users:
+				if _provider_direct_chat_limit_exceeded(candidate):
+					return Response(
+						{"error": "تم بلوغ الحد الأقصى للمحادثات المباشرة في الباقة الحالية"},
+						status=status.HTTP_403_FORBIDDEN,
+					)
 		attachment = serializer.validated_data.get("attachment")
 		attachment_type = _infer_attachment_type(
 			attachment,

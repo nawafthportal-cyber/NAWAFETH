@@ -59,6 +59,14 @@ class ExtrasReportsSelectionSerializer(serializers.Serializer):
 
         start_at = attrs.get("start_at")
         end_at = attrs.get("end_at")
+        if enabled:
+            date_errors = {}
+            if start_at is None:
+                date_errors["start_at"] = "حدد تاريخ بداية التقرير."
+            if end_at is None:
+                date_errors["end_at"] = "حدد تاريخ نهاية التقرير."
+            if date_errors:
+                raise serializers.ValidationError(date_errors)
         if start_at and end_at and start_at > end_at:
             raise serializers.ValidationError({"end_at": "تاريخ نهاية التقرير يجب أن يكون بعد تاريخ البداية."})
         attrs["enabled"] = enabled

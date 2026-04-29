@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:nawafeth/services/account_mode_service.dart';
 import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/auth_api_service.dart';
 import 'package:nawafeth/services/auth_service.dart';
@@ -199,5 +200,50 @@ void main() {
     expect(cachedResult.data, hasLength(1));
     expect(cachedResult.isOfflineFallback, isTrue);
     expect(cachedResult.data.first.name, 'قانون');
+  });
+
+  test('api client caches sensitive GET responses per user and mode', () async {
+    var requestCount = 0;
+    ApiClient.debugSetHttpClient(
+      MockClient((request) async {
+        requestCount += 1;
+        return http.Response(
+          jsonEncode({
+            'request_count': requestCount,
+            'path': request.url.path,
+            'query': request.url.query,
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    await AuthService.saveTokens(access: 'token-a', refresh: 'refresh-a');
+    await AuthService.saveUserBasicInfo(userId: 1, roleState: 'client');
+    await AccountModeService.setProviderMode(false);
+
+    final firstUserClient =
+        await ApiClient.get('/api/accounts/me/?mode=client');
+    final firstUserClientCached =
+        await ApiClient.get('/api/accounts/me/?mode=client');
+
+    await AuthService.saveUserBasicInfo(userId: 2, roleState: 'client');
+    final secondUserClient =
+        await ApiClient.get('/api/accounts/me/?mode=client');
+
+    await AuthService.saveUserBasicInfo(userId: 2, roleState: 'provider');
+    await AccountModeService.setProviderMode(true);
+    final secondUserProvider =
+        await ApiClient.get('/api/core/unread-badges/?mode=provider');
+    final secondUserProviderCached =
+        await ApiClient.get('/api/core/unread-badges/?mode=provider');
+
+    expect(firstUserClient.dataAsMap?['request_count'], 1);
+    expect(firstUserClientCached.dataAsMap?['request_count'], 1);
+    expect(secondUserClient.dataAsMap?['request_count'], 2);
+    expect(secondUserProvider.dataAsMap?['request_count'], 3);
+    expect(secondUserProviderCached.dataAsMap?['request_count'], 3);
+    expect(requestCount, 3);
   });
 }

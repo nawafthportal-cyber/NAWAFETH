@@ -19,6 +19,10 @@ const ApiClient = (() => {
     { test: (path) => path.indexOf('/api/promo/active/') === 0, ttl: 2 * 60 * 1000 },
     { test: (path) => path.indexOf('/api/home/aggregate/') === 0, ttl: 30 * 1000 },
   ];
+  const SENSITIVE_GET_RULES = [
+    (path) => path.indexOf('/api/accounts/me/') === 0,
+    (path) => path.indexOf('/api/core/unread-badges/') === 0,
+  ];
 
   function _readStoredValue(key) {
     try {
@@ -137,6 +141,28 @@ const ApiClient = (() => {
   function _cacheRuleFor(path) {
     const cleanPath = String(path || '').split('#')[0];
     return GET_CACHE_RULES.find((rule) => rule.test(cleanPath)) || null;
+  }
+
+  function _isSensitiveGetPath(path) {
+    const cleanPath = String(path || '').split('#')[0];
+    return SENSITIVE_GET_RULES.some((test) => test(cleanPath));
+  }
+
+  function _cacheIdentity() {
+    const mode = _getActiveAccountMode();
+    let userId = '0';
+    try {
+      if (typeof Auth !== 'undefined' && Auth && typeof Auth.getUserId === 'function') {
+        userId = String(Auth.getUserId() || '0').trim() || '0';
+      }
+    } catch (_) {}
+    return 'user:' + userId + ':mode:' + mode;
+  }
+
+  function _cacheKeyFor(path) {
+    const cleanPath = String(path || '').split('#')[0];
+    if (!_isSensitiveGetPath(cleanPath)) return cleanPath;
+    return cleanPath + '::' + _cacheIdentity();
   }
 
   async function _tryRefresh() {
@@ -260,18 +286,19 @@ const ApiClient = (() => {
     const forceRefresh = !!(options && options.forceRefresh);
     if (!rule || forceRefresh) return request(path, { timeout: timeout || 12000 });
 
-    const cached = _getCache.get(path);
+    const cacheKey = _cacheKeyFor(path);
+    const cached = _getCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return Promise.resolve(cached.value);
     }
 
-    const pending = _getInFlight.get(path);
+    const pending = _getInFlight.get(cacheKey);
     if (pending) return pending;
 
     const promise = request(path, { timeout: timeout || 12000 })
       .then((res) => {
         if (res && res.ok) {
-          _getCache.set(path, {
+          _getCache.set(cacheKey, {
             value: res,
             expiresAt: Date.now() + rule.ttl,
           });
@@ -279,9 +306,9 @@ const ApiClient = (() => {
         return res;
       })
       .finally(() => {
-        _getInFlight.delete(path);
+        _getInFlight.delete(cacheKey);
       });
-    _getInFlight.set(path, promise);
+    _getInFlight.set(cacheKey, promise);
     return promise;
   }
 

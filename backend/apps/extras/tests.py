@@ -8,7 +8,38 @@ from apps.billing.models import Invoice, InvoiceStatus
 from apps.providers.models import ProviderProfile
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestStatus, UnifiedRequestType
 
+from .serializers import ExtrasBundleRequestInputSerializer
 from .services import activate_bundle_portal_subscription_for_request, extras_bundle_invoice_for_request
+
+
+class ExtrasBundleRequestValidationTests(TestCase):
+    def test_reports_require_both_start_and_end_dates(self):
+        serializer = ExtrasBundleRequestInputSerializer(
+            data={
+                "reports": {
+                    "enabled": True,
+                    "options": ["platform_metrics"],
+                    "start_at": "2026-04-01",
+                }
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("end_at", serializer.errors["reports"])
+
+    def test_reports_accept_specific_date_range(self):
+        serializer = ExtrasBundleRequestInputSerializer(
+            data={
+                "reports": {
+                    "enabled": True,
+                    "options": ["platform_metrics"],
+                    "start_at": "2026-04-01",
+                    "end_at": "2026-04-30",
+                }
+            }
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
 
 
 class ExtrasBundleInvoiceResolutionTests(TestCase):

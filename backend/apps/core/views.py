@@ -11,7 +11,6 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.views import _me_payload
 from apps.accounts.permissions import IsAtLeastPhoneOnly
 from apps.content.services import public_content_payload
 from apps.promo.views import (
@@ -80,8 +79,6 @@ class HomeAggregateView(APIView):
             return Response(cached, status=status.HTTP_200_OK)
 
         payload = {
-            "user": self._user_payload(request),
-            "badges": self._badges_payload(request),
             "content": public_content_payload(),
             "categories": self._serialize_view(
                 CategoryListView,
@@ -147,34 +144,6 @@ class HomeAggregateView(APIView):
         cache.set(cache_key, payload, self._cache_ttl(request))
         return Response(payload, status=status.HTTP_200_OK)
 
-    def _user_payload(self, request):
-        user = getattr(request, "user", None)
-        if not user or not getattr(user, "is_authenticated", False):
-            return None
-        return _me_payload(user, request=request)
-
-    def _badges_payload(self, request):
-        user = getattr(request, "user", None)
-        if not user or not getattr(user, "is_authenticated", False):
-            return {
-                "notifications": 0,
-                "chats": 0,
-                "mode": (request.query_params.get("mode") or "shared").strip().lower() or "shared",
-                "degraded": False,
-                "stale": False,
-            }
-        mode = request.query_params.get("mode")
-        try:
-            return get_unread_badges_snapshot(user=user, mode=mode)
-        except (OperationalError, DatabaseError):
-            return {
-                "notifications": 0,
-                "chats": 0,
-                "mode": (mode or "shared").strip().lower() or "shared",
-                "degraded": True,
-                "stale": False,
-            }
-
     def _serialize_view(self, view_cls, *, request, params=None):
         params = params or {}
         shim = _RequestShim(
@@ -192,8 +161,6 @@ class HomeAggregateView(APIView):
         return serializer.data
 
     def _cache_key(self, request) -> str:
-        mode = (request.query_params.get("mode") or "shared").strip().lower() or "shared"
-        user_id = getattr(getattr(request, "user", None), "id", 0) or 0
         providers_limit = self._bounded_int(request, "providers_limit", 10, 1, 24)
         home_banners_limit = self._bounded_int(request, "home_banners_limit", 6, 1, 20)
         carousel_limit = self._bounded_int(request, "carousel_limit", 10, 1, 20)
@@ -203,16 +170,13 @@ class HomeAggregateView(APIView):
         snapshots_limit = self._bounded_int(request, "snapshots_limit", 16, 1, 32)
         return (
             "home:aggregate:v1:"
-            f"user:{user_id}:mode:{mode}:providers:{providers_limit}:"
+            f"providers:{providers_limit}:"
             f"home_banners:{home_banners_limit}:carousel:{carousel_limit}:"
             f"spotlights:{spotlights_limit}:featured:{featured_limit}:"
             f"portfolio:{portfolio_limit}:snapshots:{snapshots_limit}"
         )
 
     def _cache_ttl(self, request) -> int:
-        user = getattr(request, "user", None)
-        if user and getattr(user, "is_authenticated", False):
-            return 20
         return 60
 
     @staticmethod

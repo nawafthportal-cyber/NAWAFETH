@@ -13597,6 +13597,12 @@ button.pd-connections-item.is-client:hover {
   color: #1da1f2;
   flex-shrink: 0;
 }
+.pd-connections-verified.is-blue {
+  color: #1da1f2;
+}
+.pd-connections-verified.is-green {
+  color: #16a34a;
+}
 .pd-connections-handle-text {
   display: block;
   margin-top: 1px;

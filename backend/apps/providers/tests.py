@@ -148,6 +148,7 @@ class ProviderFollowersRoleIsolationTests(TestCase):
             city="جدة",
             region="منطقة مكة",
             accepts_urgent=True,
+            is_verified_blue=True,
         )
         ProviderFollow.objects.create(
             user=self.follower_user,
@@ -207,6 +208,8 @@ class ProviderFollowersRoleIsolationTests(TestCase):
         self.assertEqual(rows[0]["follow_role_context"], "provider")
         self.assertEqual(rows[0]["provider_id"], self.follower_provider.id)
         self.assertEqual(rows[0]["display_name"], self.follower_provider.display_name)
+        self.assertTrue(rows[0]["is_verified_blue"])
+        self.assertFalse(rows[0]["is_verified_green"])
 
     def test_public_followers_respects_client_mode(self):
         response = self.client.get(
@@ -220,6 +223,57 @@ class ProviderFollowersRoleIsolationTests(TestCase):
         self.assertEqual(rows[0]["follow_role_context"], "client")
         self.assertIsNone(rows[0]["provider_id"])
         self.assertEqual(rows[0]["display_name"], "عميل متابع")
+        self.assertTrue(rows[0]["is_verified_blue"])
+
+    def test_public_following_returns_actual_verification_flags(self):
+        response = self.client.get(
+            f"{reverse('providers:provider_following', kwargs={'provider_id': self.owner_provider.id})}?scope=all"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._rows_from_payload(response.json())
+        self.assertEqual(rows, [])
+
+        owner_follows_verified = ProviderProfile.objects.create(
+            user=User.objects.create_user(
+                phone="0503400003",
+                username="provider.followed.verified",
+                role_state=UserRole.PROVIDER,
+            ),
+            provider_type="individual",
+            display_name="مزود موثق",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+            is_verified_blue=True,
+        )
+        owner_follows_plain = ProviderProfile.objects.create(
+            user=User.objects.create_user(
+                phone="0503400004",
+                username="provider.followed.plain",
+                role_state=UserRole.PROVIDER,
+            ),
+            provider_type="individual",
+            display_name="مزود غير موثق",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        ProviderFollow.objects.create(user=self.owner_user, provider=owner_follows_verified, role_context="provider")
+        ProviderFollow.objects.create(user=self.owner_user, provider=owner_follows_plain, role_context="provider")
+
+        response = self.client.get(
+            f"{reverse('providers:provider_following', kwargs={'provider_id': self.owner_provider.id})}?scope=all"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._rows_from_payload(response.json())
+        rows_by_name = {row["display_name"]: row for row in rows}
+        self.assertTrue(rows_by_name["مزود موثق"]["is_verified_blue"])
+        self.assertFalse(rows_by_name["مزود غير موثق"]["is_verified_blue"])
+        self.assertFalse(rows_by_name["مزود غير موثق"]["is_verified_green"])
 
 
 class ProviderRatingDisplayTests(TestCase):

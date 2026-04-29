@@ -71,6 +71,7 @@ const UI = (() => {
         return {
           value: rawRegion || region,
           region,
+          nameAr: rawRegion || region, // إصلاح التوافق مع الحقول المطلوبة
           cities: Array.from(new Set(cities)),
         };
       })

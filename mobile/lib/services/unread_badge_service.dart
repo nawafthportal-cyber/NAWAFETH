@@ -361,7 +361,8 @@ class _UnreadBadgeManager with WidgetsBindingObserver {
     final shouldSkipNetwork = !force &&
         _socket != null &&
         _lastRealtimeActivityAt != null &&
-        DateTime.now().difference(_lastRealtimeActivityAt!) < _heartbeatTimeout &&
+        DateTime.now().difference(_lastRealtimeActivityAt!) <
+            _heartbeatTimeout &&
         _lastSuccessfulRefreshAt != null &&
         DateTime.now().difference(_lastSuccessfulRefreshAt!) <
             _healthySocketSyncInterval;

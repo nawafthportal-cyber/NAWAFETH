@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
+
 import 'api_client.dart';
 
 class AnalyticsService {
@@ -9,6 +11,9 @@ class AnalyticsService {
   static Future<void>? _flushInFlight;
   static const Duration _flushInterval = Duration(seconds: 6);
   static const int _maxBatchSize = 20;
+  static final WidgetsBindingObserver _lifecycleObserver =
+      _AnalyticsLifecycleObserver();
+  static bool _lifecycleHookAttached = false;
 
   static Future<void> track({
     required String eventName,
@@ -21,6 +26,7 @@ class AnalyticsService {
     String dedupeKey = '',
     Map<String, dynamic>? payload,
   }) async {
+    _ensureLifecycleHook();
     final normalizedDedupeKey = dedupeKey.trim();
     if (normalizedDedupeKey.isNotEmpty &&
         !_sentDedupeKeys.add(normalizedDedupeKey)) {
@@ -89,6 +95,14 @@ class AnalyticsService {
     });
   }
 
+  static void _ensureLifecycleHook() {
+    if (_lifecycleHookAttached) {
+      return;
+    }
+    WidgetsBinding.instance.addObserver(_lifecycleObserver);
+    _lifecycleHookAttached = true;
+  }
+
   static Future<void> _flushInternal() async {
     if (_buffer.isEmpty) {
       return;
@@ -96,12 +110,27 @@ class AnalyticsService {
     final payload = List<Map<String, dynamic>>.from(_buffer);
     _buffer.clear();
     try {
-      await ApiClient.post(
+      final response = await ApiClient.post(
         '/api/analytics/events/',
         body: {'events': payload},
       );
+      if (!response.isSuccess &&
+          (response.statusCode == 0 || response.statusCode >= 500)) {
+        _buffer.insertAll(0, payload);
+      }
     } catch (_) {
-      // Analytics is best-effort and must not affect user flows.
+      _buffer.insertAll(0, payload);
+    }
+  }
+}
+
+class _AnalyticsLifecycleObserver with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      unawaited(AnalyticsService.flush());
     }
   }
 }

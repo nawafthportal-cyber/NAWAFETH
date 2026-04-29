@@ -44,34 +44,36 @@ class ApiClient {
   }
 
   /// GET request مع مصادقة
-  static Future<ApiResponse> get(String path, {bool forceRefresh = false}) async {
+  static Future<ApiResponse> get(String path,
+      {bool forceRefresh = false}) async {
     final cacheTtl = _getCacheTtl(path);
     if (cacheTtl == null || forceRefresh) {
       return _request('GET', path);
     }
 
-    final cached = _getCache[path];
+    final cacheKey = await _cacheKeyForPath(path);
+    final cached = _getCache[cacheKey];
     if (cached != null && cached.expiresAt.isAfter(DateTime.now())) {
       return cached.response;
     }
 
-    final inFlight = _getInFlight[path];
+    final inFlight = _getInFlight[cacheKey];
     if (inFlight != null) {
       return inFlight;
     }
 
     final future = _request('GET', path).then((response) {
       if (response.isSuccess) {
-        _getCache[path] = _CachedGetResponse(
+        _getCache[cacheKey] = _CachedGetResponse(
           response: response,
           expiresAt: DateTime.now().add(cacheTtl),
         );
       }
       return response;
     }).whenComplete(() {
-      _getInFlight.remove(path);
+      _getInFlight.remove(cacheKey);
     });
-    _getInFlight[path] = future;
+    _getInFlight[cacheKey] = future;
     return future;
   }
 
@@ -510,6 +512,23 @@ class ApiClient {
       return const Duration(seconds: 30);
     }
     return null;
+  }
+
+  static bool _isSensitiveGetPath(String path) {
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    return normalizedPath.startsWith('/api/accounts/me/') ||
+        normalizedPath.startsWith('/api/core/unread-badges/');
+  }
+
+  static Future<String> _cacheKeyForPath(String path) async {
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    if (!_isSensitiveGetPath(normalizedPath)) {
+      return normalizedPath;
+    }
+
+    final userId = await AuthService.getUserId();
+    final mode = await AccountModeService.apiMode();
+    return '$normalizedPath::user:${userId ?? 0}:mode:$mode';
   }
 }
 

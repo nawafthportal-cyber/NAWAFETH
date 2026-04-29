@@ -9,6 +9,11 @@ window.NwAnalytics = (() => {
   let flushTimer = null;
   let flushInFlight = null;
 
+  function _restoreBatch(batch) {
+    if (!Array.isArray(batch) || !batch.length) return;
+    buffer.unshift.apply(buffer, batch);
+  }
+
   function _tokenExpiresSoon(token) {
     try {
       const parts = String(token || '').split('.');
@@ -70,10 +75,38 @@ window.NwAnalytics = (() => {
       headers,
       body: JSON.stringify({ events: batch }),
       keepalive: true,
-    })).catch(() => null).finally(() => {
+    })).then((response) => {
+      if (!response || (response.status >= 500 && response.status <= 599)) {
+        _restoreBatch(batch);
+      }
+      return response;
+    }).catch(() => {
+      _restoreBatch(batch);
+      return null;
+    }).finally(() => {
       flushInFlight = null;
     });
     return flushInFlight;
+  }
+
+  function _flushWithBeacon() {
+    if (!buffer.length) return;
+    const batch = buffer.splice(0, buffer.length);
+    if (!navigator.sendBeacon) {
+      _restoreBatch(batch);
+      void flush();
+      return;
+    }
+    try {
+      const payload = JSON.stringify({ events: batch });
+      const blob = new Blob([payload], { type: 'application/json; charset=UTF-8' });
+      const queued = navigator.sendBeacon(endpoint, blob);
+      if (!queued) {
+        _restoreBatch(batch);
+      }
+    } catch (_) {
+      _restoreBatch(batch);
+    }
   }
 
   function track(eventName, payload = {}, options = {}) {
@@ -108,6 +141,14 @@ window.NwAnalytics = (() => {
   function trackOnce(eventName, payload = {}, dedupeKey = '') {
     return track(eventName, payload, { dedupeKey });
   }
+
+  window.addEventListener('pagehide', _flushWithBeacon, { capture: true });
+  window.addEventListener('beforeunload', _flushWithBeacon, { capture: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      _flushWithBeacon();
+    }
+  });
 
   return { track, trackOnce, flush };
 })();

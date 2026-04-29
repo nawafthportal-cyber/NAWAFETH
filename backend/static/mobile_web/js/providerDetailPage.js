@@ -833,6 +833,8 @@ const ProviderDetailPage = (() => {
         const followerProviderId = _safeInt(item.provider_id);
         const isProvider = isFollowers ? followerProviderId > 0 : true;
         const linkProviderId = isFollowers ? followerProviderId : _safeInt(item.id);
+        const isVerifiedBlue = !!item.is_verified_blue;
+        const isVerifiedGreen = !isVerifiedBlue && !!item.is_verified_green;
 
         const row = UI.el('button', {
           type: 'button',
@@ -850,8 +852,11 @@ const ProviderDetailPage = (() => {
         const meta = UI.el('div', { className: 'pd-sheet-meta' });
         const nameRow = UI.el('div', { className: 'pd-connections-name-row' });
         nameRow.appendChild(UI.el('span', { className: 'pd-sheet-name', textContent: name }));
-        if (isProvider) {
-          const verifiedTick = UI.el('span', { className: 'pd-connections-verified', title: 'مزود خدمة' });
+        if (isProvider && (isVerifiedBlue || isVerifiedGreen)) {
+          const verifiedTick = UI.el('span', {
+            className: 'pd-connections-verified ' + (isVerifiedBlue ? 'is-blue' : 'is-green'),
+            title: isVerifiedBlue ? 'موثق بالشارة الزرقاء' : 'موثق بالشارة الخضراء',
+          });
           verifiedTick.setAttribute('aria-hidden', 'true');
           verifiedTick.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5 14.32 4l3.42-.18.7 3.36 3.06 1.55-1.32 3.18 1.32 3.18-3.06 1.55-.7 3.36L14.32 20 12 22.5 9.68 20l-3.42.18-.7-3.36-3.06-1.55 1.32-3.18L2.5 8.91l3.06-1.55.7-3.36L9.68 4 12 1.5Zm-1.06 13.06 5.3-5.3-1.42-1.42-3.88 3.89-1.76-1.77-1.42 1.42 3.18 3.18Z"/></svg>';
           nameRow.appendChild(verifiedTick);
