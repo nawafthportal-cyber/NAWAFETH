@@ -13,33 +13,85 @@
   <div id="rv-error" class="form-error hidden"></div>
 
   <div id="rv-content" style="display:none">
-    <!-- Rating Summary -->
     <section class="detail-card rv-summary">
-      <div class="rv-overall">
-        <span class="rv-score" id="rv-score">0.0</span>
-        <div class="rv-stars" id="rv-stars"></div>
-        <span class="rv-count" id="rv-count">0 تقييم</span>
+      <div class="rv-summary-top">
+        <div class="rv-summary-copy">
+          <span class="rv-kicker">سمعة مزود الخدمة</span>
+          <h2 class="rv-summary-title">انطباع العملاء عن جودة التنفيذ</h2>
+          <p id="rv-summary-subtitle" class="rv-summary-subtitle">نعرض هنا قراءة شاملة لرضا العملاء وآخر مؤشرات الأداء.</p>
+        </div>
+        <div class="rv-summary-badge">
+          <span>مؤشر الثقة</span>
+          <strong id="rv-trust-score">0%</strong>
+        </div>
       </div>
-      <div class="rv-breakdown" id="rv-breakdown"></div>
+
+      <div class="rv-overall-wrap">
+        <div class="rv-overall">
+          <span class="rv-score" id="rv-score">0.0</span>
+          <div class="rv-stars" id="rv-stars"></div>
+          <span class="rv-count" id="rv-count">0 تقييم</span>
+        </div>
+
+        <div class="rv-distribution-panel">
+          <div class="rv-panel-head">
+            <div>
+              <span class="rv-panel-kicker">توزيع النجوم</span>
+              <h3>كيف جاءت التقييمات؟</h3>
+            </div>
+          </div>
+          <div class="rv-distribution" id="rv-distribution"></div>
+        </div>
+      </div>
+
+      <div class="rv-metrics-strip" id="rv-metrics-strip"></div>
+
+      <div class="rv-breakdown-panel">
+        <div class="rv-panel-head">
+          <div>
+            <span class="rv-panel-kicker">تفصيل المحاور</span>
+            <h3>أين يلمع الأداء أكثر؟</h3>
+          </div>
+        </div>
+        <div class="rv-breakdown" id="rv-breakdown"></div>
+      </div>
     </section>
 
-    <!-- Sort -->
-    <div class="rv-sort">
-      <select id="rv-sort" class="form-select form-select-sm">
-        <option value="newest">الأحدث</option>
-        <option value="highest">الأعلى تقييماً</option>
-        <option value="lowest">الأقل تقييماً</option>
-      </select>
-    </div>
+    <section class="rv-main-panel">
+      <div class="rv-toolbar">
+        <div class="rv-toolbar-copy">
+          <span class="rv-panel-kicker">آراء العملاء</span>
+          <h2>قائمة التقييمات</h2>
+          <p id="rv-toolbar-note">نعرض أحدث التقييمات أولاً مع إمكانية الوصول السريع للمحادثة والرد.</p>
+        </div>
+        <div class="rv-sort">
+          <label for="rv-sort">ترتيب العرض</label>
+          <select id="rv-sort" class="form-select form-select-sm">
+            <option value="newest">الأحدث</option>
+            <option value="highest">الأعلى تقييماً</option>
+            <option value="lowest">الأقل تقييماً</option>
+          </select>
+        </div>
+      </div>
 
-    <!-- Reviews List -->
-    <div id="rv-list"></div>
-    <div id="rv-empty" class="empty-state" style="display:none">
-      <p>لا توجد تقييمات حتى الآن</p>
-    </div>
-    <div style="margin-top:10px">
-      <button id="rv-retry" type="button" class="btn btn-sm btn-outline" style="display:none">إعادة المحاولة</button>
-    </div>
+      <div id="rv-list"></div>
+
+      <div id="rv-empty" class="empty-state" style="display:none">
+        <div class="rv-empty-illustration" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M7 10h10"></path>
+            <path d="M7 14h6"></path>
+            <path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 3v-3H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path>
+          </svg>
+        </div>
+        <h3>لا توجد تقييمات حتى الآن</h3>
+        <p>عند وصول أول تقييم من العملاء ستظهر هنا البطاقات التفصيلية مع الملخص العام والمحاور.</p>
+      </div>
+
+      <div class="rv-retry-row">
+        <button id="rv-retry" type="button" class="btn btn-sm btn-outline" style="display:none">إعادة المحاولة</button>
+      </div>
+    </section>
   </div>
 
   <div id="rv-report-modal" class="rv-report-modal hidden" aria-hidden="true">

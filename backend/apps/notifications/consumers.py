@@ -124,14 +124,14 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
         """Periodically ping the client; close if no pong arrives in time."""
         try:
             while True:
-                await asyncio.sleep(_ws_setting("WS_HEARTBEAT_INTERVAL_SECONDS", 45))
+                await asyncio.sleep(_ws_setting("WS_HEARTBEAT_INTERVAL_SECONDS", 27))
                 # Send a server-initiated ping.
                 try:
                     await self.send_json({"type": "ping"})
                 except Exception:
                     break
                 # Check staleness.
-                if time.monotonic() - self._last_pong > _ws_setting("WS_HEARTBEAT_TIMEOUT_SECONDS", 90):
+                if time.monotonic() - self._last_pong > _ws_setting("WS_HEARTBEAT_TIMEOUT_SECONDS", 75):
                     logger.info(
                         "notification websocket: heartbeat timeout for user %s — closing",
                         getattr(self.user, "id", "?"),

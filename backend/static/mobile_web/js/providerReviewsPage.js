@@ -172,11 +172,30 @@ var ProviderReviewsPage = (function () {
   }
 
   function renderSummary() {
-    var avg = parseFloat(ratingData.rating_avg || 0).toFixed(1);
+    var avgValue = parseFloat(ratingData.rating_avg || 0);
+    var avg = avgValue.toFixed(1);
+    var count = parseInt(ratingData.rating_count || 0, 10) || 0;
+    var descriptor = getRatingDescriptor(avgValue, count);
+    var summarySubtitle = document.getElementById("rv-summary-subtitle");
+    var trustScore = document.getElementById("rv-trust-score");
+    var metricsStrip = document.getElementById("rv-metrics-strip");
+    var distributionEl = document.getElementById("rv-distribution");
+    var toolbarNote = document.getElementById("rv-toolbar-note");
+
     document.getElementById("rv-score").textContent = avg;
-    document.getElementById("rv-count").textContent = (ratingData.rating_count || 0) + " تقييم";
-    document.getElementById("rv-stars").innerHTML = buildStars(parseFloat(avg));
-    
+    document.getElementById("rv-count").textContent = count + " تقييم";
+    document.getElementById("rv-stars").innerHTML = buildStars(avgValue);
+
+    if (summarySubtitle) summarySubtitle.textContent = descriptor;
+    if (trustScore) trustScore.textContent = count ? Math.round((avgValue / 5) * 100) + "%" : "--";
+    if (metricsStrip) metricsStrip.innerHTML = buildMetricsStrip(avgValue, count);
+    if (distributionEl) distributionEl.innerHTML = buildDistributionRows(ratingData.distribution || {}, count);
+    if (toolbarNote) {
+      toolbarNote.textContent = count
+        ? "إجمالي " + count + " تقييم، منها " + countReviewsWithReply() + " تقييمات لديها رد من مقدم الخدمة."
+        : "لا توجد تقييمات منشورة بعد، وسيظهر السجل هنا فور وصول أول تقييم.";
+    }
+
     var breakdown = [
       { label: "سرعة الاستجابة", val: ratingData.response_speed_avg },
       { label: "جودة العمل", val: ratingData.quality_avg },
@@ -185,8 +204,14 @@ var ProviderReviewsPage = (function () {
       { label: "الالتزام بالمواعيد", val: ratingData.on_time_avg }
     ];
     document.getElementById("rv-breakdown").innerHTML = breakdown.map(function (b) {
-      var v = parseFloat(b.val || 0).toFixed(1);
-      return '<div class="rv-bar-row"><span>' + b.label + '</span><div class="rv-bar"><div class="rv-bar-fill" style="width:' + (v / 5 * 100) + '%"></div></div><span>' + v + '</span></div>';
+      var value = parseFloat(b.val || 0);
+      var v = value.toFixed(1);
+      var percent = Math.max(0, Math.min(100, (value / 5) * 100));
+      return '<div class="rv-bar-row">' +
+        '<div class="rv-bar-copy"><strong>' + b.label + '</strong><span>' + getCriterionTone(value) + '</span></div>' +
+        '<div class="rv-bar-track"><div class="rv-bar"><div class="rv-bar-fill" style="width:' + percent + '%"></div></div></div>' +
+        '<span class="rv-bar-value">' + v + '</span>' +
+      '</div>';
     }).join("");
   }
 
@@ -225,14 +250,141 @@ var ProviderReviewsPage = (function () {
   function getReviewDateLabel(review) {
     if (!review || typeof review !== "object") return "بدون تاريخ";
     var raw = review.created_at || review.created;
-    if (!raw) return "بدون تاريخ";
+    return getDateLabel(raw, "بدون تاريخ");
+  }
+
+  function getDateLabel(raw, fallback) {
+    if (!raw) return fallback || "بدون تاريخ";
     var date = new Date(raw);
-    if (!Number.isFinite(date.getTime())) return "بدون تاريخ";
+    if (!Number.isFinite(date.getTime())) return fallback || "بدون تاريخ";
     return date.toLocaleDateString("ar-SA", {
       year: "numeric",
       month: "long",
       day: "numeric"
     });
+  }
+
+  function getReplyDateLabel(review) {
+    if (!review || typeof review !== "object") return "";
+    return getDateLabel(review.provider_reply_edited_at || review.provider_reply_at, "");
+  }
+
+  function getRatingDescriptor(avg, count) {
+    if (!count || avg <= 0) return "لا توجد بيانات كافية بعد، وسيتم تحديث المؤشرات فور وصول تقييمات العملاء.";
+    if (avg >= 4.8) return "مستوى استثنائي يعكس رضا عاليًا جدًا وثقة قوية من العملاء.";
+    if (avg >= 4.4) return "أداء ممتاز ومتوازن مع انطباع احترافي ثابت عبر التجارب.";
+    if (avg >= 4.0) return "تقييم قوي يدل على جودة واضحة وتجربة مرضية في أغلب الطلبات.";
+    if (avg >= 3.5) return "النتيجة جيدة، مع مساحة واضحة لتعزيز بعض المحاور للوصول لمستوى أعلى.";
+    return "النتيجة الحالية تحتاج إلى مزيد من التحسين ورفع جودة التجربة في المحاور الأضعف.";
+  }
+
+  function getCriterionTone(value) {
+    if (value >= 4.7) return "ممتاز جدًا";
+    if (value >= 4.2) return "قوي";
+    if (value >= 3.5) return "جيد";
+    if (value > 0) return "يحتاج دعم";
+    return "بدون بيانات";
+  }
+
+  function countReviewsWithReply() {
+    return reviews.filter(function (review) {
+      return !!String(review && (review.provider_reply || review.reply) || "").trim();
+    }).length;
+  }
+
+  function countLikedReviews() {
+    return reviews.filter(function (review) {
+      return !!(review && review.provider_liked);
+    }).length;
+  }
+
+  function countRecentReviews(days) {
+    var now = Date.now();
+    var duration = (days || 30) * 24 * 60 * 60 * 1000;
+    return reviews.filter(function (review) {
+      var raw = review && (review.created_at || review.created);
+      var stamp = raw ? new Date(raw).getTime() : 0;
+      return Number.isFinite(stamp) && (now - stamp) <= duration;
+    }).length;
+  }
+
+  function buildMetricsStrip(avgValue, count) {
+    var recentCount = countRecentReviews(30);
+    var repliesCount = countReviewsWithReply();
+    var likedCount = countLikedReviews();
+    var featuredMetric = getFeaturedCriterion();
+    var items = [
+      { label: "إجمالي التقييمات", value: count, tone: "is-neutral" },
+      { label: "ردودك المنشورة", value: repliesCount, tone: "is-primary" },
+      { label: "تقييمات أعجبتك", value: likedCount, tone: "is-warm" },
+      { label: featuredMetric.label, value: featuredMetric.value, tone: "is-cool" }
+    ];
+
+    return items.map(function (item) {
+      return '<div class="rv-metric-card ' + item.tone + '">' +
+        '<strong>' + escapeHtml(String(item.value)) + '</strong>' +
+        '<span>' + escapeHtml(item.label) + '</span>' +
+      '</div>';
+    }).join("");
+  }
+
+  function getFeaturedCriterion() {
+    var items = [
+      { label: "أفضل محور", shortLabel: "أفضل محور", value: parseFloat(ratingData.quality_avg || 0), name: "جودة العمل" },
+      { label: "أفضل محور", shortLabel: "أفضل محور", value: parseFloat(ratingData.response_speed_avg || 0), name: "سرعة الاستجابة" },
+      { label: "أفضل محور", shortLabel: "أفضل محور", value: parseFloat(ratingData.cost_value_avg || 0), name: "القيمة مقابل السعر" },
+      { label: "أفضل محور", shortLabel: "أفضل محور", value: parseFloat(ratingData.credibility_avg || 0), name: "المصداقية" },
+      { label: "أفضل محور", shortLabel: "أفضل محور", value: parseFloat(ratingData.on_time_avg || 0), name: "الالتزام بالمواعيد" }
+    ];
+    items.sort(function (a, b) { return b.value - a.value; });
+    if (!items.length || items[0].value <= 0) {
+      return { label: "أحدث 30 يوم", value: countRecentReviews(30) };
+    }
+    return { label: items[0].name, value: items[0].value.toFixed(1) + " / 5" };
+  }
+
+  function buildDistributionRows(distribution, count) {
+    var total = count || 0;
+    var html = "";
+    for (var rating = 5; rating >= 1; rating--) {
+      var itemCount = parseInt(distribution && distribution[String(rating)] || 0, 10) || 0;
+      var percent = total ? Math.round((itemCount / total) * 100) : 0;
+      html += '<div class="rv-distribution-row">' +
+        '<span class="rv-distribution-label">' + rating + ' نجوم</span>' +
+        '<div class="rv-distribution-bar"><div class="rv-distribution-fill" style="width:' + percent + '%"></div></div>' +
+        '<span class="rv-distribution-meta">' + itemCount + ' • ' + percent + '%</span>' +
+      '</div>';
+    }
+    return html;
+  }
+
+  function getReviewerInitial(name) {
+    var clean = String(name || "").trim();
+    return clean ? clean.charAt(0) : "ع";
+  }
+
+  function buildReviewCriteria(review) {
+    var criteria = [
+      { label: "الاستجابة", value: review && review.response_speed },
+      { label: "الجودة", value: review && review.quality },
+      { label: "السعر", value: review && review.cost_value },
+      { label: "المصداقية", value: review && review.credibility },
+      { label: "المواعيد", value: review && review.on_time }
+    ].filter(function (item) {
+      return Number(item.value) > 0;
+    });
+
+    if (!criteria.length) return "";
+    return criteria.map(function (item) {
+      return '<span class="rv-criterion-chip"><strong>' + escapeHtml(String(item.value)) + '</strong><span>' + escapeHtml(item.label) + '</span></span>';
+    }).join("");
+  }
+
+  function buildReplyMeta(review) {
+    var replyDate = getReplyDateLabel(review);
+    var isEdited = !!(review && review.provider_reply_is_edited);
+    if (!replyDate) return "";
+    return '<span class="rv-reply-meta">' + escapeHtml(replyDate) + (isEdited ? ' • تم التعديل' : '') + '</span>';
   }
 
   function findReviewById(reviewId) {
@@ -443,24 +595,37 @@ var ProviderReviewsPage = (function () {
     document.getElementById("rv-empty").style.display = "none";
     document.getElementById("rv-list").innerHTML = list.map(function (r) {
       var name = r.client_name || r.user_name || r.user?.name || "عميل";
-      var date = r.created_at ? new Date(r.created_at).toLocaleDateString("ar-SA") : "";
+      var date = getReviewDateLabel(r);
       var reply = r.provider_reply || r.reply || "";
       var liked = !!r.provider_liked;
       var requestId = r.request_id || "";
       var reviewId = r.id;
-      return '<div class="review-card">' +
-        '<div class="rv-card-header"><strong>' + escapeHtml(name) + '</strong><span class="text-muted">' + escapeHtml(date) + '</span></div>' +
+      var reviewText = getReviewText(r);
+      var criteriaHtml = buildReviewCriteria(r);
+      return '<article class="review-card">' +
+        '<div class="rv-card-top">' +
+          '<div class="rv-card-author">' +
+            '<span class="rv-card-avatar">' + escapeHtml(getReviewerInitial(name)) + '</span>' +
+            '<div class="rv-card-author-copy"><strong>' + escapeHtml(name) + '</strong><span>' + escapeHtml(date) + '</span></div>' +
+          '</div>' +
+          '<div class="rv-card-score-badge"><strong>' + escapeHtml(parseFloat(r.rating || 0).toFixed(1)) + '</strong><span>من 5</span></div>' +
+        '</div>' +
         '<div class="rv-card-stars">' + buildStars(r.rating || 0) + '</div>' +
-        '<p class="rv-card-text">' + escapeHtml(r.comment || r.text || r.review_text || "") + '</p>' +
+        '<div class="rv-card-meta">' +
+          (requestId ? '<span class="rv-meta-pill">طلب #' + escapeHtml(String(requestId)) + '</span>' : '') +
+          (liked ? '<span class="rv-meta-pill is-liked">تم تمييزه</span>' : '') +
+        '</div>' +
+        (criteriaHtml ? '<div class="rv-criteria-grid">' + criteriaHtml + '</div>' : '') +
+        '<p class="rv-card-text' + (!reviewText ? ' is-empty' : '') + '">' + escapeHtml(reviewText || "لم يترك العميل تعليقًا نصيًا، وتم تسجيل التقييم الرقمي فقط.") + '</p>' +
         '<div class="rv-actions" data-review-id="' + reviewId + '">' +
-          '<button type="button" class="btn btn-sm btn-outline rv-like-btn" data-id="' + reviewId + '" data-liked="' + (liked ? "1" : "0") + '">' + (liked ? 'تم الإعجاب' : 'إعجاب') + '</button>' +
-          '<button type="button" class="btn btn-sm btn-outline rv-chat-btn" data-id="' + reviewId + '" data-client-name="' + escapeHtml(name) + '">فتح الشات</button>' +
-          '<button type="button" class="btn btn-sm btn-outline rv-request-btn" data-request-id="' + requestId + '" ' + (requestId ? '' : 'disabled') + '>عرض الطلب</button>' +
+          '<button type="button" class="btn btn-sm btn-outline rv-like-btn' + (liked ? ' is-active' : '') + '" data-id="' + reviewId + '" data-liked="' + (liked ? "1" : "0") + '">' + (liked ? 'إلغاء التقدير' : 'تمييز التقييم') + '</button>' +
+          '<button type="button" class="btn btn-sm btn-outline rv-chat-btn" data-id="' + reviewId + '" data-client-name="' + escapeHtml(name) + '">مراسلة العميل</button>' +
+          '<button type="button" class="btn btn-sm btn-outline rv-request-btn" data-request-id="' + requestId + '" ' + (requestId ? '' : 'disabled') + '>تفاصيل الطلب</button>' +
           '<button type="button" class="btn btn-sm btn-outline rv-report-btn" data-id="' + reviewId + '" data-client-id="' + (r.client_id || '') + '">إبلاغ</button>' +
         '</div>' +
-        (reply ? '<div class="rv-reply"><strong>ردك:</strong> ' + escapeHtml(reply) + '</div>' : '') +
-        (!reply ? '<div class="rv-reply-form" data-id="' + reviewId + '"><textarea class="form-input rv-reply-input" rows="2" placeholder="اكتب ردك..."></textarea><button class="btn btn-sm btn-primary rv-reply-btn">إرسال الرد</button></div>' : '') +
-        '</div>';
+        (reply ? '<div class="rv-reply"><div class="rv-reply-head"><strong>ردك على العميل</strong>' + buildReplyMeta(r) + '</div><p>' + escapeHtml(reply) + '</p></div>' : '') +
+        (!reply ? '<div class="rv-reply-form" data-id="' + reviewId + '"><label class="rv-reply-label">أضف ردًا احترافيًا على هذا التقييم</label><textarea class="form-input rv-reply-input" rows="3" maxlength="500" placeholder="اكتب ردًا يشكر العميل أو يوضح تفاصيل الخدمة..."></textarea><button type="button" class="btn btn-sm btn-primary rv-reply-btn">نشر الرد</button></div>' : '') +
+      '</article>';
     }).join("");
 
     document.querySelectorAll('.rv-like-btn').forEach(function (btn) {

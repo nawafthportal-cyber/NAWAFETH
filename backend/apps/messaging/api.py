@@ -503,11 +503,19 @@ class MyDirectThreadsListView(APIView):
 				profile_image = getattr(peer_provider, "profile_image", None)
 				if profile_image and getattr(profile_image, "name", ""):
 					peer_profile_image = getattr(profile_image, "url", "") or ""
+			peer_kind = "member"
+			if getattr(peer, "is_staff", False):
+				peer_kind = "team"
+			elif peer_provider:
+				peer_kind = "provider"
+			elif mode == "provider":
+				peer_kind = "client"
 
 			result.append({
 				"thread_id": t.id,
 				"is_system_thread": bool(t.is_system_thread),
 				"peer_id": peer.id,
+				"peer_kind": peer_kind,
 				"peer_provider_id": getattr(peer_provider, "id", None),
 				"peer_profile_image": peer_profile_image,
 				"peer_excellence_badges": (

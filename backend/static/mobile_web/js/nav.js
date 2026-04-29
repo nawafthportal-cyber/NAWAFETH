@@ -74,9 +74,12 @@ const Nav = (() => {
   let _badgePollTimer = null;
   let _badgeSocket = null;
   let _badgeSocketReconnectTimer = null;
+  let _badgeSocketHeartbeatTimer = null;
   let _badgeSocketBackoffMs = 1000;
   let _badgeOwnsLeadership = false;
   let _badgeEventsBound = false;
+  let _badgeSocketLastActivityAt = 0;
+  let _badgeLastFetchAt = 0;
   let _topbarSponsorLoaded = false;
   let _topbarBrandLogoLoaded = false;
   let _topbarSponsorRotateTimer = 0;
@@ -84,8 +87,11 @@ const Nav = (() => {
   let _topbarSponsorPayload = null;
   let _topbarSponsorDialogBound = false;
   const _badgePollIntervalMs = 45000;
+  const _badgeHealthySyncIntervalMs = 3 * 60 * 1000;
   const _badgeLeaderTtlMs = 70000;
   const _badgeSocketBackoffMaxMs = 30000;
+  const _badgeSocketHeartbeatIntervalMs = 27000;
+  const _badgeSocketHeartbeatTimeoutMs = 75000;
   const _badgeLeaderKey = 'nw_badge_poll_leader_v2';
   const _badgeSnapshotKey = 'nw_badge_snapshot_v2';
   const _badgeRealtimeLocalOverrideKey = 'nw_enable_local_ws';
@@ -912,9 +918,14 @@ const Nav = (() => {
 
   function _closeBadgeSocket() {
     _clearBadgeSocketReconnect();
+    if (_badgeSocketHeartbeatTimer) {
+      clearInterval(_badgeSocketHeartbeatTimer);
+      _badgeSocketHeartbeatTimer = null;
+    }
     if (!_badgeSocket) return;
     const socket = _badgeSocket;
     _badgeSocket = null;
+    _badgeSocketLastActivityAt = 0;
     try {
       socket.onopen = null;
       socket.onmessage = null;
@@ -922,6 +933,24 @@ const Nav = (() => {
       socket.onclose = null;
       socket.close(1000, 'badge polling stopped');
     } catch (_) {}
+  }
+
+  function _startBadgeSocketHeartbeat() {
+    if (_badgeSocketHeartbeatTimer) {
+      clearInterval(_badgeSocketHeartbeatTimer);
+    }
+    _badgeSocketHeartbeatTimer = window.setInterval(() => {
+      if (!_badgeSocket) return;
+      if (_badgeSocketLastActivityAt && (Date.now() - _badgeSocketLastActivityAt) > _badgeSocketHeartbeatTimeoutMs) {
+        try {
+          _badgeSocket.close(4008, 'heartbeat_timeout');
+        } catch (_) {}
+        return;
+      }
+      try {
+        _badgeSocket.send(JSON.stringify({ type: 'ping' }));
+      } catch (_) {}
+    }, _badgeSocketHeartbeatIntervalMs);
   }
 
   function _canUseBadgeRealtime() {
@@ -994,7 +1023,16 @@ const Nav = (() => {
     } catch (_) {
       return;
     }
-    if (!payload || payload.type !== 'notification.created') return;
+    _badgeSocketLastActivityAt = Date.now();
+    if (!payload) return;
+    if (payload.type === 'ping') {
+      try {
+        if (_badgeSocket) _badgeSocket.send(JSON.stringify({ type: 'pong' }));
+      } catch (_) {}
+      return;
+    }
+    if (payload.type === 'pong' || payload.type === 'connected') return;
+    if (payload.type !== 'notification.created') return;
     try {
       window.dispatchEvent(new CustomEvent('nw:notification-created', {
         detail: payload.notification || {},
@@ -1028,6 +1066,8 @@ const Nav = (() => {
     socket.onopen = () => {
       if (_badgeSocket !== socket) return;
       _badgeSocketBackoffMs = 1000;
+      _badgeSocketLastActivityAt = Date.now();
+      _startBadgeSocketHeartbeat();
       _syncBadgePolling(true);
     };
     socket.onmessage = (event) => {
@@ -1038,6 +1078,10 @@ const Nav = (() => {
     socket.onclose = async (event) => {
       if (_badgeSocket === socket) {
         _badgeSocket = null;
+      }
+      if (_badgeSocketHeartbeatTimer) {
+        clearInterval(_badgeSocketHeartbeatTimer);
+        _badgeSocketHeartbeatTimer = null;
       }
       if (!_canUseBadgeRealtime()) return;
       if (event && event.code === 4401 && typeof Auth.refreshAccessToken === 'function') {
@@ -1097,8 +1141,24 @@ const Nav = (() => {
     _badgeRefreshInFlight = true;
     try {
       _renewBadgeLeadership();
+      const now = Date.now();
+      if (
+        !forceLeadership &&
+        _badgeSocket &&
+        _badgeSocket.readyState === WebSocket.OPEN &&
+        _badgeSocketLastActivityAt &&
+        (now - _badgeSocketLastActivityAt) < _badgeSocketHeartbeatTimeoutMs &&
+        _badgeLastFetchAt &&
+        (now - _badgeLastFetchAt) < _badgeHealthySyncIntervalMs
+      ) {
+        return;
+      }
       const mode = _activeMode();
-      const res = await ApiClient.get('/api/core/unread-badges/?mode=' + mode);
+      const res = await ApiClient.get(
+        '/api/core/unread-badges/?mode=' + mode,
+        null,
+        { forceRefresh: !!forceLeadership }
+      );
       if (res?.status === 401) {
         _badgeUnauthorizedUntil = Date.now() + (2 * 60 * 1000);
         _clearUnreadBadges();
@@ -1115,6 +1175,7 @@ const Nav = (() => {
         notifications: res.data.notifications || 0,
         chats: res.data.chats || 0,
       };
+      _badgeLastFetchAt = Date.now();
       _applyBadgePayload(payload);
       _publishBadgePayload(payload);
     } finally {

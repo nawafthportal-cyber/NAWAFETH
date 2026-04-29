@@ -743,12 +743,19 @@ const ProviderDetailPage = (() => {
     const title = isFollowers ? 'المتابعون' : 'المتابعين';
     const subtitle = isFollowers ? 'الذين يتابعون مقدم الخدمة' : 'الذين يتابعهم مقدم الخدمة';
     const countEl = isFollowers ? document.getElementById('stat-followers') : document.getElementById('btn-show-following');
-    const count = countEl ? (parseInt(isFollowers ? countEl.textContent : countEl.dataset.count, 10) || 0) : 0;
+    const fallbackCount = countEl ? (parseInt(isFollowers ? countEl.textContent : countEl.dataset.count, 10) || 0) : 0;
 
     const res = await ApiClient.get(endpoint);
     const items = res.ok
       ? (Array.isArray(res.data) ? res.data : (res.data?.results || []))
       : [];
+    const actualCount = Array.isArray(items) ? items.length : 0;
+    const count = actualCount || fallbackCount;
+
+    if (countEl && actualCount !== fallbackCount) {
+      if (isFollowers) countEl.textContent = String(actualCount);
+      else countEl.dataset.count = String(actualCount);
+    }
 
     const backdrop = UI.el('div', { className: 'pd-sheet-backdrop pd-connections-sheet-backdrop' });
     const sheet = UI.el('div', { className: 'pd-sheet pd-connections-sheet' });

@@ -173,7 +173,7 @@ class _MyChatsScreenState extends State<MyChatsScreen>
   }
 
   int get _clientsThreadsCount {
-    return _visibleThreads.where((thread) => (thread.clientLabel ?? '').trim().isNotEmpty).length;
+    return _visibleThreads.where((thread) => _threadKind(thread) == _ThreadKind.client).length;
   }
 
   String get _modeLabel => _isProviderAccount ? 'وضع مقدم الخدمة' : 'وضع العميل';
@@ -182,11 +182,12 @@ class _MyChatsScreenState extends State<MyChatsScreen>
     List<ChatThread> filtered = [..._visibleThreads];
 
     if (searchQuery.trim().isNotEmpty) {
-      final query = searchQuery.trim();
+      final query = _normalizeSearchValue(searchQuery);
       filtered = filtered.where((thread) {
-        return thread.peerDisplayName.contains(query) ||
-            thread.peerPhone.contains(query) ||
-            thread.peerLocationDisplay.contains(query);
+        return _normalizeSearchValue(thread.peerDisplayName).contains(query) ||
+            _normalizeSearchValue(thread.peerPhone).contains(query) ||
+            _normalizeSearchValue(thread.peerLocationDisplay).contains(query) ||
+            _normalizeSearchValue(thread.clientLabel ?? '').contains(query);
       }).toList();
     }
 
@@ -196,9 +197,7 @@ class _MyChatsScreenState extends State<MyChatsScreen>
       filtered = filtered.where((thread) => thread.isFavorite).toList();
     } else if (selectedFilter == 'عملاء') {
       if (_isProviderAccount) {
-        filtered = filtered
-            .where((thread) => (thread.clientLabel ?? '').trim().isNotEmpty)
-            .toList();
+        filtered = filtered.where((thread) => _threadKind(thread) == _ThreadKind.client).toList();
       }
     } else if (selectedFilter == 'الأحدث') {
       filtered.sort((a, b) => b.lastMessageAt.compareTo(a.lastMessageAt));
@@ -259,9 +258,23 @@ class _MyChatsScreenState extends State<MyChatsScreen>
 
   bool _meaningfulValue(String? value) => (value ?? '').trim().isNotEmpty;
 
+  String _normalizeSearchValue(String? value) {
+    return (value ?? '').trim().toLowerCase();
+  }
+
   bool _isPlatformTeamName(String name) => name.trim().startsWith('فريق ');
 
   _ThreadKind _threadKind(ChatThread thread) {
+    switch (thread.normalizedPeerKind) {
+      case 'team':
+        return _ThreadKind.team;
+      case 'provider':
+        return _ThreadKind.provider;
+      case 'client':
+        return _ThreadKind.client;
+      case 'member':
+        return _ThreadKind.member;
+    }
     final displayName = thread.peerDisplayName;
     if (_isPlatformTeamName(displayName)) return _ThreadKind.team;
     if ((thread.peerProviderId ?? 0) > 0) return _ThreadKind.provider;

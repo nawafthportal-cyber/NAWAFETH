@@ -3,6 +3,11 @@
 window.NwAnalytics = (() => {
   const sentKeys = new Set();
   const endpoint = window.location.origin + '/api/analytics/events/';
+  const buffer = [];
+  const MAX_BATCH_SIZE = 20;
+  const FLUSH_INTERVAL_MS = 6000;
+  let flushTimer = null;
+  let flushInFlight = null;
 
   function _tokenExpiresSoon(token) {
     try {
@@ -43,6 +48,34 @@ window.NwAnalytics = (() => {
     return headers;
   }
 
+  function _scheduleFlush() {
+    if (flushTimer) return;
+    flushTimer = window.setTimeout(() => {
+      flushTimer = null;
+      flush();
+    }, FLUSH_INTERVAL_MS);
+  }
+
+  function flush() {
+    if (flushInFlight) return flushInFlight;
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    if (!buffer.length) return Promise.resolve({ skipped: true, empty: true });
+
+    const batch = buffer.splice(0, buffer.length);
+    flushInFlight = _authHeaders().then((headers) => fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ events: batch }),
+      keepalive: true,
+    })).catch(() => null).finally(() => {
+      flushInFlight = null;
+    });
+    return flushInFlight;
+  }
+
   function track(eventName, payload = {}, options = {}) {
     const dedupeKey = String(options.dedupeKey || payload.dedupe_key || '').trim();
     if (dedupeKey) {
@@ -64,17 +97,17 @@ window.NwAnalytics = (() => {
       payload: payload.payload && typeof payload.payload === 'object' ? payload.payload : {},
     };
 
-    return _authHeaders().then((headers) => fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      keepalive: true,
-    })).catch(() => null);
+    buffer.push(body);
+    _scheduleFlush();
+    if (buffer.length >= MAX_BATCH_SIZE) {
+      return flush();
+    }
+    return Promise.resolve({ accepted: true, buffered: true });
   }
 
   function trackOnce(eventName, payload = {}, dedupeKey = '') {
     return track(eventName, payload, { dedupeKey });
   }
 
-  return { track, trackOnce };
+  return { track, trackOnce, flush };
 })();

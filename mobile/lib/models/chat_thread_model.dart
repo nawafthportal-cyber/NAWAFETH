@@ -5,6 +5,7 @@ import '../constants/saudi_cities.dart';
 class ChatThread {
   final int threadId;
   final int peerId;
+  final String peerKind;
   final int? peerProviderId;
   final String peerName;
   final String peerFirstName;
@@ -29,6 +30,7 @@ class ChatThread {
   ChatThread({
     required this.threadId,
     required this.peerId,
+    this.peerKind = '',
     this.peerProviderId,
     required this.peerName,
     this.peerFirstName = '',
@@ -53,6 +55,7 @@ class ChatThread {
     return ChatThread(
       threadId: json['thread_id'] as int,
       peerId: json['peer_id'] as int,
+      peerKind: (json['peer_kind'] ?? '') as String,
       peerProviderId: json['peer_provider_id'] as int?,
       peerName: (json['peer_name'] ?? '') as String,
       peerFirstName: (json['peer_first_name'] ?? '') as String,
@@ -73,6 +76,7 @@ class ChatThread {
     return {
       'thread_id': threadId,
       'peer_id': peerId,
+      'peer_kind': peerKind,
       'peer_provider_id': peerProviderId,
       'peer_name': peerName,
       'peer_first_name': peerFirstName,
@@ -118,6 +122,8 @@ class ChatThread {
   String get peerLocationDisplay => SaudiCities.formatCityDisplay(
         peerCityDisplay.isNotEmpty ? peerCityDisplay : peerCity,
       );
+
+  String get normalizedPeerKind => peerKind.trim().toLowerCase();
 }
 
 /// نموذج حالة المحادثة من GET /api/messaging/threads/states/

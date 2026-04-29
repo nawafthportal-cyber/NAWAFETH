@@ -28,10 +28,17 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     with SingleTickerProviderStateMixin {
   TabController? _tabController;
   int _loadEpoch = 0;
+  final TextEditingController _followingSearchController =
+      TextEditingController();
+  final TextEditingController _followersSearchController =
+      TextEditingController();
+  final TextEditingController _favoritesSearchController =
+      TextEditingController();
 
   bool _isProviderMode = false;
   bool _isLoggedIn = false;
   bool _authChecked = false;
+  bool _followingCompact = false;
 
   List<ProviderPublicModel> _following = [];
   List<UserPublicModel> _followers = [];
@@ -55,6 +62,9 @@ class _InteractiveScreenState extends State<InteractiveScreen>
   void initState() {
     super.initState();
     AccountModeService.addListener(_handleAccountModeChanged);
+    _followingSearchController.addListener(_onFilterChanged);
+    _followersSearchController.addListener(_onFilterChanged);
+    _favoritesSearchController.addListener(_onFilterChanged);
     _loadAllData(forceRefresh: true);
   }
 
@@ -210,10 +220,80 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     return null;
   }
 
+  void _onFilterChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  String _normalizeSearch(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  bool _matchesQuery(String query, List<String?> values) {
+    if (query.isEmpty) return true;
+    final haystack = _normalizeSearch(
+      values
+          .whereType<String>()
+          .where((value) => value.trim().isNotEmpty)
+          .join(' '),
+    );
+    return haystack.contains(query);
+  }
+
+  List<ProviderPublicModel> get _filteredFollowing {
+    final query = _normalizeSearch(_followingSearchController.text);
+    return _following.where((provider) {
+      return _matchesQuery(query, [
+        provider.displayName,
+        provider.username,
+        provider.locationDisplay,
+        provider.primaryCategoryName,
+        provider.primarySubcategoryName,
+        provider.providerTypeLabel,
+      ]);
+    }).toList(growable: false);
+  }
+
+  List<UserPublicModel> get _filteredFollowers {
+    final query = _normalizeSearch(_followersSearchController.text);
+    return _followers.where((user) {
+      return _matchesQuery(query, [
+        user.displayName,
+        user.username,
+        user.usernameDisplay,
+        user.followerBadgeLabel,
+      ]);
+    }).toList(growable: false);
+  }
+
+  List<MediaItemModel> get _filteredFavorites {
+    final query = _normalizeSearch(_favoritesSearchController.text);
+    return _favorites.where((item) {
+      return _matchesQuery(query, [
+        item.providerDisplayName,
+        item.providerUsername,
+        item.caption,
+        item.sectionTitle,
+        item.source.name,
+      ]);
+    }).toList(growable: false);
+  }
+
+  String _counterLabel(int visible, int total) => '$visible / $total';
+
   @override
   void dispose() {
     AccountModeService.removeListener(_handleAccountModeChanged);
     _tabController?.dispose();
+    _followingSearchController.removeListener(_onFilterChanged);
+    _followersSearchController.removeListener(_onFilterChanged);
+    _favoritesSearchController.removeListener(_onFilterChanged);
+    _followingSearchController.dispose();
+    _followersSearchController.dispose();
+    _favoritesSearchController.dispose();
     super.dispose();
   }
 
@@ -535,6 +615,185 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     );
   }
 
+  Widget _emptyFilterState({
+    required bool isDark,
+    required String message,
+  }) {
+    return _emptyState(Icons.search_off_rounded, message, isDark);
+  }
+
+  Widget _buildFilterToolbar({
+    required bool isDark,
+    required Color accent,
+    required TextEditingController controller,
+    required String hintText,
+    required int visibleCount,
+    required int totalCount,
+    bool showDensityToggle = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : accent.withValues(alpha: 0.14),
+                    ),
+                  ),
+                  child: TextField(
+                    controller: controller,
+                    textInputAction: TextInputAction.search,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: hintText,
+                      hintStyle: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color:
+                            isDark ? Colors.white38 : Colors.grey.shade500,
+                      ),
+                      prefixIcon:
+                          Icon(Icons.search_rounded, size: 18, color: accent),
+                      suffixIcon: controller.text.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: controller.clear,
+                              icon: Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: isDark
+                                    ? Colors.white54
+                                    : Colors.grey.shade500,
+                              ),
+                            ),
+                      border: InputBorder.none,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                ),
+              ),
+              if (showDensityToggle) ...[
+                const SizedBox(width: 8),
+                _buildDensityToggle(isDark, accent),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  _counterLabel(visibleCount, totalCount),
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white70 : accent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDensityToggle(bool isDark, Color accent) {
+    Widget toggleButton({
+      required IconData icon,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
+      return Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: selected
+                  ? accent
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.04)
+                      : Colors.transparent),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: selected
+                  ? Colors.white
+                  : (isDark ? Colors.white70 : Colors.grey.shade700),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: 94,
+      height: 44,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : accent.withValues(alpha: 0.14),
+        ),
+      ),
+      child: Row(
+        children: [
+          toggleButton(
+            icon: Icons.grid_view_rounded,
+            selected: !_followingCompact,
+            onTap: () {
+              if (!_followingCompact) return;
+              setState(() => _followingCompact = false);
+            },
+          ),
+          const SizedBox(width: 4),
+          toggleButton(
+            icon: Icons.grid_view_outlined,
+            selected: _followingCompact,
+            onTap: () {
+              if (_followingCompact) return;
+              setState(() => _followingCompact = true);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _loginRequiredState() {
     return LoginRequiredPrompt(
       title: 'تسجيل الدخول مطلوب',
@@ -555,6 +814,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
       return _emptyState(
           Icons.group_off_rounded, 'لا تتابع أي مزود خدمة حتى الآن', isDark);
 
+    final filtered = _filteredFollowing;
+
     return Column(
       children: [
         if (_followingStatus != null)
@@ -565,29 +826,49 @@ class _InteractiveScreenState extends State<InteractiveScreen>
             isOffline: _followingOfflineFallback,
             onRefresh: () => _loadFollowing(forceRefresh: true),
           ),
+        _buildFilterToolbar(
+          isDark: isDark,
+          accent: purple,
+          controller: _followingSearchController,
+          hintText: 'ابحث بالاسم أو المدينة أو التصنيف…',
+          visibleCount: filtered.length,
+          totalCount: _following.length,
+          showDensityToggle: true,
+        ),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: () => _loadFollowing(forceRefresh: true),
-            color: purple,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final crossAxisCount = constraints.maxWidth < 360 ? 1 : 2;
-                return GridView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: constraints.maxWidth < 360 ? 1.5 : 0.72,
+          child: filtered.isEmpty
+              ? _emptyFilterState(
+                  isDark: isDark,
+                  message: 'لا توجد نتائج تطابق هذا البحث في قائمة من تتابعهم.',
+                )
+              : RefreshIndicator(
+                  onRefresh: () => _loadFollowing(forceRefresh: true),
+                  color: purple,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = _followingCompact;
+                      final crossAxisCount = compact
+                          ? (constraints.maxWidth < 360 ? 2 : 3)
+                          : (constraints.maxWidth < 360 ? 1 : 2);
+                      final aspectRatio = compact
+                          ? (constraints.maxWidth < 360 ? 0.92 : 0.88)
+                          : (constraints.maxWidth < 360 ? 1.5 : 0.72);
+                      return GridView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          childAspectRatio: aspectRatio,
+                        ),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) =>
+                            _followingCard(filtered[index], isDark, purple),
+                      );
+                    },
                   ),
-                  itemCount: _following.length,
-                  itemBuilder: (context, index) =>
-                      _followingCard(_following[index], isDark, purple),
-                );
-              },
-            ),
-          ),
+                ),
         ),
       ],
     );
@@ -858,6 +1139,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
       return _emptyState(
           Icons.person_off_rounded, 'لا يوجد متابعون بعد', isDark);
 
+    final filtered = _filteredFollowers;
+
     return Column(
       children: [
         if (_followersStatus != null)
@@ -868,18 +1151,31 @@ class _InteractiveScreenState extends State<InteractiveScreen>
             isOffline: _followersOfflineFallback,
             onRefresh: () => _loadFollowers(forceRefresh: true),
           ),
+        _buildFilterToolbar(
+          isDark: isDark,
+          accent: purple,
+          controller: _followersSearchController,
+          hintText: 'ابحث بالاسم أو المعرف…',
+          visibleCount: filtered.length,
+          totalCount: _followers.length,
+        ),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: () => _loadFollowers(forceRefresh: true),
-            color: purple,
-            child: ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(12),
-              itemCount: _followers.length,
-              itemBuilder: (context, index) =>
-                  _followerTile(_followers[index], isDark, purple),
-            ),
-          ),
+          child: filtered.isEmpty
+              ? _emptyFilterState(
+                  isDark: isDark,
+                  message: 'لا توجد نتائج مطابقة داخل قائمة المتابعين.',
+                )
+              : RefreshIndicator(
+                  onRefresh: () => _loadFollowers(forceRefresh: true),
+                  color: purple,
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(12),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) =>
+                        _followerTile(filtered[index], isDark, purple),
+                  ),
+                ),
         ),
       ],
     );
@@ -1009,6 +1305,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
       return _emptyState(Icons.bookmark_outline_rounded,
           'لا توجد عناصر محفوظة في المفضلة', isDark);
 
+    final filtered = _filteredFavorites;
+
     return Column(
       children: [
         if (_favoritesStatus != null)
@@ -1019,29 +1317,51 @@ class _InteractiveScreenState extends State<InteractiveScreen>
             isOffline: _favoritesOfflineFallback,
             onRefresh: () => _loadFavorites(forceRefresh: true),
           ),
+        _buildFilterToolbar(
+          isDark: isDark,
+          accent: purple,
+          controller: _favoritesSearchController,
+          hintText: 'ابحث في المفضلة أو باسم المزود…',
+          visibleCount: filtered.length,
+          totalCount: _favorites.length,
+        ),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: () => _loadFavorites(forceRefresh: true),
-            color: purple,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final crossAxisCount = constraints.maxWidth < 360 ? 1 : 2;
-                return GridView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: constraints.maxWidth < 360 ? 1.25 : 0.85,
+          child: filtered.isEmpty
+              ? _emptyFilterState(
+                  isDark: isDark,
+                  message: 'لا توجد عناصر محفوظة تطابق هذا البحث.',
+                )
+              : RefreshIndicator(
+                  onRefresh: () => _loadFavorites(forceRefresh: true),
+                  color: purple,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final crossAxisCount = constraints.maxWidth < 360 ? 1 : 2;
+                      return GridView.builder(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          childAspectRatio:
+                              constraints.maxWidth < 360 ? 1.25 : 0.85,
+                        ),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final item = filtered[index];
+                          final originalIndex = _favorites.indexOf(item);
+                          return _favoriteCard(
+                            item,
+                            originalIndex >= 0 ? originalIndex : index,
+                            isDark,
+                            purple,
+                          );
+                        },
+                      );
+                    },
                   ),
-                  itemCount: _favorites.length,
-                  itemBuilder: (context, index) =>
-                      _favoriteCard(_favorites[index], index, isDark, purple),
-                );
-              },
-            ),
-          ),
+                ),
         ),
       ],
     );

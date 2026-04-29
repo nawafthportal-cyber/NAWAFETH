@@ -47,6 +47,10 @@ class ProviderProfileScreen extends StatefulWidget {
   final String backButtonLabel;
   final IconData backButtonIcon;
 
+  /// تحسين: إضافة متغيرات تحكم إضافية مستقبلية (للتوافقية)
+  final bool? forceMobileLayout;
+  final bool? forceTabletLayout;
+
   const ProviderProfileScreen({
     super.key,
     this.providerId,
@@ -64,6 +68,8 @@ class ProviderProfileScreen extends StatefulWidget {
     this.showBackToMapButton = false,
     this.backButtonLabel = 'العودة إلى الخريطة',
     this.backButtonIcon = Icons.map_outlined,
+    this.forceMobileLayout,
+    this.forceTabletLayout,
   });
 
   @override
@@ -1778,6 +1784,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final media = MediaQuery.of(context);
+    final width = media.size.width;
+    final height = media.size.height;
+    final isTablet = (widget.forceTabletLayout ?? false) || (width >= 700 && width < 1200);
+    final isMobile = (widget.forceMobileLayout ?? false) || width < 700;
     final bgColor = isDark ? const Color(0xFF0F0A1E) : const Color(0xFFF5F0FF);
     final textColor = isDark ? Colors.white : Colors.black;
     final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey;
@@ -1786,73 +1797,131 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: bgColor,
-        body: _isLoading
-            ? _buildLoadingShell(isDark)
-            : Container(
-                decoration: BoxDecoration(
-                  gradient: isDark
-                      ? const LinearGradient(
-                          colors: [
-                            Color(0xFF0F0A1E),
-                            Color(0xFF120E28),
-                            Color(0xFF180E32)
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        )
-                      : const LinearGradient(
-                          colors: [
-                            Color(0xFFF2ECFF),
-                            Color(0xFFF7F4FF),
-                            Color(0xFFFAF8FF)
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                ),
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: _buildEntrance(
-                        0,
-                        _buildProviderHeader(
-                          isDark,
-                          bgColor,
-                          textColor,
-                          secondaryTextColor,
-                        ),
-                      ),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxW = constraints.maxWidth;
+            final isWide = maxW > 900;
+            // تحسين: دعم عرض جانبي على التابلت والشاشات الكبيرة
+            return _isLoading
+                ? _buildLoadingShell(isDark)
+                : Container(
+                    decoration: BoxDecoration(
+                      gradient: isDark
+                          ? const LinearGradient(
+                              colors: [
+                                Color(0xFF0F0A1E),
+                                Color(0xFF120E28),
+                                Color(0xFF180E32)
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            )
+                          : const LinearGradient(
+                              colors: [
+                                Color(0xFFF2ECFF),
+                                Color(0xFFF7F4FF),
+                                Color(0xFFFAF8FF)
+                              ],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
                     ),
-                    if (_highlightsVideos.isNotEmpty)
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child:
-                              _buildEntrance(1, _highlightsRow(isDark: isDark)),
-                        ),
-                      ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                      sliver: SliverToBoxAdapter(
-                        child: _buildEntrance(2, _buildActionButtons(isDark)),
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: _buildEntrance(3, _buildTabsBar(isDark)),
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
-                      sliver: SliverToBoxAdapter(
-                        child: _buildEntrance(4, _buildTabContent()),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                    child: isWide
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // قسم البروفايل الجانبي
+                              Expanded(
+                                flex: 2,
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    children: [
+                                      _buildEntrance(
+                                        0,
+                                        _buildProviderHeader(
+                                          isDark,
+                                          bgColor,
+                                          textColor,
+                                          secondaryTextColor,
+                                        ),
+                                      ),
+                                      if (_highlightsVideos.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                                          child: _buildEntrance(1, _highlightsRow(isDark: isDark)),
+                                        ),
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                                        child: _buildEntrance(2, _buildActionButtons(isDark)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              // قسم التبويبات والمحتوى
+                              Expanded(
+                                flex: 3,
+                                child: Column(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 14),
+                                      child: _buildEntrance(3, _buildTabsBar(isDark)),
+                                    ),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
+                                        child: _buildEntrance(4, _buildTabContent()),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        : CustomScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            slivers: [
+                              SliverToBoxAdapter(
+                                child: _buildEntrance(
+                                  0,
+                                  _buildProviderHeader(
+                                    isDark,
+                                    bgColor,
+                                    textColor,
+                                    secondaryTextColor,
+                                  ),
+                                ),
+                              ),
+                              if (_highlightsVideos.isNotEmpty)
+                                SliverPadding(
+                                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                                  sliver: SliverToBoxAdapter(
+                                    child: _buildEntrance(1, _highlightsRow(isDark: isDark)),
+                                  ),
+                                ),
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                                sliver: SliverToBoxAdapter(
+                                  child: _buildEntrance(2, _buildActionButtons(isDark)),
+                                ),
+                              ),
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 14),
+                                  child: _buildEntrance(3, _buildTabsBar(isDark)),
+                                ),
+                              ),
+                              SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
+                                sliver: SliverToBoxAdapter(
+                                  child: _buildEntrance(4, _buildTabContent()),
+                                ),
+                              ),
+                            ],
+                          ),
+                  );
+          },
+        ),
       ),
     );
   }
@@ -2817,6 +2886,26 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
             ],
           ),
         ),
+
+        // --- نطاق الخدمة على الخريطة ---
+        const SizedBox(height: 12),
+        _formCard(
+          cardColor: cardColor,
+          borderColor: borderColor,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sectionCardTitle(
+                icon: Icons.map_outlined,
+                title: 'نطاق الخدمة على الخريطة',
+                isDark: isDark,
+              ),
+              const SizedBox(height: 10),
+              _serviceRangeMap(borderColor: borderColor, isDark: isDark),
+            ],
+          ),
+        ),
+
         if (hasSocialAccounts) ...[
           const SizedBox(height: 12),
           _formCard(

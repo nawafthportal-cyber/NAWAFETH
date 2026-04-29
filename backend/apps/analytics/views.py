@@ -31,6 +31,39 @@ class AnalyticsEventIngestView(APIView):
 	def post(self, request):
 		if not analytics_events_enabled():
 			return Response({"detail": "غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+		batch_payload = request.data.get("events") if isinstance(request.data, dict) else None
+		if isinstance(batch_payload, list):
+			serializer = AnalyticsEventIngestSerializer(data=batch_payload, many=True)
+			serializer.is_valid(raise_exception=True)
+			accepted = 0
+			deduped = 0
+			for item in serializer.validated_data:
+				event = track_event(
+					event_name=item["event_name"],
+					channel=item.get("channel"),
+					surface=item.get("surface", ""),
+					source_app=item.get("source_app", ""),
+					object_type=item.get("object_type", ""),
+					object_id=item.get("object_id", ""),
+					actor=request.user if getattr(request.user, "is_authenticated", False) else None,
+					session_id=item.get("session_id", ""),
+					dedupe_key=item.get("dedupe_key", ""),
+					occurred_at=item.get("occurred_at"),
+					payload=item.get("payload") or {},
+					version=item.get("version", 1),
+				)
+				accepted += 1
+				if event is None and item.get("dedupe_key"):
+					deduped += 1
+			return Response(
+				{
+					"accepted": True,
+					"count": accepted,
+					"deduped": deduped,
+				},
+				status=status.HTTP_202_ACCEPTED,
+			)
+
 		serializer = AnalyticsEventIngestSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 		event = track_event(

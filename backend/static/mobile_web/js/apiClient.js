@@ -15,6 +15,9 @@ const ApiClient = (() => {
     { test: (path) => path === '/api/content/public/', ttl: 5 * 60 * 1000 },
     { test: (path) => path.indexOf('/api/providers/categories/') === 0, ttl: 5 * 60 * 1000 },
     { test: (path) => path.indexOf('/api/accounts/me/') === 0, ttl: 10 * 1000 },
+    { test: (path) => path.indexOf('/api/core/unread-badges/') === 0, ttl: 15 * 1000 },
+    { test: (path) => path.indexOf('/api/promo/active/') === 0, ttl: 2 * 60 * 1000 },
+    { test: (path) => path.indexOf('/api/home/aggregate/') === 0, ttl: 30 * 1000 },
   ];
 
   function _readStoredValue(key) {
@@ -252,9 +255,10 @@ const ApiClient = (() => {
   /**
    * GET helper.
    */
-  function get(path, timeout) {
+  function get(path, timeout, options) {
     const rule = _cacheRuleFor(path);
-    if (!rule) return request(path, { timeout: timeout || 12000 });
+    const forceRefresh = !!(options && options.forceRefresh);
+    if (!rule || forceRefresh) return request(path, { timeout: timeout || 12000 });
 
     const cached = _getCache.get(path);
     if (cached && cached.expiresAt > Date.now()) {

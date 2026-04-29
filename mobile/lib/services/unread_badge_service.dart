@@ -64,11 +64,15 @@ class UnreadBadgeService {
 
 class _UnreadBadgeManager with WidgetsBindingObserver {
   static const Duration _pollInterval = Duration(seconds: 45);
+  static const Duration _healthySocketSyncInterval = Duration(minutes: 3);
+  static const Duration _heartbeatInterval = Duration(seconds: 27);
+  static const Duration _heartbeatTimeout = Duration(seconds: 75);
 
   final ValueNotifier<UnreadBadges> _badges =
       ValueNotifier<UnreadBadges>(UnreadBadges.empty);
   Timer? _timer;
   Timer? _reconnectTimer;
+  Timer? _heartbeatTimer;
   WebSocket? _socket;
   Future<UnreadBadges>? _inFlight;
   int _subscriberCount = 0;
@@ -76,6 +80,8 @@ class _UnreadBadgeManager with WidgetsBindingObserver {
   bool _observerAttached = false;
   bool _isForeground = true;
   bool _realtimeEnabled = true;
+  DateTime? _lastRealtimeActivityAt;
+  DateTime? _lastSuccessfulRefreshAt;
 
   ValueListenable<UnreadBadges> acquire() {
     _subscriberCount += 1;
@@ -185,7 +191,10 @@ class _UnreadBadgeManager with WidgetsBindingObserver {
   void _detachRealtime() {
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     _reconnectAttempts = 0;
+    _lastRealtimeActivityAt = null;
     final socket = _socket;
     _socket = null;
     if (socket != null) {
@@ -251,6 +260,8 @@ class _UnreadBadgeManager with WidgetsBindingObserver {
       }
       _socket = socket;
       _reconnectAttempts = 0;
+      _lastRealtimeActivityAt = DateTime.now();
+      _startHeartbeat();
       socket.listen(
         _handleRealtimePayload,
         onDone: () => _handleRealtimeClosed(socket),
@@ -284,6 +295,8 @@ class _UnreadBadgeManager with WidgetsBindingObserver {
       return;
     }
     _socket = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
     if (!_realtimeEnabled || _subscriberCount <= 0 || !_isForeground) {
       return;
     }
@@ -295,10 +308,18 @@ class _UnreadBadgeManager with WidgetsBindingObserver {
 
   void _handleRealtimePayload(dynamic rawPayload) {
     try {
+      _lastRealtimeActivityAt = DateTime.now();
       final decoded = rawPayload is String
           ? Map<String, dynamic>.from(jsonDecode(rawPayload) as Map)
           : Map<String, dynamic>.from(rawPayload as Map);
       final type = (decoded['type'] ?? '').toString();
+      if (type == 'ping') {
+        _sendSocketJson(const <String, dynamic>{'type': 'pong'});
+        return;
+      }
+      if (type == 'pong' || type == 'connected') {
+        return;
+      }
       if (type == 'notification.created') {
         final notificationPayload = decoded['notification'];
         if (notificationPayload is Map) {
@@ -337,15 +358,57 @@ class _UnreadBadgeManager with WidgetsBindingObserver {
     }
 
     final mode = await AccountModeService.apiMode();
-    final response = await ApiClient.get('/api/core/unread-badges/?mode=$mode');
+    final shouldSkipNetwork = !force &&
+        _socket != null &&
+        _lastRealtimeActivityAt != null &&
+        DateTime.now().difference(_lastRealtimeActivityAt!) < _heartbeatTimeout &&
+        _lastSuccessfulRefreshAt != null &&
+        DateTime.now().difference(_lastSuccessfulRefreshAt!) <
+            _healthySocketSyncInterval;
+    if (shouldSkipNetwork) {
+      return _badges.value;
+    }
+
+    final response = await ApiClient.get(
+      '/api/core/unread-badges/?mode=$mode',
+      forceRefresh: force,
+    );
     final data = response.dataAsMap;
     if (data != null &&
         data.containsKey('notifications') &&
         data.containsKey('chats')) {
       final next = UnreadBadges.fromMap(data);
       _badges.value = next;
+      _lastSuccessfulRefreshAt = DateTime.now();
       return next;
     }
     return _badges.value;
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
+      final socket = _socket;
+      if (socket == null) {
+        return;
+      }
+      final lastActivity = _lastRealtimeActivityAt;
+      if (lastActivity != null &&
+          DateTime.now().difference(lastActivity) > _heartbeatTimeout) {
+        unawaited(socket.close(WebSocketStatus.goingAway, 'heartbeat_timeout'));
+        return;
+      }
+      _sendSocketJson(const <String, dynamic>{'type': 'ping'});
+    });
+  }
+
+  void _sendSocketJson(Map<String, dynamic> payload) {
+    final socket = _socket;
+    if (socket == null) {
+      return;
+    }
+    try {
+      socket.add(jsonEncode(payload));
+    } catch (_) {}
   }
 }

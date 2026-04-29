@@ -596,21 +596,61 @@ const HomePage = (() => {
   async function _loadData(showSkeletons) {
     if (_isLoading) return;
     _isLoading = true;
+    let aggregateData = null;
+    try {
+      const aggregateQuery = new URLSearchParams({
+        providers_limit: '10',
+        home_banners_limit: '6',
+        carousel_limit: String(HOME_BANNERS_LIMIT),
+        spotlights_limit: '16',
+        featured_limit: String(FEATURED_SPECIALISTS_LIMIT),
+        portfolio_limit: String(PORTFOLIO_SHOWCASE_FETCH_LIMIT),
+        snapshots_limit: '16',
+      });
+      const aggregateRes = await ApiClient.get('/api/home/aggregate/?' + aggregateQuery.toString());
+      if (aggregateRes && aggregateRes.ok && aggregateRes.data) {
+        aggregateData = aggregateRes.data;
+      }
+    } catch (_) {}
 
-    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, portfolioFeedRes, snapshotPromoRes, popupRes, promoMessageRes] = await Promise.allSettled([
-      ApiClient.get('/api/content/public/'),
-      ApiClient.get('/api/providers/categories/'),
-      ApiClient.get('/api/providers/list/?page_size=10'),
-      ApiClient.get('/api/promo/banners/home/'),
-      ApiClient.get('/api/promo/home-carousel/?limit=' + HOME_BANNERS_LIMIT),
-      ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
-      ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=' + FEATURED_SPECIALISTS_LIMIT),
-      ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
-      ApiClient.get('/api/providers/portfolio/feed/?limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
-      ApiClient.get('/api/promo/active/?service_type=snapshots&limit=16'),
-      ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
-      ApiClient.get('/api/promo/active/?service_type=promo_messages&limit=1'),
-    ]);
+    const wrapAggregate = (data) => ({ status: 'fulfilled', value: { ok: true, data } });
+    let settledRows;
+    if (aggregateData) {
+      const portfolioFeedRes = await Promise.allSettled([
+        ApiClient.get('/api/providers/portfolio/feed/?limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
+      ]).then((rows) => rows[0]);
+      settledRows = [
+        wrapAggregate(aggregateData.content || {}),
+        wrapAggregate(aggregateData.categories || []),
+        wrapAggregate(aggregateData.providers || []),
+        wrapAggregate(aggregateData.home_banners || []),
+        wrapAggregate(aggregateData.carousel_banners || []),
+        wrapAggregate(aggregateData.spotlights || []),
+        wrapAggregate((aggregateData.promos && aggregateData.promos.featured_specialists) || []),
+        wrapAggregate((aggregateData.promos && aggregateData.promos.portfolio_showcase) || []),
+        portfolioFeedRes,
+        wrapAggregate((aggregateData.promos && aggregateData.promos.snapshots) || []),
+        wrapAggregate((aggregateData.promos && aggregateData.promos.popup_home) || []),
+        wrapAggregate((aggregateData.promos && aggregateData.promos.promo_messages) || []),
+      ];
+    } else {
+      settledRows = await Promise.allSettled([
+        ApiClient.get('/api/content/public/'),
+        ApiClient.get('/api/providers/categories/'),
+        ApiClient.get('/api/providers/list/?page_size=10'),
+        ApiClient.get('/api/promo/banners/home/'),
+        ApiClient.get('/api/promo/home-carousel/?limit=' + HOME_BANNERS_LIMIT),
+        ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
+        ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=' + FEATURED_SPECIALISTS_LIMIT),
+        ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
+        ApiClient.get('/api/providers/portfolio/feed/?limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
+        ApiClient.get('/api/promo/active/?service_type=snapshots&limit=16'),
+        ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
+        ApiClient.get('/api/promo/active/?service_type=promo_messages&limit=1'),
+      ]);
+    }
+
+    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, portfolioFeedRes, snapshotPromoRes, popupRes, promoMessageRes] = settledRows;
 
     if (contentRes.status === 'fulfilled' && contentRes.value.ok && contentRes.value.data) {
       const blocks = contentRes.value.data.blocks || {};

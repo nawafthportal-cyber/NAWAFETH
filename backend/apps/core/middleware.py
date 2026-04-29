@@ -20,6 +20,8 @@ def is_common_bot_scan_path(path: str) -> bool:
 
     return (
         normalized.startswith("/wp-admin")
+        or normalized.startswith("/wp-json")
+        or normalized.startswith("/wp-login.php")
         or normalized.startswith("/wordpress/")
         or normalized == "/xmlrpc.php"
         or "wlwmanifest.xml" in normalized

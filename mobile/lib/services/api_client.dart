@@ -19,6 +19,10 @@ class ApiClient {
   static String get baseUrl => AppEnv.apiBaseUrl;
   static http.Client _httpClient = http.Client();
   static Future<_RefreshAttemptResult>? _refreshing;
+  static final Map<String, _CachedGetResponse> _getCache =
+      <String, _CachedGetResponse>{};
+  static final Map<String, Future<ApiResponse>> _getInFlight =
+      <String, Future<ApiResponse>>{};
 
   static Uri _buildUri(String path) {
     final normalizedPath = path.startsWith('/') ? path : '/$path';
@@ -28,16 +32,47 @@ class ApiClient {
   static void debugSetHttpClient(http.Client client) {
     _httpClient = client;
     _refreshing = null;
+    _getCache.clear();
+    _getInFlight.clear();
   }
 
   static void debugResetHttpClient() {
     _httpClient = http.Client();
     _refreshing = null;
+    _getCache.clear();
+    _getInFlight.clear();
   }
 
   /// GET request مع مصادقة
-  static Future<ApiResponse> get(String path) async {
-    return _request('GET', path);
+  static Future<ApiResponse> get(String path, {bool forceRefresh = false}) async {
+    final cacheTtl = _getCacheTtl(path);
+    if (cacheTtl == null || forceRefresh) {
+      return _request('GET', path);
+    }
+
+    final cached = _getCache[path];
+    if (cached != null && cached.expiresAt.isAfter(DateTime.now())) {
+      return cached.response;
+    }
+
+    final inFlight = _getInFlight[path];
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    final future = _request('GET', path).then((response) {
+      if (response.isSuccess) {
+        _getCache[path] = _CachedGetResponse(
+          response: response,
+          expiresAt: DateTime.now().add(cacheTtl),
+        );
+      }
+      return response;
+    }).whenComplete(() {
+      _getInFlight.remove(path);
+    });
+    _getInFlight[path] = future;
+    return future;
   }
 
   /// POST request مع مصادقة
@@ -456,6 +491,36 @@ class ApiClient {
       );
     }
   }
+
+  static Duration? _getCacheTtl(String path) {
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    if (normalizedPath == '/api/content/public/') {
+      return const Duration(minutes: 5);
+    }
+    if (normalizedPath.startsWith('/api/accounts/me/')) {
+      return const Duration(seconds: 10);
+    }
+    if (normalizedPath.startsWith('/api/core/unread-badges/')) {
+      return const Duration(seconds: 15);
+    }
+    if (normalizedPath.startsWith('/api/promo/active/')) {
+      return const Duration(minutes: 2);
+    }
+    if (normalizedPath.startsWith('/api/home/aggregate/')) {
+      return const Duration(seconds: 30);
+    }
+    return null;
+  }
+}
+
+class _CachedGetResponse {
+  final ApiResponse response;
+  final DateTime expiresAt;
+
+  const _CachedGetResponse({
+    required this.response,
+    required this.expiresAt,
+  });
 }
 
 class _RefreshAttemptResult {

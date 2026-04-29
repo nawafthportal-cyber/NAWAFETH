@@ -22,7 +22,13 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.health import HealthCheckView, HealthLiveView, HealthReadyView, healthz
-from apps.core.views import RootFaviconView, RootRobotsTxtView, RootServiceWorkerView, UnreadBadgesView
+from apps.core.views import (
+    HomeAggregateView,
+    RootFaviconView,
+    RootRobotsTxtView,
+    RootServiceWorkerView,
+    UnreadBadgesView,
+)
 from apps.billing.views import MockCheckoutView
 from apps.mobile_web.views import (
     MobileWebHomeView,
@@ -106,6 +112,7 @@ urlpatterns = [
     path("api/content/", include(("apps.content.urls", "content"), namespace="content")),
     path("api/moderation/", include(("apps.moderation.urls", "moderation"), namespace="moderation")),
     path("api/core/unread-badges/", UnreadBadgesView.as_view(), name="unread_badges"),
+    path("api/home/aggregate/", HomeAggregateView.as_view(), name="home_aggregate"),
     path("api/excellence/", include(("apps.excellence.urls", "excellence"), namespace="excellence")),
     path("api/public/", include(("apps.verification.public_urls", "public"), namespace="public")),
 
