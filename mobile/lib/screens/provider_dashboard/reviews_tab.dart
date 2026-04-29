@@ -377,6 +377,79 @@ class _ReviewsTabState extends State<ReviewsTab> {
     );
   }
 
+  List<MapEntry<String, double>> _criteriaEntries() {
+    return [
+      MapEntry('الاستجابة', responseSpeedAvg),
+      MapEntry('القيمة', costValueAvg),
+      MapEntry('الجودة', qualityAvg),
+      MapEntry('المصداقية', credibilityAvg),
+      MapEntry('المواعيد', onTimeAvg),
+    ];
+  }
+
+  String _topCriteriaLabel() {
+    if (totalReviews <= 0) return 'بانتظار أول تقييم';
+    final sorted = _criteriaEntries().toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top = sorted.first;
+    if (top.value <= 0) return 'بانتظار أول تقييم';
+    return '${top.key} ${top.value.toStringAsFixed(1)}';
+  }
+
+  Widget _buildOverviewChip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required bool isDark,
+    Color accent = const Color(0xFF5E35B1),
+  }) {
+    final bgColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : accent.withValues(alpha: 0.08);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : accent.withValues(alpha: 0.14);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: accent),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? Colors.white : const Color(0xFF12082E),
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.grey[400] : Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBody(BuildContext context) {
     if (_isLoading) {
       return const Center(
@@ -401,82 +474,135 @@ class _ReviewsTabState extends State<ReviewsTab> {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── ملخص التقييم المضغوط ──
+        // ── ملخص التقييم الأنيق ──
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: surfaceColor,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: borderColor),
-            boxShadow: isDark
+            gradient: isDark
                 ? null
-                : [
-                    BoxShadow(
-                      color: const Color(0xFF5E35B1).withValues(alpha: 0.07),
-                      blurRadius: 14,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+                : const LinearGradient(
+                    colors: [Color(0xFFFFFFFF), Color(0xFFF7FBFF)],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+            color: isDark ? surfaceColor : null,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: borderColor),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF5E35B1).withValues(
+                  alpha: isDark ? 0.08 : 0.10,
+                ),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // الرقم + نجوم
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+              Row(
                 children: [
-                  Text(
-                    overallRating.toStringAsFixed(1),
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 38,
-                      fontWeight: FontWeight.w900,
-                      color: isDark
-                          ? Colors.white
-                          : const Color(0xFF5E35B1),
-                      height: 1,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'انطباع العملاء',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color:
+                                isDark ? Colors.white : const Color(0xFF12082E),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          totalReviews > 0
+                              ? 'تجميعة حيّة من تقييمات العملاء الحقيقيين'
+                              : 'سيظهر هنا أول انطباع بمجرد وصول أول تقييم',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 10.5,
+                            height: 1.5,
+                            color: secondaryTextColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  _buildStars(overallRating, size: 18),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$totalReviews تقييم',
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 10,
-                      color: secondaryTextColor,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF5E35B1), Color(0xFF14B8A6)],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                      ),
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF5E35B1)
+                              .withValues(alpha: 0.22),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          overallRating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 34,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        _buildStars(overallRating, size: 15),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(width: 16),
-              // الفاصل
-              Container(
-                width: 1,
-                height: 72,
-                color: borderColor,
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _buildOverviewChip(
+                    icon: Icons.reviews_rounded,
+                    label: 'إجمالي المراجعات',
+                    value: '$totalReviews',
+                    isDark: isDark,
+                  ),
+                  _buildOverviewChip(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'أقوى نقطة',
+                    value: _topCriteriaLabel(),
+                    isDark: isDark,
+                    accent: const Color(0xFF14B8A6),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              // بنود التقييم
-              if (totalReviews > 0)
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildCriteriaRow('الاستجابة', responseSpeedAvg,
-                          isDark: isDark),
-                      _buildCriteriaRow('القيمة', costValueAvg,
-                          isDark: isDark),
-                      _buildCriteriaRow('الجودة', qualityAvg,
-                          isDark: isDark),
-                      _buildCriteriaRow('المصداقية', credibilityAvg,
-                          isDark: isDark),
-                      _buildCriteriaRow('المواعيد', onTimeAvg,
-                          isDark: isDark),
-                    ],
+              if (totalReviews > 0) ...[
+                const SizedBox(height: 16),
+                ..._criteriaEntries().map(
+                  (entry) => _buildCriteriaRow(
+                    entry.key,
+                    entry.value,
+                    isDark: isDark,
                   ),
                 ),
+              ],
             ],
           ),
         ),
@@ -490,11 +616,33 @@ class _ReviewsTabState extends State<ReviewsTab> {
               'مراجعات العملاء',
               style: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: FontWeight.w900,
                 color: isDark ? Colors.white : const Color(0xFF12082E),
               ),
             ),
+            const SizedBox(width: 8),
+            if (_reviews.isNotEmpty)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : const Color(0xFFF3F7FB),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Text(
+                  '${_reviews.length}',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : const Color(0xFF5E35B1),
+                  ),
+                ),
+              ),
             const Spacer(),
             Container(
               height: 34,
@@ -585,33 +733,78 @@ class _ReviewsTabState extends State<ReviewsTab> {
   // 📊 بند تقييم فردي — مضغوط
   Widget _buildCriteriaRow(String title, double rating,
       {bool isDark = false}) {
+    final value = rating.clamp(0, 5);
+    final progress = value / 5;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.5),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.grey[300] : Colors.grey[700],
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFFE5E7EB),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.grey[200] : const Color(0xFF1F2937),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 7,
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFE5E7EB),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF14B8A6),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          _buildStars(rating, size: 12),
-          const SizedBox(width: 4),
-          Text(
-            rating.toStringAsFixed(1),
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            const SizedBox(width: 12),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFF5E35B1).withValues(
+                  alpha: isDark ? 0.20 : 0.08,
+                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                value.toStringAsFixed(1),
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? Colors.white : const Color(0xFF5E35B1),
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -667,21 +860,26 @@ class _ReviewsTabState extends State<ReviewsTab> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: surfaceColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: borderColor),
-        boxShadow: isDark
+        gradient: isDark
             ? null
-            : [
-                BoxShadow(
-                  color: mainColor.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+            : const LinearGradient(
+                colors: [Color(0xFFFFFFFF), Color(0xFFFCFDFF)],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+        color: isDark ? surfaceColor : null,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: mainColor.withValues(alpha: isDark ? 0.06 : 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -704,7 +902,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 9),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -730,20 +928,62 @@ class _ReviewsTabState extends State<ReviewsTab> {
                     ],
                   ),
                 ),
-                _buildStars(rating, size: 13),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: isDark ? 0.18 : 0.14),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.28),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded,
+                          size: 15, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Text(
+                        rating.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w900,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF7C5200),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
 
+            const SizedBox(height: 10),
+            _buildStars(rating, size: 14),
+
             // ── نص التعليق ──
             if (comment.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                comment,
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11.5,
-                  height: 1.55,
-                  color: isDark ? Colors.grey[300] : Colors.black87,
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.04)
+                      : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  comment,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11.5,
+                    height: 1.7,
+                    color: isDark ? Colors.grey[300] : Colors.black87,
+                  ),
                 ),
               ),
             ],

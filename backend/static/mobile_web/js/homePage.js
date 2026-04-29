@@ -489,8 +489,14 @@ const HomePage = (() => {
 
   function _syncCarouselSlideMedia(slide, shouldPlay) {
     if (!slide) return;
+    const frame = slide.querySelector('.carousel-media-frame.is-video');
+    const isMuted = !frame || frame.getAttribute('data-user-muted') !== 'false';
     slide.querySelectorAll('video').forEach(video => {
+      video.muted = true;
       if (shouldPlay) {
+        if (video.classList.contains('carousel-media-video')) {
+          video.muted = isMuted;
+        }
         try { video.currentTime = 0; } catch (_) {}
         const playPromise = video.play();
         if (playPromise && typeof playPromise.catch === 'function') {
@@ -511,11 +517,69 @@ const HomePage = (() => {
     _carouselActiveVideoEndedHandler = null;
   }
 
+  function _syncCarouselVideoControlState(frame) {
+    if (!frame) return;
+    const mainVideo = frame.querySelector('.carousel-media-video');
+    const muteBtn = frame.querySelector('[data-video-control="mute"]');
+    const muted = frame.getAttribute('data-user-muted') !== 'false';
+
+    if (muteBtn) {
+      muteBtn.setAttribute('aria-label', muted ? 'إلغاء كتم الصوت' : 'كتم الصوت');
+      muteBtn.setAttribute('title', muted ? 'إلغاء كتم الصوت' : 'كتم الصوت');
+      muteBtn.classList.toggle('is-active', !muted);
+      muteBtn.innerHTML = muted
+        ? '<span aria-hidden="true">🔇</span>'
+        : '<span aria-hidden="true">🔊</span>';
+    }
+  }
+
+  function _buildCarouselVideoControls(frame, mainVideo, backdropVideo) {
+    const controls = UI.el('div', {
+      className: 'carousel-video-controls',
+      'aria-label': 'التحكم بالفيديو',
+    });
+
+    const muteBtn = UI.el('button', {
+      className: 'carousel-video-control',
+      type: 'button',
+      'data-video-control': 'mute',
+      'aria-label': 'إلغاء كتم الصوت',
+      title: 'إلغاء كتم الصوت',
+    });
+
+    const stopPropagation = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    [muteBtn].forEach((button) => {
+      button.addEventListener('click', stopPropagation);
+      button.addEventListener('pointerdown', stopPropagation);
+      button.addEventListener('touchstart', stopPropagation, { passive: false });
+    });
+
+    muteBtn.addEventListener('click', () => {
+      const nextMuted = !(frame.getAttribute('data-user-muted') !== 'false');
+      frame.setAttribute('data-user-muted', nextMuted ? 'true' : 'false');
+      mainVideo.muted = nextMuted;
+      _syncCarouselVideoControlState(frame);
+    });
+
+    mainVideo.addEventListener('volumechange', () => _syncCarouselVideoControlState(frame));
+
+    controls.appendChild(muteBtn);
+    _syncCarouselVideoControlState(frame);
+    return controls;
+  }
+
   function _buildCarouselMedia(banner, url, isVideo, isActive) {
     const frame = UI.el('div', {
       className: 'carousel-media-frame' + (isVideo ? ' is-video' : ' is-image'),
     });
     frame.setAttribute('data-media-ratio', 'landscape');
+    if (isVideo) {
+      frame.setAttribute('data-user-muted', 'true');
+    }
     frame.style.setProperty('--banner-effective-scale', String(_resolveResponsiveBannerScale(banner)));
     const shouldLoopSingleVideo = isVideo && _carouselItems.length <= 1;
 
@@ -573,6 +637,7 @@ const HomePage = (() => {
       vid.setAttribute('playsinline', '');
       vid.setAttribute('disablepictureinpicture', '');
       stage.appendChild(vid);
+      frame.appendChild(_buildCarouselVideoControls(frame, vid, backdrop.querySelector('.carousel-media-backdrop-video')));
       _bindCarouselMediaLayout(frame, vid, true);
     } else if (url) {
       const img = UI.el('img', {

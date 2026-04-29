@@ -196,9 +196,13 @@ class InteractiveService {
 
   /// جلب متابعين مزود محدد (عام)
   static Future<ListResult<UserPublicModel>> fetchProviderFollowers(
-    int providerId,
-  ) async {
-    final path = await _withMode('/api/providers/$providerId/followers/');
+    int providerId, {
+    bool scopeAll = false,
+  }) async {
+    var path = await _withMode('/api/providers/$providerId/followers/');
+    if (scopeAll) {
+      path = '$path&scope=all';
+    }
     final resp = await ApiClient.get(path);
     if (!resp.isSuccess) {
       return ListResult(error: resp.error ?? 'خطأ في جلب متابعين المزود');
@@ -211,9 +215,13 @@ class InteractiveService {
 
   /// جلب المزودين الذين يتابعهم مزود محدد (عام)
   static Future<ListResult<ProviderPublicModel>> fetchProviderFollowing(
-    int providerId,
-  ) async {
-    final path = await _withMode('/api/providers/$providerId/following/');
+    int providerId, {
+    bool scopeAll = false,
+  }) async {
+    var path = await _withMode('/api/providers/$providerId/following/');
+    if (scopeAll) {
+      path = '$path&scope=all';
+    }
     final resp = await ApiClient.get(path);
     if (!resp.isSuccess) {
       return ListResult(error: resp.error ?? 'خطأ في جلب قائمة المتابَعين');

@@ -1239,7 +1239,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       );
       return;
     }
-    final result = await InteractiveService.fetchProviderFollowers(providerId);
+    final result = await InteractiveService.fetchProviderFollowers(
+      providerId,
+      scopeAll: true,
+    );
     if (!mounted) return;
     final followers = result.items;
     final error = result.error;
@@ -1262,8 +1265,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
 
     await _showConnectionsSheet(
       title: 'المتابعون',
-      subtitle: 'الذين يتابعون مقدم الخدمة',
-      count: _followersCount,
+      subtitle: 'كل من يتابع مقدم الخدمة حالياً',
+      count: entries.length,
       icon: Icons.groups_rounded,
       entries: entries,
       error: error,
@@ -1302,9 +1305,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
         .toList(growable: false);
 
     await _showConnectionsSheet(
-      title: 'المتابعين',
-      subtitle: 'الذين يتابعهم مقدم الخدمة',
-      count: _followingCount,
+      title: 'يتابعهم',
+      subtitle: 'الحسابات التي يتابعها مقدم الخدمة',
+      count: entries.length,
       icon: Icons.person_add_alt_1_rounded,
       entries: entries,
       error: error,
@@ -1322,6 +1325,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     required String emptyMessage,
   }) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final resolvedCount = entries.isNotEmpty ? entries.length : count;
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1388,10 +1392,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '$title ($count)',
+                              title,
                               style: TextStyle(
                                 fontFamily: 'Cairo',
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w900,
                                 color: isDark ? Colors.white : Colors.black87,
                               ),
@@ -1406,6 +1410,31 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                                 color: isDark
                                     ? Colors.white70
                                     : Colors.grey.shade700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.08)
+                                    : mainColor.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: mainColor.withValues(alpha: 0.16),
+                                ),
+                              ),
+                              child: Text(
+                                '$resolvedCount حساب',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: mainColor,
+                                ),
                               ),
                             ),
                           ],
@@ -1618,26 +1647,58 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                                           ],
                                         ),
                                       ),
-                                      if (badge.isNotEmpty)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 5),
-                                          decoration: BoxDecoration(
-                                            color: mainColor.withValues(
-                                                alpha: 0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(999),
-                                          ),
-                                          child: Text(
-                                            badge,
-                                            style: TextStyle(
-                                              fontFamily: 'Cairo',
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.w800,
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (badge.isNotEmpty)
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 5,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: mainColor.withValues(
+                                                  alpha: 0.1,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: Text(
+                                                badge,
+                                                style: TextStyle(
+                                                  fontFamily: 'Cairo',
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: mainColor,
+                                                ),
+                                              ),
+                                            ),
+                                          const SizedBox(height: 8),
+                                          Container(
+                                            width: 34,
+                                            height: 34,
+                                            decoration: BoxDecoration(
+                                              color: isDark
+                                                  ? Colors.white.withValues(
+                                                      alpha: 0.08)
+                                                  : mainColor.withValues(
+                                                      alpha: 0.08),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Icon(
+                                              providerId != null &&
+                                                      providerId > 0
+                                                  ? Icons
+                                                      .arrow_back_ios_new_rounded
+                                                  : Icons.info_outline_rounded,
+                                              size: 15,
                                               color: mainColor,
                                             ),
                                           ),
-                                        ),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 );
@@ -2268,53 +2329,137 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
   }
 
   Widget _buildConnectionsShortcuts(bool isDark) {
-    final textColor = isDark ? Colors.grey.shade400 : Colors.grey.shade700;
-    final dividerColor =
-        isDark ? Colors.white.withValues(alpha: 0.12) : Colors.grey.shade300;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        TextButton(
-          onPressed: _showFollowersList,
-          style: TextButton.styleFrom(
-            foregroundColor: mainColor,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text(
-            'المتابعون',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-            ),
+        Expanded(
+          child: _connectionShortcutChip(
+            isDark: isDark,
+            label: 'المتابعون',
+            count: _followersCount,
+            icon: Icons.groups_rounded,
+            emphasized: true,
+            onTap: _showFollowersList,
           ),
         ),
-        Container(
-          width: 1,
-          height: 14,
-          color: dividerColor,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-        ),
-        TextButton(
-          onPressed: _showFollowingList,
-          style: TextButton.styleFrom(
-            foregroundColor: textColor,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text(
-            'المتابعين',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-            ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _connectionShortcutChip(
+            isDark: isDark,
+            label: 'يتابعهم',
+            count: _followingCount,
+            icon: Icons.person_add_alt_1_rounded,
+            onTap: _showFollowingList,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _connectionShortcutChip({
+    required bool isDark,
+    required String label,
+    required int count,
+    required IconData icon,
+    required VoidCallback onTap,
+    bool emphasized = false,
+  }) {
+    final background = emphasized
+        ? LinearGradient(
+            colors: [
+              mainColor.withValues(alpha: isDark ? 0.28 : 0.16),
+              mainColor.withValues(alpha: isDark ? 0.14 : 0.08),
+            ],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          )
+        : LinearGradient(
+            colors: [
+              isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.white,
+              isDark
+                  ? Colors.white.withValues(alpha: 0.03)
+                  : const Color(0xFFF8FAFF),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          );
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: background,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: emphasized
+                ? mainColor.withValues(alpha: 0.28)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : mainColor.withValues(alpha: 0.12)),
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: mainColor.withValues(alpha: emphasized ? 0.12 : 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: mainColor.withValues(alpha: isDark ? 0.18 : 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: mainColor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$count',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: mainColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 14,
+              color: isDark ? Colors.white54 : Colors.black45,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

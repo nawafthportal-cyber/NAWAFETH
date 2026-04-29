@@ -58,6 +58,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
   bool _isLoading = false;
   bool _hasVideoError = false;
   bool _videoEndNotified = false;
+  bool _isMuted = true;
 
   @override
   void initState() {
@@ -71,6 +72,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     final mediaChanged = oldWidget.mediaUrl != widget.mediaUrl ||
         oldWidget.isVideo != widget.isVideo;
     if (mediaChanged) {
+      _isMuted = true;
       _syncVideoController();
       return;
     }
@@ -112,7 +114,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
 
     try {
       await controller.setLooping(widget.loopVideo);
-      await controller.setVolume(0);
+      await controller.setVolume(_isMuted ? 0 : 1);
       await controller.initialize();
       if (!mounted || _controller != controller) {
         await controller.dispose();
@@ -147,6 +149,15 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     } else {
       controller.pause();
     }
+  }
+
+  Future<void> _toggleMute() async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    final nextMuted = !_isMuted;
+    await controller.setVolume(nextMuted ? 0 : 1);
+    if (!mounted) return;
+    setState(() => _isMuted = nextMuted);
   }
 
   void _handleVideoProgress() {
@@ -211,6 +222,14 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
               child: ColoredBox(
                   color: Colors.black
                       .withValues(alpha: widget.mediaOverlayOpacity)),
+            ),
+          if (widget.isVideo && url.isNotEmpty)
+            PositionedDirectional(
+              top: 14,
+              start: 14,
+              child: SafeArea(
+                child: _buildVideoControls(),
+              ),
             ),
           if (hasTitle || hasSubtitle)
             Positioned.fill(
@@ -366,6 +385,45 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVideoControls() {
+    final controller = _controller;
+    final canControl = controller != null && controller.value.isInitialized;
+
+    return _videoControlButton(
+      icon: _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+      label: _isMuted ? 'إلغاء كتم الصوت' : 'كتم الصوت',
+      onPressed: canControl ? _toggleMute : null,
+    );
+  }
+
+  Widget _videoControlButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+        ),
+      ),
     );
   }
 

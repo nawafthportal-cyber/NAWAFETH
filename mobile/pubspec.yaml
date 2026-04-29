@@ -2,7 +2,7 @@ name: nawafeth
 description: "A new Flutter project with modern UI, RTL support, and advanced chat features."
 publish_to: "none" # يمنع النشر إلى pub.dev
 
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   # نخليها أوسع عشان تتوافق مع أغلب الإصدارات المستقرة من Dart 3

@@ -1403,8 +1403,7 @@ const ProviderDetailPage = (() => {
       const el = UI.el('div', { className: 'pd-highlight-item' });
       el.dataset.itemId = String(_safeInt(item.id));
       const thumb = UI.el('div', { className: 'pd-highlight-thumb' });
-      const imgUrl = item.thumbnail_url || item.file_url;
-      if (imgUrl) thumb.appendChild(UI.lazyImg(ApiClient.mediaUrl(imgUrl), ''));
+      thumb.appendChild(_buildSpotlightPreviewMedia(item));
 
       const stats = UI.el('div', { className: 'pd-highlight-stats' });
       const likes = UI.el('span', {
@@ -1441,6 +1440,41 @@ const ProviderDetailPage = (() => {
 
       row.appendChild(el);
     });
+  }
+
+  function _buildSpotlightPreviewMedia(item) {
+    const fileType = String(item?.file_type || '').trim().toLowerCase();
+    const thumbUrl = String(item?.thumbnail_url || '').trim();
+    const fileUrl = String(item?.file_url || '').trim();
+    const isVideo = fileType.indexOf('video') === 0 || /\.(mp4|mov|webm|m4v)(\?|$)/i.test(fileUrl);
+
+    if (thumbUrl && !/\.(mp4|mov|webm|m4v)(\?|$)/i.test(thumbUrl)) {
+      return UI.lazyImg(ApiClient.mediaUrl(thumbUrl), item.media_label || 'لمحة');
+    }
+
+    if (isVideo && fileUrl) {
+      const video = document.createElement('video');
+      video.className = 'pd-highlight-preview-video';
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      video.setAttribute('muted', 'muted');
+      video.setAttribute('playsinline', 'playsinline');
+      video.setAttribute('webkit-playsinline', 'webkit-playsinline');
+      video.setAttribute('aria-hidden', 'true');
+      video.src = ApiClient.mediaUrl(fileUrl);
+      video.addEventListener('loadeddata', () => {
+        try { video.currentTime = 0.1; } catch (_) {}
+      }, { once: true });
+      return video;
+    }
+
+    if (fileUrl) {
+      return UI.lazyImg(ApiClient.mediaUrl(fileUrl), item.media_label || 'لمحة');
+    }
+
+    return UI.el('div', { className: 'pd-highlight-fallback', textContent: 'ريل' });
   }
 
   function _syncSpotlightEngagementTotals() {
@@ -2163,8 +2197,12 @@ const ProviderDetailPage = (() => {
 
     const isCompactReviews = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
     const marqueeReviews = reviews.slice();
-    if (isCompactReviews || marqueeReviews.length === 1) {
+    const shouldUseStaticLayout = isCompactReviews || marqueeReviews.length <= 3;
+    if (shouldUseStaticLayout) {
       const staticList = UI.el('div', { className: 'pd-reviews-static' });
+      if (!isCompactReviews && marqueeReviews.length <= 3) {
+        staticList.classList.add('pd-reviews-static-featured');
+      }
       marqueeReviews.forEach((review) => {
         staticList.appendChild(_buildReviewCard(review));
       });
@@ -2177,21 +2215,15 @@ const ProviderDetailPage = (() => {
     const track = UI.el('div', { className: 'pd-reviews-track' });
     const groupA = UI.el('div', { className: 'pd-reviews-track-group' });
 
-    // Ensure each group has enough cards so multiple reviews are visible
-    // simultaneously even when the dataset is small (2-3 reviews).
-    const minCardsPerGroup = 6;
-    const repeatTimes = Math.max(1, Math.ceil(minCardsPerGroup / marqueeReviews.length));
-    for (let r = 0; r < repeatTimes; r++) {
-      marqueeReviews.forEach((review) => {
-        groupA.appendChild(_buildReviewCard(review));
-      });
-    }
+    marqueeReviews.forEach((review) => {
+      groupA.appendChild(_buildReviewCard(review));
+    });
     const groupB = groupA.cloneNode(true);
 
-    const totalCardsPerGroup = marqueeReviews.length * repeatTimes;
+    const totalCardsPerGroup = marqueeReviews.length;
     track.style.setProperty(
       '--pd-reviews-duration',
-      Math.max(20, totalCardsPerGroup * 5) + 's'
+      Math.max(24, totalCardsPerGroup * 5) + 's'
     );
     track.appendChild(groupA);
     track.appendChild(groupB);
