@@ -172,6 +172,7 @@ from .auth import (
     SESSION_OTP_VERIFIED_KEY,
     clear_dashboard_auth_session,
     dashboard_staff_required,
+    render_dashboard_access_denied,
 )
 from .exports import pdf_response, xlsx_response
 from .forms import (
@@ -565,7 +566,12 @@ def dashboard_index(request):
         return redirect("dashboard:extras_dashboard")
     if dashboard_allowed(request.user, "analytics"):
         return redirect("dashboard:analytics_insights")
-    return HttpResponseForbidden("لا توجد لوحة متاحة لهذا الحساب.")
+    return render_dashboard_access_denied(
+        request,
+        title="لا توجد لوحة تشغيل مفعّلة لهذا الحساب",
+        message="تم تسجيل دخولك بنجاح، لكن هذا الحساب لا يملك أي صلاحية تشغيل داخل لوحة الإدارة. إذا كنت تقصد خدماتك المعتادة فتابعها من واجهة المنصة، وإن كان يفترض منحك وصولًا تشغيليًا فاطلب تفعيل الصلاحية من الإدارة.",
+        status=403,
+    )
 
 
 def _serialize_access_rows():

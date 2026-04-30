@@ -3,8 +3,7 @@ from __future__ import annotations
 from functools import wraps
 
 from django.contrib.auth import logout
-from django.http import HttpResponseForbidden
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 
 
 SESSION_OTP_VERIFIED_KEY = "dashboard_otp_verified"
@@ -27,6 +26,24 @@ def _save_next_url(request) -> None:
         return
 
 
+def render_dashboard_access_denied(
+    request,
+    *,
+    title: str = "هذه اللوحة ليست مخصّصة لهذا الحساب",
+    message: str = "لوحة التشغيل الداخلية مخصّصة للحسابات الإدارية والتشغيلية فقط، بينما يمكن متابعة خدماتك وطلباتك من واجهات المنصة المخصّصة لك.",
+    status: int = 403,
+):
+    return render(
+        request,
+        "dashboard/access_denied.html",
+        {
+            "access_denied_title": title,
+            "access_denied_message": message,
+        },
+        status=status,
+    )
+
+
 def dashboard_staff_required(view_func):
     @wraps(view_func)
     def _wrapped(request, *args, **kwargs):
@@ -41,7 +58,7 @@ def dashboard_staff_required(view_func):
             return redirect("dashboard:login")
 
         if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
-            return HttpResponseForbidden("غير مصرح.")
+            return render_dashboard_access_denied(request)
 
         if not bool(request.session.get(SESSION_OTP_VERIFIED_KEY)):
             _save_next_url(request)
@@ -54,4 +71,3 @@ def dashboard_staff_required(view_func):
 
 # Backward-compatible alias used in legacy modules.
 dashboard_login_required = dashboard_staff_required
-

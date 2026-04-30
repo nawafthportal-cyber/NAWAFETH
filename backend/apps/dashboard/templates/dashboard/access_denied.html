@@ -1,0 +1,53 @@
+{% extends 'dashboard/_base.html' %}
+{% load static %}
+
+{% block title %}الوصول غير متاح{% endblock %}
+
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'dashboard/css/access-denied.css' %}?v=20260430">
+{% endblock %}
+
+{% block body %}
+  <main class="dashboard-denied-shell">
+    <section class="dashboard-denied-hero">
+      <div class="dashboard-denied-aurora" aria-hidden="true"></div>
+      <div class="dashboard-denied-grid">
+        <article class="dashboard-denied-card">
+          <span class="dashboard-denied-badge">بوابة التشغيل الداخلية</span>
+          <h1>{{ access_denied_title|default:"هذه اللوحة ليست مخصّصة لهذا الحساب" }}</h1>
+          <p>
+            {{ access_denied_message|default:"لوحة التشغيل الداخلية مخصّصة للحسابات الإدارية والتشغيلية فقط، بينما يمكن متابعة خدماتك وطلباتك من واجهات المنصة المخصّصة لك." }}
+          </p>
+
+          <div class="dashboard-denied-actions">
+            <a href="/" class="dashboard-denied-btn dashboard-denied-btn--primary">العودة إلى الرئيسية</a>
+            <a href="{% url 'dashboard:login' %}" class="dashboard-denied-btn dashboard-denied-btn--ghost">تسجيل دخول التشغيل</a>
+            <button type="button" class="dashboard-denied-btn dashboard-denied-btn--ghost" onclick="window.history.back()">الرجوع للصفحة السابقة</button>
+          </div>
+
+          <div class="dashboard-denied-meta">
+            <div class="dashboard-denied-meta-item">
+              <strong>الحساب الحالي</strong>
+              <span>{{ request.user.username|default:request.user.phone|default:"زائر المنصة" }}</span>
+            </div>
+            <div class="dashboard-denied-meta-item">
+              <strong>نوع الوصول</strong>
+              <span>حساب منصة عادي وليس حساب تشغيل داخلي</span>
+            </div>
+          </div>
+        </article>
+
+        <aside class="dashboard-denied-panel">
+          <div class="dashboard-denied-orb"></div>
+          <h2>ماذا يمكنك فعله الآن؟</h2>
+          <ul class="dashboard-denied-list">
+            <li>متابعة الطلبات والخدمات من الواجهة الأساسية للمنصة.</li>
+            <li>استخدام حساب تشغيلي مخصّص إذا كانت لديك صلاحيات إدارية.</li>
+            <li>مراجعة الإدارة إذا كان من المفترض منح هذا الحساب وصولًا داخليًا.</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+  </main>
+{% endblock %}
