@@ -73,13 +73,17 @@ const Nav = (() => {
   let _badgeUnauthorizedUntil = 0;
   let _badgePollTimer = null;
   let _badgeSocket = null;
+  let _badgeSocketConnectPromise = null;
   let _badgeSocketReconnectTimer = null;
   let _badgeSocketHeartbeatTimer = null;
   let _badgeSocketBackoffMs = 1000;
   let _badgeOwnsLeadership = false;
   let _badgeEventsBound = false;
   let _badgeSocketLastActivityAt = 0;
+  let _badgeSocketOpenedAt = 0;
   let _badgeLastFetchAt = 0;
+  let _badgeSocketCloseIntent = '';
+  let _badgeSocketLastCloseReason = 'unknown';
   let _topbarSponsorLoaded = false;
   let _topbarBrandLogoLoaded = false;
   let _topbarSponsorRotateTimer = 0;
@@ -92,6 +96,7 @@ const Nav = (() => {
   const _badgeSocketBackoffMaxMs = 30000;
   const _badgeSocketHeartbeatIntervalMs = 27000;
   const _badgeSocketHeartbeatTimeoutMs = 75000;
+  const _badgeShortConnectionMs = 5000;
   const _badgeLeaderKey = 'nw_badge_poll_leader_v2';
   const _badgeSnapshotKey = 'nw_badge_snapshot_v2';
   const _badgeRealtimeLocalOverrideKey = 'nw_enable_local_ws';
@@ -870,6 +875,16 @@ const Nav = (() => {
     return document.visibilityState === 'visible' && document.hasFocus();
   }
 
+  function _setBadgeSocketIntent(reason) {
+    _badgeSocketCloseIntent = String(reason || '').trim().toLowerCase();
+  }
+
+  function _consumeBadgeSocketIntent() {
+    const reason = _badgeSocketCloseIntent || '';
+    _badgeSocketCloseIntent = '';
+    return reason;
+  }
+
   function _hasFreshLeader(record) {
     return !!record && record.id && Number(record.expiresAt || 0) > Date.now();
   }
@@ -916,12 +931,13 @@ const Nav = (() => {
     }
   }
 
-  function _closeBadgeSocket() {
+  function _closeBadgeSocket(reason) {
     _clearBadgeSocketReconnect();
     if (_badgeSocketHeartbeatTimer) {
       clearInterval(_badgeSocketHeartbeatTimer);
       _badgeSocketHeartbeatTimer = null;
     }
+    _setBadgeSocketIntent(reason || 'unknown');
     if (!_badgeSocket) return;
     const socket = _badgeSocket;
     _badgeSocket = null;
@@ -930,8 +946,8 @@ const Nav = (() => {
       socket.onopen = null;
       socket.onmessage = null;
       socket.onerror = null;
-      socket.onclose = null;
-      socket.close(1000, 'badge polling stopped');
+      socket.__nwCloseIntent = _badgeSocketCloseIntent || String(reason || 'unknown');
+      socket.close(1000, _badgeSocketCloseIntent || 'badge socket closing');
     } catch (_) {}
   }
 
@@ -954,7 +970,7 @@ const Nav = (() => {
   }
 
   function _canUseBadgeRealtime() {
-    return Auth.isLoggedIn() && _badgeOwnsLeadership && _isPageActive() && !_shouldSkipBadgeRealtime();
+    return Auth.isLoggedIn() && _badgeOwnsLeadership && !_shouldSkipBadgeRealtime();
   }
 
   function _shouldSkipBadgeRealtime() {
@@ -1005,15 +1021,42 @@ const Nav = (() => {
   }
 
   function _scheduleBadgeSocketReconnect() {
-    if (_badgeSocketReconnectTimer || !_canUseBadgeRealtime()) {
+    if (_badgeSocketReconnectTimer || _badgeSocketConnectPromise || !_canUseBadgeRealtime()) {
       return;
     }
     const delay = _badgeSocketBackoffMs;
     _badgeSocketReconnectTimer = window.setTimeout(() => {
       _badgeSocketReconnectTimer = null;
-      _connectBadgeSocket();
+      void _connectBadgeSocket();
     }, delay);
     _badgeSocketBackoffMs = Math.min(_badgeSocketBackoffMaxMs, Math.max(1000, delay * 2));
+  }
+
+  function _classifyBadgeSocketClose(event, socket, explicitReason) {
+    const reason = String(explicitReason || socket && socket.__nwCloseIntent || '').trim().toLowerCase();
+    if (reason === 'navigation' || reason === 'logout' || reason === 'auth_blocked') {
+      return reason;
+    }
+    const code = Number(event && event.code);
+    if (code === 4401 || code === 4403) return 'auth_blocked';
+    if ((typeof navigator !== 'undefined' && navigator.onLine === false) || code === 1006 || code === 1012 || code === 1013 || code === 4408) {
+      return 'network';
+    }
+    return 'unknown';
+  }
+
+  function _shouldReconnectBadgeSocket(reason) {
+    return (reason === 'network' || reason === 'unknown') && _canUseBadgeRealtime();
+  }
+
+  function _logBadgeSocketClose(reason, socket) {
+    const openedAt = Number(socket && socket.__nwOpenedAt) || 0;
+    if (!openedAt) return;
+    if ((Date.now() - openedAt) < _badgeShortConnectionMs && (reason === 'network' || reason === 'unknown')) {
+      try {
+        console.warn('notifications websocket closed too quickly:', reason);
+      } catch (_) {}
+    }
   }
 
   function _handleBadgeSocketMessage(rawEvent) {
@@ -1041,60 +1084,80 @@ const Nav = (() => {
     _syncBadgePolling(true);
   }
 
-  async function _connectBadgeSocket() {
+  function _connectBadgeSocket() {
     if (!_canUseBadgeRealtime()) {
-      _closeBadgeSocket();
-      return;
+      _closeBadgeSocket('auth_blocked');
+      return Promise.resolve(false);
     }
-    if (_badgeSocket || _badgeSocketReconnectTimer) {
-      return;
+    if (_badgeSocket || _badgeSocketReconnectTimer || _badgeSocketConnectPromise) {
+      return _badgeSocketConnectPromise || Promise.resolve(true);
     }
-    const url = _badgeSocketUrl();
-    if (!url) return;
-    const token = await _badgeSocketToken();
-    if (!token) return;
+    const connectTask = (async () => {
+      const url = _badgeSocketUrl();
+      if (!url) return false;
+      const token = await _badgeSocketToken();
+      if (!token) return false;
 
-    let socket;
-    try {
-      socket = new WebSocket(url, ['nawafeth.jwt', token]);
-    } catch (_) {
-      _scheduleBadgeSocketReconnect();
-      return;
-    }
+      let socket;
+      try {
+        socket = new WebSocket(url, ['nawafeth.jwt', token]);
+      } catch (_) {
+        _scheduleBadgeSocketReconnect();
+        return false;
+      }
 
-    _badgeSocket = socket;
-    socket.onopen = () => {
-      if (_badgeSocket !== socket) return;
-      _badgeSocketBackoffMs = 1000;
-      _badgeSocketLastActivityAt = Date.now();
-      _startBadgeSocketHeartbeat();
-      _syncBadgePolling(true);
-    };
-    socket.onmessage = (event) => {
-      if (_badgeSocket !== socket) return;
-      _handleBadgeSocketMessage(event);
-    };
-    socket.onerror = () => {};
-    socket.onclose = async (event) => {
-      if (_badgeSocket === socket) {
-        _badgeSocket = null;
+      socket.__nwCloseIntent = '';
+      socket.__nwOpenedAt = 0;
+      _badgeSocket = socket;
+      socket.onopen = () => {
+        if (_badgeSocket !== socket) return;
+        _consumeBadgeSocketIntent();
+        _badgeSocketBackoffMs = 1000;
+        _badgeSocketLastActivityAt = Date.now();
+        _badgeSocketOpenedAt = _badgeSocketLastActivityAt;
+        socket.__nwOpenedAt = _badgeSocketOpenedAt;
+        _startBadgeSocketHeartbeat();
+        _syncBadgePolling(false);
+      };
+      socket.onmessage = (event) => {
+        if (_badgeSocket !== socket) return;
+        _handleBadgeSocketMessage(event);
+      };
+      socket.onerror = () => {};
+      socket.onclose = async (event) => {
+        if (_badgeSocket === socket) {
+          _badgeSocket = null;
+        }
+        if (_badgeSocketHeartbeatTimer) {
+          clearInterval(_badgeSocketHeartbeatTimer);
+          _badgeSocketHeartbeatTimer = null;
+        }
+        const explicitReason = _consumeBadgeSocketIntent();
+        const closeReason = _classifyBadgeSocketClose(event, socket, explicitReason);
+        _badgeSocketLastCloseReason = closeReason;
+        _logBadgeSocketClose(closeReason, socket);
+        if (closeReason === 'auth_blocked' && event && event.code === 4401 && typeof Auth.refreshAccessToken === 'function') {
+          try {
+            const refreshed = await Auth.refreshAccessToken();
+            if (refreshed && _canUseBadgeRealtime()) {
+              void _connectBadgeSocket();
+              return;
+            }
+          } catch (_) {}
+        }
+        if (_shouldReconnectBadgeSocket(closeReason)) {
+          _scheduleBadgeSocketReconnect();
+        }
+      };
+      return true;
+    })();
+    _badgeSocketConnectPromise = connectTask.finally(() => {
+      if (_badgeSocketConnectPromise && _badgeSocketConnectPromise.__nwSourcePromise === connectTask) {
+        _badgeSocketConnectPromise = null;
       }
-      if (_badgeSocketHeartbeatTimer) {
-        clearInterval(_badgeSocketHeartbeatTimer);
-        _badgeSocketHeartbeatTimer = null;
-      }
-      if (!_canUseBadgeRealtime()) return;
-      if (event && event.code === 4401 && typeof Auth.refreshAccessToken === 'function') {
-        try {
-          const refreshed = await Auth.refreshAccessToken();
-          if (refreshed && _canUseBadgeRealtime()) {
-            _connectBadgeSocket();
-            return;
-          }
-        } catch (_) {}
-      }
-      _scheduleBadgeSocketReconnect();
-    };
+    });
+    _badgeSocketConnectPromise.__nwSourcePromise = connectTask;
+    return _badgeSocketConnectPromise;
   }
 
   function _applyBadgePayload(payload) {
@@ -1121,14 +1184,14 @@ const Nav = (() => {
     if (!Auth.isLoggedIn()) {
       _badgeUnauthorizedUntil = 0;
       _clearUnreadBadges();
-      _stopBadgePolling();
+      _shutdownBadgeRealtime('logout');
       return;
     }
 
     const notificationsBadges = _ensureBadges('a[href="/notifications/"], #btn-notifications');
     const chatsBadges = _ensureBadges('a[href="/chats/"], #btn-chat');
     if (!notificationsBadges.length && !chatsBadges.length) {
-      _stopBadgePolling();
+      _shutdownBadgeRealtime('unknown');
       return;
     }
 
@@ -1162,7 +1225,7 @@ const Nav = (() => {
       if (res?.status === 401) {
         _badgeUnauthorizedUntil = Date.now() + (2 * 60 * 1000);
         _clearUnreadBadges();
-        _stopBadgePolling();
+        _shutdownBadgeRealtime('auth_blocked');
         return;
       }
 
@@ -1188,40 +1251,58 @@ const Nav = (() => {
       clearInterval(_badgePollTimer);
       _badgePollTimer = null;
     }
-    _closeBadgeSocket();
+    _closeBadgeSocket('unknown');
+    _releaseBadgeLeadership();
+  }
+
+  function _shutdownBadgeRealtime(reason) {
+    if (_badgePollTimer) {
+      clearInterval(_badgePollTimer);
+      _badgePollTimer = null;
+    }
+    _closeBadgeSocket(reason || 'unknown');
     _releaseBadgeLeadership();
   }
 
   function _startBadgePolling(forceLeadership) {
     if (!Auth.isLoggedIn() || !_isPageActive()) {
-      _stopBadgePolling();
       return;
     }
     if (!_claimBadgeLeadership(forceLeadership)) {
-      _stopBadgePolling();
+      _closeBadgeSocket('navigation');
+      if (_badgePollTimer) {
+        clearInterval(_badgePollTimer);
+        _badgePollTimer = null;
+      }
       const snapshot = _readStorageJson(_badgeSnapshotKey);
       if (snapshot) _applyBadgePayload(snapshot);
       return;
     }
-    _connectBadgeSocket();
+    void _connectBadgeSocket();
     if (_badgePollTimer) return;
     _badgePollTimer = window.setInterval(() => {
+      if (!_badgeOwnsLeadership || !Auth.isLoggedIn()) {
+        _shutdownBadgeRealtime(!Auth.isLoggedIn() ? 'logout' : 'navigation');
+        return;
+      }
       if (!_isPageActive()) {
-        _stopBadgePolling();
         return;
       }
       if (!_claimBadgeLeadership(false)) {
-        _stopBadgePolling();
+        _shutdownBadgeRealtime('navigation');
         return;
       }
-      _connectBadgeSocket();
+      void _connectBadgeSocket();
       _loadUnreadBadges(false);
     }, _badgePollIntervalMs);
   }
 
   function _syncBadgePolling(forceRefresh) {
-    if (!Auth.isLoggedIn() || !_isPageActive()) {
-      _stopBadgePolling();
+    if (!Auth.isLoggedIn()) {
+      _shutdownBadgeRealtime('logout');
+      return;
+    }
+    if (!_isPageActive()) {
       return;
     }
     _startBadgePolling(true);
@@ -1257,19 +1338,18 @@ const Nav = (() => {
     if (!_badgeEventsBound) {
       _badgeEventsBound = true;
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') _syncBadgePolling(true);
-        else _stopBadgePolling();
+        if (document.visibilityState === 'visible') _syncBadgePolling(false);
       });
-      window.addEventListener('focus', () => _syncBadgePolling(true));
-      window.addEventListener('blur', _stopBadgePolling);
-      window.addEventListener('pageshow', () => _syncBadgePolling(true));
-      window.addEventListener('beforeunload', _stopBadgePolling);
+      window.addEventListener('focus', () => _syncBadgePolling(false));
+      window.addEventListener('pageshow', () => _syncBadgePolling(false));
+      window.addEventListener('pagehide', () => _shutdownBadgeRealtime('navigation'));
+      window.addEventListener('beforeunload', () => _shutdownBadgeRealtime('navigation'));
       window.addEventListener('storage', _handleBadgeStorage);
       window.addEventListener('nw:badge-refresh', () => _syncBadgePolling(true));
       window.addEventListener('nw:auth-logout', () => {
         _badgeUnauthorizedUntil = 0;
         _clearUnreadBadges();
-        _stopBadgePolling();
+        _shutdownBadgeRealtime('logout');
       });
     }
 
@@ -1286,5 +1366,29 @@ const Nav = (() => {
   return {
     init,
     refreshUnreadBadges: _loadUnreadBadges,
+    __test: window.__NW_ENABLE_TEST_HOOKS__ ? {
+      connectBadgeSocket: _connectBadgeSocket,
+      claimBadgeLeadership: _claimBadgeLeadership,
+      loadUnreadBadges: _loadUnreadBadges,
+      syncBadgePolling: _syncBadgePolling,
+      shutdownBadgeRealtime: _shutdownBadgeRealtime,
+      debugState() {
+        return {
+          hasSocket: !!_badgeSocket,
+          hasConnectPromise: !!_badgeSocketConnectPromise,
+          hasReconnectTimer: !!_badgeSocketReconnectTimer,
+          lastCloseReason: _badgeSocketLastCloseReason,
+          ownsLeadership: _badgeOwnsLeadership,
+          refreshInFlight: _badgeRefreshInFlight,
+        };
+      },
+    } : undefined,
   };
 })();
+
+window.Nav = Nav;
+
+if (window.__NW_ENABLE_TEST_HOOKS__) {
+  window.__NW_TEST_HOOKS__ = window.__NW_TEST_HOOKS__ || {};
+  window.__NW_TEST_HOOKS__.nav = Nav.__test;
+}

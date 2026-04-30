@@ -45,3 +45,21 @@ class HomeAggregateViewTests(TestCase):
             view._cache_key(guest_request),
             view._cache_key(user_request),
         )
+
+
+class RootServiceWorkerViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_service_worker_compat_path_is_available(self):
+        response = self.client.get("/service-worker.js")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/javascript", response["Content-Type"])
+        self.assertEqual(response["Service-Worker-Allowed"], "/")
+
+    def test_legacy_sw_path_remains_available(self):
+        response = self.client.get("/sw.js")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/javascript", response["Content-Type"])

@@ -94,6 +94,7 @@ urlpatterns = [
     path("apple-touch-icon-precomposed.png", RootFaviconView.as_view(), name="apple_touch_icon_precomposed"),
     path("robots.txt", RootRobotsTxtView.as_view(), name="robots_txt"),
     path("sw.js", RootServiceWorkerView.as_view(), name="service_worker"),
+    path("service-worker.js", RootServiceWorkerView.as_view(), name="service_worker_compat"),
     path("checkout/<str:provider>/<uuid:attempt_id>/", MockCheckoutView.as_view(), name="public_mock_checkout"),
     path("healthz/", healthz, name="healthz"),
     path("health/", HealthCheckView.as_view(), name="health"),
