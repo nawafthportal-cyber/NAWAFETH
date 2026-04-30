@@ -63,6 +63,37 @@ from .location_formatter import provider_city_query_values
 from .media_thumbnails import ensure_media_thumbnail
 
 
+def _dedup_follow_rows(rows: list[ProviderFollow]) -> list[ProviderFollow]:
+	"""Return one follow row per user/provider pair, preferring provider-mode rows."""
+	ordered_rows = sorted(
+		rows,
+		key=lambda row: (
+			int(row.user_id or 0),
+			int(row.provider_id or 0),
+			0 if str(getattr(row, "role_context", "") or "").strip().lower() == "provider" else 1,
+			-float(getattr(getattr(row, "created_at", None), "timestamp", lambda: 0)() or 0),
+			-int(getattr(row, "id", 0) or 0),
+		),
+	)
+	seen: set[tuple[int, int]] = set()
+	deduped: list[ProviderFollow] = []
+	for row in ordered_rows:
+		key = (int(row.user_id or 0), int(row.provider_id or 0))
+		if key in seen:
+			continue
+		seen.add(key)
+		deduped.append(row)
+	return deduped
+
+
+def _dedup_follow_ids(qs):
+	"""Return follow-row ids with cross-role duplicates collapsed."""
+	return [
+		row.id
+		for row in _dedup_follow_rows(list(qs))
+	]
+
+
 def _handle_storage_error(exc):
 	"""Convert storage/S3 exceptions into a user-friendly DRF Response."""
 	msg = str(exc)
@@ -430,20 +461,16 @@ class ProviderDetailView(generics.RetrieveAPIView):
 
 
 class MyFollowingProvidersView(generics.ListAPIView):
-	"""Providers the current user follows (scoped to active role)."""
+	"""Providers the current user follows, de-duplicated across account modes."""
 	serializer_class = ProviderPublicSerializer
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get_queryset(self):
-		role = get_active_role(self.request)
-		followed_by_me = ProviderFollow.objects.filter(
-			provider=OuterRef("pk"),
+		followed_provider_ids = ProviderFollow.objects.filter(
 			user=self.request.user,
-			role_context=role,
-		)
+		).values("provider_id").distinct()
 		return _with_rating_annotations(
-			ProviderProfile.objects.annotate(_is_followed=Exists(followed_by_me))
-			.filter(_is_followed=True)
+			ProviderProfile.objects.filter(id__in=followed_provider_ids)
 			.annotate(
 				# Keep parity with provider stats: count unique users, not role rows.
 				followers_count=Count("followers__user", distinct=True),
@@ -972,7 +999,7 @@ class MyLikedProvidersView(generics.ListAPIView):
 
 
 class MyProviderFollowersView(generics.ListAPIView):
-	"""Users who follow the current user's provider profile (role-scoped)."""
+	"""Users who follow the current user's provider profile across all modes."""
 	serializer_class = ProviderFollowerSerializer
 	permission_classes = [IsAtLeastProvider]
 
@@ -980,16 +1007,10 @@ class MyProviderFollowersView(generics.ListAPIView):
 		provider_profile = getattr(self.request.user, "provider_profile", None)
 		if not provider_profile:
 			return ProviderFollow.objects.none()
-		role = get_active_role(self.request, fallback="provider")
-
-		return (
-			ProviderFollow.objects.filter(
-				provider=provider_profile,
-				role_context=role,
-			)
-			.select_related("user", "user__provider_profile")
-			.order_by("-created_at", "-id")
-		)
+		qs = ProviderFollow.objects.filter(
+			provider=provider_profile,
+		).select_related("user", "user__provider_profile")
+		return qs.filter(id__in=_dedup_follow_ids(qs)).order_by("-created_at", "-id")
 
 
 class MyProviderLikersView(generics.ListAPIView):
@@ -1030,29 +1051,7 @@ class ProviderFollowersView(generics.ListAPIView):
 			.select_related("user", "user__provider_profile")
 		)
 		if scope == "all":
-			# Prefer the "provider" role row per user (so provider_id is exposed),
-			# falling back to the most recent client-mode follow otherwise.
-			seen: set[int] = set()
-			ordered = list(
-				qs.order_by(
-					"user_id",
-					# 'provider' < 'client' alphabetically, so this prioritises provider rows
-					"role_context",
-					"-created_at",
-					"-id",
-				)
-			)
-			deduped_ids: list[int] = []
-			for row in ordered:
-				uid = row.user_id
-				if uid in seen:
-					continue
-				seen.add(uid)
-				deduped_ids.append(row.id)
-			return (
-				qs.filter(id__in=deduped_ids)
-				.order_by("-created_at", "-id")
-			)
+			return qs.filter(id__in=_dedup_follow_ids(qs)).order_by("-created_at", "-id")
 		role = get_active_role(self.request, fallback="client")
 		return qs.filter(role_context=role).order_by("-created_at", "-id")
 
@@ -1077,9 +1076,17 @@ class ProviderFollowingView(generics.ListAPIView):
 
 		user = provider.user
 		if scope == "all":
-			follow_filter = ProviderFollow.objects.filter(
-				provider=OuterRef("pk"),
+			followed_provider_ids = ProviderFollow.objects.filter(
 				user=user,
+			).values("provider_id").distinct()
+			return _with_rating_annotations(
+				ProviderProfile.objects.filter(id__in=followed_provider_ids)
+				.annotate(
+					followers_count=Count("followers__user", distinct=True),
+					likes_count=Count("likes__user", distinct=True),
+				)
+				.distinct()
+				.order_by("-id")
 			)
 		else:
 			role = get_active_role(self.request, fallback="provider")
@@ -1105,11 +1112,9 @@ class ProviderPublicStatsView(APIView):
 	permission_classes = [permissions.AllowAny]
 
 	def get(self, request, provider_id: int):
-		role = get_active_role(request, fallback="client")
-
 		from django.core.cache import cache as _cache
 
-		cache_key = f"provider:{provider_id}:public_stats:{role}"
+		cache_key = f"provider:{provider_id}:public_stats:shared"
 		cached = _cache.get(cache_key)
 		if cached is not None:
 			return Response(cached, status=status.HTTP_200_OK)
@@ -1138,7 +1143,6 @@ class ProviderPublicStatsView(APIView):
 		following_count = (
 			ProviderFollow.objects.filter(
 				user=provider.user,
-				role_context=role,
 			)
 			.values("provider_id")
 			.distinct()

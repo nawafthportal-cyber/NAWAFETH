@@ -184,8 +184,10 @@ def _me_payload(user: User, *, request=None) -> dict:
     likes_count = 0
     favorites_media_count = 0
     try:
+        from apps.providers.models import ProviderFollow
+
         following_count = (
-            user.provider_follows.filter(role_context=active_role)
+            ProviderFollow.objects.filter(user=user)
             .values("provider_id")
             .distinct()
             .count()
@@ -246,7 +248,14 @@ def _me_payload(user: User, *, request=None) -> dict:
             _lk = f"provider:{pp.id}:likes"
             provider_followers_count = _cache.get(_fk)
             if provider_followers_count is None:
-                provider_followers_count = pp.followers.count()
+                from apps.providers.models import ProviderFollow
+
+                provider_followers_count = (
+                    ProviderFollow.objects.filter(provider=pp)
+                    .values("user_id")
+                    .distinct()
+                    .count()
+                )
                 _cache.set(_fk, provider_followers_count, 300)
             provider_likes_received_count = _cache.get(_lk)
             if provider_likes_received_count is None:

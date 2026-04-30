@@ -3,7 +3,6 @@ from django.utils.text import slugify
 
 from apps.accounts.models import User
 from apps.accounts.phone_validation import normalize_phone_local05, require_phone_local05
-from apps.accounts.role_context import get_active_role
 from apps.reviews.services import provider_rating_values
 from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import (
@@ -542,14 +541,10 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
         )
 
     def get_following_count(self, obj):
-        # Count providers this provider's user follows, scoped by active account mode.
+        # Count unique providers this account follows across all account modes.
         try:
-            request = self.context.get("request")
-            if request is None:
-                return obj.user.provider_follows.count()
-            role = get_active_role(request, fallback="client")
             return (
-                obj.user.provider_follows.filter(role_context=role)
+                obj.user.provider_follows
                 .values("provider_id")
                 .distinct()
                 .count()

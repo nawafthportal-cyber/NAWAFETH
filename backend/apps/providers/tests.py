@@ -168,7 +168,7 @@ class ProviderFollowersRoleIsolationTests(TestCase):
             return payload.get("results", [])
         return payload
 
-    def test_my_followers_is_scoped_to_provider_mode(self):
+    def test_my_followers_returns_all_unique_followers_across_modes(self):
         response = self.client.get(
             reverse("providers:my_followers"),
             HTTP_X_ACCOUNT_MODE="provider",
@@ -192,9 +192,9 @@ class ProviderFollowersRoleIsolationTests(TestCase):
         rows = self._rows_from_payload(response.json())
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["id"], self.follower_user.id)
-        self.assertEqual(rows[0]["follow_role_context"], "client")
-        self.assertIsNone(rows[0]["provider_id"])
-        self.assertEqual(rows[0]["display_name"], "عميل متابع")
+        self.assertEqual(rows[0]["follow_role_context"], "provider")
+        self.assertEqual(rows[0]["provider_id"], self.follower_provider.id)
+        self.assertEqual(rows[0]["display_name"], self.follower_provider.display_name)
 
     def test_public_followers_is_scoped_to_provider_mode(self):
         response = self.client.get(
@@ -224,6 +224,64 @@ class ProviderFollowersRoleIsolationTests(TestCase):
         self.assertIsNone(rows[0]["provider_id"])
         self.assertEqual(rows[0]["display_name"], "عميل متابع")
         self.assertTrue(rows[0]["is_verified_blue"])
+
+    def test_public_followers_scope_all_deduplicates_and_prefers_provider_identity(self):
+        response = self.client.get(
+            f"{reverse('providers:provider_followers', kwargs={'provider_id': self.owner_provider.id})}?scope=all"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = self._rows_from_payload(response.json())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["id"], self.follower_user.id)
+        self.assertEqual(rows[0]["follow_role_context"], "provider")
+        self.assertEqual(rows[0]["provider_id"], self.follower_provider.id)
+        self.assertEqual(rows[0]["display_name"], self.follower_provider.display_name)
+
+    def test_my_following_and_public_stats_use_unique_cross_mode_totals(self):
+        followed_one = ProviderProfile.objects.create(
+            user=User.objects.create_user(
+                phone="0503400005",
+                username="provider.followed.one",
+                role_state=UserRole.PROVIDER,
+            ),
+            provider_type="individual",
+            display_name="مزود أول",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        followed_two = ProviderProfile.objects.create(
+            user=User.objects.create_user(
+                phone="0503400006",
+                username="provider.followed.two",
+                role_state=UserRole.PROVIDER,
+            ),
+            provider_type="individual",
+            display_name="مزود ثان",
+            bio="-",
+            city="جدة",
+            region="منطقة مكة",
+            accepts_urgent=True,
+        )
+        ProviderFollow.objects.create(user=self.owner_user, provider=followed_one, role_context="client")
+        ProviderFollow.objects.create(user=self.owner_user, provider=followed_one, role_context="provider")
+        ProviderFollow.objects.create(user=self.owner_user, provider=followed_two, role_context="provider")
+
+        following_response = self.client.get(reverse("providers:my_following"))
+        self.assertEqual(following_response.status_code, 200)
+        following_rows = self._rows_from_payload(following_response.json())
+        self.assertEqual(len(following_rows), 2)
+        self.assertEqual({row["id"] for row in following_rows}, {followed_one.id, followed_two.id})
+
+        stats_response = self.client.get(
+            reverse("providers:provider_public_stats", args=[self.owner_provider.id])
+        )
+        self.assertEqual(stats_response.status_code, 200)
+        stats = stats_response.json()
+        self.assertEqual(int(stats["followers_count"]), 1)
+        self.assertEqual(int(stats["following_count"]), 2)
 
     def test_public_following_returns_actual_verification_flags(self):
         response = self.client.get(
