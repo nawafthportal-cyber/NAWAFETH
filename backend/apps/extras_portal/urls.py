@@ -20,6 +20,8 @@ urlpatterns = [
     path("reports/export/<str:option_key>/xlsx/", views.portal_report_option_export_xlsx, name="report_option_export_xlsx"),
 
     path("clients/", views.portal_clients, name="clients"),
+    path("clients/export/pdf/", views.portal_clients_export_pdf, name="clients_export_pdf"),
+    path("clients/export/xlsx/", views.portal_clients_export_xlsx, name="clients_export_xlsx"),
 
     path("finance/", views.portal_finance, name="finance"),
     path("finance/export/pdf/", views.portal_finance_export_pdf, name="finance_export_pdf"),

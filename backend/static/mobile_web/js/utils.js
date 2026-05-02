@@ -319,12 +319,22 @@ const UI = (() => {
   }
 
   function normalizeExcellenceBadges(value) {
+    var lang = 'ar';
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        lang = window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      } else if (document && document.documentElement) {
+        lang = String(document.documentElement.getAttribute('lang') || '').toLowerCase() === 'en' ? 'en' : 'ar';
+      }
+    } catch (_) {}
     if (!Array.isArray(value)) return [];
     return value
       .filter(item => item && typeof item === 'object')
       .map(item => ({
         code: String(item.code || '').trim(),
-        name: String(item.name || item.title || '').trim(),
+        name_ar: String(item.name_ar || item.name || item.title || '').trim(),
+        name_en: String(item.name_en || '').trim(),
+        name: String(lang === 'en' ? (item.name_en || item.name || item.title || item.name_ar || '') : (item.name_ar || item.name || item.title || item.name_en || '')).trim(),
         icon: String(item.icon || '').trim(),
         color: String(item.color || '').trim(),
         awarded_at: String(item.awarded_at || '').trim(),
@@ -380,6 +390,45 @@ const UI = (() => {
       }));
       wrap.appendChild(chip);
     });
+
+    return wrap;
+  }
+
+  function buildVerificationBadges(options) {
+    const opts = options || {};
+    const isVerifiedBlue = !!opts.isVerifiedBlue;
+    const isVerifiedGreen = !!opts.isVerifiedGreen;
+    if (!isVerifiedBlue && !isVerifiedGreen) return null;
+
+    const wrap = el('span', {
+      className: opts.className || 'provider-verified-badges',
+    });
+    wrap.style.display = 'inline-flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.flexWrap = 'wrap';
+    wrap.style.gap = opts.gap || '4px';
+    wrap.style.verticalAlign = 'middle';
+
+    function appendBadge(name, color, label) {
+      const badge = el('span', {
+        className: 'provider-verified-badge-chip',
+        title: label,
+        'aria-label': label,
+      });
+      badge.style.display = 'inline-flex';
+      badge.style.alignItems = 'center';
+      badge.style.justifyContent = 'center';
+      badge.style.lineHeight = '1';
+      badge.appendChild(icon(name, opts.iconSize || 14, color));
+      wrap.appendChild(badge);
+    }
+
+    if (isVerifiedBlue) {
+      appendBadge('verified_blue', opts.blueColor || '#2196F3', opts.blueLabel || 'توثيق أزرق');
+    }
+    if (isVerifiedGreen) {
+      appendBadge('verified_green', opts.greenColor || '#16A34A', opts.greenLabel || 'توثيق أخضر');
+    }
 
     return wrap;
   }
@@ -457,6 +506,7 @@ const UI = (() => {
     lazyImg,
     normalizeExcellenceBadges,
     buildExcellenceBadges,
+    buildVerificationBadges,
     formatCityDisplay,
     splitCityScope,
     normalizeRegionCatalog,

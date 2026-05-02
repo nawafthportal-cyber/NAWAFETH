@@ -434,7 +434,7 @@ body.theme-dark.page-request-quote .success-title{ color:#EDE7F6; }
 {% block content %}
 <main class="page-content">
   <div class="container">
-    <!-- Auth gate -->
+    
     <div id="auth-gate" class="auth-gate{% if request.user.is_authenticated and provider_mode_blocked %} auth-gate-unified{% endif %}{% if request.user.is_authenticated and provider_mode_blocked %}{% elif not request.user.is_authenticated %}{% else %} hidden{% endif %}">
       {% if request.user.is_authenticated and provider_mode_blocked %}
       <p id="rq-provider-kicker" class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
@@ -603,8 +603,7 @@ body.theme-dark.page-request-quote .success-title{ color:#EDE7F6; }
         </div>
       </div>
 
-      <!-- Success overlay -->
-      <div id="rq-success" class="success-overlay hidden">
+<div id="rq-success" class="success-overlay hidden">
         <div class="success-card">
           <div class="success-icon">✅</div>
           <h2 id="rq-success-title" class="success-title">تم إرسال طلبك بنجاح!</h2>

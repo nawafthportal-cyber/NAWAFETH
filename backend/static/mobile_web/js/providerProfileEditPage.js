@@ -110,6 +110,39 @@ var ProviderProfileEditPage = (function () {
     }
   };
 
+  function currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      }
+    } catch (_) {}
+    return String(document.documentElement.getAttribute('lang') || '').toLowerCase() === 'en' ? 'en' : 'ar';
+  }
+
+  function badgeName(badge) {
+    if (!badge || typeof badge !== 'object') return '';
+    if (currentLang() === 'en') {
+      return String(badge.name_en || badge.name || badge.name_ar || badge.code || '').trim();
+    }
+    return String(badge.name_ar || badge.name || badge.name_en || badge.code || '').trim();
+  }
+
+  function badgeFallbackLabel() {
+    return currentLang() === 'en' ? 'Excellence Badge' : 'شارة تميز';
+  }
+
+  function badgeCongratsText(badge, issuedOn) {
+    var resolvedName = badgeName(badge) || (currentLang() === 'en' ? 'Excellence' : 'التميز');
+    if (currentLang() === 'en') {
+      return issuedOn
+        ? ('Congratulations! You earned the ' + resolvedName + ' badge on ' + issuedOn + ' and it has been published automatically on your profile.')
+        : ('Congratulations! You earned the ' + resolvedName + ' badge and it has been published automatically on your profile.');
+    }
+    return issuedOn
+      ? ('تهانينا! حصلت على شارة ' + resolvedName + ' بتاريخ ' + issuedOn + ' وتم نشرها تلقائيًا في ملفك.')
+      : ('تهانينا! حصلت على شارة ' + resolvedName + ' وتم نشرها تلقائيًا في ملفك.');
+  }
+
   var SECTION_LINKS = [
     { key: "basic", label: "البيانات الأساسية", href: "/provider-profile-edit/?tab=account&focus=fullName&section=basic" },
     { key: "service_details", label: "تفاصيل الخدمة", href: "/provider-profile-edit/?tab=account&focus=about&section=service_details" },
@@ -994,7 +1027,7 @@ var ProviderProfileEditPage = (function () {
     if (avatarBadge) {
       var topBadge = badges.length ? badges[0] : null;
       if (topBadge) {
-        avatarBadge.textContent = topBadge.name || topBadge.code || "شارة تميز";
+        avatarBadge.textContent = badgeName(topBadge) || topBadge.code || badgeFallbackLabel();
         avatarBadge.classList.remove("hidden");
       } else {
         avatarBadge.classList.add("hidden");
@@ -1009,9 +1042,7 @@ var ProviderProfileEditPage = (function () {
       });
       if (newBadge) {
         var issuedOn = formatAwardDate(newBadge.awarded_at);
-        congratsNode.textContent = issuedOn
-          ? ("تهانينا! حصلت على شارة " + (newBadge.name || "التميز") + " بتاريخ " + issuedOn + " وتم نشرها تلقائيًا في ملفك.")
-          : ("تهانينا! حصلت على شارة " + (newBadge.name || "التميز") + " وتم نشرها تلقائيًا في ملفك.");
+        congratsNode.textContent = badgeCongratsText(newBadge, issuedOn);
         congratsNode.classList.remove("hidden");
       } else {
         congratsNode.classList.add("hidden");

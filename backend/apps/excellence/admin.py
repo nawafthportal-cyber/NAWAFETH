@@ -5,9 +5,9 @@ from .models import ExcellenceBadgeAward, ExcellenceBadgeCandidate, ExcellenceBa
 
 @admin.register(ExcellenceBadgeType)
 class ExcellenceBadgeTypeAdmin(admin.ModelAdmin):
-    list_display = ("code", "name_ar", "review_cycle_days", "is_active", "sort_order")
+    list_display = ("code", "name_ar", "name_en", "review_cycle_days", "is_active", "sort_order")
     list_filter = ("is_active",)
-    search_fields = ("code", "name_ar")
+    search_fields = ("code", "name_ar", "name_en", "description", "description_en")
 
 
 @admin.register(ExcellenceBadgeCandidate)

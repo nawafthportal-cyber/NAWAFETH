@@ -165,7 +165,9 @@ def validate_content_block_media(uploaded_file):
 class SiteContentBlock(models.Model):
     key = models.CharField(max_length=80, unique=True, choices=ContentBlockKey.choices)
     title_ar = models.CharField(max_length=255)
+    title_en = models.CharField(max_length=255, blank=True, default="")
     body_ar = models.TextField(blank=True)
+    body_en = models.TextField(blank=True, default="")
     media_file = models.FileField(
         upload_to="site_content/%Y/%m/",
         validators=[
@@ -219,6 +221,7 @@ class HomePageFallbackBannerBlock(SiteContentBlock):
 class SiteLegalDocument(models.Model):
     doc_type = models.CharField(max_length=40, choices=LegalDocumentType.choices)
     body_ar = models.TextField(blank=True, default="")
+    body_en = models.TextField(blank=True, default="")
     file = models.FileField(
         upload_to="site_legal/%Y/%m/",
         validators=[

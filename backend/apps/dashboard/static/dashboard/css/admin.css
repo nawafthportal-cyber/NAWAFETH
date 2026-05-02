@@ -4798,6 +4798,45 @@ table.dash-table {
   font-size: .88rem;
 }
 
+.about-fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .96) 0%, rgba(249, 245, 252, .92) 100%);
+  padding: 14px 16px 16px;
+  margin: 0 0 14px;
+}
+
+.about-fieldset > legend {
+  padding: 4px 10px;
+  margin-inline-start: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-solid);
+  color: var(--brand-strong);
+  font-weight: 800;
+  font-size: .82rem;
+}
+
+.about-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.about-section-card {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-solid);
+  padding: 12px;
+}
+
+.about-section-card h5 {
+  margin: 0 0 10px;
+  color: var(--brand-strong);
+  font-size: .92rem;
+  font-weight: 800;
+}
+
 .legal-file-preview .preview-file-row a {
   color: var(--brand-strong);
   font-size: .84rem;

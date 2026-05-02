@@ -575,19 +575,121 @@ class ContentSettingsLegalForm(forms.Form):
 
 
 class ContentSettingsLinksForm(forms.Form):
+    # ----- Hero -----
+    hero_title = forms.CharField(
+        label="عنوان الهيرو الرئيسي",
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(
+            attrs={"class": "input-control", "maxlength": 120, "placeholder": "منصة نوافذ"}
+        ),
+    )
+    hero_subtitle = forms.CharField(
+        label="وصف الهيرو المختصر",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 2,
+                "maxlength": 300,
+                "placeholder": "حلول رقمية واضحة تربط العملاء بمزودي الخدمات.",
+            }
+        ),
+    )
+
+    # ----- Story sections (title + body) -----
+    about_title = forms.CharField(
+        label="عنوان قسم \"من نحن\"",
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input-control", "maxlength": 120, "placeholder": "من نحن"}),
+    )
     about_text = forms.CharField(
-        label="نص تعريف المنصة",
+        label="نص قسم \"من نحن\"",
         max_length=1000,
         required=False,
         widget=forms.Textarea(
             attrs={
                 "class": "input-control",
-                "rows": 5,
+                "rows": 4,
                 "maxlength": 1000,
-                "placeholder": "نص تعريف منصة مختص.",
+                "placeholder": "نص تعريفي مختصر عن المنصة.",
             }
         ),
     )
+    vision_title = forms.CharField(
+        label="عنوان قسم \"رؤيتنا\"",
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input-control", "maxlength": 120, "placeholder": "رؤيتنا"}),
+    )
+    vision_text = forms.CharField(
+        label="نص قسم \"رؤيتنا\"",
+        max_length=1000,
+        required=False,
+        widget=forms.Textarea(
+            attrs={"class": "input-control", "rows": 4, "maxlength": 1000, "placeholder": "نص الرؤية."}
+        ),
+    )
+    goals_title = forms.CharField(
+        label="عنوان قسم \"أهدافنا\"",
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input-control", "maxlength": 120, "placeholder": "أهدافنا"}),
+    )
+    goals_text = forms.CharField(
+        label="نص قسم \"أهدافنا\"",
+        max_length=1000,
+        required=False,
+        widget=forms.Textarea(
+            attrs={"class": "input-control", "rows": 4, "maxlength": 1000, "placeholder": "نص الأهداف."}
+        ),
+    )
+    values_title = forms.CharField(
+        label="عنوان قسم \"قيمنا\"",
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input-control", "maxlength": 120, "placeholder": "قيمنا"}),
+    )
+    values_text = forms.CharField(
+        label="نص قسم \"قيمنا\"",
+        max_length=1000,
+        required=False,
+        widget=forms.Textarea(
+            attrs={"class": "input-control", "rows": 4, "maxlength": 1000, "placeholder": "نص القيم."}
+        ),
+    )
+    app_title = forms.CharField(
+        label="عنوان قسم \"عن التطبيق\"",
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input-control", "maxlength": 120, "placeholder": "عن التطبيق"}),
+    )
+    app_text = forms.CharField(
+        label="نص قسم \"عن التطبيق\"",
+        max_length=1000,
+        required=False,
+        widget=forms.Textarea(
+            attrs={"class": "input-control", "rows": 4, "maxlength": 1000, "placeholder": "نص التطبيق."}
+        ),
+    )
+
+    # ----- Labels -----
+    social_title = forms.CharField(
+        label="عنوان قسم التواصل",
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input-control", "maxlength": 120, "placeholder": "تواصل معنا"}),
+    )
+    website_label = forms.CharField(
+        label="نص زر الموقع الرسمي",
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "input-control", "maxlength": 120, "placeholder": "الموقع الرسمي"}),
+    )
+
+    # ----- Links -----
     website_url = forms.URLField(
         label="رابط الموقع على الويب",
         required=False,
@@ -641,6 +743,51 @@ class ContentSettingsLinksForm(forms.Form):
 
     def clean_about_text(self):
         return (self.cleaned_data.get("about_text") or "").strip()[:1000]
+
+    def _clean_short(self, name: str, limit: int = 120) -> str:
+        return (self.cleaned_data.get(name) or "").strip()[:limit]
+
+    def _clean_long(self, name: str, limit: int = 1000) -> str:
+        return (self.cleaned_data.get(name) or "").strip()[:limit]
+
+    def clean_hero_title(self):
+        return self._clean_short("hero_title", 120)
+
+    def clean_hero_subtitle(self):
+        return self._clean_long("hero_subtitle", 300)
+
+    def clean_about_title(self):
+        return self._clean_short("about_title", 120)
+
+    def clean_vision_title(self):
+        return self._clean_short("vision_title", 120)
+
+    def clean_vision_text(self):
+        return self._clean_long("vision_text", 1000)
+
+    def clean_goals_title(self):
+        return self._clean_short("goals_title", 120)
+
+    def clean_goals_text(self):
+        return self._clean_long("goals_text", 1000)
+
+    def clean_values_title(self):
+        return self._clean_short("values_title", 120)
+
+    def clean_values_text(self):
+        return self._clean_long("values_text", 1000)
+
+    def clean_app_title(self):
+        return self._clean_short("app_title", 120)
+
+    def clean_app_text(self):
+        return self._clean_long("app_text", 1000)
+
+    def clean_social_title(self):
+        return self._clean_short("social_title", 120)
+
+    def clean_website_label(self):
+        return self._clean_short("website_label", 120)
 
 
 class ContentReviewActionForm(forms.Form):

@@ -243,7 +243,12 @@ class _MyChatsScreenState extends State<MyChatsScreen>
         return _normalizeSearchValue(thread.peerDisplayName).contains(query) ||
             _normalizeSearchValue(thread.peerPhone).contains(query) ||
             _normalizeSearchValue(thread.peerLocationDisplay).contains(query) ||
-            _normalizeSearchValue(thread.clientLabel ?? '').contains(query);
+            _normalizeSearchValue(
+              MessagingService.clientLabelDisplay(thread.clientLabel),
+            ).contains(query) ||
+            _normalizeSearchValue(
+              MessagingService.favoriteLabelDisplay(thread.favoriteLabel),
+            ).contains(query);
       }).toList();
     }
 
@@ -361,7 +366,7 @@ class _MyChatsScreenState extends State<MyChatsScreen>
             : 'مقدم خدمة على المنصة';
       case _ThreadKind.client:
         return _meaningfulValue(thread.clientLabel)
-            ? thread.clientLabel!.trim()
+            ? MessagingService.clientLabelDisplay(thread.clientLabel)
             : 'عميل يتابع معك مباشرة';
       case _ThreadKind.member:
         return 'رسائل مباشرة داخل نوافذ';
@@ -1634,15 +1639,21 @@ class _MyChatsScreenState extends State<MyChatsScreen>
                           ),
                         if (thread.isFavorite)
                           _TinyChip(
-                            label: (thread.favoriteLabel ?? '').trim().isNotEmpty
-                                ? thread.favoriteLabel!.trim()
+                            label: MessagingService.favoriteLabelDisplay(
+                                      thread.favoriteLabel,
+                                    ).isNotEmpty
+                                ? MessagingService.favoriteLabelDisplay(
+                                    thread.favoriteLabel,
+                                  )
                                 : 'مفضلة',
                             background: const Color(0xFFFFF4CC),
                             foreground: const Color(0xFF9A6700),
                           ),
                         if ((thread.clientLabel ?? '').trim().isNotEmpty)
                           _TinyChip(
-                            label: thread.clientLabel!.trim(),
+                            label: MessagingService.clientLabelDisplay(
+                              thread.clientLabel,
+                            ),
                             background: const Color(0xFFF4EBFF),
                             foreground: const Color(0xFF6D28D9),
                           ),

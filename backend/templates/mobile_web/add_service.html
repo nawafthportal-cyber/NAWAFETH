@@ -295,8 +295,7 @@ body.page-add-service-hub .hub-help-btn:hover {
 <main class="page-content">
   <div class="container hub-shell">
 
-    <!-- Provider-mode gate (kept for ClientModeOnlyRequestViewMixin) -->
-    <div id="add-service-provider-block" class="auth-gate auth-gate-unified{% if not provider_mode_blocked %} hidden{% endif %}">
+<div id="add-service-provider-block" class="auth-gate auth-gate-unified{% if not provider_mode_blocked %} hidden{% endif %}">
       {% if provider_mode_blocked %}
       <p id="add-service-provider-kicker" class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
       <div class="auth-gate-unified-icon" aria-hidden="true">
@@ -314,8 +313,7 @@ body.page-add-service-hub .hub-help-btn:hover {
 
     <div id="add-service-client-content"{% if provider_mode_blocked %} class="hidden"{% endif %}>
 
-      <!-- ───── Hero ───── -->
-      <section class="hub-hero">
+<section class="hub-hero">
         <div class="hub-hero-top">
           <span id="add-service-hero-kicker" class="hub-hero-kicker">جاهز لاستقبال طلبك</span>
           <a id="add-service-orders-link" href="/orders/" class="hub-hero-link" data-mode-orders-link="true">طلباتي</a>
@@ -331,17 +329,14 @@ body.page-add-service-hub .hub-help-btn:hover {
         </div>
       </section>
 
-      <!-- ───── Section heading ───── -->
-      <div class="hub-section-head">
+<div class="hub-section-head">
         <h2 id="add-service-section-title">اختر نوع الطلب</h2>
         <span id="add-service-section-tag" class="hub-section-tag">3 مسارات</span>
       </div>
 
-      <!-- ───── 3 Path cards ───── -->
-      <div class="hub-paths">
+<div class="hub-paths">
 
-        <!-- 1) Search & direct contact -->
-        <a href="/search/" class="hub-path search">
+<a href="/search/" class="hub-path search">
           <div class="hub-path-row">
             <div class="hub-path-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -376,8 +371,7 @@ body.page-add-service-hub .hub-help-btn:hover {
           </div>
         </a>
 
-        <!-- 2) Urgent request -->
-        <a href="/urgent-request/" class="hub-path urgent" data-auth-required="true">
+<a href="/urgent-request/" class="hub-path urgent" data-auth-required="true">
           <div class="hub-path-row">
             <div class="hub-path-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -411,8 +405,7 @@ body.page-add-service-hub .hub-help-btn:hover {
           </div>
         </a>
 
-        <!-- 3) Quote request -->
-        <a href="/request-quote/" class="hub-path quote" data-auth-required="true">
+<a href="/request-quote/" class="hub-path quote" data-auth-required="true">
           <div class="hub-path-row">
             <div class="hub-path-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -451,8 +444,7 @@ body.page-add-service-hub .hub-help-btn:hover {
 
       </div>
 
-      <!-- ───── Help section ───── -->
-      <div class="hub-help">
+<div class="hub-help">
         <div class="hub-help-icon" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>

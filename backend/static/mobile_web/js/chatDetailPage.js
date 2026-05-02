@@ -129,6 +129,13 @@ const ChatDetailPage = (() => {
       favoriteUpdateFailed: 'تعذر تحديث المفضلة',
       favoriteAddedSuccess: 'تمت إضافة الرسائل للمفضلة',
       favoriteRemovedSuccess: 'تمت إزالة الرسائل من المفضلة',
+      potentialClient: 'عميل محتمل',
+      currentClient: 'عميل حالي',
+      pastClient: 'عميل سابق',
+      incompleteContact: 'تواصل غير مكتمل',
+      potentialClientUpdateFailed: 'تعذر تحديث العميل المحتمل',
+      potentialClientAddedSuccess: 'تم حفظ العميل كعميل محتمل',
+      potentialClientRemovedSuccess: 'تمت إزالة العميل من العملاء المحتملين',
       archiveConfirm: 'أرشفة هذه الرسائل؟ سيتم إخفاؤها من قائمة الرسائل.',
       archiveUpdateFailed: 'تعذر تحديث الأرشفة',
       archiveAddedSuccess: 'تمت أرشفة الرسائل',
@@ -268,6 +275,13 @@ const ChatDetailPage = (() => {
       favoriteUpdateFailed: 'Unable to update favorites',
       favoriteAddedSuccess: 'Messages added to favorites',
       favoriteRemovedSuccess: 'Messages removed from favorites',
+      potentialClient: 'Potential client',
+      currentClient: 'Current client',
+      pastClient: 'Past client',
+      incompleteContact: 'Incomplete contact',
+      potentialClientUpdateFailed: 'Unable to update the potential client state',
+      potentialClientAddedSuccess: 'Client saved as a potential client',
+      potentialClientRemovedSuccess: 'Client removed from potential clients',
       archiveConfirm: 'Archive these messages? They will be hidden from the messages list.',
       archiveUpdateFailed: 'Unable to update archive state',
       archiveAddedSuccess: 'Messages archived',
@@ -316,6 +330,8 @@ const ChatDetailPage = (() => {
     },
     threadState: {
       is_favorite: false,
+      favorite_label: '',
+      client_label: '',
       is_archived: false,
       is_blocked: false,
       blocked_by_other: false,
@@ -556,6 +572,8 @@ const ChatDetailPage = (() => {
     };
 
     if (typeof thread.is_favorite === 'boolean') state.threadState.is_favorite = thread.is_favorite;
+    if (typeof thread.favorite_label === 'string') state.threadState.favorite_label = _trim(thread.favorite_label);
+    if (typeof thread.client_label === 'string') state.threadState.client_label = _trim(thread.client_label);
     if (typeof thread.is_archived === 'boolean') state.threadState.is_archived = thread.is_archived;
     if (typeof thread.is_blocked === 'boolean') state.threadState.is_blocked = thread.is_blocked;
     if (typeof thread.reply_restricted_to_me === 'boolean') state.threadState.reply_restricted_to_me = thread.reply_restricted_to_me;
@@ -592,6 +610,8 @@ const ChatDetailPage = (() => {
 
     state.threadState = {
       is_favorite: !!res.data.is_favorite,
+      favorite_label: _trim(res.data.favorite_label),
+      client_label: _trim(res.data.client_label),
       is_archived: !!res.data.is_archived,
       is_blocked: !!res.data.is_blocked,
       blocked_by_other: !!res.data.blocked_by_other,
@@ -823,6 +843,8 @@ const ChatDetailPage = (() => {
   function _peerTags() {
     const tags = [];
     const isSystem = _isAutoPlatformThread();
+    const favoriteLabel = _favoriteLabelDisplay();
+    const clientLabel = _clientLabelDisplay();
 
     if (isSystem) {
       tags.push({ text: _copy('automatedMessages'), accent: 'violet' });
@@ -838,6 +860,14 @@ const ChatDetailPage = (() => {
 
     if (!isSystem) {
       tags.push({ text: _copy('directMessages') });
+    }
+
+    if (!isSystem && favoriteLabel) {
+      tags.push({ text: favoriteLabel, accent: 'amber' });
+    }
+
+    if (!isSystem && clientLabel && clientLabel !== favoriteLabel) {
+      tags.push({ text: clientLabel, accent: 'emerald' });
     }
 
     if (!isSystem && _hasMeaningfulValue(state.peer.city)) {
@@ -887,8 +917,13 @@ const ChatDetailPage = (() => {
   function _renderThreadState() {
     const isSystem = _isAutoPlatformThread();
     const isFavorite = !!state.threadState.is_favorite;
+    const favoriteLabel = _favoriteLabelDisplay();
     dom.btnFavorite?.classList.toggle('active', isFavorite);
     dom.favoriteIndicator?.classList.toggle('hidden', isSystem || !isFavorite);
+    if (dom.favoriteIndicator) {
+      dom.favoriteIndicator.textContent = favoriteLabel || _copy('favoriteIndicator');
+      _setAutoDirection(dom.favoriteIndicator, dom.favoriteIndicator.textContent);
+    }
     if (dom.composerNote) dom.composerNote.textContent = _composerNote();
 
     if (dom.actionFavorite) {
@@ -2083,6 +2118,22 @@ const ChatDetailPage = (() => {
     if (action === 'report') _openReportDialog();
   }
 
+  function _favoriteLabelDisplay() {
+    const normalized = _trim(state.threadState.favorite_label).toLowerCase();
+    if (normalized === 'potential_client') return '';
+    if (normalized === 'important_conversation') return _copy('favoriteIndicator');
+    if (normalized === 'incomplete_contact') return _copy('incompleteContact');
+    return _trim(state.threadState.favorite_label);
+  }
+
+  function _clientLabelDisplay() {
+    const normalized = _trim(state.threadState.client_label).toLowerCase();
+    if (normalized === 'potential') return '';
+    if (normalized === 'current') return _copy('currentClient');
+    if (normalized === 'past') return _copy('pastClient');
+    return _trim(state.threadState.client_label);
+  }
+
   async function _toggleFavorite() {
     const remove = !!state.threadState.is_favorite;
     const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/favorite/', {
@@ -2092,6 +2143,8 @@ const ChatDetailPage = (() => {
     if (!res.ok) return _showToast(_extractError(res, _copy('favoriteUpdateFailed')), 'error');
 
     state.threadState.is_favorite = !!res.data?.is_favorite;
+    state.threadState.favorite_label = _trim(res.data?.favorite_label);
+    _renderPeer();
     _renderThreadState();
     _showToast(remove ? _copy('favoriteRemovedSuccess') : _copy('favoriteAddedSuccess'), 'success');
   }

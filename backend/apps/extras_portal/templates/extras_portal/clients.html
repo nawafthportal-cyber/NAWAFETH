@@ -46,30 +46,37 @@
 {% endblock %}
 
 {% block content %}
-  {# ── Header info bar ── #}
-  <div class="mb-4 flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4">
-    <div class="flex-1">
-      <div class="text-lg font-bold text-slate-900">{{ provider.display_name|default:request.user.username }}</div>
-      <div class="mt-0.5 text-xs text-slate-500">
-        تاريخ انتهاء الاشتراك:
-        <span class="font-bold text-violet-700">{% if subscription_end %}{{ subscription_end|date:'Y-m-d' }}{% else %}غير محدد{% endif %}</span>
-        &nbsp;·&nbsp;
-        سنوات الاشتراك:
-        <span class="font-bold text-violet-700">{{ clients_subscription_years }}</span>
+  
+  <div class="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="h-1.5 bg-gradient-to-l from-violet-500 via-indigo-500 to-sky-500"></div>
+    <div class="flex flex-wrap items-center gap-4 px-5 py-4">
+      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-lg font-bold text-white">
+        {{ provider_display_name|slice:":1"|upper }}
       </div>
-    </div>
-    <div class="flex items-center gap-6 text-sm">
-      <div class="text-center">
-        <div class="text-2xl font-bold text-emerald-600">{{ clients_total_count }}</div>
-        <div class="text-xs text-slate-500">إجمالي العملاء</div>
+      <div class="flex-1 min-w-[180px]">
+        <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">المزود</div>
+        <div class="text-lg font-bold text-slate-900">{{ provider_display_name }}</div>
+        <div class="mt-0.5 text-xs text-slate-500">
+          تاريخ انتهاء الاشتراك:
+          <span class="font-bold text-violet-700">{% if subscription_end %}{{ subscription_end|date:'Y-m-d' }}{% else %}غير محدد{% endif %}</span>
+          &nbsp;·&nbsp;
+          سنوات الاشتراك:
+          <span class="font-bold text-violet-700">{{ clients_subscription_years }}</span>
+        </div>
       </div>
-      <div class="text-center">
-        <div class="text-2xl font-bold text-violet-600">{{ bulk_message_limit }}</div>
-        <div class="text-xs text-slate-500">عدد الرسائل الجماعية</div>
-      </div>
-      <div class="text-center">
-        <div class="text-2xl font-bold text-amber-600">{{ remaining_messages }}</div>
-        <div class="text-xs text-slate-500">المتبقي</div>
+      <div class="flex items-center gap-6 text-sm">
+        <div class="text-center">
+          <div class="text-2xl font-bold text-emerald-600">{{ clients_total_count }}</div>
+          <div class="text-xs text-slate-500">إجمالي العملاء</div>
+        </div>
+        <div class="text-center">
+          <div class="text-2xl font-bold text-violet-600">{{ bulk_message_limit }}</div>
+          <div class="text-xs text-slate-500">عدد الرسائل الجماعية</div>
+        </div>
+        <div class="text-center">
+          <div class="text-2xl font-bold text-amber-600">{{ remaining_messages }}</div>
+          <div class="text-xs text-slate-500">المتبقي</div>
+        </div>
       </div>
     </div>
   </div>
@@ -79,15 +86,84 @@
     الحقول المعبأة تلقائيًا (<span class="text-emerald-600">●</span>) لا يمكن تعديلها.
   </div>
 
-  {# ── Client Table ── #}
-  <form method="post" action="{% url 'extras_portal:clients' %}" enctype="multipart/form-data" id="clientsForm">
+{% if clients_options_status %}
+  <div class="section-card mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+        <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        بنود إدارة العملاء في طلبك الحالي
+      </h4>
+      <span class="text-[11px] font-bold text-slate-500">
+        المفعّل: <span class="text-emerald-600">{{ clients_active_count }}</span> من {{ clients_total_options }}
+      </span>
+    </div>
+    <div class="flex flex-wrap gap-2 text-[11px]">
+      {% for opt in clients_options_status %}
+        <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold
+          {% if opt.active %}bg-emerald-50 text-emerald-700 border border-emerald-200
+          {% else %}bg-slate-50 text-slate-400 border border-slate-200 line-through{% endif %}"
+          title="{% if opt.active %}مفعّل في الطلب الحالي{% else %}غير مفعّل في الطلب الحالي{% endif %}">
+          {% if opt.active %}
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          {% else %}
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          {% endif %}
+          {{ opt.label }}
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+<form method="post" action="{% url 'extras_portal:clients' %}" enctype="multipart/form-data" id="clientsForm">
     {% csrf_token %}
 
     <div class="section-card mt-4 overflow-hidden">
       <div class="flex items-center justify-between gap-3 mb-3">
         <h3 class="text-base font-bold text-slate-900">جدول العملاء</h3>
-        <span class="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-600">{{ clients_total_count }} عميل</span>
+        <div class="flex items-center gap-2">
+          <span class="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-600">{{ clients_total_count }} عميل</span>
+          {% if clients_supports_export %}
+            <a href="{% url 'extras_portal:clients_export_xlsx' %}" class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition" title="تصدير Excel">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+              Excel
+            </a>
+            <a href="{% url 'extras_portal:clients_export_pdf' %}" class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 transition" title="تصدير PDF">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+              PDF
+            </a>
+          {% endif %}
+        </div>
       </div>
+
+<div class="mb-3 flex flex-wrap items-center gap-2 text-[11px]">
+        {% if clients_supports_historical or clients_supports_lists %}
+          <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 font-bold text-blue-700">عملاء سابقون</span>
+        {% endif %}
+        {% if clients_supports_followers or clients_supports_lists %}
+          <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 font-bold text-emerald-700">متابعو منصتي</span>
+        {% endif %}
+        {% if clients_supports_potentials or clients_supports_lists %}
+          <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 font-bold text-amber-700">عملاء محتملون</span>
+        {% endif %}
+      </div>
+
+{% if clients_supports_list_services %}
+      <div class="mb-3 flex flex-wrap items-center gap-2 text-[11px]">
+        <span class="text-slate-500 font-bold">عرض:</span>
+        {% with cf=current_filter %}
+          <a href="?filter=all"        class="rounded-full px-3 py-1 font-bold {% if cf == 'all' %}bg-violet-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">الكل ({{ clients_total_count }})</a>
+          <a href="?filter=followers"  class="rounded-full px-3 py-1 font-bold {% if cf == 'followers' %}bg-violet-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">المتابعون</a>
+          <a href="?filter=historical" class="rounded-full px-3 py-1 font-bold {% if cf == 'historical' %}bg-violet-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">العملاء السابقون</a>
+          <a href="?filter=potentials" class="rounded-full px-3 py-1 font-bold {% if cf == 'potentials' %}bg-violet-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">المحتملون</a>
+          <a href="?filter=served"     class="rounded-full px-3 py-1 font-bold {% if cf == 'served' %}bg-violet-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">سبق تقديم خدمة</a>
+          <a href="?filter=with_phone" class="rounded-full px-3 py-1 font-bold {% if cf == 'with_phone' %}bg-violet-600 text-white{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">لديه رقم جوال</a>
+          {% if cf != 'all' %}
+            <span class="ms-auto text-slate-500">المعروض: <strong class="text-violet-700">{{ filtered_count }}</strong></span>
+          {% endif %}
+        {% endwith %}
+      </div>
+      {% endif %}
 
       <div class="overflow-x-auto rounded-xl border border-slate-200">
         <table class="clients-table min-w-full text-xs">
@@ -95,22 +171,38 @@
             <tr>
               <th class="px-2 py-3 text-center font-bold">م</th>
               <th class="px-3 py-3 text-right font-bold">اسم العميل <span class="text-emerald-500 text-[10px]">●</span></th>
-              <th class="px-2 py-3 text-center font-bold">سبق تقديم خدمة <span class="text-emerald-500 text-[10px]">●</span></th>
-              <th class="px-2 py-3 text-center font-bold">متابع لمنصتي <span class="text-emerald-500 text-[10px]">●</span></th>
-              <th class="px-2 py-3 text-center font-bold">عميل محتمل <span class="text-emerald-500 text-[10px]">●</span></th>
-              <th class="px-2 py-3 text-center font-bold">عدد الطلبات <span class="text-emerald-500 text-[10px]">●</span></th>
-              <th class="px-3 py-3 text-right font-bold">التصنيف</th>
-              <th class="px-2 py-3 text-center font-bold">
-                <label class="flex items-center justify-center gap-1 cursor-pointer">
-                  <input type="checkbox" id="selectAll" class="rounded border-slate-300 text-violet-600 focus:ring-violet-500">
-                  <span>تحديد الكل</span>
-                </label>
-              </th>
-              <th class="px-3 py-3 text-right font-bold">تذكير خاص</th>
-              <th class="px-2 py-3 text-center font-bold">تاريخ التذكير</th>
-              <th class="px-2 py-3 text-center font-bold">وقت التذكير</th>
-              <th class="px-2 py-3 text-center font-bold">حالة التذكير</th>
-              <th class="px-2 py-3 text-center font-bold">نقاط الولاء</th>
+              {% if show_col_served %}
+                <th class="px-2 py-3 text-center font-bold">سبق تقديم خدمة <span class="text-emerald-500 text-[10px]">●</span></th>
+              {% endif %}
+              {% if show_col_follower %}
+                <th class="px-2 py-3 text-center font-bold">متابع لمنصتي <span class="text-emerald-500 text-[10px]">●</span></th>
+              {% endif %}
+              {% if show_col_potential %}
+                <th class="px-2 py-3 text-center font-bold">عميل محتمل <span class="text-emerald-500 text-[10px]">●</span></th>
+              {% endif %}
+              {% if show_col_request_count %}
+                <th class="px-2 py-3 text-center font-bold">عدد الطلبات <span class="text-emerald-500 text-[10px]">●</span></th>
+              {% endif %}
+              {% if clients_supports_grouping %}
+                <th class="px-3 py-3 text-right font-bold">التصنيف</th>
+              {% endif %}
+              {% if clients_supports_bulk_messages %}
+                <th class="px-2 py-3 text-center font-bold">
+                  <label class="flex items-center justify-center gap-1 cursor-pointer">
+                    <input type="checkbox" id="selectAll" class="rounded border-slate-300 text-violet-600 focus:ring-violet-500">
+                    <span>تحديد الكل</span>
+                  </label>
+                </th>
+              {% endif %}
+              {% if clients_supports_reminders %}
+                <th class="px-3 py-3 text-right font-bold">تذكير خاص</th>
+                <th class="px-2 py-3 text-center font-bold">تاريخ التذكير</th>
+                <th class="px-2 py-3 text-center font-bold">وقت التذكير</th>
+                <th class="px-2 py-3 text-center font-bold">حالة التذكير</th>
+              {% endif %}
+              {% if clients_supports_points %}
+                <th class="px-2 py-3 text-center font-bold">نقاط الولاء</th>
+              {% endif %}
             </tr>
           </thead>
           <tbody>
@@ -119,6 +211,7 @@
                 <input type="hidden" name="record_client_ids" value="{{ c.user.id }}">
                 <td class="px-2 py-2.5 text-center font-bold text-slate-400">{{ c.row_num }}</td>
                 <td class="px-3 py-2.5 text-right font-bold text-slate-800 whitespace-nowrap">{{ c.name }}</td>
+                {% if show_col_served %}
                 <td class="px-2 py-2.5 text-center">
                   {% if c.previously_served %}
                     <span class="auto-badge badge-yes">نعم</span>
@@ -126,6 +219,8 @@
                     <span class="auto-badge badge-no">لا</span>
                   {% endif %}
                 </td>
+                {% endif %}
+                {% if show_col_follower %}
                 <td class="px-2 py-2.5 text-center">
                   {% if c.is_follower %}
                     <span class="auto-badge badge-yes">نعم</span>
@@ -133,6 +228,8 @@
                     <span class="auto-badge badge-no">لا</span>
                   {% endif %}
                 </td>
+                {% endif %}
+                {% if show_col_potential %}
                 <td class="px-2 py-2.5 text-center">
                   {% if c.is_potential %}
                     <span class="auto-badge badge-yes">نعم</span>
@@ -140,48 +237,59 @@
                     <span class="auto-badge badge-no">لا</span>
                   {% endif %}
                 </td>
+                {% endif %}
+                {% if show_col_request_count %}
                 <td class="px-2 py-2.5 text-center">
                   <span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-600">{{ c.request_count }}</span>
                 </td>
-                <td class="px-2 py-2.5">
-                  <input type="text" name="classification_{{ c.user.id }}" value="{{ c.classification }}" placeholder="مهم / متكرر ..." class="text-right">
-                </td>
-                <td class="px-2 py-2.5 text-center">
-                  <input type="checkbox" name="client_ids" value="{{ c.user.id }}" class="client-checkbox rounded border-slate-300 text-violet-600 focus:ring-violet-500">
-                </td>
-                <td class="px-2 py-2.5">
-                  <input type="text" name="reminder_text_{{ c.user.id }}" value="{{ c.reminder_text }}" placeholder="تذكير ..." class="text-right">
-                </td>
-                <td class="px-2 py-2.5">
-                  <input type="date" name="reminder_date_{{ c.user.id }}" value="{{ c.reminder_date }}">
-                </td>
-                <td class="px-2 py-2.5">
-                  <input type="time" name="reminder_time_{{ c.user.id }}" value="{{ c.reminder_time }}">
-                </td>
-                <td class="px-2 py-2.5 text-center">
-                  {% if c.reminder_date %}
-                    {% if c.reminder_sent %}
-                      <span class="auto-badge badge-yes" title="تم الإرسال{% if c.reminder_sent_at %} {{ c.reminder_sent_at|date:'Y-m-d H:i' }}{% endif %}">
-                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                        تم
-                      </span>
+                {% endif %}
+                {% if clients_supports_grouping %}
+                  <td class="px-2 py-2.5">
+                    <input type="text" name="classification_{{ c.user.id }}" value="{{ c.classification }}" placeholder="مهم / متكرر ..." class="text-right">
+                  </td>
+                {% endif %}
+                {% if clients_supports_bulk_messages %}
+                  <td class="px-2 py-2.5 text-center">
+                    <input type="checkbox" name="client_ids" value="{{ c.user.id }}" class="client-checkbox rounded border-slate-300 text-violet-600 focus:ring-violet-500">
+                  </td>
+                {% endif %}
+                {% if clients_supports_reminders %}
+                  <td class="px-2 py-2.5">
+                    <input type="text" name="reminder_text_{{ c.user.id }}" value="{{ c.reminder_text }}" placeholder="تذكير ..." class="text-right">
+                  </td>
+                  <td class="px-2 py-2.5">
+                    <input type="date" name="reminder_date_{{ c.user.id }}" value="{{ c.reminder_date }}">
+                  </td>
+                  <td class="px-2 py-2.5">
+                    <input type="time" name="reminder_time_{{ c.user.id }}" value="{{ c.reminder_time }}">
+                  </td>
+                  <td class="px-2 py-2.5 text-center">
+                    {% if c.reminder_date %}
+                      {% if c.reminder_sent %}
+                        <span class="auto-badge badge-yes" title="تم الإرسال{% if c.reminder_sent_at %} {{ c.reminder_sent_at|date:'Y-m-d H:i' }}{% endif %}">
+                          <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                          تم
+                        </span>
+                      {% else %}
+                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600" title="بانتظار الموعد">
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                          قيد الانتظار
+                        </span>
+                      {% endif %}
                     {% else %}
-                      <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600" title="بانتظار الموعد">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        قيد الانتظار
-                      </span>
+                      <span class="text-slate-300 text-[10px]">—</span>
                     {% endif %}
-                  {% else %}
-                    <span class="text-slate-300 text-[10px]">—</span>
-                  {% endif %}
-                </td>
-                <td class="px-2 py-2.5">
-                  <input type="number" name="loyalty_points_{{ c.user.id }}" value="{{ c.loyalty_points_added }}" min="0" class="text-center w-20">
-                </td>
+                  </td>
+                {% endif %}
+                {% if clients_supports_points %}
+                  <td class="px-2 py-2.5">
+                    <input type="number" name="loyalty_points_{{ c.user.id }}" value="{{ c.loyalty_points_added }}" min="0" class="text-center w-20">
+                  </td>
+                {% endif %}
               </tr>
             {% empty %}
               <tr>
-                <td colspan="13" class="px-4 py-10 text-center text-sm text-slate-400">لا يوجد عملاء حاليًا.</td>
+                <td colspan="{{ table_colspan }}" class="px-4 py-10 text-center text-sm text-slate-400">لا يوجد عملاء حاليًا.</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -189,8 +297,7 @@
       </div>
     </div>
 
-    {# ── Bulk Message Section ── #}
-    {% if clients_supports_bulk_messages %}
+{% if clients_supports_bulk_messages %}
     <div class="section-card mt-5">
       <h3 class="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
         <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
@@ -221,8 +328,7 @@
         </div>
       </div>
 
-      {# Recent messages #}
-      {% if recent_message_rows %}
+{% if recent_message_rows %}
       <div class="mt-4 border-t border-slate-100 pt-4">
         <h4 class="text-xs font-bold text-slate-500 mb-2">آخر الرسائل المرسلة</h4>
         <div class="max-h-48 overflow-auto rounded-xl border border-slate-100">
@@ -258,8 +364,7 @@
     </div>
     {% endif %}
 
-    {# ── Loyalty Program Section ── #}
-    {% if clients_supports_loyalty and loyalty_program %}
+{% if clients_supports_loyalty and loyalty_program %}
     <div class="section-card mt-5">
       <h3 class="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
         <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -304,8 +409,7 @@
     </div>
     {% endif %}
 
-    {# ── Save Data Button ── #}
-    <div class="mt-6 flex justify-center">
+<div class="mt-6 flex justify-center">
       <button type="submit" name="action" value="save_data"
         class="rounded-2xl bg-gradient-to-l from-emerald-600 to-emerald-700 px-10 py-4 text-base font-bold text-white shadow-xl hover:from-emerald-700 hover:to-emerald-800 transition flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
@@ -314,26 +418,35 @@
     </div>
   </form>
 
-  {# ── Option Labels ── #}
-  {% if clients_option_labels %}
+{% if clients_supports_grouping %}
   <div class="mt-6 section-card">
-    <h4 class="text-xs font-bold text-slate-500 mb-2">خيارات إدارة العملاء المفعّلة</h4>
-    <div class="flex flex-wrap gap-2">
-      {% for opt in clients_option_labels %}
-        <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold
-          {% if opt.unavailable %}bg-slate-100 text-slate-400{% else %}bg-emerald-50 text-emerald-700{% endif %}">
-          {% if not opt.unavailable %}
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          {% endif %}
-          {{ opt.text }}
-        </span>
-      {% endfor %}
-    </div>
+    <h3 class="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
+      <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zM9 15h6"></path></svg>
+      التصنيف على شكل مجموعات
+    </h3>
+    <p class="text-xs text-slate-500 mb-3">يتم تجميع العملاء حسب القيمة المكتوبة في عمود "التصنيف". احفظ البيانات أولاً لظهور المجموعات.</p>
+    {% if classification_groups %}
+      <div class="flex flex-wrap gap-2">
+        {% for g in classification_groups %}
+          <span class="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+            <span>{{ g.label }}</span>
+            <span class="rounded-full bg-violet-600 text-white px-2 py-0.5 text-[10px]">{{ g.count }}</span>
+          </span>
+        {% endfor %}
+        {% if unclassified_count %}
+          <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+            <span>غير مصنّف</span>
+            <span class="rounded-full bg-slate-500 text-white px-2 py-0.5 text-[10px]">{{ unclassified_count }}</span>
+          </span>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="text-xs text-slate-400">لم يتم تصنيف أي عميل بعد.</div>
+    {% endif %}
   </div>
   {% endif %}
 
-  {# ── Toast ── #}
-  {% if messages %}
+{% if messages %}
   <div class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 space-y-2" id="toastContainer">
     {% for msg in messages %}
       <div class="rounded-xl px-5 py-3 text-sm font-bold shadow-xl
@@ -351,8 +464,7 @@
   <script>setTimeout(()=>{const c=document.getElementById('toastContainer');if(c)c.style.display='none'},4000)</script>
   {% endif %}
 
-  {# ── Select All JS ── #}
-  <script>
+<script>
     document.addEventListener('DOMContentLoaded', function() {
       const selectAll = document.getElementById('selectAll');
       if (!selectAll) return;

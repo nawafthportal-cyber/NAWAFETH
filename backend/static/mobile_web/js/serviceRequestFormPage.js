@@ -1406,6 +1406,15 @@
       var dist = p._dist < 9999 ? text("providerDistance", { value: p._dist.toFixed(1) }) : "";
       var phone = escHtml(p.phone || "");
       var whatsapp = escHtml(p.whatsapp_url || "");
+      var inlineBadgeHtml = [
+        p.is_verified_blue
+          ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_blue', 13, '#2196F3').outerHTML + '</span>'
+          : '',
+        p.is_verified_green
+          ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_green', 13, '#16A34A').outerHTML + '</span>'
+          : ''
+      ].filter(Boolean).join('<span style="display:inline-block;width:4px"></span>');
+      var nameHtml = '<div class="sr-prov-card-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>' + name + '</span>' + inlineBadgeHtml + '</div>';
 
       var badge = "";
       if (p.is_verified_blue) {
@@ -1420,7 +1429,7 @@
         + badge
         + '</div>'
         + '<div class="sr-prov-card-info">'
-        + '<div class="sr-prov-card-name">' + name + '</div>'
+        + nameHtml
         + '<div class="sr-prov-card-stats">'
         + '<span><svg viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg> ' + rating + '</span>'
         + '<span>' + escHtml(text("providerCompleted", { count: completed })) + '</span>'

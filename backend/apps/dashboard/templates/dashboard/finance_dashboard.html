@@ -23,8 +23,7 @@
     <main class="dash-shell">
       <section class="panel content-panel">
 
-        {# ── Stats strip ── #}
-        <div class="finance-stats-strip slide-up">
+<div class="finance-stats-strip slide-up">
           <div class="finance-stat-card">
             <span class="finance-stat-value">{{ stats.revenue|floatformat:2 }}</span>
             <span class="finance-stat-label">إجمالي الإيرادات (ر.س)</span>
@@ -51,8 +50,7 @@
           </div>
         </div>
 
-        {# ── Filter toolbar ── #}
-        <section class="section-panel slide-up" id="financeInvoices">
+<section class="section-panel slide-up" id="financeInvoices">
           <div class="title-row">
             <h2>قائمة الفواتير</h2>
             <div class="actions">
@@ -88,8 +86,7 @@
             </div>
           </form>
 
-          {# ── Invoices table ── #}
-          <div class="table-wrap">
+<div class="table-wrap">
             <table class="dash-table finance-table">
               <thead>
                 <tr>
@@ -131,8 +128,7 @@
           </div>
         </section>
 
-        {# ── Invoice Detail Panel ── #}
-        {% if selected_invoice %}
+{% if selected_invoice %}
         <section class="section-panel slide-up finance-detail-panel" id="invoiceDetail">
           <div class="title-row">
             <h2>تفاصيل الفاتورة {{ selected_invoice.code }}</h2>
@@ -208,8 +204,7 @@
             {% endif %}
           </div>
 
-          {# ── Line Items ── #}
-          {% if selected_lines %}
+{% if selected_lines %}
           <div class="finance-sub-section">
             <h3>بنود الفاتورة</h3>
             <div class="table-wrap">
@@ -237,8 +232,7 @@
           </div>
           {% endif %}
 
-          {# ── Payment Attempts ── #}
-          {% if selected_attempts %}
+{% if selected_attempts %}
           <div class="finance-sub-section">
             <h3>محاولات الدفع</h3>
             <div class="table-wrap">
@@ -273,8 +267,7 @@
       <aside class="panel side-panel">
         {% include 'dashboard/_sidebar_main_nav.html' %}
 
-        {# ── Revenue by type ── #}
-        {% if by_type %}
+{% if by_type %}
         <div class="side-card">
           <h4>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
@@ -291,8 +284,7 @@
         </div>
         {% endif %}
 
-        {# ── Quick counts ── #}
-        <div class="side-card">
+<div class="side-card">
           <h4>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             ملخص الحالات

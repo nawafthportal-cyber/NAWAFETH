@@ -24,6 +24,7 @@ import '../models/media_item_model.dart';
 import '../models/provider_public_model.dart';
 import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/login_required_prompt.dart';
+import '../widgets/provider_name_with_badges.dart';
 import '../widgets/verified_badge_view.dart';
 import '../widgets/spotlight_viewer.dart';
 import 'chat_detail_screen.dart';
@@ -2163,11 +2164,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
         // ── Name ──
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            providerName,
+          child: ProviderNameWithBadges(
+            name: providerName,
+            isVerifiedBlue: providerVerifiedBlue,
+            isVerifiedGreen: providerVerifiedGreen,
             maxLines: 2,
-            overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
+            badgeIconSize: 16,
+            enableBadgeTap: true,
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w900,

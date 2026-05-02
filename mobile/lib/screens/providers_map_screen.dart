@@ -16,7 +16,7 @@ import '../models/category_model.dart';
 import '../constants/saudi_cities.dart';
 import '../constants/app_theme.dart';
 import '../widgets/excellence_badges_wrap.dart';
-import '../widgets/verified_badge_view.dart';
+import '../widgets/provider_name_with_badges.dart';
 import 'chat_detail_screen.dart';
 import 'provider_profile_screen.dart';
 
@@ -1104,27 +1104,17 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    provider.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      fontFamily: 'Cairo',
-                                    ),
-                                  ),
-                                ),
-                                if (provider.verified) ...[
-                                  const SizedBox(width: 4),
-                                  VerifiedBadgeView(
-                                    isVerifiedBlue: provider.isVerifiedBlue,
-                                    isVerifiedGreen: provider.isVerifiedGreen,
-                                    iconSize: 14,
-                                  ),
-                                ],
-                              ],
+                            ProviderNameWithBadges(
+                              name: provider.name,
+                              isVerifiedBlue: provider.isVerifiedBlue,
+                              isVerifiedGreen: provider.isVerifiedGreen,
+                              badgeIconSize: 14,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                fontFamily: 'Cairo',
+                              ),
+                              maxLines: 2,
                             ),
                             Text(
                               provider.subCategory,
@@ -1846,29 +1836,18 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              provider.name,
-                              style: const TextStyle(
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.w900,
-                                fontFamily: 'Cairo',
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (provider.verified) ...[
-                            const SizedBox(width: 6),
-                            VerifiedBadgeView(
-                              isVerifiedBlue: provider.isVerifiedBlue,
-                              isVerifiedGreen: provider.isVerifiedGreen,
-                              iconSize: 15,
-                            ),
-                          ],
-                        ],
+                      ProviderNameWithBadges(
+                        name: provider.name,
+                        isVerifiedBlue: provider.isVerifiedBlue,
+                        isVerifiedGreen: provider.isVerifiedGreen,
+                        badgeIconSize: 15,
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'Cairo',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(

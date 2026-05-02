@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
+from apps.core.i18n import localized_model_field
+
 from .models import (
     SupportTicket, SupportAttachment, SupportComment,
     SupportTeam, SupportTicketStatus, SupportStatusLog, SupportTicketEntrypoint, SupportTicketType
@@ -58,9 +60,14 @@ def _resolve_support_team_for_create(raw_team_value, *, ticket_type: str) -> Sup
 
 
 class SupportTeamSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+
+    def get_name(self, obj):
+        return localized_model_field(obj, "name", request=self.context.get("request"))
+
     class Meta:
         model = SupportTeam
-        fields = ["id", "code", "name_ar", "dashboard_code", "is_active", "sort_order"]
+        fields = ["id", "code", "name", "name_ar", "name_en", "dashboard_code", "is_active", "sort_order"]
 
 
 class SupportAttachmentSerializer(serializers.ModelSerializer):

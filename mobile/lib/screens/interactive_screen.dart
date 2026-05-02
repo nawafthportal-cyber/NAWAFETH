@@ -12,8 +12,8 @@ import '../models/provider_public_model.dart';
 import '../models/user_public_model.dart';
 import '../models/media_item_model.dart';
 import '../widgets/login_required_prompt.dart';
+import '../widgets/provider_name_with_badges.dart';
 import '../widgets/spotlight_viewer.dart';
-import '../widgets/verified_badge_view.dart';
 
 enum InteractiveInitialTab {
   following,
@@ -1251,31 +1251,21 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                               ),
                             ),
                             const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    provider.displayName,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: 'Cairo',
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w900,
-                                      color: isDark
-                                          ? Colors.white
-                                          : Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                if (provider.isVerified) ...[
-                                  const SizedBox(width: 4),
-                                  VerifiedBadgeView(
-                                    isVerifiedBlue: provider.isVerifiedBlue,
-                                    isVerifiedGreen: provider.isVerifiedGreen,
-                                    iconSize: 12,
-                                  ),
-                                ],
-                              ],
+                            ProviderNameWithBadges(
+                              name: provider.displayName,
+                              isVerifiedBlue: provider.isVerifiedBlue,
+                              isVerifiedGreen: provider.isVerifiedGreen,
+                              badgeIconSize: 12,
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: isDark
+                                    ? Colors.white
+                                    : Colors.black87,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             if (username.isNotEmpty) ...[
                               const SizedBox(height: 2),

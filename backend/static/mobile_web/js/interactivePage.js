@@ -494,16 +494,15 @@ const InteractivePage = (() => {
       className: 'interactive-following-name',
       textContent: provider.display_name || _copy('providerName'),
     }));
-    if (provider.is_verified_blue || provider.is_verified_green || provider.is_verified) {
-      const badge = UI.el('span', {
-        className: 'interactive-verified-badge',
-        title: _copy('verifiedProvider'),
-        'aria-label': _copy('verifiedProvider'),
-      });
-      badge.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2l-3.5-3.5L4 14.2l5 5 11-11-1.5-1.5z"/></svg>';
-      if (provider.is_verified_blue) badge.classList.add('blue');
-      nameRow.appendChild(badge);
-    }
+    const verificationBadges = UI.buildVerificationBadges({
+      isVerifiedBlue: !!provider.is_verified_blue,
+      isVerifiedGreen: !!provider.is_verified_green || (!provider.is_verified_blue && !!provider.is_verified),
+      iconSize: 10,
+      gap: '3px',
+      blueLabel: _copy('blueBadgeVerified'),
+      greenLabel: _copy('greenBadgeVerified'),
+    });
+    if (verificationBadges) nameRow.appendChild(verificationBadges);
     meta.appendChild(nameRow);
 
     const usernameRaw = String(provider.username || '').trim();

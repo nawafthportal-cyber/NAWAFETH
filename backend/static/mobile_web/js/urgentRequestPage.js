@@ -1185,6 +1185,14 @@ const UrgentRequestPage = (() => {
   }
 
   function buildPopupHtml(provider) {
+    const inlineBadgeHtml = [
+      provider.is_verified_blue
+        ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_blue', 12, '#2196F3').outerHTML + '</span>'
+        : '',
+      provider.is_verified_green
+        ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_green', 12, '#16A34A').outerHTML + '</span>'
+        : '',
+    ].filter(Boolean).join('<span style="display:inline-block;width:4px"></span>');
     const badgeClass = provider.is_verified_blue ? 'blue' : (provider.is_verified_green ? 'green' : '');
     const badge = badgeClass
       ? '<span class="ur-provider-badge ' + badgeClass + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>'
@@ -1202,7 +1210,7 @@ const UrgentRequestPage = (() => {
       '<div class="ur-popup">',
       '<div class="ur-popup-head">',
       '<div class="ur-popup-avatar">' + image + badge + '</div>',
-      '<div><div class="ur-popup-title">' + escapeHtml(provider.display_name) + '</div>',
+      '<div><div class="ur-popup-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>' + escapeHtml(provider.display_name) + '</span>' + inlineBadgeHtml + '</div>',
       '<div class="ur-popup-meta">⭐ ' + formatRating(provider.rating_avg) + ' • ' + escapeHtml(copy('providerCountCompleted', { count: String(provider.completed_requests || 0) })) + '</div></div>',
       '</div>',
       '<div class="ur-popup-actions">',
@@ -1236,6 +1244,14 @@ const UrgentRequestPage = (() => {
       const card = document.createElement('div');
       card.className = 'ur-provider-card' + (state.selectedProvider?.id === provider.id ? ' selected' : '');
 
+      const inlineBadgeHtml = [
+        provider.is_verified_blue
+          ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_blue', 12, '#2196F3').outerHTML + '</span>'
+          : '',
+        provider.is_verified_green
+          ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_green', 12, '#16A34A').outerHTML + '</span>'
+          : '',
+      ].filter(Boolean).join('<span style="display:inline-block;width:4px"></span>');
       const badgeClass = provider.is_verified_blue ? 'blue' : (provider.is_verified_green ? 'green' : '');
       const badgeHtml = badgeClass
         ? '<span class="ur-provider-badge ' + badgeClass + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>'
@@ -1248,7 +1264,7 @@ const UrgentRequestPage = (() => {
         '<div class="ur-provider-card-head">',
         '<div class="ur-provider-card-avatar">' + avatarHtml + badgeHtml + '</div>',
         '<div style="min-width:0;flex:1 1 auto">',
-        '<h4 class="ur-provider-card-name">' + escapeHtml(provider.display_name) + '</h4>',
+        '<h4 class="ur-provider-card-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>' + escapeHtml(provider.display_name) + '</span>' + inlineBadgeHtml + '</h4>',
         '<div class="ur-provider-card-sub">',
         '<span>⭐ ' + formatRating(provider.rating_avg) + '</span>',
         '<span>' + escapeHtml(copy('providerCountCompleted', { count: String(provider.completed_requests || 0) })) + '</span>',
@@ -1309,7 +1325,21 @@ const UrgentRequestPage = (() => {
       return;
     }
 
-    if (dom['ur-provider-name']) dom['ur-provider-name'].textContent = provider.display_name;
+    if (dom['ur-provider-name']) {
+      const inlineBadgeHtml = [
+        provider.is_verified_blue
+          ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_blue', 12, '#2196F3').outerHTML + '</span>'
+          : '',
+        provider.is_verified_green
+          ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_green', 12, '#16A34A').outerHTML + '</span>'
+          : '',
+      ].filter(Boolean).join('<span style="display:inline-block;width:4px"></span>');
+      dom['ur-provider-name'].innerHTML = '<span>' + escapeHtml(provider.display_name) + '</span>' + inlineBadgeHtml;
+      dom['ur-provider-name'].style.display = 'flex';
+      dom['ur-provider-name'].style.alignItems = 'center';
+      dom['ur-provider-name'].style.gap = '6px';
+      dom['ur-provider-name'].style.flexWrap = 'wrap';
+    }
     if (dom['ur-provider-location']) dom['ur-provider-location'].textContent = provider.city_display || getScopedCity() || copy('providerWithinCity');
     if (dom['ur-provider-rating']) dom['ur-provider-rating'].textContent = copy('providerRating', { value: formatRating(provider.rating_avg) });
     if (dom['ur-provider-completed']) dom['ur-provider-completed'].textContent = copy('providerCompleted', { value: String(provider.completed_requests || 0) });

@@ -19,11 +19,11 @@
 </head>
 <body class="min-h-screen p-3 sm:p-5">
   <div class="shell mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1440px] overflow-hidden rounded-3xl">
-    {# ── Sidebar ── #}
+    
     <aside class="sidebar hidden w-72 shrink-0 border-l border-slate-200/60 lg:flex lg:flex-col">
       <div class="border-b border-slate-100 px-6 py-6">
         <h2 class="text-xl font-bold text-slate-900">الخدمات الإضافية</h2>
-        <p class="mt-1 text-sm text-slate-500">{{ provider.display_name|default:request.user.username }}</p>
+        <p class="mt-1 text-sm font-semibold text-slate-700">{{ provider_display_name|default:provider.display_name }}</p>
         <p class="mt-0.5 text-xs text-slate-400" dir="ltr">{{ request.user.phone|default:"" }}</p>
       </div>
 
@@ -49,8 +49,7 @@
       </div>
     </aside>
 
-    {# ── Main ── #}
-    <main class="flex-1 overflow-hidden">
+<main class="flex-1 overflow-hidden">
       <header class="border-b border-slate-100 bg-white/60 px-5 py-4 backdrop-blur sm:px-7">
         <div class="flex items-center justify-between gap-4">
           <div>
@@ -61,7 +60,7 @@
             <span class="hidden rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white sm:inline-flex">{{ portal_current_request_obj.code }}</span>
           {% endif %}
         </div>
-        {# Mobile nav #}
+        
         <div class="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
           {% for item in portal_nav_items %}
             <a href="{% url item.url_name %}" class="whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-semibold {% if item.active %}border-indigo-200 bg-indigo-50 text-indigo-700{% else %}border-slate-200 bg-white text-slate-600{% endif %}">{{ item.label }}</a>

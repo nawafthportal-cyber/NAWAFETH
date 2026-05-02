@@ -27,6 +27,8 @@ class PlatformLogoAdminForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["title_ar"].label = "النص البديل للشعار"
         self.fields["title_ar"].help_text = "يُستخدم كنص بديل للصورة لتحسين الوصول ومحركات البحث."
+        self.fields["title_en"].label = "النص البديل للشعار بالإنجليزية"
+        self.fields["title_en"].help_text = "يُستخدم عند التبديل إلى الإنجليزية."
         self.fields["media_file"].label = "ملف الشعار"
         self.fields["media_file"].help_text = "ارفع صورة الشعار فقط. يُفضّل PNG أو WebP بخلفية شفافة."
         self.fields["is_active"].label = "تفعيل الشعار"
@@ -47,17 +49,17 @@ class PlatformLogoAdminForm(forms.ModelForm):
 
 @admin.register(SiteContentBlock)
 class SiteContentBlockAdmin(admin.ModelAdmin):
-    list_display = ("key", "title_ar", "is_active", "updated_at", "updated_by")
+    list_display = ("key", "title_ar", "title_en", "is_active", "updated_at", "updated_by")
     list_filter = ("is_active", "key")
-    search_fields = ("key", "title_ar", "body_ar")
+    search_fields = ("key", "title_ar", "title_en", "body_ar", "body_en")
 
 
 @admin.register(PlatformLogoBlock)
 class PlatformLogoBlockAdmin(admin.ModelAdmin):
     form = PlatformLogoAdminForm
-    list_display = ("key_label", "title_ar", "is_active", "updated_at", "media_preview")
+    list_display = ("key_label", "title_ar", "title_en", "is_active", "updated_at", "media_preview")
     readonly_fields = ("key", "usage_note", "media_preview", "updated_at", "updated_by")
-    fields = ("key", "title_ar", "media_file", "media_preview", "usage_note", "is_active", "updated_at", "updated_by")
+    fields = ("key", "title_ar", "title_en", "media_file", "media_preview", "usage_note", "is_active", "updated_at", "updated_by")
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(key=PLATFORM_LOGO_KEY)
@@ -87,6 +89,7 @@ class PlatformLogoBlockAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         obj.key = PLATFORM_LOGO_KEY
         obj.body_ar = ""
+        obj.body_en = ""
         if hasattr(obj, "updated_by"):
             obj.updated_by = getattr(request, "user", None)
         super().save_model(request, obj, form, change)
@@ -112,11 +115,11 @@ class PlatformLogoBlockAdmin(admin.ModelAdmin):
 
 @admin.register(BrandingContentBlock)
 class BrandingContentBlockAdmin(admin.ModelAdmin):
-    list_display = ("key_label", "title_ar", "is_active", "updated_at", "media_preview")
+    list_display = ("key_label", "title_ar", "title_en", "is_active", "updated_at", "media_preview")
     list_filter = ("is_active",)
-    search_fields = ("key", "title_ar", "body_ar")
+    search_fields = ("key", "title_ar", "title_en", "body_ar", "body_en")
     readonly_fields = ("key", "media_preview", "updated_at", "updated_by")
-    fields = ("key", "title_ar", "body_ar", "media_file", "media_preview", "is_active", "updated_at", "updated_by")
+    fields = ("key", "title_ar", "title_en", "body_ar", "body_en", "media_file", "media_preview", "is_active", "updated_at", "updated_by")
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(key__in=BRANDING_KEYS)
@@ -148,11 +151,11 @@ class BrandingContentBlockAdmin(admin.ModelAdmin):
 
 @admin.register(HomePageFallbackBannerBlock)
 class HomePageFallbackBannerBlockAdmin(admin.ModelAdmin):
-    list_display = ("key_label", "title_ar", "is_active", "updated_at", "media_preview")
+    list_display = ("key_label", "title_ar", "title_en", "is_active", "updated_at", "media_preview")
     list_filter = ("is_active",)
-    search_fields = ("key", "title_ar", "body_ar")
+    search_fields = ("key", "title_ar", "title_en", "body_ar", "body_en")
     readonly_fields = ("key", "usage_note", "media_preview", "updated_at", "updated_by")
-    fields = ("key", "title_ar", "body_ar", "media_file", "media_preview", "usage_note", "is_active", "updated_at", "updated_by")
+    fields = ("key", "title_ar", "title_en", "body_ar", "body_en", "media_file", "media_preview", "usage_note", "is_active", "updated_at", "updated_by")
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(key=HOME_FALLBACK_BANNER_KEY)
@@ -203,7 +206,9 @@ class HomePageFallbackBannerBlockAdmin(admin.ModelAdmin):
 class SiteLegalDocumentAdmin(admin.ModelAdmin):
     list_display = ("doc_type", "version", "is_active", "published_at", "uploaded_at", "uploaded_by")
     list_filter = ("doc_type", "is_active")
-    search_fields = ("doc_type", "version")
+    search_fields = ("doc_type", "version", "body_ar", "body_en")
+    fields = ("doc_type", "body_ar", "body_en", "file", "version", "published_at", "is_active", "uploaded_at", "uploaded_by")
+    readonly_fields = ("uploaded_at", "uploaded_by")
 
 
 @admin.register(SiteLinks)

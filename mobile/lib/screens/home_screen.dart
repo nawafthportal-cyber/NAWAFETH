@@ -21,6 +21,7 @@ import '../models/media_item_model.dart';
 import '../widgets/promo_banner_widget.dart';
 import '../widgets/promo_media_tile.dart';
 import '../widgets/platform_top_bar.dart';
+import '../widgets/provider_name_with_badges.dart';
 import '../widgets/spotlight_viewer.dart';
 import '../widgets/verified_badge_view.dart';
 import '../services/content_service.dart';
@@ -3016,11 +3017,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 10),
             // ── Name — centered, up to 2 lines ──
-            Text(
-              specialist.displayName,
+            ProviderNameWithBadges(
+              name: specialist.displayName,
+              isVerifiedBlue: specialist.isVerifiedBlue,
+              isVerifiedGreen: specialist.isVerifiedGreen,
               maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
+              badgeIconSize: 13,
               style: TextStyle(
                 fontSize: AppTextStyles.bodyMd,
                 fontWeight: FontWeight.w700,
@@ -3061,15 +3064,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: isDark ? Colors.white60 : AppColors.grey500,
                     ),
                   ),
-                if (specialist.isVerified) ...[
-                  const SizedBox(width: 5),
-                  VerifiedBadgeView(
-                    isVerifiedBlue: specialist.isVerifiedBlue,
-                    isVerifiedGreen: specialist.isVerifiedGreen,
-                    iconSize: 12,
-                    enableTap: false,
-                  ),
-                ],
               ],
             ),
           ],

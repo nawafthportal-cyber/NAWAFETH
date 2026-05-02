@@ -1517,21 +1517,23 @@ const SearchPage = (() => {
     const body = UI.el('div', { className: 'provider-search-body' });
     const titleRow = UI.el('div', { className: 'provider-search-title-row' });
     const nameWrap = UI.el('div', { className: 'provider-search-name-wrap' });
-    nameWrap.appendChild(UI.el('h2', { className: 'provider-search-name', textContent: displayName }));
+    const nameLine = UI.el('div', { className: 'provider-search-name-line' });
+    nameLine.style.display = 'flex';
+    nameLine.style.alignItems = 'center';
+    nameLine.style.gap = '6px';
+    nameLine.style.flexWrap = 'wrap';
+    const nameEl = UI.el('h2', { className: 'provider-search-name', textContent: displayName });
+    nameLine.appendChild(nameEl);
+    const inlineVerifiedBadges = UI.buildVerificationBadges({
+      isVerifiedBlue: provider.is_verified_blue,
+      isVerifiedGreen: provider.is_verified_green,
+      iconSize: 14,
+      gap: '4px',
+    });
+    if (inlineVerifiedBadges) nameLine.appendChild(inlineVerifiedBadges);
+    nameWrap.appendChild(nameLine);
 
     const badgesRow = UI.el('div', { className: 'provider-search-badges' });
-    if (provider.is_verified_blue || provider.is_verified_green) {
-      const verifiedChip = UI.el('span', { className: 'provider-search-badge is-verified' });
-      verifiedChip.appendChild(
-        UI.icon(
-          provider.is_verified_blue ? 'verified_blue' : 'verified_green',
-          14,
-          provider.is_verified_blue ? '#2196F3' : '#2E7D32'
-        )
-      );
-      verifiedChip.appendChild(UI.el('span', { textContent: _copy('verified') }));
-      badgesRow.appendChild(verifiedChip);
-    }
 
     const excellenceItems = UI.normalizeExcellenceBadges(provider.excellence_badges);
     if (excellenceItems.length) {
@@ -1782,6 +1784,14 @@ const SearchPage = (() => {
   function _buildProviderMapPopupHtml(provider) {
     const providerId = String(provider?.id || '').trim();
     const name = _escapeHtml((provider?.display_name || _copy('providerFallback')).trim());
+    const verifiedIcons = [
+      provider?.is_verified_blue
+        ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_blue', 12, '#2196F3').outerHTML + '</span>'
+        : '',
+      provider?.is_verified_green
+        ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_green', 12, '#16A34A').outerHTML + '</span>'
+        : '',
+    ].filter(Boolean).join('<span style="display:inline-block;width:4px"></span>');
     const returnUrl = (() => {
       try {
         const url = new URL(window.location.href);
@@ -1815,7 +1825,7 @@ const SearchPage = (() => {
         ? ('<img class="search-map-provider-avatar" src="' + _escapeHtml(imageUrl) + '" alt="' + name + '">')
         : '<span class="search-map-provider-avatar-fallback">👤</span>',
       '</a>',
-      '<div class="search-map-provider-name">' + name + '</div>',
+      '<div class="search-map-provider-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>' + name + '</span>' + verifiedIcons + '</div>',
       '<div class="search-map-provider-meta">',
       '<span>⭐ ' + ratingLabel + '</span>',
       '<span>•</span>',

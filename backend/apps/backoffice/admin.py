@@ -7,9 +7,9 @@ from .models import AccessPermission, Dashboard, UserAccessProfile
 
 @admin.register(Dashboard)
 class DashboardAdmin(admin.ModelAdmin):
-    list_display = ("code", "name_ar", "is_active", "sort_order")
+    list_display = ("code", "name_ar", "name_en", "is_active", "sort_order")
     list_filter = ("is_active",)
-    search_fields = ("code", "name_ar")
+    search_fields = ("code", "name_ar", "name_en")
     ordering = ("sort_order", "code")
 
 
@@ -76,7 +76,7 @@ class UserAccessProfileAdmin(admin.ModelAdmin):
 
 @admin.register(AccessPermission)
 class AccessPermissionAdmin(admin.ModelAdmin):
-    list_display = ("code", "name_ar", "dashboard_code", "is_active", "sort_order")
+    list_display = ("code", "name_ar", "name_en", "dashboard_code", "is_active", "sort_order")
     list_filter = ("dashboard_code", "is_active")
-    search_fields = ("code", "name_ar", "description")
+    search_fields = ("code", "name_ar", "name_en", "description", "description_en")
     ordering = ("sort_order", "code")

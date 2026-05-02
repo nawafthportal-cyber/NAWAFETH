@@ -269,6 +269,48 @@ class MessagingService {
     return res.isSuccess;
   }
 
+  /// ضبط تصنيف المفضلة للمحادثة
+  static Future<bool> setFavoriteLabel(int threadId, String label) async {
+    final res = await ApiClient.post(
+      '/api/messaging/thread/$threadId/favorite-label/',
+      body: {'label': label.trim()},
+    );
+    return res.isSuccess;
+  }
+
+  /// ضبط تصنيف العميل للمحادثة
+  static Future<bool> setClientLabel(int threadId, String label) async {
+    final res = await ApiClient.post(
+      '/api/messaging/thread/$threadId/client-label/',
+      body: {'label': label.trim()},
+    );
+    return res.isSuccess;
+  }
+
+  static String favoriteLabelDisplay(String? label) {
+    switch ((label ?? '').trim().toLowerCase()) {
+      case 'important_conversation':
+        return 'محادثة مهمة';
+      case 'incomplete_contact':
+        return 'تواصل غير مكتمل';
+      default:
+        return (label ?? '').trim();
+    }
+  }
+
+  static String clientLabelDisplay(String? label) {
+    switch ((label ?? '').trim().toLowerCase()) {
+      case 'potential':
+        return '';
+      case 'current':
+        return 'عميل حالي';
+      case 'past':
+        return 'عميل سابق';
+      default:
+        return (label ?? '').trim();
+    }
+  }
+
   /// حظر / إلغاء حظر
   static Future<bool> toggleBlock(int threadId, {bool remove = false}) async {
     final res = await ApiClient.post(

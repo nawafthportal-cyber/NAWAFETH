@@ -990,6 +990,22 @@ const ProviderDetailPage = (() => {
     // ── Name & handle ──
     const username = _pickFirstText(p.username, p.user_name);
     _setText('pd-name', displayName);
+    const nameBadges = document.getElementById('pd-name-badges');
+    if (nameBadges) {
+      nameBadges.textContent = '';
+      const inlineBadges = UI.buildVerificationBadges({
+        isVerifiedBlue: _asBool(p.is_verified_blue),
+        isVerifiedGreen: _asBool(p.is_verified_green),
+        iconSize: 16,
+        gap: '4px',
+      });
+      if (inlineBadges) {
+        nameBadges.appendChild(inlineBadges);
+        nameBadges.classList.remove('hidden');
+      } else {
+        nameBadges.classList.add('hidden');
+      }
+    }
     _setText('pd-handle', username ? ('@' + username) : '');
     _syncCategoryViews();
 
@@ -1204,7 +1220,7 @@ const ProviderDetailPage = (() => {
         const isProvider = isFollowers ? followerProviderId > 0 : true;
         const linkProviderId = isFollowers ? followerProviderId : _safeInt(item.id);
         const isVerifiedBlue = !!item.is_verified_blue;
-        const isVerifiedGreen = !isVerifiedBlue && !!item.is_verified_green;
+        const isVerifiedGreen = !!item.is_verified_green;
 
         const row = UI.el('button', {
           type: 'button',
@@ -1224,14 +1240,16 @@ const ProviderDetailPage = (() => {
         const nameEl = UI.el('span', { className: 'pd-sheet-name', textContent: name });
         _setAutoDirection(nameEl, name);
         nameRow.appendChild(nameEl);
-        if (isProvider && (isVerifiedBlue || isVerifiedGreen)) {
-          const verifiedTick = UI.el('span', {
-            className: 'pd-connections-verified ' + (isVerifiedBlue ? 'is-blue' : 'is-green'),
-            title: isVerifiedBlue ? _copy('blueBadgeVerified') : _copy('greenBadgeVerified'),
+        if (isProvider) {
+          const verifiedBadges = UI.buildVerificationBadges({
+            isVerifiedBlue: isVerifiedBlue,
+            isVerifiedGreen: isVerifiedGreen,
+            iconSize: 13,
+            gap: '3px',
+            blueLabel: _copy('blueBadgeVerified'),
+            greenLabel: _copy('greenBadgeVerified'),
           });
-          verifiedTick.setAttribute('aria-hidden', 'true');
-          verifiedTick.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5 14.32 4l3.42-.18.7 3.36 3.06 1.55-1.32 3.18 1.32 3.18-3.06 1.55-.7 3.36L14.32 20 12 22.5 9.68 20l-3.42.18-.7-3.36-3.06-1.55 1.32-3.18L2.5 8.91l3.06-1.55.7-3.36L9.68 4 12 1.5Zm-1.06 13.06 5.3-5.3-1.42-1.42-3.88 3.89-1.76-1.77-1.42 1.42 3.18 3.18Z"/></svg>';
-          nameRow.appendChild(verifiedTick);
+          if (verifiedBadges) nameRow.appendChild(verifiedBadges);
         }
         meta.appendChild(nameRow);
         if (username) {

@@ -252,6 +252,11 @@ def serialize_active_excellence_badges(awards) -> list[dict[str, object]]:
             {
                 "code": badge_code,
                 "name": badge_type.name_ar,
+                "name_ar": badge_type.name_ar,
+                "name_en": getattr(badge_type, "name_en", "") or "",
+                "description": getattr(badge_type, "description", "") or "",
+                "description_ar": getattr(badge_type, "description", "") or "",
+                "description_en": getattr(badge_type, "description_en", "") or "",
                 "icon": badge_type.icon,
                 "color": badge_type.color,
                 "awarded_at": award.awarded_at.isoformat() if award.awarded_at else "",

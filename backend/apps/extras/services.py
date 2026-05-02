@@ -720,6 +720,8 @@ def activate_bundle_portal_subscription_for_request(*, request_obj):
     subscription, _ = ExtrasPortalSubscription.objects.get_or_create(provider=provider)
     update_fields: list[str] = []
 
+    # Reactivate any previously expired subscription so the provider regains
+    # portal access immediately after a new paid bundle is approved.
     if subscription.status != ExtrasPortalSubscriptionStatus.ACTIVE:
         subscription.status = ExtrasPortalSubscriptionStatus.ACTIVE
         update_fields.append("status")

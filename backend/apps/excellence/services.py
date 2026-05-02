@@ -39,27 +39,33 @@ DEFAULT_EXCELLENCE_BADGES = [
     {
         "code": FEATURED_SERVICE_BADGE_CODE,
         "name_ar": "الخدمة المتميزة",
+        "name_en": "Featured Service",
         "icon": "sparkles",
         "color": "#C0841A",
         "description": "تُمنح للمختصين الأعلى تقييمًا ضمن دورة المراجعة الحالية.",
+        "description_en": "Awarded to the highest-rated specialists during the current review cycle.",
         "review_cycle_days": 90,
         "sort_order": 10,
     },
     {
         "code": HIGH_ACHIEVEMENT_BADGE_CODE,
         "name_ar": "الإنجاز العالي",
+        "name_en": "High Achievement",
         "icon": "bolt",
         "color": "#0F766E",
         "description": "تُمنح للمختصين الأعلى إنجازًا في الطلبات المكتملة خلال آخر سنة.",
+        "description_en": "Awarded to the specialists with the strongest completed-order achievement over the past year.",
         "review_cycle_days": 90,
         "sort_order": 20,
     },
     {
         "code": TOP_100_CLUB_BADGE_CODE,
         "name_ar": "نادي المئة الكبار",
+        "name_en": "Top 100 Club",
         "icon": "trophy",
         "color": "#7C3AED",
         "description": "تُمنح لأعلى 100 مختص في المتابعات والتأثير العام على المنصة.",
+        "description_en": "Awarded to the top 100 specialists by following and overall platform impact.",
         "review_cycle_days": 90,
         "sort_order": 30,
     },
@@ -81,7 +87,7 @@ def sync_badge_type_catalog() -> list[ExcellenceBadgeType]:
             defaults=item,
         )
         updates = []
-        for field in ("name_ar", "icon", "color", "description", "review_cycle_days", "sort_order"):
+        for field in ("name_ar", "name_en", "icon", "color", "description", "description_en", "review_cycle_days", "sort_order"):
             wanted = item[field]
             if getattr(badge_type, field) != wanted:
                 setattr(badge_type, field, wanted)

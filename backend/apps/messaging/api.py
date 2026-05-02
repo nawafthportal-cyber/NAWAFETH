@@ -24,6 +24,7 @@ from apps.core.unread_badges import (
 )
 from apps.marketplace.models import ServiceRequest
 from apps.providers.models import ProviderProfile
+from apps.extras_portal.models import PotentialClientSource, ProviderPotentialClient
 from apps.providers.location_formatter import format_city_display
 from apps.subscriptions.capabilities import direct_chat_quota_for_user
 from apps.support.models import SupportTicket, SupportTicketType, SupportPriority, SupportTicketEntrypoint
@@ -152,6 +153,31 @@ def _reply_restricted_detail(thread: Thread) -> str:
 	if label:
 		return f"الردود مغلقة لهذه الرسائل من {label}."
 	return "الردود مغلقة لهذه الرسائل الآلية."
+
+
+def _sync_provider_potential_client_state(*, thread: Thread, actor_user, state: ThreadUserState) -> None:
+	provider = getattr(actor_user, "provider_profile", None)
+	if provider is None:
+		return
+
+	peer_user = thread.other_participant(actor_user)
+	if peer_user is None or getattr(peer_user, "provider_profile", None) is not None:
+		return
+
+	is_potential = bool(getattr(state, "is_favorite", False))
+	existing = ProviderPotentialClient.objects.filter(provider=provider, user=peer_user).first()
+
+	if is_potential:
+		if existing is None:
+			ProviderPotentialClient.objects.create(
+				provider=provider,
+				user=peer_user,
+				source=PotentialClientSource.SYSTEM,
+			)
+		return
+
+	if existing and existing.source == PotentialClientSource.SYSTEM:
+		existing.delete()
 
 
 # ────────────────────────────────────────────────
@@ -653,6 +679,16 @@ class ThreadFavoriteView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly, IsThreadParticipant]
 
 	def post(self, request, thread_id: int):
+		thread = get_object_or_404(
+			Thread.objects.select_related(
+				"request",
+				"request__client",
+				"request__provider__user",
+				"participant_1",
+				"participant_2",
+			),
+			id=thread_id,
+		)
 		action = (request.data.get("action") or "").strip().lower()
 		obj, _ = ThreadUserState.objects.get_or_create(thread_id=thread_id, user=request.user)
 		if action == "remove":
@@ -660,7 +696,9 @@ class ThreadFavoriteView(APIView):
 			obj.favorite_label = ""
 		else:
 			obj.is_favorite = True
+			obj.favorite_label = ""
 		obj.save(update_fields=["is_favorite", "favorite_label", "updated_at"])
+		_sync_provider_potential_client_state(thread=thread, actor_user=request.user, state=obj)
 		return Response({"ok": True, "is_favorite": obj.is_favorite, "favorite_label": obj.favorite_label}, status=status.HTTP_200_OK)
 
 
@@ -860,6 +898,16 @@ class ThreadFavoriteLabelView(APIView):
 	VALID_LABELS = {"potential_client", "important_conversation", "incomplete_contact", ""}
 
 	def post(self, request, thread_id: int):
+		thread = get_object_or_404(
+			Thread.objects.select_related(
+				"request",
+				"request__client",
+				"request__provider__user",
+				"participant_1",
+				"participant_2",
+			),
+			id=thread_id,
+		)
 		label = (request.data.get("label") or "").strip().lower()
 		if label not in self.VALID_LABELS:
 			return Response(
@@ -885,6 +933,16 @@ class ThreadClientLabelView(APIView):
 	VALID_LABELS = {"potential", "current", "past", ""}
 
 	def post(self, request, thread_id: int):
+		thread = get_object_or_404(
+			Thread.objects.select_related(
+				"request",
+				"request__client",
+				"request__provider__user",
+				"participant_1",
+				"participant_2",
+			),
+			id=thread_id,
+		)
 		label = (request.data.get("label") or "").strip().lower()
 		if label not in self.VALID_LABELS:
 			return Response(

@@ -14,6 +14,7 @@ import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/promo_media_tile.dart';
+import '../widgets/provider_name_with_badges.dart';
 import '../widgets/verified_badge_view.dart';
 import 'service_request_form_screen.dart';
 import 'provider_profile_screen.dart';
@@ -2374,10 +2375,12 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: Text(
-                            p.displayName,
+                          child: ProviderNameWithBadges(
+                            name: p.displayName,
+                            isVerifiedBlue: p.isVerifiedBlue,
+                            isVerifiedGreen: p.isVerifiedGreen,
                             maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            badgeIconSize: 13,
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.45,

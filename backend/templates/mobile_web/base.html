@@ -23,7 +23,7 @@
 <meta id="meta-twitter-image" name="twitter:image" content="{{ page_meta_image|default:'' }}">
 {% if page_meta_canonical %}<link id="page-canonical" rel="canonical" href="{{ page_meta_canonical }}">{% endif %}
 <link rel="icon" href="/favicon.ico">
-<!-- Anti-FOUC: apply saved theme and shell language before first paint -->
+
 <script>(function(){try{var h=document.documentElement;var t=localStorage.getItem('nw_theme');if(t==='dark'){h.setAttribute('data-theme','dark');}var cookieLang=((document.cookie.match(/(?:^|; )nw_lang=([^;]+)/)||document.cookie.match(/(?:^|; )django_language=([^;]+)/)||[])[1]||'');var lang=(localStorage.getItem('nw_lang')||cookieLang||'ar').toLowerCase();lang=lang==='en'?'en':'ar';h.setAttribute('lang',lang);h.setAttribute('data-ui-lang',lang);h.setAttribute('data-shell-dir',lang==='en'?'ltr':'rtl');}catch(e){}}());</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1149,7 +1149,6 @@
 </head>
 <body class="mobile-web-parity {% block body_class %}{% endblock %}">
 
-<!-- ====== MOBILE SIDEBAR ====== -->
 <div id="sidebar-overlay" class="sidebar-overlay hidden" aria-hidden="true"></div>
 <aside id="sidebar" class="sidebar" data-shell-i18n-aria-label="sidebarAria" aria-label="القائمة الجانبية" aria-hidden="true">
   <div class="sidebar-header">
@@ -1357,7 +1356,6 @@
   <div class="footer-bottom" data-shell-server-ar="{{ site_public_content.brand.footer_copyright }}" data-shell-server-en="{{ site_public_content.brand.footer_copyright_en|default:site_public_content.brand.footer_copyright }}">{{ site_public_content.brand.footer_copyright }}</div>
 </footer>
 
-<!-- ====== MOBILE BOTTOM NAV ====== -->
 <nav id="bottom-nav" data-shell-i18n-aria-label="bottomNavAria" aria-label="التنقل الرئيسي">
   <a href="/" class="bnav-item {% block bnav_home %}{% endblock %}" data-index="0">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
@@ -1380,7 +1378,6 @@
   </a>
 </nav>
 
-<!-- ====== OFFLINE BANNER ====== -->
 <div id="offline-banner" class="offline-banner" style="display:none">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/><path d="M10.71 5.05A16 16 0 0122.56 9"/><path d="M1.42 9a15.91 15.91 0 014.7-2.88"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
   <span data-shell-i18n="offlineBanner">أنت غير متصل — يتم عرض آخر نسخة محفوظة</span>
@@ -1402,7 +1399,6 @@
   };
 </script>
 
-<!-- ====== SHARED JS ====== -->
 <script src="{% static 'mobile_web/js/cache.js' %}"></script>
 <script src="{% static 'mobile_web/js/apiClient.js' %}?v=20260419-secops1"></script>
 <script src="{% static 'mobile_web/js/analytics.js' %}?v=20260419-secops1"></script>

@@ -598,8 +598,7 @@ body.page-service-request {
 <main class="page-content">
   <div class="sr-container">
 
-    <!-- Auth Gate -->
-    <div id="auth-gate" class="sr-auth-gate{% if request.user.is_authenticated and provider_mode_blocked %}{% elif request.user.is_authenticated %} hidden{% endif %}">
+<div id="auth-gate" class="sr-auth-gate{% if request.user.is_authenticated and provider_mode_blocked %}{% elif request.user.is_authenticated %} hidden{% endif %}">
       {% if request.user.is_authenticated and provider_mode_blocked %}
       <p id="sr-provider-kicker" class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
       <div class="sr-auth-icon" aria-hidden="true">
@@ -622,8 +621,7 @@ body.page-service-request {
       {% endif %}
     </div>
 
-    <!-- Form Content -->
-    <div id="form-content"{% if not request.user.is_authenticated or provider_mode_blocked %} class="hidden"{% endif %}>
+<div id="form-content"{% if not request.user.is_authenticated or provider_mode_blocked %} class="hidden"{% endif %}>
       <form id="sr-form" class="ux26-form-shell" autocomplete="off" novalidate>
         <div class="sr-form-card">
           <section class="sr-hero" aria-live="polite" aria-atomic="true">
@@ -657,8 +655,7 @@ body.page-service-request {
             <p id="sr-header-subtitle">ابدأ بالمطلوب، واترك الحقول الاختيارية عند الحاجة.</p>
           </div>
 
-          <!-- Section 1: Request Type -->
-          <div id="sr-type-section" class="sr-section ux26-form-section">
+<div id="sr-type-section" class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">1</span>
               <span id="sr-section-type-title" class="sr-section-label">نوع الخدمة</span>
@@ -676,8 +673,7 @@ body.page-service-request {
             </div>
           </div>
 
-          <!-- Section 2: Category -->
-          <div id="sr-scope-section" class="sr-section ux26-form-section">
+<div id="sr-scope-section" class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">2</span>
               <span id="sr-section-scope-title" class="sr-section-label">التصنيف المناسب</span>
@@ -707,8 +703,7 @@ body.page-service-request {
             </div>
           </div>
 
-          <!-- Section 3: Dispatch Scope -->
-          <div id="sr-dispatch-section" class="sr-section ux26-form-section">
+<div id="sr-dispatch-section" class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">3</span>
               <span id="sr-section-dispatch-title" class="sr-section-label">طريقة الوصول للمزودين</span>
@@ -755,8 +750,7 @@ body.page-service-request {
             </div>
           </div>
 
-          <!-- Section 4: Request Details -->
-          <div class="sr-section ux26-form-section">
+<div class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">4</span>
               <span id="sr-section-details-title" class="sr-section-label">وصف الطلب</span>
@@ -782,8 +776,7 @@ body.page-service-request {
             </div>
           </div>
 
-          <!-- Section 5: Attachments -->
-          <div class="sr-section ux26-form-section">
+<div class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">5</span>
               <span class="sr-section-label"><span id="sr-section-attachments-title">المرفقات</span> <span id="sr-section-attachments-optional" class="sr-optional">(اختياري)</span></span>
@@ -820,8 +813,7 @@ body.page-service-request {
             </div>
           </div>
 
-          <!-- Submit -->
-          <div class="sr-submit-section">
+<div class="sr-submit-section">
             <p id="sr-submit-helper" class="sr-submit-helper ux26-field-help">اكتب المطلوب بوضوح وأرفق ما يلزم فقط.</p>
             <button type="submit" id="sr-submit" class="sr-submit-btn">
               <span id="sr-submit-text">إرسال الطلب</span>
@@ -831,8 +823,7 @@ body.page-service-request {
         </div>
       </form>
 
-      <!-- Map Modal -->
-      <div id="sr-map-modal" class="sr-map-modal ux26-modal">
+<div id="sr-map-modal" class="sr-map-modal ux26-modal">
         <div class="sr-map-modal-backdrop" id="sr-map-modal-backdrop"></div>
         <div class="sr-map-modal-panel ux26-modal-card">
           <div class="sr-map-modal-header">
@@ -853,8 +844,7 @@ body.page-service-request {
         </div>
       </div>
 
-      <!-- Success -->
-      <div id="sr-success" class="sr-success-overlay">
+<div id="sr-success" class="sr-success-overlay">
         <div class="sr-success-icon">✅</div>
         <h2 id="sr-success-title">تم إرسال الطلب</h2>
         <p id="sr-success-message">تم حفظ طلبك بنجاح. ستتمكن من متابعة حالته من صفحة الطلبات.</p>
@@ -863,8 +853,7 @@ body.page-service-request {
       </div>
     </div>
 
-    <!-- Toast -->
-    <div id="sr-toast" class="sr-toast" role="status" aria-live="polite">
+<div id="sr-toast" class="sr-toast" role="status" aria-live="polite">
       <div id="sr-toast-icon" class="sr-toast-icon"></div>
       <div class="sr-toast-body">
         <div id="sr-toast-title" class="sr-toast-title"></div>

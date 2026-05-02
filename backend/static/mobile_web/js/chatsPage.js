@@ -55,6 +55,10 @@ const ChatsPage = (() => {
       directServiceRequestPreview: '🛠️ طلب خدمة مباشر',
       unreadNew: '{count} جديد',
       favoriteChip: 'مفضلة',
+      potentialClient: 'عميل محتمل',
+      currentClient: 'عميل حالي',
+      pastClient: 'عميل سابق',
+      incompleteContact: 'تواصل غير مكتمل',
       openMessages: 'فتح الرسائل',
       messageOptions: 'خيارات الرسائل',
       markRead: 'اجعلها مقروءة',
@@ -72,6 +76,9 @@ const ChatsPage = (() => {
       favoriteFailed: 'تعذر تحديث المفضلة',
       favoriteAdded: 'تمت إضافة الرسائل للمفضلة',
       favoriteRemoved: 'تمت إزالة الرسائل من المفضلة',
+      potentialClientFailed: 'تعذر تحديث العميل المحتمل',
+      potentialClientAdded: 'تم حفظ العميل كعميل محتمل',
+      potentialClientRemoved: 'تمت إزالة العميل من العملاء المحتملين',
       archiveConfirm: 'أرشفة هذه الرسائل؟ سيتم إخفاؤها من قائمة الرسائل.',
       archiveFailed: 'تعذر تحديث الأرشفة',
       archiveAdded: 'تمت أرشفة الرسائل',
@@ -150,6 +157,10 @@ const ChatsPage = (() => {
       directServiceRequestPreview: '🛠️ Direct service request',
       unreadNew: '{count} new',
       favoriteChip: 'Favorite',
+      potentialClient: 'Potential client',
+      currentClient: 'Current client',
+      pastClient: 'Past client',
+      incompleteContact: 'Incomplete contact',
       openMessages: 'Open messages',
       messageOptions: 'Message options',
       markRead: 'Mark as read',
@@ -167,6 +178,9 @@ const ChatsPage = (() => {
       favoriteFailed: 'Unable to update favorites',
       favoriteAdded: 'Messages added to favorites',
       favoriteRemoved: 'Messages removed from favorites',
+      potentialClientFailed: 'Unable to update the potential client state',
+      potentialClientAdded: 'Client saved as a potential client',
+      potentialClientRemoved: 'Client removed from potential clients',
       archiveConfirm: 'Archive these messages? They will be hidden from the messages list.',
       archiveFailed: 'Unable to update the archive state',
       archiveAdded: 'Messages archived',
@@ -485,7 +499,7 @@ const ChatsPage = (() => {
       all: visible.length,
       unread: unreadThreads,
       favorite: visible.filter((thread) => thread.is_favorite).length,
-      clients: visible.filter((thread) => String(thread.client_label || '').trim().length > 0).length,
+      clients: visible.filter((thread) => _threadKind(thread, _peerDisplayName(thread)) === 'client').length,
       recent: visible.length,
       unreadMessages,
     };
@@ -498,9 +512,13 @@ const ChatsPage = (() => {
       list = list.filter((thread) => {
         const displayName = _peerDisplayName(thread).toLowerCase();
         const phone = (thread.peer_phone || '').toLowerCase();
+        const favoriteLabel = _favoriteLabelDisplay(thread).toLowerCase();
+        const clientLabel = _clientLabelDisplay(thread).toLowerCase();
         return (
           displayName.includes(_searchQuery)
           || phone.includes(_searchQuery)
+          || favoriteLabel.includes(_searchQuery)
+          || clientLabel.includes(_searchQuery)
         );
       });
     }
@@ -514,7 +532,7 @@ const ChatsPage = (() => {
         break;
       case 'clients':
         if (_isProviderMode) {
-          list = list.filter((thread) => String(thread.client_label || '').trim().length > 0);
+          list = list.filter((thread) => _threadKind(thread, _peerDisplayName(thread)) === 'client');
         }
         break;
       case 'recent':
@@ -737,16 +755,16 @@ const ChatsPage = (() => {
     if (thread.is_favorite) {
       metaRow.appendChild(UI.el('span', {
         className: 'thread-favorite-chip',
-        textContent: thread.favorite_label || _copy('favoriteChip'),
+        textContent: _favoriteLabelDisplay(thread) || _copy('favoriteChip'),
       }));
     }
 
     if (thread.client_label) {
       const clientLabelEl = UI.el('span', {
         className: 'thread-label-chip',
-        textContent: thread.client_label,
+        textContent: _clientLabelDisplay(thread),
       });
-      _setAutoDirection(clientLabelEl, thread.client_label);
+      _setAutoDirection(clientLabelEl, _clientLabelDisplay(thread));
       metaRow.appendChild(clientLabelEl);
     }
 
@@ -1131,9 +1149,25 @@ const ChatsPage = (() => {
       ? _copy('providerInCity', { city: UI.formatCityDisplay(thread.peer_city) })
       : _copy('providerSubtitle');
     if (kind === 'client') return _meaningfulValue(thread.client_label)
-      ? String(thread.client_label).trim()
+      ? _clientLabelDisplay(thread)
       : _copy('clientSubtitle');
     return _copy('directSubtitle');
+  }
+
+  function _favoriteLabelDisplay(thread) {
+    const normalized = String(thread?.favorite_label || '').trim().toLowerCase();
+    if (normalized === 'potential_client') return '';
+    if (normalized === 'important_conversation') return _copy('favoriteChip');
+    if (normalized === 'incomplete_contact') return _copy('incompleteContact');
+    return String(thread?.favorite_label || '').trim();
+  }
+
+  function _clientLabelDisplay(thread) {
+    const normalized = String(thread?.client_label || '').trim().toLowerCase();
+    if (normalized === 'potential') return '';
+    if (normalized === 'current') return _copy('currentClient');
+    if (normalized === 'past') return _copy('pastClient');
+    return String(thread?.client_label || '').trim();
   }
 
   function _threadPreviewTone(thread, previewText, kind) {

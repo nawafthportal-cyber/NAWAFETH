@@ -4360,6 +4360,13 @@ def extras_dashboard(request):
                     return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
                 if target_invoice is None and is_bundle_request:
                     target_invoice = extras_bundle_invoice_for_request(target_request)
+                if target_invoice is not None:
+                    # Defensive refresh to avoid acting on a stale snapshot of the
+                    # invoice (e.g., signal-driven payment confirmation in flight).
+                    try:
+                        target_invoice.refresh_from_db()
+                    except target_invoice.DoesNotExist:
+                        target_invoice = None
                 if target_invoice is None or not target_invoice.is_payment_effective():
                     messages.error(request, "لا يمكن تحويل الطلب إلى مكتمل قبل اعتماد السداد فعليًا.")
                     return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
@@ -8883,14 +8890,70 @@ def content_settings(request):
     )
 
     links_obj = SiteLinks.load()
-    about_block = _content_block_get_or_create(
-        ContentBlockKey.ABOUT_SECTION_ABOUT,
-        default_title="حول منصة مختص",
-        default_body="نص تعريفي مختصر عن المنصة.",
-    )
+    about_blocks = {
+        "hero_title": _content_block_get_or_create(
+            ContentBlockKey.ABOUT_HERO_TITLE,
+            default_title="منصة نوافذ",
+            default_body="",
+        ),
+        "hero_subtitle": _content_block_get_or_create(
+            ContentBlockKey.ABOUT_HERO_SUBTITLE,
+            default_title="حلول رقمية واضحة تربط العملاء بمزودي الخدمات بسرعة وموثوقية.",
+            default_body="",
+        ),
+        "about": _content_block_get_or_create(
+            ContentBlockKey.ABOUT_SECTION_ABOUT,
+            default_title="من نحن",
+            default_body="نوافذ منصة سعودية تساعد الأفراد والمنشآت على الوصول إلى مزودي الخدمات.",
+        ),
+        "vision": _content_block_get_or_create(
+            ContentBlockKey.ABOUT_SECTION_VISION,
+            default_title="رؤيتنا",
+            default_body="أن تكون نوافذ نقطة الوصول الأولى للخدمات في المملكة.",
+        ),
+        "goals": _content_block_get_or_create(
+            ContentBlockKey.ABOUT_SECTION_GOALS,
+            default_title="أهدافنا",
+            default_body="تقليل وقت الوصول إلى الخدمة وتحسين جودة التواصل.",
+        ),
+        "values": _content_block_get_or_create(
+            ContentBlockKey.ABOUT_SECTION_VALUES,
+            default_title="قيمنا",
+            default_body="الوضوح، السرعة، الجودة، والالتزام بتجربة استخدام عملية.",
+        ),
+        "app": _content_block_get_or_create(
+            ContentBlockKey.ABOUT_SECTION_APP,
+            default_title="عن التطبيق",
+            default_body="استعرض الخدمات وتواصل مع مزودي الخدمة من مكان واحد.",
+        ),
+        "social_title": _content_block_get_or_create(
+            ContentBlockKey.ABOUT_SOCIAL_TITLE,
+            default_title="تواصل معنا",
+            default_body="",
+        ),
+        "website_label": _content_block_get_or_create(
+            ContentBlockKey.ABOUT_WEBSITE_LABEL,
+            default_title="الموقع الرسمي",
+            default_body="",
+        ),
+    }
+    about_block = about_blocks["about"]
     links_form = ContentSettingsLinksForm(
         initial={
-            "about_text": about_block.body_ar,
+            "hero_title": about_blocks["hero_title"].title_ar,
+            "hero_subtitle": about_blocks["hero_subtitle"].title_ar,
+            "about_title": about_blocks["about"].title_ar,
+            "about_text": about_blocks["about"].body_ar,
+            "vision_title": about_blocks["vision"].title_ar,
+            "vision_text": about_blocks["vision"].body_ar,
+            "goals_title": about_blocks["goals"].title_ar,
+            "goals_text": about_blocks["goals"].body_ar,
+            "values_title": about_blocks["values"].title_ar,
+            "values_text": about_blocks["values"].body_ar,
+            "app_title": about_blocks["app"].title_ar,
+            "app_text": about_blocks["app"].body_ar,
+            "social_title": about_blocks["social_title"].title_ar,
+            "website_label": about_blocks["website_label"].title_ar,
             "website_url": links_obj.website_url if links_obj else "",
             "ios_store": links_obj.ios_store if links_obj else "",
             "android_store": links_obj.android_store if links_obj else "",
@@ -8963,12 +9026,30 @@ def content_settings(request):
                 links.save()
                 links_obj = links
 
-                _save_content_block(
-                    block=about_block,
-                    body=links_form.cleaned_data.get("about_text") or "",
-                    actor=request.user,
-                    request=request,
+                # Persist all about-page content blocks
+                _block_field_map = (
+                    ("hero_title", "hero_title", None),
+                    ("hero_subtitle", "hero_subtitle", None),
+                    ("about", "about_title", "about_text"),
+                    ("vision", "vision_title", "vision_text"),
+                    ("goals", "goals_title", "goals_text"),
+                    ("values", "values_title", "values_text"),
+                    ("app", "app_title", "app_text"),
+                    ("social_title", "social_title", None),
+                    ("website_label", "website_label", None),
                 )
+                for block_key, title_field, body_field in _block_field_map:
+                    title_val = links_form.cleaned_data.get(title_field)
+                    body_val = (
+                        links_form.cleaned_data.get(body_field) if body_field else None
+                    )
+                    _save_content_block(
+                        block=about_blocks[block_key],
+                        title=title_val if title_val is not None else None,
+                        body=body_val if body_val is not None else None,
+                        actor=request.user,
+                        request=request,
+                    )
                 log_action(
                     actor=request.user,
                     action=AuditAction.CONTENT_LINKS_UPDATED,

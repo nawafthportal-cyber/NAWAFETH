@@ -716,8 +716,7 @@
 <main class="page-content">
   <div class="container pdv4-shell">
 
-    <!-- ── Auth Gate ── -->
-    <div id="auth-gate" class="auth-gate" style="display:none">
+<div id="auth-gate" class="auth-gate" style="display:none">
       <div class="auth-gate-icon">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="#99d6dd"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
       </div>
@@ -725,18 +724,14 @@
       <a href="/login/?next=/provider-dashboard/" class="btn-primary" id="dash-login-link">تسجيل الدخول</a>
     </div>
 
-    <!-- ── Dashboard Content ── -->
-    <div id="dashboard-content" style="display:none">
+<div id="dashboard-content" style="display:none">
       <div class="pdv4-body">
 
-        <!-- ═══════════ SIDEBAR ═══════════ -->
-        <aside class="pdv4-sidebar">
+<aside class="pdv4-sidebar">
 
-          <!-- Hero Card: Cover + Avatar + Stats -->
-          <article class="pdv4-card">
+<article class="pdv4-card">
 
-            <!-- Cover -->
-            <div class="pdv4-cover" id="pd-cover">
+<div class="pdv4-cover" id="pd-cover">
               <div class="pdv4-cover-placeholder"></div>
               <div class="pv2-cover-bar">
                 <label class="pv2-mini-btn" id="pd-cover-upload-trigger" title="تغيير صورة الغلاف">
@@ -747,8 +742,7 @@
               </div>
             </div>
 
-            <!-- Identity Row -->
-            <div class="pdv4-identity-row">
+<div class="pdv4-identity-row">
               <div class="provider-avatar-wrap pdv4-avatar-wrap">
                 <div class="provider-avatar" id="pd-avatar">
                   <span class="provider-avatar-badge provider-avatar-badge-blue hidden" id="pd-avatar-badge-blue" aria-label="توثيق أزرق" title="توثيق أزرق">
@@ -779,12 +773,10 @@
               </div>
             </div>
 
-            <!-- Upload status -->
-            <p id="pd-cover-upload-status" class="pd-upload-status hidden" role="status" aria-live="polite"></p>
+<p id="pd-cover-upload-status" class="pd-upload-status hidden" role="status" aria-live="polite"></p>
             <p id="pd-avatar-upload-status" class="pd-upload-status hidden" role="status" aria-live="polite"></p>
 
-            <!-- Verified -->
-            <div class="provider-verified-badge" id="pd-verified" style="display:none">
+<div class="provider-verified-badge" id="pd-verified" style="display:none">
               <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/>
                 <path d="M10.1 14.8L7.2 11.9l-1.4 1.4 4.3 4.3 8.1-8.1-1.4-1.4z" fill="#fff"/>
@@ -792,8 +784,7 @@
               <span>موثّق</span>
             </div>
 
-            <!-- Stats bar -->
-            <div class="pdv4-stats">
+<div class="pdv4-stats">
               <div class="pdv4-stat" id="stat-followers">
                 <strong class="pd-stat-val">0</strong>
                 <span>متابعين</span>
@@ -810,8 +801,7 @@
 
           </article>
 
-          <!-- Mode Switch Card -->
-          <div class="pdv4-card pdv4-mode-card">
+<div class="pdv4-card pdv4-mode-card">
             <p class="pdv4-mode-label">التبديل بين الأوضاع</p>
             <div class="pv2-mode-toggle ux-mode-switch" id="provider-mode-switch">
               <button class="pv2-mode-chip" id="mode-client-btn" type="button">
@@ -825,8 +815,7 @@
             </div>
           </div>
 
-          <!-- Core KPIs: Completed + Saved + QR -->
-          <article class="pdv4-card pdv4-section-sm">
+<article class="pdv4-card pdv4-section-sm">
             <div class="pdv4-panel-head">
               <h2 class="pdv4-panel-title">المؤشرات الأساسية</h2>
             </div>
@@ -856,13 +845,10 @@
           </article>
 
         </aside>
-        <!-- ── end sidebar ── -->
 
-        <!-- ═══════════ MAIN ═══════════ -->
-        <div class="pdv4-main">
+<div class="pdv4-main">
 
-          <!-- Summary Card (hidden on small screens via CSS) -->
-          <article class="pdv4-card pdv4-summary-card" aria-label="ملخص لوحة مزود الخدمة">
+<article class="pdv4-card pdv4-summary-card" aria-label="ملخص لوحة مزود الخدمة">
             <span class="pdv4-badge">لوحة مزود الخدمة</span>
             <h2 class="pdv4-summary-title">نافذتي المهنية</h2>
             <p class="pdv4-summary-sub">رؤية واضحة لما هو مهم اليوم: الطلبات، الحساب،</p>
@@ -872,8 +858,7 @@
             </div>
           </article>
 
-          <!-- Live Orders KPIs -->
-          <article class="pdv4-card pdv4-section">
+<article class="pdv4-card pdv4-section">
             <div class="pdv4-panel-head">
               <h2 class="pdv4-panel-title">حركة الطلبات</h2>
             </div>
@@ -902,14 +887,12 @@
             </div>
           </article>
 
-          <!-- Account Management -->
-          <article class="pdv4-card pdv4-section">
+<article class="pdv4-card pdv4-section">
             <div class="pdv4-panel-head">
               <h2 class="pdv4-panel-title">المتابعة السريعة</h2>
             </div>
 
-            <!-- Subscription Panel -->
-            <div class="pdv4-sub-panel" id="subscription-card" style="display:none">
+<div class="pdv4-sub-panel" id="subscription-card" style="display:none">
               <div class="pdv4-sub-head">
                 <div class="pdv4-sub-icon pdv4-sub-icon-gold">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#d97706"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
@@ -924,8 +907,7 @@
               <a href="/plans/" class="pdv4-cta-btn" id="plan-action-link">ترقية الباقة</a>
             </div>
 
-            <!-- Profile Completion Panel -->
-            <div class="pdv4-sub-panel" id="completion-card" style="margin-top:10px;">
+<div class="pdv4-sub-panel" id="completion-card" style="margin-top:10px;">
               <div class="pdv4-sub-head">
                 <div class="pdv4-sub-icon pdv4-sub-icon-teal">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#0e7490"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
@@ -943,8 +925,7 @@
               <a href="/profile-completion/" class="pdv4-cta-btn">أكمل ملفك</a>
             </div>
 
-            <!-- Reels Panel -->
-            <div class="pdv4-sub-panel" style="margin-top:10px;">
+<div class="pdv4-sub-panel" style="margin-top:10px;">
               <div class="pdv4-sub-head">
                 <div class="pdv4-sub-icon pdv4-sub-icon-purple">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#673ab7"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H4c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h16c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1zm-6-8l-4 2.5V9l4 2.5z"/></svg>
@@ -963,8 +944,7 @@
 
           </article>
 
-          <!-- Management Links -->
-          <article class="pdv4-card pdv4-section">
+<article class="pdv4-card pdv4-section">
             <div class="pdv4-panel-head">
               <h2 class="pdv4-panel-title">الإدارة اليومية</h2>
             </div>
@@ -1005,8 +985,7 @@
             </div>
           </article>
 
-          <!-- Extra Services -->
-          <article class="pdv4-card pdv4-section pdv4-extras-card">
+<article class="pdv4-card pdv4-section pdv4-extras-card">
             <div class="pdv4-extras-head">
               <div class="pdv4-extras-head-copy">
                 <h3 class="pdv4-extras-title">التوسع والظهور</h3>
@@ -1037,15 +1016,13 @@
           </article>
 
         </div>
-        <!-- ── end main ── -->
 
-      </div>
+</div>
     </div>
 
   </div>
 </main>
 
-<!-- QR Modal -->
 <div class="pd-qr-modal ux26-modal hidden" id="pd-qr-modal" aria-hidden="true">
   <div class="pd-qr-dialog ux26-modal-card" role="dialog" aria-modal="true" aria-labelledby="pd-qr-title">
     <h3 id="pd-qr-title">رمز QR الخاص بك</h3>

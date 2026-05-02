@@ -13,9 +13,11 @@ from apps.providers.models import Category, ProviderProfile, SubCategory
 class ExcellenceBadgeType(models.Model):
     code = models.SlugField(max_length=50, unique=True)
     name_ar = models.CharField(max_length=120)
+    name_en = models.CharField(max_length=120, blank=True, default="")
     icon = models.CharField(max_length=50, default="workspace_premium")
     color = models.CharField(max_length=20, default="#C0841A")
     description = models.CharField(max_length=255, blank=True, default="")
+    description_en = models.CharField(max_length=255, blank=True, default="")
     review_cycle_days = models.PositiveSmallIntegerField(default=90)
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)

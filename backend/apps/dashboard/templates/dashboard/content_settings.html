@@ -149,69 +149,183 @@
           <div class="settings-option-panel" id="aboutOptionPanel" role="tabpanel" hidden>
             <div class="option-head">
               <h3>الخيار الثاني: حول منصة نوافذ</h3>
-              <p>هذا المحتوى يظهر في قسم عن المنصة وروابط التواصل على الويب والجوال عبر واجهة المحتوى العامة.</p>
+              <p>تتحكم من هنا بكامل محتوى صفحة "من نحن" على الويب والجوال: الهيرو، الأقسام التعريفية، روابط المنصة، وقنوات التواصل. يتم النشر فورًا عبر <strong>/api/content/public/</strong>.</p>
             </div>
 
             <form method="post" class="form-shell" id="contentLinksForm">
               {% csrf_token %}
               <input type="hidden" name="action" value="save_links">
-              <div class="form-grid">
-                <div class="field full">
-                  <label for="{{ links_form.about_text.id_for_label }}">نص تعريف المنصة</label>
-                  {{ links_form.about_text }}
-                  {% for err in links_form.about_text.errors %}<small>{{ err }}</small>{% endfor %}
+
+              <fieldset class="about-fieldset">
+                <legend>1) الهيرو الرئيسي</legend>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="{{ links_form.hero_title.id_for_label }}">{{ links_form.hero_title.label }}</label>
+                    {{ links_form.hero_title }}
+                    {% for err in links_form.hero_title.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ links_form.hero_subtitle.id_for_label }}">{{ links_form.hero_subtitle.label }}</label>
+                    {{ links_form.hero_subtitle }}
+                    {% for err in links_form.hero_subtitle.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
                 </div>
-                <div class="field">
-                  <label for="{{ links_form.website_url.id_for_label }}">رابط الموقع على الويب</label>
-                  {{ links_form.website_url }}
-                  {% for err in links_form.website_url.errors %}<small>{{ err }}</small>{% endfor %}
+              </fieldset>
+
+              <fieldset class="about-fieldset">
+                <legend>2) الأقسام التعريفية</legend>
+                <div class="about-section-grid">
+                  {% with sections=links_form|default:None %}{% endwith %}
+                  <div class="about-section-card">
+                    <h5>قسم "من نحن"</h5>
+                    <div class="form-grid">
+                      <div class="field full">
+                        <label for="{{ links_form.about_title.id_for_label }}">{{ links_form.about_title.label }}</label>
+                        {{ links_form.about_title }}
+                        {% for err in links_form.about_title.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                      <div class="field full">
+                        <label for="{{ links_form.about_text.id_for_label }}">{{ links_form.about_text.label }}</label>
+                        {{ links_form.about_text }}
+                        {% for err in links_form.about_text.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="about-section-card">
+                    <h5>قسم "رؤيتنا"</h5>
+                    <div class="form-grid">
+                      <div class="field full">
+                        <label for="{{ links_form.vision_title.id_for_label }}">{{ links_form.vision_title.label }}</label>
+                        {{ links_form.vision_title }}
+                        {% for err in links_form.vision_title.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                      <div class="field full">
+                        <label for="{{ links_form.vision_text.id_for_label }}">{{ links_form.vision_text.label }}</label>
+                        {{ links_form.vision_text }}
+                        {% for err in links_form.vision_text.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="about-section-card">
+                    <h5>قسم "أهدافنا"</h5>
+                    <div class="form-grid">
+                      <div class="field full">
+                        <label for="{{ links_form.goals_title.id_for_label }}">{{ links_form.goals_title.label }}</label>
+                        {{ links_form.goals_title }}
+                        {% for err in links_form.goals_title.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                      <div class="field full">
+                        <label for="{{ links_form.goals_text.id_for_label }}">{{ links_form.goals_text.label }}</label>
+                        {{ links_form.goals_text }}
+                        {% for err in links_form.goals_text.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="about-section-card">
+                    <h5>قسم "قيمنا"</h5>
+                    <div class="form-grid">
+                      <div class="field full">
+                        <label for="{{ links_form.values_title.id_for_label }}">{{ links_form.values_title.label }}</label>
+                        {{ links_form.values_title }}
+                        {% for err in links_form.values_title.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                      <div class="field full">
+                        <label for="{{ links_form.values_text.id_for_label }}">{{ links_form.values_text.label }}</label>
+                        {{ links_form.values_text }}
+                        {% for err in links_form.values_text.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="about-section-card">
+                    <h5>قسم "عن التطبيق"</h5>
+                    <div class="form-grid">
+                      <div class="field full">
+                        <label for="{{ links_form.app_title.id_for_label }}">{{ links_form.app_title.label }}</label>
+                        {{ links_form.app_title }}
+                        {% for err in links_form.app_title.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                      <div class="field full">
+                        <label for="{{ links_form.app_text.id_for_label }}">{{ links_form.app_text.label }}</label>
+                        {{ links_form.app_text }}
+                        {% for err in links_form.app_text.errors %}<small>{{ err }}</small>{% endfor %}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="field">
-                  <label for="{{ links_form.ios_store.id_for_label }}">رابط التحميل في آبل ستور</label>
-                  {{ links_form.ios_store }}
-                  {% for err in links_form.ios_store.errors %}<small>{{ err }}</small>{% endfor %}
+              </fieldset>
+
+              <fieldset class="about-fieldset">
+                <legend>3) روابط المنصة الرسمية</legend>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="{{ links_form.website_label.id_for_label }}">{{ links_form.website_label.label }}</label>
+                    {{ links_form.website_label }}
+                    {% for err in links_form.website_label.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ links_form.website_url.id_for_label }}">{{ links_form.website_url.label }}</label>
+                    {{ links_form.website_url }}
+                    {% for err in links_form.website_url.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ links_form.ios_store.id_for_label }}">{{ links_form.ios_store.label }}</label>
+                    {{ links_form.ios_store }}
+                    {% for err in links_form.ios_store.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ links_form.android_store.id_for_label }}">{{ links_form.android_store.label }}</label>
+                    {{ links_form.android_store }}
+                    {% for err in links_form.android_store.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
                 </div>
-                <div class="field">
-                  <label for="{{ links_form.android_store.id_for_label }}">رابط التحميل في الأندرويد</label>
-                  {{ links_form.android_store }}
-                  {% for err in links_form.android_store.errors %}<small>{{ err }}</small>{% endfor %}
+              </fieldset>
+
+              <fieldset class="about-fieldset">
+                <legend>4) قنوات التواصل الاجتماعي</legend>
+                <div class="form-grid">
+                  <div class="field full">
+                    <label for="{{ links_form.social_title.id_for_label }}">{{ links_form.social_title.label }}</label>
+                    {{ links_form.social_title }}
+                    {% for err in links_form.social_title.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ links_form.x_url.id_for_label }}">{{ links_form.x_url.label }}</label>
+                    {{ links_form.x_url }}
+                    {% for err in links_form.x_url.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ links_form.instagram_url.id_for_label }}">{{ links_form.instagram_url.label }}</label>
+                    {{ links_form.instagram_url }}
+                    {% for err in links_form.instagram_url.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ links_form.snapchat_url.id_for_label }}">{{ links_form.snapchat_url.label }}</label>
+                    {{ links_form.snapchat_url }}
+                    {% for err in links_form.snapchat_url.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ links_form.tiktok_url.id_for_label }}">{{ links_form.tiktok_url.label }}</label>
+                    {{ links_form.tiktok_url }}
+                    {% for err in links_form.tiktok_url.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ links_form.youtube_url.id_for_label }}">{{ links_form.youtube_url.label }}</label>
+                    {{ links_form.youtube_url }}
+                    {% for err in links_form.youtube_url.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ links_form.whatsapp_url.id_for_label }}">{{ links_form.whatsapp_url.label }}</label>
+                    {{ links_form.whatsapp_url }}
+                    {% for err in links_form.whatsapp_url.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ links_form.email.id_for_label }}">{{ links_form.email.label }}</label>
+                    {{ links_form.email }}
+                    {% for err in links_form.email.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
                 </div>
-                <div class="field">
-                  <label for="{{ links_form.x_url.id_for_label }}">رابط منصة إكس</label>
-                  {{ links_form.x_url }}
-                  {% for err in links_form.x_url.errors %}<small>{{ err }}</small>{% endfor %}
-                </div>
-                <div class="field">
-                  <label for="{{ links_form.instagram_url.id_for_label }}">رابط إنستغرام</label>
-                  {{ links_form.instagram_url }}
-                  {% for err in links_form.instagram_url.errors %}<small>{{ err }}</small>{% endfor %}
-                </div>
-                <div class="field">
-                  <label for="{{ links_form.snapchat_url.id_for_label }}">رابط سناب شات</label>
-                  {{ links_form.snapchat_url }}
-                  {% for err in links_form.snapchat_url.errors %}<small>{{ err }}</small>{% endfor %}
-                </div>
-                <div class="field">
-                  <label for="{{ links_form.tiktok_url.id_for_label }}">رابط تيك توك</label>
-                  {{ links_form.tiktok_url }}
-                  {% for err in links_form.tiktok_url.errors %}<small>{{ err }}</small>{% endfor %}
-                </div>
-                <div class="field">
-                  <label for="{{ links_form.youtube_url.id_for_label }}">رابط يوتيوب</label>
-                  {{ links_form.youtube_url }}
-                  {% for err in links_form.youtube_url.errors %}<small>{{ err }}</small>{% endfor %}
-                </div>
-                <div class="field">
-                  <label for="{{ links_form.whatsapp_url.id_for_label }}">رابط الواتساب</label>
-                  {{ links_form.whatsapp_url }}
-                  {% for err in links_form.whatsapp_url.errors %}<small>{{ err }}</small>{% endfor %}
-                </div>
-                <div class="field full">
-                  <label for="{{ links_form.email.id_for_label }}">إيميل المنصة</label>
-                  {{ links_form.email }}
-                  {% for err in links_form.email.errors %}<small>{{ err }}</small>{% endfor %}
-                </div>
-              </div>
+              </fieldset>
+
               {% if links_form.non_field_errors %}
                 <div class="target-card">
                   {% for err in links_form.non_field_errors %}
@@ -221,7 +335,7 @@
               {% endif %}
               <div class="actions">
                 {% if can_manage %}
-                  <button class="primary-btn" type="submit">حفظ</button>
+                  <button class="primary-btn" type="submit">حفظ كامل صفحة "من نحن"</button>
                 {% else %}
                   <span class="pill danger">التعديل غير متاح</span>
                 {% endif %}
@@ -254,7 +368,7 @@
             <p class="subtitle">يتم نشر هذه البيانات عبر API: <strong>/api/content/public/</strong></p>
             <div class="quick-stat"><span>المستندات</span><strong>documents</strong></div>
             <div class="quick-stat"><span>روابط المنصة</span><strong>links</strong></div>
-            <div class="quick-stat"><span>عن المنصة</span><strong>blocks.about_section_about</strong></div>
+            <div class="quick-stat"><span>محتوى صفحة "من نحن"</span><strong>blocks.about_*</strong></div>
           </div>
         </div>
       </aside>

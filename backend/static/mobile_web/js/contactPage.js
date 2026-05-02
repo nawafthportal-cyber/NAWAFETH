@@ -429,7 +429,7 @@ const ContactPage = (() => {
 
     if (_teams.length) {
       _teams.forEach((team) => {
-        const label = team.name_ar || team.code || '';
+        const label = team.name || team.name_en || team.name_ar || team.code || '';
         if (!label) return;
         const option = UI.el('option', {
           value: team.code || label,

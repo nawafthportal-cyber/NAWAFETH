@@ -2,6 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.accounts.models import User, UserRole
+from apps.extras_portal.models import PotentialClientSource, ProviderPotentialClient
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
 from apps.providers.models import Category, ProviderProfile, SubCategory
 from apps.subscriptions.models import Subscription, SubscriptionPlan, SubscriptionStatus
@@ -143,3 +144,126 @@ class DirectChatQuotaConsumptionTests(TestCase):
         blocked_send = self._send_direct_message(third_thread_id, "محاولة جديدة من المزود")
         self.assertEqual(blocked_send.status_code, 403, blocked_send.json())
         self.assertIn("الحد الأقصى", blocked_send.json()["error"])
+
+
+class PotentialClientTagSyncTests(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(name="خدمات")
+        self.subcategory = SubCategory.objects.create(category=self.category, name="استشارات")
+
+        self.provider_user = User.objects.create_user(
+            phone="0503700001",
+            username="lead.provider",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود متابعة",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.client_user = User.objects.create_user(
+            phone="0503700002",
+            username="lead.client",
+            role_state=UserRole.CLIENT,
+        )
+        self.request = ServiceRequest.objects.create(
+            client=self.client_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب متابعة",
+            description="مسار عميل محتمل",
+            request_type=RequestType.NORMAL,
+            status=RequestStatus.NEW,
+            city="الرياض",
+        )
+        self.client.force_login(self.provider_user)
+
+    def _open_direct_thread(self) -> int:
+        response = self.client.post(
+            reverse("messaging:direct_thread_get_or_create"),
+            data={"request_id": self.request.id},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.json())
+        return response.json()["id"]
+
+    def test_favoriting_thread_creates_system_potential_client(self):
+        thread_id = self._open_direct_thread()
+
+        response = self.client.post(
+            reverse("messaging:thread_favorite", kwargs={"thread_id": thread_id}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertTrue(
+            ProviderPotentialClient.objects.filter(
+                provider=self.provider,
+                user=self.client_user,
+                source=PotentialClientSource.SYSTEM,
+            ).exists()
+        )
+
+    def test_unfavoriting_thread_removes_system_potential_client(self):
+        thread_id = self._open_direct_thread()
+        ProviderPotentialClient.objects.create(
+            provider=self.provider,
+            user=self.client_user,
+            source=PotentialClientSource.SYSTEM,
+        )
+
+        response = self.client.post(
+            reverse("messaging:thread_favorite", kwargs={"thread_id": thread_id}),
+            data={"action": "remove"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertFalse(
+            ProviderPotentialClient.objects.filter(
+                provider=self.provider,
+                user=self.client_user,
+            ).exists()
+        )
+
+    def test_unfavoriting_thread_preserves_manual_potential_client(self):
+        thread_id = self._open_direct_thread()
+        ProviderPotentialClient.objects.create(
+            provider=self.provider,
+            user=self.client_user,
+            source=PotentialClientSource.MANUAL,
+        )
+
+        response = self.client.post(
+            reverse("messaging:thread_favorite", kwargs={"thread_id": thread_id}),
+            data={"action": "remove"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        manual_row = ProviderPotentialClient.objects.get(
+            provider=self.provider,
+            user=self.client_user,
+        )
+        self.assertEqual(manual_row.source, PotentialClientSource.MANUAL)
+
+    def test_favorite_label_alone_no_longer_creates_potential_client(self):
+        thread_id = self._open_direct_thread()
+
+        response = self.client.post(
+            reverse("messaging:thread_favorite_label", kwargs={"thread_id": thread_id}),
+            data={"label": "potential_client"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertFalse(
+            ProviderPotentialClient.objects.filter(
+                provider=self.provider,
+                user=self.client_user,
+            ).exists()
+        )

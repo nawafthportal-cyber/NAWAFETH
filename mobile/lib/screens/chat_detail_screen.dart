@@ -114,6 +114,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       _isChatWithClient &&
       (widget.peerId ?? 0) > 0;
 
+    String get _favoriteLabelDisplay =>
+      MessagingService.favoriteLabelDisplay(_favoriteLabel);
+
   bool get _isAutomatedPlatformThread => _isSystemThread;
 
   bool get _isReplyRestricted =>
@@ -1040,8 +1043,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
               _buildSheetActionItem(
                 icon: Icons.star_rounded,
                 label: _isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
-                caption: _favoriteLabel.isNotEmpty
-                    ? _favoriteLabel
+                caption: _favoriteLabelDisplay.isNotEmpty
+                    ? _favoriteLabelDisplay
                     : 'تحديث حالة المحادثة في المفضلة',
                 onTap: () async {
                   Navigator.pop(sheetContext);
@@ -2563,7 +2566,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          _favoriteLabel.isNotEmpty ? _favoriteLabel : 'مفضلة',
+                          _favoriteLabelDisplay.isNotEmpty ? _favoriteLabelDisplay : 'مفضلة',
                           style: const TextStyle(
                             fontFamily: 'Cairo',
                             fontSize: 10,

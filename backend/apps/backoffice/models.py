@@ -20,6 +20,7 @@ class Dashboard(models.Model):
     """
     code = models.SlugField(max_length=50, unique=True)
     name_ar = models.CharField(max_length=120)
+    name_en = models.CharField(max_length=120, blank=True, default="")
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
 
@@ -36,8 +37,10 @@ class AccessPermission(models.Model):
     """
     code = models.SlugField(max_length=80, unique=True)
     name_ar = models.CharField(max_length=120)
+    name_en = models.CharField(max_length=120, blank=True, default="")
     dashboard_code = models.SlugField(max_length=50, blank=True)
     description = models.CharField(max_length=255, blank=True)
+    description_en = models.CharField(max_length=255, blank=True, default="")
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
 

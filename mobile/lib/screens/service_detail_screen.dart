@@ -8,7 +8,7 @@ import 'service_request_form_screen.dart'; // ✅ نموذج طلب الخدمة
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
 import '../widgets/platform_report_dialog.dart';
-import '../widgets/verified_badge_view.dart';
+import '../widgets/provider_name_with_badges.dart';
 
 class ServiceDetailScreen extends StatefulWidget {
   final String title;
@@ -287,25 +287,17 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            _providerDisplayName,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        VerifiedBadgeView(
-                                          isVerifiedBlue: widget.providerVerifiedBlue,
-                                          isVerifiedGreen: widget.providerVerifiedGreen,
-                                          iconSize: 18,
-                                        ),
-                                      ],
+                                    ProviderNameWithBadges(
+                                      name: _providerDisplayName,
+                                      isVerifiedBlue: widget.providerVerifiedBlue,
+                                      isVerifiedGreen: widget.providerVerifiedGreen,
+                                      badgeIconSize: 18,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                     if (_providerDisplayHandle.isNotEmpty)
                                       Text(

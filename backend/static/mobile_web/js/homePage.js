@@ -1519,10 +1519,24 @@ const HomePage = (() => {
       }
 
       card.appendChild(avatarShell);
-      card.appendChild(UI.el('div', {
+      const nameRow = UI.el('div', { className: 'featured-specialist-name-row' });
+      nameRow.style.display = 'flex';
+      nameRow.style.alignItems = 'center';
+      nameRow.style.justifyContent = 'center';
+      nameRow.style.gap = '4px';
+      nameRow.style.flexWrap = 'wrap';
+      nameRow.appendChild(UI.el('div', {
         className: 'featured-specialist-name',
         textContent: displayName,
       }));
+      const verifiedBadges = UI.buildVerificationBadges({
+        isVerifiedBlue: item.is_verified_blue,
+        isVerifiedGreen: item.is_verified_green,
+        iconSize: 13,
+        gap: '3px',
+      });
+      if (verifiedBadges) nameRow.appendChild(verifiedBadges);
+      card.appendChild(nameRow);
 
       const ratingNumber = Number(item.rating_avg);
       const hasRating = Number.isFinite(ratingNumber) && ratingNumber > 0;
@@ -1534,13 +1548,6 @@ const HomePage = (() => {
         meta.appendChild(UI.text(ratingNumber.toFixed(1)));
       } else {
         meta.appendChild(UI.text('0 تقييم'));
-      }
-      if (isVerified) {
-        meta.appendChild(
-          item.is_verified_blue
-            ? UI.icon('verified_blue', 12, '#2196F3')
-            : UI.icon('verified_green', 12, '#4CAF50')
-        );
       }
       card.appendChild(meta);
       frag.appendChild(card);

@@ -17,9 +17,12 @@ from apps.analytics.models import AnalyticsEvent
 from apps.dashboard.security import is_safe_redirect_url
 from apps.dashboard.exports import pdf_response, xlsx_response
 from apps.extras.option_catalog import (
+    EXTRAS_CLIENT_OPTIONS,
+    EXTRAS_FINANCE_OPTIONS,
     EXTRAS_REPORT_OPTIONS,
     UNAVAILABLE_CLIENT_OPTIONS,
     UNAVAILABLE_FINANCE_OPTIONS,
+    UNAVAILABLE_REPORT_OPTIONS,
     option_label_for,
     section_title_for,
 )
@@ -376,6 +379,23 @@ def _portal_shell_context(provider: ProviderProfile, *, active_section: str) -> 
 
     current_request_obj = active_section_context.get("request_obj") or bundle_context.get("request_obj")
 
+    # Resolve a human-friendly provider display name once, so every template in
+    # the portal shows the trade name (not the @username/login handle).
+    provider_display_name = str(getattr(provider, "display_name", "") or "").strip()
+    if not provider_display_name:
+        full_name = ""
+        try:
+            full_name = str(provider.user.get_full_name() or "").strip()
+        except Exception:
+            full_name = ""
+        if full_name:
+            provider_display_name = full_name
+        else:
+            username_value = str(getattr(provider.user, "username", "") or "").strip()
+            provider_display_name = (
+                f"@{username_value}" if username_value else f"#{provider.user_id}"
+            )
+
     return {
         "portal_bundle_context": bundle_context,
         "portal_section_contexts": section_contexts,
@@ -386,6 +406,7 @@ def _portal_shell_context(provider: ProviderProfile, *, active_section: str) -> 
         "portal_subscription_active": portal_subscription_active,
         "portal_active_section": active_section,
         "portal_has_enabled_sections": bool(nav_items),
+        "provider_display_name": provider_display_name,
     }
 
 
@@ -1211,11 +1232,14 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
         or getattr(invoice, "paid_at", None)
         or getattr(bundle_context.get("request_obj"), "updated_at", None)
     )
-    provider_identifier = str(getattr(provider.user, "username", "") or "").strip()
-    if provider_identifier:
-        provider_identifier = f"@{provider_identifier}"
-    else:
-        provider_identifier = provider.display_name
+    provider_identifier = str(getattr(provider, "display_name", "") or "").strip()
+    if not provider_identifier:
+        full_name = str(getattr(provider.user, "get_full_name", lambda: "")() or "").strip()
+        if full_name:
+            provider_identifier = full_name
+        else:
+            username_value = str(getattr(provider.user, "username", "") or "").strip()
+            provider_identifier = f"@{username_value}" if username_value else f"#{provider.user_id}"
 
     overview_tones = [
         "from-sky-500 to-cyan-500",
@@ -1235,6 +1259,25 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
         for index, stat in enumerate(platform_metrics_stats)
     ]
 
+    # Comprehensive status list — surfaces every report option to the
+    # provider with an active/inactive flag so they can see exactly what
+    # is included in the latest paid bundle and what is still missing.
+    active_report_keys: set[str] = set()
+    for ctx in visible_report_contexts:
+        for key in ctx.get("selected_option_keys", []) or []:
+            active_report_keys.add(str(key or "").strip())
+    report_options_status = [
+        {
+            "key": key,
+            "label": label,
+            "active": key in active_report_keys,
+            "unavailable": key in UNAVAILABLE_REPORT_OPTIONS,
+        }
+        for key, label in EXTRAS_REPORT_OPTIONS
+    ]
+    report_active_count = sum(1 for opt in report_options_status if opt["active"])
+    report_total_count = len(report_options_status)
+
     return {
         **shell_context,
         "provider": provider,
@@ -1244,6 +1287,9 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
         "report_request_summaries": report_request_summaries,
         "overview_cards": overview_cards,
         "selected_option_rows": selected_option_rows,
+        "report_options_status": report_options_status,
+        "report_active_count": report_active_count,
+        "report_total_count": report_total_count,
         "totals": totals,
         "followers_count": followers_count,
         "likes_count": likes_count,
@@ -1568,6 +1614,129 @@ def portal_report_option_export_pdf(request: HttpRequest, option_key: str) -> Ht
     return HttpResponse("لا يمكن تصدير هذا الخيار.", status=400)
 
 
+def _build_clients_dataset(provider: ProviderProfile, section_context: dict) -> dict:
+    """Compute the enriched clients list and metadata used by the clients view and exports."""
+    clients_payload = _portal_section_payload(section_context)
+    clients_subscription_years = _portal_safe_int(
+        clients_payload.get("subscription_years", 1), default=1, minimum=1,
+    )
+
+    _clients_effective_at = section_context.get("effective_at") if isinstance(section_context, dict) else None
+    _clients_deadline = (
+        (_clients_effective_at + timedelta(days=365 * clients_subscription_years))
+        if _clients_effective_at else None
+    )
+
+    follower_user_ids = set(
+        ProviderFollow.objects.filter(provider=provider).values_list("user_id", flat=True)
+    )
+    potential_user_ids = set(
+        ProviderPotentialClient.objects.filter(provider=provider).values_list("user_id", flat=True)
+    )
+
+    _scoped_request_filter = Q(requests__provider=provider)
+    if _clients_effective_at:
+        _scoped_request_filter &= Q(requests__created_at__gte=_clients_effective_at)
+    if _clients_deadline:
+        _scoped_request_filter &= Q(requests__created_at__lte=_clients_deadline)
+
+    _scoped_count_filter = Q(requests__provider=provider)
+    if _clients_effective_at:
+        _scoped_count_filter &= Q(requests__created_at__gte=_clients_effective_at)
+    if _clients_deadline:
+        _scoped_count_filter &= Q(requests__created_at__lte=_clients_deadline)
+
+    _opt_historical = _portal_section_has_option(section_context, "historical_clients")
+    _opt_followers = _portal_section_has_option(section_context, "all_followers")
+    _opt_potentials = _portal_section_has_option(section_context, "potential_clients_contact")
+    _opt_lists = _portal_section_has_option(section_context, "platform_clients_list")
+    _no_inclusion_opt = not (_opt_historical or _opt_followers or _opt_potentials or _opt_lists)
+
+    historical_user_ids = set(
+        User.objects.filter(_scoped_request_filter).values_list("id", flat=True).distinct()
+    )
+
+    aggregated_user_ids: set[int] = set()
+    if _opt_historical or _opt_lists or _no_inclusion_opt:
+        aggregated_user_ids.update(historical_user_ids)
+    if _opt_followers or _opt_lists or _no_inclusion_opt:
+        aggregated_user_ids.update(follower_user_ids)
+    if _opt_potentials or _opt_lists or _no_inclusion_opt:
+        aggregated_user_ids.update(potential_user_ids)
+
+    clients_qs = (
+        User.objects.filter(id__in=aggregated_user_ids)
+        .annotate(request_count=Count("requests", filter=_scoped_count_filter, distinct=True))
+        .order_by("-id")
+    )
+    clients_total_count = clients_qs.count()
+    clients_with_phone_count = clients_qs.exclude(phone__isnull=True).exclude(phone="").count()
+    clients_list = list(clients_qs[:500])
+    client_user_ids = [c.id for c in clients_list]
+
+    records_map: dict[int, ClientRecord] = {
+        rec.user_id: rec
+        for rec in ClientRecord.objects.filter(provider=provider, user_id__in=client_user_ids)
+    }
+
+    _served_qs = ServiceRequest.objects.filter(
+        provider=provider,
+        status=RequestStatus.COMPLETED,
+        client_id__in=client_user_ids,
+    )
+    _served_qs = _apply_datetime_window(
+        _served_qs, "created_at", _clients_effective_at, _clients_deadline,
+    )
+    served_user_ids = set(_served_qs.values_list("client_id", flat=True).distinct())
+
+    enriched_clients = []
+    for idx, client in enumerate(clients_list, start=1):
+        rec = records_map.get(client.id)
+        enriched_clients.append({
+            "row_num": idx,
+            "user": client,
+            "name": _client_display_name(client),
+            "previously_served": client.id in served_user_ids,
+            "is_follower": client.id in follower_user_ids,
+            "is_potential": client.id in potential_user_ids,
+            "request_count": getattr(client, "request_count", 0),
+            "classification": rec.classification if rec else "",
+            "reminder_text": rec.reminder_text if rec else "",
+            "reminder_date": str(rec.reminder_date) if rec and rec.reminder_date else "",
+            "reminder_time": rec.reminder_time.strftime("%H:%M") if rec and rec.reminder_time else "",
+            "reminder_sent": rec.reminder_sent if rec else False,
+            "reminder_sent_at": rec.reminder_sent_at if rec else None,
+            "loyalty_points_added": rec.loyalty_points_added if rec else 0,
+        })
+
+    # Build classification groups (segments)
+    groups_map: dict[str, int] = {}
+    for row in enriched_clients:
+        key = (row.get("classification") or "").strip()
+        if not key:
+            continue
+        groups_map[key] = groups_map.get(key, 0) + 1
+    classification_groups = [
+        {"label": label, "count": count}
+        for label, count in sorted(groups_map.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+    unclassified_count = sum(1 for r in enriched_clients if not (r.get("classification") or "").strip())
+
+    return {
+        "enriched_clients": enriched_clients,
+        "clients_total_count": clients_total_count,
+        "clients_with_phone_count": clients_with_phone_count,
+        "follower_user_ids": follower_user_ids,
+        "potential_user_ids": potential_user_ids,
+        "served_user_ids": served_user_ids,
+        "classification_groups": classification_groups,
+        "unclassified_count": unclassified_count,
+        "clients_subscription_years": clients_subscription_years,
+        "effective_at": _clients_effective_at,
+        "deadline": _clients_deadline,
+    }
+
+
 @extras_portal_login_required
 def portal_clients(request: HttpRequest) -> HttpResponse:
     provider = _get_provider_or_403(request)
@@ -1608,6 +1777,9 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
 
         # ── Loyalty message action ──
         if post_action == "send_loyalty":
+            if not _portal_section_has_option(section_context, "loyalty_program"):
+                messages.error(request, "برنامج الولاء غير مفعّل في طلب الخدمات الإضافية الحالي.")
+                return redirect("extras_portal:clients")
             _send_loyalty_message(request, provider, provider_user)
             return redirect("extras_portal:clients")
 
@@ -1628,7 +1800,10 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             recipients = list(
                 User.objects.filter(
                     id__in=recipient_ids,
-                    requests__provider=provider,
+                ).filter(
+                    Q(requests__provider=provider)
+                    | Q(provider_follows__provider=provider)
+                    | Q(potential_client_tags__provider=provider)
                 ).distinct()
             )
             if not recipients:
@@ -1684,81 +1859,35 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
     else:
         form = BulkMessageForm()
 
-    # ── Build enriched client rows ──
-    follower_user_ids = set(
-        ProviderFollow.objects.filter(provider=provider).values_list("user_id", flat=True)
-    )
-    potential_user_ids = set(
-        ProviderPotentialClient.objects.filter(provider=provider).values_list("user_id", flat=True)
-    )
+    # ── Build enriched client rows (shared with export endpoints) ──
+    dataset = _build_clients_dataset(provider, section_context)
+    enriched_clients = dataset["enriched_clients"]
+    clients_total_count = dataset["clients_total_count"]
+    clients_with_phone_count = dataset["clients_with_phone_count"]
+    classification_groups = dataset["classification_groups"]
+    unclassified_count = dataset["unclassified_count"]
 
-    # Scope to requests within the subscription date window
-    _scoped_requests_qs = ServiceRequest.objects.filter(provider=provider)
-    _scoped_requests_qs = _apply_datetime_window(
-        _scoped_requests_qs, "created_at", _clients_effective_at, _clients_deadline,
-    )
-
-    _scoped_request_filter = Q(requests__provider=provider)
-    if _clients_effective_at:
-        _scoped_request_filter &= Q(requests__created_at__gte=_clients_effective_at)
-    if _clients_deadline:
-        _scoped_request_filter &= Q(requests__created_at__lte=_clients_deadline)
-
-    _scoped_count_filter = Q(requests__provider=provider)
-    if _clients_effective_at:
-        _scoped_count_filter &= Q(requests__created_at__gte=_clients_effective_at)
-    if _clients_deadline:
-        _scoped_count_filter &= Q(requests__created_at__lte=_clients_deadline)
-
-    clients_qs = (
-        User.objects.filter(_scoped_request_filter)
-        .distinct()
-        .annotate(request_count=Count("requests", filter=_scoped_count_filter))
-        .order_by("-id")
-    )
-    clients_total_count = clients_qs.count()
-    clients_with_phone_count = clients_qs.exclude(phone__isnull=True).exclude(phone="").count()
-    clients_list = list(clients_qs[:500])
-    client_user_ids = [c.id for c in clients_list]
-
-    # Load existing ClientRecord data keyed by user_id
-    records_map: dict[int, ClientRecord] = {
-        rec.user_id: rec
-        for rec in ClientRecord.objects.filter(provider=provider, user_id__in=client_user_ids)
-    }
-
-    # Check which clients were previously served (have completed orders in the window)
-    _served_qs = ServiceRequest.objects.filter(
-        provider=provider,
-        status=RequestStatus.COMPLETED,
-        client_id__in=client_user_ids,
-    )
-    _served_qs = _apply_datetime_window(
-        _served_qs, "created_at", _clients_effective_at, _clients_deadline,
-    )
-    served_user_ids = set(
-        _served_qs.values_list("client_id", flat=True).distinct()
-    )
-
-    enriched_clients = []
-    for idx, client in enumerate(clients_list, start=1):
-        rec = records_map.get(client.id)
-        enriched_clients.append({
-            "row_num": idx,
-            "user": client,
-            "name": _client_display_name(client),
-            "previously_served": client.id in served_user_ids,
-            "is_follower": client.id in follower_user_ids,
-            "is_potential": client.id in potential_user_ids,
-            "request_count": getattr(client, "request_count", 0),
-            "classification": rec.classification if rec else "",
-            "reminder_text": rec.reminder_text if rec else "",
-            "reminder_date": str(rec.reminder_date) if rec and rec.reminder_date else "",
-            "reminder_time": rec.reminder_time.strftime("%H:%M") if rec and rec.reminder_time else "",
-            "reminder_sent": rec.reminder_sent if rec else False,
-            "reminder_sent_at": rec.reminder_sent_at if rec else None,
-            "loyalty_points_added": rec.loyalty_points_added if rec else 0,
-        })
+    # ── List filter (خدمات القوائم) ──
+    clients_supports_list_services = _portal_section_has_option(section_context, "list_services")
+    _allowed_filters = {"all", "followers", "historical", "potentials", "with_phone", "served"}
+    current_filter = (request.GET.get("filter") or "all").strip().lower()
+    if current_filter not in _allowed_filters:
+        current_filter = "all"
+    if clients_supports_list_services and current_filter != "all":
+        if current_filter == "followers":
+            enriched_clients = [r for r in enriched_clients if r.get("is_follower")]
+        elif current_filter == "historical":
+            enriched_clients = [r for r in enriched_clients if (r.get("request_count") or 0) > 0]
+        elif current_filter == "potentials":
+            enriched_clients = [r for r in enriched_clients if r.get("is_potential")]
+        elif current_filter == "with_phone":
+            enriched_clients = [r for r in enriched_clients if (getattr(r.get("user"), "phone", "") or "")]
+        elif current_filter == "served":
+            enriched_clients = [r for r in enriched_clients if r.get("previously_served")]
+        # Re-number rows after filtering
+        for new_idx, row in enumerate(enriched_clients, start=1):
+            row["row_num"] = new_idx
+    filtered_count = len(enriched_clients)
 
     # ── Messages summary ──
     recent_scheduled_messages_qs = (
@@ -1812,6 +1941,57 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
     subscription = getattr(provider, "extras_portal_subscription", None)
     subscription_end = subscription.ends_at if subscription else None
 
+    clients_supports_export = _portal_section_has_option(section_context, "export_clients")
+    clients_supports_grouping = _portal_section_has_option(section_context, "grouping")
+    clients_supports_reminders = _portal_section_has_option(section_context, "recurring_reminders")
+    clients_supports_lists = _portal_section_has_option(section_context, "platform_clients_list")
+    clients_supports_historical = _portal_section_has_option(section_context, "historical_clients")
+    clients_supports_followers = _portal_section_has_option(section_context, "all_followers")
+    clients_supports_potentials = _portal_section_has_option(section_context, "potential_clients_contact")
+
+    # Per-column visibility — base columns are also gated by the corresponding
+    # data-source options. `platform_clients_list` aggregates everything, so
+    # when it is active each base column is implicitly available.
+    show_col_served = clients_supports_lists or clients_supports_historical
+    show_col_follower = clients_supports_lists or clients_supports_followers
+    show_col_potential = clients_supports_lists or clients_supports_potentials
+    show_col_request_count = clients_supports_lists or clients_supports_historical
+
+    # Column count for table colspan in empty-row state.
+    # Always-on base columns: م، اسم (2). Then add gated columns.
+    table_colspan = 2
+    if show_col_served:
+        table_colspan += 1
+    if show_col_follower:
+        table_colspan += 1
+    if show_col_potential:
+        table_colspan += 1
+    if show_col_request_count:
+        table_colspan += 1
+    if clients_supports_grouping:
+        table_colspan += 1
+    if clients_supports_bulk_messages:
+        table_colspan += 1  # "تحديد"
+    if clients_supports_reminders:
+        table_colspan += 4  # نص، تاريخ، وقت، حالة
+    if clients_supports_points:
+        table_colspan += 1
+
+    # Comprehensive status list — surfaces every client-management option to
+    # the provider with an active/inactive flag so they can see exactly what
+    # is included in their current bundle and what is missing.
+    clients_options_status = [
+        {
+            "key": key,
+            "label": label,
+            "active": _portal_section_has_option(section_context, key),
+            "unavailable": key in UNAVAILABLE_CLIENT_OPTIONS,
+        }
+        for key, label in EXTRAS_CLIENT_OPTIONS
+    ]
+    clients_active_count = sum(1 for opt in clients_options_status if opt["active"])
+    clients_total_options = len(clients_options_status)
+
     return render(
         request,
         "extras_portal/clients.html",
@@ -1826,9 +2006,29 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             "remaining_messages": remaining_messages,
             "sent_messages_count": sent_messages_count,
             "clients_supports_bulk_messages": clients_supports_bulk_messages,
+            "clients_supports_export": clients_supports_export,
+            "clients_supports_grouping": clients_supports_grouping,
+            "clients_supports_reminders": clients_supports_reminders,
+            "clients_supports_lists": clients_supports_lists,
+            "clients_supports_historical": clients_supports_historical,
+            "clients_supports_followers": clients_supports_followers,
+            "clients_supports_potentials": clients_supports_potentials,
+            "show_col_served": show_col_served,
+            "show_col_follower": show_col_follower,
+            "show_col_potential": show_col_potential,
+            "show_col_request_count": show_col_request_count,
+            "clients_options_status": clients_options_status,
+            "clients_active_count": clients_active_count,
+            "clients_total_options": clients_total_options,
             "enriched_clients": enriched_clients,
             "clients_total_count": clients_total_count,
             "clients_with_phone_count": clients_with_phone_count,
+            "classification_groups": classification_groups,
+            "unclassified_count": unclassified_count,
+            "current_filter": current_filter,
+            "filtered_count": filtered_count,
+            "clients_supports_list_services": clients_supports_list_services,
+            "table_colspan": table_colspan,
             "recent_message_rows": recent_message_rows,
             "form": form,
             # loyalty
@@ -1842,6 +2042,82 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _clients_export_rows(provider: ProviderProfile, section_context: dict) -> tuple[list[str], list[list]]:
+    dataset = _build_clients_dataset(provider, section_context)
+    headers = [
+        "م",
+        "اسم العميل",
+        "رقم الجوال",
+        "سبق تقديم خدمة",
+        "متابع لمنصتي",
+        "عميل محتمل",
+        "عدد الطلبات",
+        "التصنيف",
+        "نص التذكير",
+        "تاريخ التذكير",
+        "وقت التذكير",
+        "حالة التذكير",
+        "نقاط الولاء",
+    ]
+    rows: list[list] = []
+    for row in dataset["enriched_clients"]:
+        user = row.get("user")
+        phone = getattr(user, "phone", "") or ""
+        rows.append([
+            row.get("row_num", ""),
+            row.get("name", ""),
+            phone,
+            "نعم" if row.get("previously_served") else "لا",
+            "نعم" if row.get("is_follower") else "لا",
+            "نعم" if row.get("is_potential") else "لا",
+            row.get("request_count", 0),
+            row.get("classification", ""),
+            row.get("reminder_text", ""),
+            row.get("reminder_date", ""),
+            row.get("reminder_time", ""),
+            "تم الإرسال" if row.get("reminder_sent") else ("بانتظار الموعد" if row.get("reminder_date") else ""),
+            row.get("loyalty_points_added", 0),
+        ])
+    return headers, rows
+
+
+@extras_portal_login_required
+def portal_clients_export_xlsx(request: HttpRequest) -> HttpResponse:
+    provider = _get_provider_or_403(request)
+    section_response = _portal_require_section(provider, PORTAL_SECTION_CLIENTS)
+    if section_response is not None:
+        return section_response
+    section_context = _latest_portal_section_context(provider, PORTAL_SECTION_CLIENTS)
+    if not _portal_section_has_option(section_context, "export_clients"):
+        return HttpResponse("خدمة التصدير غير مفعّلة في طلبك الحالي.", status=403)
+    headers, rows = _clients_export_rows(provider, section_context)
+    return xlsx_response(
+        filename=f"clients-provider-{provider.id}.xlsx",
+        sheet_name="إدارة العملاء"[:31],
+        headers=headers,
+        rows=rows,
+    )
+
+
+@extras_portal_login_required
+def portal_clients_export_pdf(request: HttpRequest) -> HttpResponse:
+    provider = _get_provider_or_403(request)
+    section_response = _portal_require_section(provider, PORTAL_SECTION_CLIENTS)
+    if section_response is not None:
+        return section_response
+    section_context = _latest_portal_section_context(provider, PORTAL_SECTION_CLIENTS)
+    if not _portal_section_has_option(section_context, "export_clients"):
+        return HttpResponse("خدمة التصدير غير مفعّلة في طلبك الحالي.", status=403)
+    headers, rows = _clients_export_rows(provider, section_context)
+    return pdf_response(
+        filename=f"clients-provider-{provider.id}.pdf",
+        title="إدارة العملاء",
+        headers=headers,
+        rows=rows,
+        landscape=True,
+    )
+
+
 def _client_display_name(user: User) -> str:
     """Return best available display name for a client user."""
     full = f"{user.first_name or ''} {user.last_name or ''}".strip()
@@ -1849,48 +2125,71 @@ def _client_display_name(user: User) -> str:
 
 
 def _save_client_records(request: HttpRequest, provider: ProviderProfile) -> None:
-    """Bulk save classification, reminders and loyalty points from POST."""
+    """Bulk save classification, reminders and loyalty points from POST.
+
+    Only updates fields whose corresponding option is currently active in the
+    provider's clients section. Fields belonging to disabled options are
+    preserved as-is to avoid wiping data on a partial UI render.
+    """
+    section_context = _latest_portal_section_context(provider, PORTAL_SECTION_CLIENTS)
+    can_grouping = _portal_section_has_option(section_context, "grouping")
+    can_reminders = _portal_section_has_option(section_context, "recurring_reminders")
+    can_points = _portal_section_has_option(section_context, "loyalty_points")
+
     client_ids = request.POST.getlist("record_client_ids")
     for cid_str in client_ids:
         if not cid_str.isdigit():
             continue
         cid = int(cid_str)
-        classification = request.POST.get(f"classification_{cid}", "").strip()[:120]
-        reminder_text = request.POST.get(f"reminder_text_{cid}", "").strip()[:500]
-        reminder_date_str = request.POST.get(f"reminder_date_{cid}", "").strip()
-        reminder_time_str = request.POST.get(f"reminder_time_{cid}", "").strip()
-        loyalty_pts_str = request.POST.get(f"loyalty_points_{cid}", "0").strip()
 
-        reminder_date = None
-        if reminder_date_str:
-            parsed = parse_date(reminder_date_str)
-            if parsed:
-                reminder_date = parsed
+        existing = ClientRecord.objects.filter(provider=provider, user_id=cid).first()
+        defaults: dict = {}
 
-        reminder_time = None
-        if reminder_time_str:
-            try:
-                parts = reminder_time_str.split(":")
-                reminder_time = time(int(parts[0]), int(parts[1]))
-            except (ValueError, IndexError):
-                pass
+        if can_grouping:
+            defaults["classification"] = request.POST.get(f"classification_{cid}", "").strip()[:120]
 
-        loyalty_points = 0
-        if loyalty_pts_str.isdigit():
-            loyalty_points = int(loyalty_pts_str)
+        if can_reminders:
+            reminder_text = request.POST.get(f"reminder_text_{cid}", "").strip()[:500]
+            reminder_date_str = request.POST.get(f"reminder_date_{cid}", "").strip()
+            reminder_time_str = request.POST.get(f"reminder_time_{cid}", "").strip()
+
+            reminder_date = None
+            if reminder_date_str:
+                parsed = parse_date(reminder_date_str)
+                if parsed:
+                    reminder_date = parsed
+
+            reminder_time = None
+            if reminder_time_str:
+                try:
+                    parts = reminder_time_str.split(":")
+                    reminder_time = time(int(parts[0]), int(parts[1]))
+                except (ValueError, IndexError):
+                    pass
+
+            # Reset sent flag only when the date or time actually changed.
+            prev_date = getattr(existing, "reminder_date", None) if existing else None
+            prev_time = getattr(existing, "reminder_time", None) if existing else None
+            schedule_changed = (prev_date != reminder_date) or (prev_time != reminder_time)
+            defaults["reminder_text"] = reminder_text
+            defaults["reminder_date"] = reminder_date
+            defaults["reminder_time"] = reminder_time
+            if schedule_changed:
+                defaults["reminder_sent"] = False
+                defaults["reminder_sent_at"] = None
+
+        if can_points:
+            loyalty_pts_str = request.POST.get(f"loyalty_points_{cid}", "0").strip()
+            defaults["loyalty_points_added"] = int(loyalty_pts_str) if loyalty_pts_str.isdigit() else 0
+
+        if not defaults:
+            # Nothing editable; skip to avoid creating empty rows for unrelated clients.
+            continue
 
         ClientRecord.objects.update_or_create(
             provider=provider,
             user_id=cid,
-            defaults={
-                "classification": classification,
-                "reminder_text": reminder_text,
-                "reminder_date": reminder_date,
-                "reminder_time": reminder_time,
-                "reminder_sent": False,
-                "reminder_sent_at": None,
-                "loyalty_points_added": loyalty_points,
-            },
+            defaults=defaults,
         )
 
 
@@ -1974,6 +2273,21 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
     supports_finance_export = _portal_section_has_option(section_context, "finance_export")
     supports_electronic_payments = _portal_section_has_option(section_context, "electronic_payments")
     supports_electronic_invoices = _portal_section_has_option(section_context, "electronic_invoices")
+
+    # Comprehensive status list — surfaces every finance option to the
+    # provider with an active/inactive flag so they can see exactly what is
+    # included in their current bundle and what is missing.
+    finance_options_status = [
+        {
+            "key": key,
+            "label": label,
+            "active": _portal_section_has_option(section_context, key),
+            "unavailable": key in UNAVAILABLE_FINANCE_OPTIONS,
+        }
+        for key, label in EXTRAS_FINANCE_OPTIONS
+    ]
+    finance_active_count = sum(1 for opt in finance_options_status if opt["active"])
+    finance_total_count = len(finance_options_status)
 
     # Requested account info from the extras bundle payment (operator filled)
     requested_first_name = str(finance_payload.get("qr_first_name") or "").strip()
@@ -2083,11 +2397,14 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
         "qr_image": getattr(settings_obj, "qr_image", None),
     }
 
-    provider_identifier = str(getattr(provider.user, "username", "") or "").strip()
-    if provider_identifier:
-        provider_identifier = f"@{provider_identifier}"
-    else:
-        provider_identifier = provider.display_name or str(provider.user.id)
+    provider_identifier = str(getattr(provider, "display_name", "") or "").strip()
+    if not provider_identifier:
+        full_name = str(getattr(provider.user, "get_full_name", lambda: "")() or "").strip()
+        if full_name:
+            provider_identifier = full_name
+        else:
+            username_value = str(getattr(provider.user, "username", "") or "").strip()
+            provider_identifier = f"@{username_value}" if username_value else f"#{provider.user_id}"
 
     return render(
         request,
@@ -2104,6 +2421,9 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
             "supports_finance_export": supports_finance_export,
             "supports_electronic_payments": supports_electronic_payments,
             "supports_electronic_invoices": supports_electronic_invoices,
+            "finance_options_status": finance_options_status,
+            "finance_active_count": finance_active_count,
+            "finance_total_count": finance_total_count,
             "finance_display_values": finance_display_values,
             "finance_settings": settings_obj,
             "finance_profile_completion": finance_profile_completion,
