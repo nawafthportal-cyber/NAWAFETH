@@ -11,8 +11,8 @@
       <div class="onboarding-stage" id="onboarding-stage">
         <article class="onboard-status-card">
           <div class="onboard-status-icon">⟳</div>
-          <h1>جاري تحميل شاشة البداية</h1>
-          <p>يتم جلب المحتوى مباشرة من لوحة التحكم.</p>
+          <h1 id="onboarding-loading-title">جاري تحميل شاشة البداية</h1>
+          <p id="onboarding-loading-desc">يتم جلب المحتوى مباشرة من لوحة التحكم.</p>
         </article>
       </div>
 
@@ -28,5 +28,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/onboardingPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/onboardingPage.js' %}?v=20260501-onboarding-i18n-stage1"></script>
 {% endblock %}

@@ -283,7 +283,7 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             if not target_portfolio_item:
                 raise serializers.ValidationError("اختر صورة واحدة من معرض الأعمال لهذا النوع من الترويج.")
             if str(getattr(target_portfolio_item, "file_type", "") or "").lower() != "image":
-                raise serializers.ValidationError("خدمة شريط البنرات والمشاريع تقبل الصور فقط من معرض الأعمال.")
+                raise serializers.ValidationError("خدمة البنرات والمشاريع تقبل الصور فقط من معرض الأعمال.")
 
         if service_type == PromoServiceType.SNAPSHOTS:
             if not target_spotlight_item:

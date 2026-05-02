@@ -5006,7 +5006,7 @@ PROMO_MODULE_DEFINITIONS = (
     {
         "key": "portfolio_showcase",
         "service_type": PromoServiceType.PORTFOLIO_SHOWCASE,
-        "label": "شريط البنرات والمشاريع",
+        "label": "البنرات والمشاريع",
         "description": "إبراز المشاريع والبنرات المختارة بجدولة زمنية.",
     },
     {

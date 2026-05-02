@@ -393,22 +393,22 @@ body.page-terms .terms-empty-card p {
   <div class="container terms-shell">
     <section class="terms-hero">
       <div class="terms-hero-copy">
-        <p class="terms-kicker">المركز القانوني</p>
+        <p class="terms-kicker" id="terms-kicker">المركز القانوني</p>
         <h1 id="terms-page-title">الشروط والأحكام</h1>
         <p id="terms-page-summary">اطلع على سياسات نوافذ الرسمية بطريقة واضحة ومنظمة قبل استخدام خدمات المنصة.</p>
       </div>
 
-      <div class="terms-hero-meta" aria-label="ملخص المستندات">
+      <div class="terms-hero-meta" id="terms-hero-meta" aria-label="ملخص المستندات">
         <div class="terms-stat">
-          <span>المستندات</span>
+          <span id="terms-documents-label">المستندات</span>
           <strong id="terms-doc-count">0</strong>
         </div>
         <div class="terms-stat">
-          <span>آخر تحديث</span>
+          <span id="terms-latest-update-label">آخر تحديث</span>
           <strong id="terms-latest-update">-</strong>
         </div>
         <div class="terms-stat">
-          <span>مرفقات رسمية</span>
+          <span id="terms-file-count-label">مرفقات رسمية</span>
           <strong id="terms-file-count">0</strong>
         </div>
       </div>
@@ -416,7 +416,7 @@ body.page-terms .terms-empty-card p {
 
     <section class="terms-layout">
       <aside class="terms-rail hidden" id="terms-rail">
-        <h2>المستندات</h2>
+        <h2 id="terms-rail-title">المستندات</h2>
         <nav class="terms-nav" id="terms-nav" aria-label="مستندات الشروط"></nav>
       </aside>
 
@@ -437,5 +437,5 @@ body.page-terms .terms-empty-card p {
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/termsPage.js' %}?v=20260419-legal-polish"></script>
+<script src="{% static 'mobile_web/js/termsPage.js' %}?v=20260501-terms-i18n-stage1"></script>
 {% endblock %}

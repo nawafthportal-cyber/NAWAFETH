@@ -444,6 +444,16 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
   }
 
   Widget _buildControlPanel({required bool isDark, required int resultsCount}) {
+    final activeCount = _orders
+      .where((order) =>
+        order.statusGroup != 'completed' &&
+        order.statusGroup != 'cancelled')
+      .length;
+    final acceptedCount =
+      _orders.where((order) => order.status == 'provider_accepted').length;
+    final awaitingClientCount =
+      _orders.where((order) => order.status == 'awaiting_client').length;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
@@ -477,14 +487,14 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                       'طلباتي',
                       style: TextStyle(
                         fontFamily: 'Cairo',
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
                         color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'فلترة حسب نوع الطلب مع بحث سريع.',
+                      'لوحة موحّدة لمتابعة الحالة والإجراءات',
                       style: TextStyle(
                         fontFamily: 'Cairo',
                         fontSize: 11,
@@ -520,6 +530,75 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : const Color(0xFFF8FBFF),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark ? Colors.white10 : const Color(0xFFDCE6ED),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ملخص الطلبات',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'ابدأ بالأهم ثم افتح التفاصيل عند الحاجة.',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? const Color(0xFFB8C7D9)
+                        : const Color(0xFF667085),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildSummaryStatCard(
+                        isDark: isDark,
+                        value: activeCount.toString(),
+                        label: 'طلبات نشطة',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildSummaryStatCard(
+                        isDark: isDark,
+                        value: resultsCount.toString(),
+                        label: 'إجمالي الطلبات',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildSummaryStatCard(
+                        isDark: isDark,
+                        label: 'قبل التنفيذ',
+                        note:
+                            'تم قبول الطلب: $acceptedCount • بانتظار اعتماد العميل: $awaitingClientCount',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Container(
@@ -584,6 +663,65 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen>
                 )
                 .toList(),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryStatCard({
+    required bool isDark,
+    String? value,
+    required String label,
+    String? note,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? Colors.white10 : const Color(0xFFE4EBF1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (value != null) ...[
+            Text(
+              value,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: isDark ? Colors.white : _accentColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white70 : const Color(0xFF475467),
+            ),
+          ),
+          if (note != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              note,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                height: 1.55,
+                color: isDark ? Colors.white54 : const Color(0xFF667085),
+              ),
+            ),
+          ],
         ],
       ),
     );

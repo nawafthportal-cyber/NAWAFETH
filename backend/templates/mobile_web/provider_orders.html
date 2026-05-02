@@ -1,161 +1,1385 @@
-{% extends "mobile_web/base.html" %}{% load static %}
+{% extends "mobile_web/base.html" %}
+{% load static %}
+
 {% block title %}إدارة الطلبات — نوافــذ{% endblock %}
 {% block body_class %}page-provider-orders{% endblock %}
 
 {% block content %}
+<style>
+  body.page-provider-orders {
+    --po-bg: #f4f0fb;
+    --po-bg-soft: #fcfbff;
+    --po-surface: rgba(255, 255, 255, 0.84);
+    --po-surface-strong: rgba(255, 255, 255, 0.94);
+    --po-border: rgba(78, 45, 143, 0.12);
+    --po-border-strong: rgba(78, 45, 143, 0.2);
+    --po-ink: #1f1631;
+    --po-muted: #6f648c;
+    --po-primary: #5b34b1;
+    --po-primary-strong: #41217f;
+    --po-primary-soft: rgba(91, 52, 177, 0.1);
+    --po-accent: #0f8ea2;
+    --po-accent-soft: rgba(15, 142, 162, 0.12);
+    --po-gold: #b98a2f;
+    --po-shadow: 0 24px 60px rgba(37, 20, 74, 0.12);
+    --po-shadow-soft: 0 16px 36px rgba(37, 20, 74, 0.08);
+    overflow-x: clip !important;
+    background:
+      radial-gradient(circle at 12% 12%, rgba(15, 142, 162, 0.12), transparent 26%),
+      radial-gradient(circle at 88% 8%, rgba(91, 52, 177, 0.18), transparent 30%),
+      linear-gradient(180deg, #f7f3fd 0%, #f9f7fc 34%, #f2f6fb 100%) !important;
+  }
+
+  body.page-provider-orders .page-content {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 28px 16px 120px !important;
+  }
+
+  body.page-provider-orders .container,
+  body.page-provider-orders .page-shell,
+  body.page-provider-orders #porders-content {
+    width: min(100%, 1360px) !important;
+    max-width: 1360px !important;
+    margin-inline: auto !important;
+    padding-inline: 0 !important;
+  }
+
+  body.page-provider-orders #porders-content,
+  body.page-provider-orders #porders-content * {
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+  }
+
+  body.page-provider-orders #porders-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  body.page-provider-orders #auth-gate {
+    width: min(100%, 760px) !important;
+    min-height: 460px !important;
+    margin: 56px auto !important;
+    padding: 38px 28px !important;
+    display: none;
+    place-items: center;
+    text-align: center;
+    border-radius: 36px;
+    border: 1px solid var(--po-border);
+    background:
+      radial-gradient(circle at top, rgba(15, 142, 162, 0.12), transparent 32%),
+      linear-gradient(180deg, rgba(255,255,255,0.96), rgba(249,246,255,0.92));
+    box-shadow: var(--po-shadow);
+    backdrop-filter: blur(18px);
+  }
+
+  body.page-provider-orders .auth-gate-unified-icon {
+    width: 86px;
+    height: 86px;
+    margin: 0 auto 18px;
+    display: grid;
+    place-items: center;
+    border-radius: 28px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--po-primary), var(--po-accent));
+    box-shadow: 0 22px 42px rgba(65, 33, 127, 0.3);
+  }
+
+  body.page-provider-orders .auth-gate-unified-title {
+    margin: 0;
+    color: var(--po-ink);
+    font-size: clamp(2rem, 4vw, 2.5rem);
+    font-weight: 950;
+    letter-spacing: -0.04em;
+  }
+
+  body.page-provider-orders .auth-gate-unified-desc {
+    width: min(100%, 560px);
+    margin: 14px auto 24px;
+    color: var(--po-muted);
+    font-size: 15px;
+    line-height: 1.95;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .auth-gate-unified-btn {
+    min-width: 184px;
+    min-height: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    color: #fff;
+    text-decoration: none;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--po-primary), var(--po-primary-strong));
+    box-shadow: 0 16px 30px rgba(65, 33, 127, 0.26);
+  }
+
+  body.page-provider-orders .po-hero {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    gap: 24px;
+    padding: 34px;
+    border-radius: 38px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    background:
+      radial-gradient(circle at 88% 18%, rgba(62, 207, 214, 0.22), transparent 24%),
+      radial-gradient(circle at 18% 78%, rgba(255,255,255,0.11), transparent 22%),
+      linear-gradient(135deg, #1b1237 0%, #44258a 52%, #1483a0 100%);
+    box-shadow: 0 28px 70px rgba(29, 17, 58, 0.22);
+  }
+
+  body.page-provider-orders .po-hero::before,
+  body.page-provider-orders .po-hero::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    border-radius: 999px;
+    opacity: 0.45;
+  }
+
+  body.page-provider-orders .po-hero::before {
+    width: 320px;
+    height: 320px;
+    inset: auto -80px -120px auto;
+    background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 70%);
+  }
+
+  body.page-provider-orders .po-hero::after {
+    width: 240px;
+    height: 240px;
+    inset: -120px auto auto -80px;
+    background: radial-gradient(circle, rgba(255,255,255,0.12), transparent 72%);
+  }
+
+  body.page-provider-orders .po-hero-copy,
+  body.page-provider-orders .po-hero-side {
+    position: relative;
+    z-index: 1;
+  }
+
+  body.page-provider-orders .po-hero-copy {
+    display: grid;
+    gap: 18px;
+    align-content: center;
+  }
+
+  body.page-provider-orders .po-hero-topline {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    margin-bottom: 0;
+  }
+
+  body.page-provider-orders .po-back-btn {
+    width: 46px;
+    height: 46px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 16px;
+    color: #25164c;
+    text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.42);
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(16px);
+    box-shadow: 0 14px 28px rgba(16, 6, 42, 0.2);
+    flex-shrink: 0;
+  }
+
+  body.page-provider-orders .po-back-btn:hover {
+    color: #160d33;
+    background: #ffffff;
+    border-color: rgba(255,255,255,0.72);
+    transform: translateY(-1px);
+  }
+
+  body.page-provider-orders .po-hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: max-content;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.94);
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: 0.02em;
+  }
+
+  body.page-provider-orders .po-hero h1 {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    line-height: 0.95;
+    font-weight: 950;
+    letter-spacing: -0.06em;
+  }
+
+  body.page-provider-orders .po-header-subtitle {
+    max-width: 64ch;
+    margin: 0;
+    color: rgba(255,255,255,0.82);
+    font-size: 15px;
+    line-height: 1.9;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .po-hero-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 0;
+  }
+
+  body.page-provider-orders .po-hero-pill {
+    min-height: 34px;
+    padding: 0 13px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 780;
+  }
+
+  body.page-provider-orders .po-hero-side {
+    display: flex;
+    align-items: stretch;
+  }
+
+  body.page-provider-orders .po-hero-panel {
+    width: 100%;
+    padding: 22px;
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.08));
+    backdrop-filter: blur(18px);
+    box-shadow: 0 18px 34px rgba(15, 5, 42, 0.16);
+    display: grid;
+    align-content: space-between;
+    gap: 18px;
+  }
+
+  body.page-provider-orders .po-hero-panel-kicker {
+    display: block;
+    margin-bottom: 6px;
+    color: rgba(255,255,255,0.7);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  body.page-provider-orders .po-hero-panel strong {
+    display: block;
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 900;
+    line-height: 1.5;
+  }
+
+  body.page-provider-orders .po-hero-panel p {
+    margin: 8px 0 0;
+    color: rgba(255,255,255,0.76);
+    font-size: 13px;
+    line-height: 1.8;
+    font-weight: 650;
+  }
+
+  body.page-provider-orders .po-hero-panel-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  body.page-provider-orders .po-hero-panel-list li {
+    position: relative;
+    padding-right: 16px;
+    color: rgba(255,255,255,0.8);
+    font-size: 12px;
+    line-height: 1.8;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .po-hero-panel-list li::before {
+    content: "";
+    position: absolute;
+    top: 9px;
+    right: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.78);
+  }
+
+  body.page-provider-orders .po-header-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  body.page-provider-orders .po-header-stat {
+    min-height: 0;
+    padding: 16px 18px;
+    border-radius: 22px;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(18px);
+    display: grid;
+    gap: 8px;
+    align-content: start;
+  }
+
+  body.page-provider-orders .po-header-stat span {
+    display: block;
+    color: rgba(255,255,255,0.72);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  body.page-provider-orders .po-header-stat strong {
+    display: block;
+    margin-top: 0;
+    color: #fff;
+    font-size: clamp(1.9rem, 2.8vw, 2.5rem);
+    line-height: 1;
+    font-weight: 950;
+  }
+
+  body.page-provider-orders .po-header-stat small {
+    display: block;
+    margin-top: 0;
+    color: rgba(255,255,255,0.64);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.6;
+  }
+
+  body.page-provider-orders .po-command-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    padding: 18px;
+    border-radius: 28px;
+    border: 1px solid var(--po-border);
+    background: var(--po-surface);
+    box-shadow: var(--po-shadow-soft);
+    backdrop-filter: blur(18px);
+  }
+
+  body.page-provider-orders .po-main-tabs-wrap {
+    min-width: 0;
+  }
+
+  body.page-provider-orders .po-main-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  body.page-provider-orders .status-tab {
+    appearance: none;
+    min-height: 68px;
+    padding: 14px 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--po-muted);
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  body.page-provider-orders .status-tab:hover {
+    transform: translateY(-1px);
+    border-color: var(--po-border);
+    background: rgba(255,255,255,0.72);
+  }
+
+  body.page-provider-orders .status-tab.active {
+    color: #fff;
+    border-color: rgba(255,255,255,0.05);
+    background: linear-gradient(135deg, var(--po-primary) 0%, #7a53d4 52%, var(--po-accent) 100%);
+    box-shadow: 0 16px 34px rgba(65, 33, 127, 0.22);
+  }
+
+  body.page-provider-orders .po-tab-copy {
+    display: grid;
+    justify-items: start;
+    gap: 4px;
+    text-align: right;
+  }
+
+  body.page-provider-orders .po-tab-copy small {
+    color: inherit;
+    opacity: 0.72;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .po-tab-count {
+    min-width: 36px;
+    height: 36px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0 10px;
+    border-radius: 999px;
+    color: var(--po-primary);
+    background: rgba(255,255,255,0.92);
+    font-size: 12px;
+    font-weight: 950;
+    flex-shrink: 0;
+  }
+
+  body.page-provider-orders .po-tab-icon {
+    width: 18px;
+    height: 18px;
+    opacity: 0.88;
+  }
+
+  body.page-provider-orders .po-smart-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  body.page-provider-orders .po-sort-wrap {
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px 6px 12px;
+    border-radius: 18px;
+    border: 1px solid var(--po-border);
+    background: rgba(255,255,255,0.82);
+  }
+
+  body.page-provider-orders .po-sort-label {
+    color: var(--po-muted);
+    font-size: 12px;
+    font-weight: 850;
+    white-space: nowrap;
+  }
+
+  body.page-provider-orders .po-sort-select {
+    min-width: 148px;
+    height: 34px;
+    border: 0;
+    outline: 0;
+    border-radius: 12px;
+    color: var(--po-ink);
+    background: #f5f1fb;
+    font-size: 13px;
+    font-weight: 850;
+    padding: 0 10px;
+  }
+
+  body.page-provider-orders .po-toolbar-btn {
+    min-height: 46px;
+    padding: 0 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 18px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--po-primary), var(--po-primary-strong));
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 12px 26px rgba(65, 33, 127, 0.18);
+  }
+
+  body.page-provider-orders .po-toolbar-btn-light {
+    color: var(--po-primary-strong);
+    border: 1px solid var(--po-border);
+    background: rgba(255,255,255,0.82);
+    box-shadow: none;
+  }
+
+  body.page-provider-orders .po-toolbar-btn:disabled,
+  body.page-provider-orders .po-toolbar-btn.is-disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  body.page-provider-orders .po-dashboard-grid {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  body.page-provider-orders .po-controls-panel,
+  body.page-provider-orders .po-results-board {
+    border-radius: 32px;
+    border: 1px solid var(--po-border);
+    background: var(--po-surface);
+    box-shadow: var(--po-shadow-soft);
+    backdrop-filter: blur(18px);
+  }
+
+  body.page-provider-orders .po-controls-panel {
+    position: sticky;
+    top: 96px;
+    overflow: hidden;
+  }
+
+  body.page-provider-orders .po-controls-inner {
+    display: grid;
+    gap: 18px;
+    padding: 20px;
+  }
+
+  body.page-provider-orders .po-side-head {
+    display: grid;
+    gap: 8px;
+  }
+
+  body.page-provider-orders .po-side-kicker {
+    color: var(--po-primary);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+  }
+
+  body.page-provider-orders .po-panel-head h2 {
+    margin: 0;
+    color: var(--po-ink);
+    font-size: 1.15rem;
+    line-height: 1.3;
+    font-weight: 900;
+  }
+
+  body.page-provider-orders .po-panel-head p {
+    margin: 6px 0 0;
+    color: var(--po-muted);
+    font-size: 12px;
+    line-height: 1.8;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .po-control-group {
+    display: grid;
+    gap: 10px;
+  }
+
+  body.page-provider-orders .po-control-label {
+    color: var(--po-primary-strong);
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  body.page-provider-orders .po-search {
+    width: 100%;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    border-radius: 18px;
+    border: 1px solid var(--po-border);
+    background: rgba(255,255,255,0.92);
+  }
+
+  body.page-provider-orders .search-input {
+    width: 100%;
+    height: 48px;
+    border: 0;
+    outline: 0;
+    color: var(--po-ink);
+    background: transparent;
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  body.page-provider-orders .search-input::placeholder {
+    color: #a095b5;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders #po-status-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  body.page-provider-orders #po-status-tabs .status-tab {
+    min-height: 42px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border-color: var(--po-border);
+    background: rgba(255,255,255,0.76);
+    font-size: 12px;
+    box-shadow: none;
+  }
+
+  body.page-provider-orders #po-status-tabs .status-tab.active {
+    color: #fff;
+    background: linear-gradient(135deg, var(--po-primary), var(--po-primary-strong));
+  }
+
+  body.page-provider-orders .po-status-legend {
+    display: grid;
+    gap: 10px;
+    padding: 16px;
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(250,248,255,0.95), rgba(245,248,252,0.9));
+    border: 1px solid rgba(65, 33, 127, 0.08);
+  }
+
+  body.page-provider-orders .po-status-legend span {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--po-muted);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  body.page-provider-orders .po-legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  body.page-provider-orders .po-legend-new { background: #c58a22; }
+  body.page-provider-orders .po-legend-progress { background: #dc7a22; }
+  body.page-provider-orders .po-legend-completed { background: #1f8d5a; }
+  body.page-provider-orders .po-legend-cancelled { background: #d24646; }
+
+  body.page-provider-orders .po-side-note {
+    padding: 16px;
+    border-radius: 22px;
+    background: linear-gradient(145deg, rgba(91,52,177,0.1), rgba(15,142,162,0.08));
+    border: 1px solid rgba(91,52,177,0.1);
+  }
+
+  body.page-provider-orders .po-side-note strong {
+    display: block;
+    color: var(--po-ink);
+    font-size: 14px;
+    font-weight: 900;
+  }
+
+  body.page-provider-orders .po-side-note p,
+  body.page-provider-orders .po-controls-foot small {
+    margin: 8px 0 0;
+    color: var(--po-muted);
+    font-size: 12px;
+    line-height: 1.8;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .po-results-board {
+    padding: 20px;
+    min-height: 620px;
+  }
+
+  body.page-provider-orders .po-results-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 18px;
+    border-radius: 26px;
+    background: linear-gradient(145deg, rgba(255,255,255,0.82), rgba(246,242,252,0.92));
+    border: 1px solid rgba(65, 33, 127, 0.08);
+  }
+
+  body.page-provider-orders .po-smart-bar-copy {
+    display: grid;
+    gap: 4px;
+  }
+
+  body.page-provider-orders .po-smart-bar-label-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  body.page-provider-orders .po-smart-bar-label-row strong {
+    color: var(--po-ink);
+    font-size: 1.02rem;
+    font-weight: 900;
+  }
+
+  body.page-provider-orders .po-smart-bar-badge {
+    min-height: 28px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    color: var(--po-accent);
+    background: var(--po-accent-soft);
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  body.page-provider-orders #po-visible-count-label {
+    color: var(--po-muted);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .po-results-chip {
+    min-height: 40px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    color: var(--po-primary-strong);
+    background: rgba(91,52,177,0.08);
+    border: 1px solid rgba(91,52,177,0.1);
+    font-size: 12px;
+    font-weight: 850;
+    white-space: nowrap;
+  }
+
+  body.page-provider-orders #po-error {
+    margin-bottom: 14px;
+  }
+
+  body.page-provider-orders #po-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 318px), 1fr));
+    gap: 18px;
+  }
+
+  body.page-provider-orders #po-list.is-single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.page-provider-orders .po-card {
+    position: relative;
+    overflow: hidden;
+    display: block;
+    text-decoration: none;
+    border-radius: 28px;
+    border: 1px solid rgba(65, 33, 127, 0.12);
+    background:
+      radial-gradient(circle at top left, rgba(91,52,177,0.07), transparent 32%),
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,244,252,0.92));
+    box-shadow: 0 18px 36px rgba(24, 18, 43, 0.08);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    animation: poCardRise 0.42s ease both;
+    animation-delay: var(--po-card-delay, 0ms);
+  }
+
+  body.page-provider-orders .po-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 5px;
+    background: linear-gradient(90deg, rgba(91,52,177,0.94), rgba(15,142,162,0.94));
+  }
+
+  body.page-provider-orders .po-card.po-card-new::before { background: linear-gradient(90deg, #c58a22, #e8b64c); }
+  body.page-provider-orders .po-card.po-card-in_progress::before { background: linear-gradient(90deg, #d86a28, #f59e0b); }
+  body.page-provider-orders .po-card.po-card-completed::before { background: linear-gradient(90deg, #178a63, #2ac38a); }
+  body.page-provider-orders .po-card.po-card-cancelled::before { background: linear-gradient(90deg, #d24646, #f06b6b); }
+
+  body.page-provider-orders .po-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(65, 33, 127, 0.18);
+    box-shadow: 0 28px 44px rgba(24, 18, 43, 0.13);
+  }
+
+  body.page-provider-orders .po-card-top,
+  body.page-provider-orders .order-card-body {
+    padding-inline: 20px;
+  }
+
+  body.page-provider-orders .po-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 20px;
+  }
+
+  body.page-provider-orders .po-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  body.page-provider-orders .order-id {
+    color: var(--po-primary-strong);
+    font-size: 13px;
+    font-weight: 950;
+    letter-spacing: 0.02em;
+  }
+
+  body.page-provider-orders .order-status,
+  body.page-provider-orders .order-type-badge,
+  body.page-provider-orders .po-available-badge,
+  body.page-provider-orders .po-card-pill,
+  body.page-provider-orders .po-card-link {
+    min-height: 31px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 850;
+    border: 1px solid transparent;
+  }
+
+  body.page-provider-orders .po-available-badge {
+    color: #1565c0;
+    border-color: rgba(21, 101, 192, 0.18);
+    background: rgba(21, 101, 192, 0.08);
+  }
+
+  body.page-provider-orders .order-type-badge-competitive {
+    color: #0c6b91;
+    border-color: rgba(12, 107, 145, 0.16);
+    background: rgba(12, 107, 145, 0.08);
+  }
+
+  body.page-provider-orders .order-type-badge-urgent {
+    color: #bf3d3d;
+    border-color: rgba(191, 61, 61, 0.16);
+    background: rgba(191, 61, 61, 0.08);
+  }
+
+  body.page-provider-orders .order-card-body {
+    display: grid;
+    gap: 12px;
+    padding-top: 12px;
+    padding-bottom: 18px;
+  }
+
+  body.page-provider-orders .order-card h4,
+  body.page-provider-orders .order-card-body h4 {
+    margin: 0;
+    color: var(--po-ink);
+    font-size: 20px;
+    line-height: 1.55;
+    font-weight: 900;
+  }
+
+  body.page-provider-orders .order-meta,
+  body.page-provider-orders .order-date {
+    margin: 0;
+    color: var(--po-muted);
+    font-size: 12.5px;
+    line-height: 1.75;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .po-card-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  body.page-provider-orders .po-card-pill {
+    color: var(--po-primary-strong);
+    background: rgba(91,52,177,0.08);
+  }
+
+  body.page-provider-orders .po-card-pill-soft {
+    color: #0f6d7b;
+    background: rgba(15,142,162,0.08);
+  }
+
+  body.page-provider-orders .po-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  body.page-provider-orders .po-card-meta {
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(65, 33, 127, 0.08);
+    background: linear-gradient(180deg, rgba(247,243,255,0.86), rgba(255,255,255,0.98));
+  }
+
+  body.page-provider-orders .po-card-meta-label {
+    display: block;
+    margin-bottom: 5px;
+    color: rgba(31,22,49,0.52);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .po-card-meta-value {
+    display: block;
+    color: var(--po-ink);
+    font-size: 13px;
+    line-height: 1.55;
+    font-weight: 850;
+    word-break: break-word;
+  }
+
+  body.page-provider-orders .po-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(65, 33, 127, 0.08);
+  }
+
+  body.page-provider-orders .po-card-date {
+    color: rgba(31,22,49,0.56);
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  body.page-provider-orders .po-card-link {
+    color: #fff;
+    background: linear-gradient(135deg, var(--po-primary), var(--po-primary-strong));
+    box-shadow: 0 10px 22px rgba(65, 33, 127, 0.18);
+  }
+
+  body.page-provider-orders .po-empty-state,
+  body.page-provider-orders .po-loading-state {
+    min-height: 320px;
+    display: grid;
+    place-items: center;
+    padding: 28px 16px;
+    text-align: center;
+    border-radius: 30px;
+    border: 1px dashed rgba(65, 33, 127, 0.18);
+    background: linear-gradient(180deg, rgba(255,255,255,0.82), rgba(247,243,255,0.88));
+  }
+
+  body.page-provider-orders .po-empty-state p,
+  body.page-provider-orders .po-loading-state p {
+    margin: 14px 0 0;
+    color: var(--po-ink);
+    font-size: 1rem;
+    font-weight: 900;
+  }
+
+  body.page-provider-orders .po-empty-state small {
+    display: block;
+    margin-top: 8px;
+    color: var(--po-muted);
+    font-size: 12px;
+    line-height: 1.8;
+    font-weight: 700;
+  }
+
+  body.page-provider-orders .spinner {
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    border: 3px solid rgba(91,52,177,0.14);
+    border-top-color: var(--po-primary);
+    animation: poSpin 0.8s linear infinite;
+  }
+
+  body.page-provider-orders #po-list.is-loading {
+    opacity: 0.38;
+    pointer-events: none;
+  }
+
+  @keyframes poSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes poCardRise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 1180px) {
+    body.page-provider-orders .po-hero {
+      grid-template-columns: 1fr;
+    }
+
+    body.page-provider-orders .po-hero-side {
+      display: block;
+    }
+
+    body.page-provider-orders .po-dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+
+    body.page-provider-orders .po-controls-panel {
+      position: static;
+    }
+  }
+
+  @media (max-width: 900px) {
+    body.page-provider-orders .page-content {
+      padding-inline: 14px !important;
+    }
+
+    body.page-provider-orders .po-command-bar,
+    body.page-provider-orders .po-results-hero {
+      grid-template-columns: 1fr;
+    }
+
+    body.page-provider-orders .po-smart-bar {
+      justify-content: stretch;
+    }
+
+    body.page-provider-orders .po-smart-bar > * {
+      width: 100%;
+    }
+
+    body.page-provider-orders .po-main-tabs {
+      grid-template-columns: 1fr;
+    }
+
+    body.page-provider-orders .status-tab {
+      min-height: 58px;
+    }
+  }
+
+  @media (max-width: 720px) {
+    body.page-provider-orders .page-content {
+      padding-top: 16px !important;
+      padding-bottom: 104px !important;
+    }
+
+    body.page-provider-orders .po-hero,
+    body.page-provider-orders .po-command-bar,
+    body.page-provider-orders .po-controls-panel,
+    body.page-provider-orders .po-results-board {
+      border-radius: 26px;
+    }
+
+    body.page-provider-orders .po-hero {
+      padding: 20px;
+    }
+
+    body.page-provider-orders .po-hero-topline {
+      align-items: center;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+
+    body.page-provider-orders .po-back-btn {
+      width: 46px;
+      height: 46px;
+    }
+
+    body.page-provider-orders .po-header-subtitle {
+      font-size: 14px;
+    }
+
+    body.page-provider-orders .po-header-stats {
+      grid-template-columns: 1fr;
+    }
+
+    body.page-provider-orders .po-sort-wrap {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    body.page-provider-orders .po-sort-select {
+      min-width: 0;
+      width: 100%;
+    }
+
+    body.page-provider-orders .po-toolbar-btn {
+      width: 100%;
+    }
+
+    body.page-provider-orders .po-controls-inner,
+    body.page-provider-orders .po-results-board {
+      padding: 16px;
+    }
+
+    body.page-provider-orders .po-results-hero {
+      padding: 14px;
+    }
+
+    body.page-provider-orders #po-status-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    body.page-provider-orders #po-status-tabs .status-tab {
+      width: 100%;
+      justify-content: center;
+    }
+
+    body.page-provider-orders .po-card-top,
+    body.page-provider-orders .order-card-body {
+      padding-inline: 16px;
+    }
+
+    body.page-provider-orders .po-card-grid {
+      grid-template-columns: 1fr;
+    }
+
+    body.page-provider-orders .po-card-footer {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    body.page-provider-orders .po-card-link {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body.page-provider-orders *,
+    body.page-provider-orders *::before,
+    body.page-provider-orders *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+</style>
+
 <main class="page-content">
   <div class="container">
     <div class="page-shell">
       <div id="auth-gate" class="auth-gate auth-gate-unified" style="display:none">
-        <div class="auth-gate-unified-icon" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="11" width="18" height="11" rx="2"></rect>
-            <path d="M7 11V7a5 5 0 0110 0v4"></path>
-          </svg>
+        <div>
+          <div class="auth-gate-unified-icon" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+              <path d="M7 11V7a5 5 0 0110 0v4"></path>
+            </svg>
+          </div>
+          <h2 class="auth-gate-unified-title">تسجيل الدخول مطلوب</h2>
+          <p class="auth-gate-unified-desc">يجب تسجيل الدخول أولًا للوصول إلى لوحة إدارة الطلبات ومتابعة الطلبات المسندة والعروض التنافسية والطلبات العاجلة من مكان واحد.</p>
+          <a href="/login/?next=/provider-orders/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
         </div>
-        <h2 class="auth-gate-unified-title">تسجيل الدخول مطلوب</h2>
-        <p class="auth-gate-unified-desc">يرجى تسجيل الدخول للوصول إلى لوحة إدارة الطلبات الخاصة بك.</p>
-        <a href="/login/?next=/provider-orders/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
       </div>
 
-      <div id="porders-content" style="display:none">
-        <div class="mw-page-topbar po-header ux26-page-header">
-          <a href="/provider-dashboard/" class="btn-back po-back-btn" aria-label="العودة للوحة المزود">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-          </a>
+      <div
+        id="porders-content"
+        class="po-app-shell"
+        data-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}"
+        style="display:none"
+      >
+        <section class="po-hero" id="po-hero" aria-label="واجهة إدارة الطلبات">
+          <div class="po-hero-side">
+            <div class="po-hero-panel">
+              <div>
+                <span class="po-hero-panel-kicker" id="po-hero-panel-kicker">مركز التشغيل</span>
+                <strong id="po-hero-panel-title">لوحة أكثر هدوءًا ووضوحًا</strong>
+                <p id="po-hero-panel-body">نظرة مركزة تساعدك على التقاط الطلبات المهمة سريعًا بدون تشتيت أو ازدحام بصري.</p>
+              </div>
 
-          <div class="po-header-copy">
-            <span class="po-header-eyebrow">لوحة مزود الخدمة</span>
-            <h1>إدارة الطلبات</h1>
-            <p class="po-header-subtitle">واجهة تشغيل أنيقة لمتابعة الطلبات المسندة، فرص عروض الأسعار، والطلبات العاجلة من مساحة واحدة أكثر وضوحًا وسرعة.</p>
-            <div class="po-header-tags" aria-hidden="true">
-              <span class="po-header-tag">لوحة تشغيل موحدة</span>
-              <span class="po-header-tag">فرز ذكي</span>
-              <span class="po-header-tag">وصول أسرع</span>
-            </div>
-          </div>
-
-          <aside class="po-header-side" aria-label="ملخص تشغيلي">
-            <div class="po-header-side-card">
-              <div class="po-header-side-kicker">مركز التشغيل</div>
-              <strong>نظرة تنفيذية فورية</strong>
-              <p>ابدأ من التبويب الأنسب ثم استخدم البحث والفرز للوصول إلى الطلبات الأهم خلال ثوانٍ.</p>
-              <ul class="po-header-side-list">
-                <li>المسندة: تنفيذ ومتابعة حالة الطلب.</li>
-                <li>عروض الأسعار: فرص جديدة تحتاج استجابة سريعة.</li>
-                <li>العاجلة: طلبات حساسة للوقت والأولوية.</li>
+              <ul class="po-hero-panel-list" aria-hidden="true">
+                <li id="po-hero-panel-item-1">انتقال سريع بين الطلبات المسندة والتنافسية والعاجلة.</li>
+                <li id="po-hero-panel-item-2">ملخص واضح للحالة والمدينة والقيمة وموعد التسليم.</li>
+                <li id="po-hero-panel-item-3">واجهة أكثر اتزانًا على الجوال والديسكتوب.</li>
               </ul>
             </div>
-          </aside>
+          </div>
 
-          <div class="po-header-stats" aria-label="ملخص سريع للطلبات">
-            <div class="po-header-stat po-header-stat-assigned">
-              <span>المسندة</span>
-              <strong id="po-kpi-assigned">0</strong>
+          <div class="po-hero-copy">
+            <div class="po-hero-topline">
+              <a href="/provider-dashboard/" class="btn-back po-back-btn" id="po-back-btn" aria-label="العودة للوحة المزود">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </a>
+              <span class="po-hero-kicker" id="po-hero-kicker">
+                <svg class="po-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M3 7h18"></path>
+                  <path d="M6 3h12l3 4v11a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7l3-4z"></path>
+                </svg>
+                مركز تشغيل طلباتك
+              </span>
             </div>
-            <div class="po-header-stat po-header-stat-competitive">
-              <span>عروض الأسعار</span>
-              <strong id="po-kpi-competitive">0</strong>
+
+            <h1 id="po-hero-title">إدارة الطلبات</h1>
+            <p class="po-header-subtitle" id="po-hero-subtitle">واجهة واحدة لمتابعة الطلبات المسندة لك، واغتنام الفرص التنافسية، والتعامل السريع مع الطلبات العاجلة بتوزيع أكثر هدوءًا ووضوحًا على الجوال والديسكتوب.</p>
+
+            <div class="po-hero-pills" aria-hidden="true">
+              <span class="po-hero-pill" id="po-hero-pill-1">متابعة لحظية</span>
+              <span class="po-hero-pill" id="po-hero-pill-2">بحث وفرز سريع</span>
+              <span class="po-hero-pill" id="po-hero-pill-3">عرض احترافي متعدد الحالات</span>
             </div>
-            <div class="po-header-stat po-header-stat-urgent">
-              <span>العاجلة</span>
-              <strong id="po-kpi-urgent">0</strong>
+
+            <div class="po-header-stats" aria-label="ملخص سريع للطلبات">
+              <div class="po-header-stat po-header-stat-assigned">
+                <span id="po-kpi-label-assigned">المسندة</span>
+                <strong id="po-kpi-assigned">0</strong>
+                <small id="po-kpi-note-assigned">طلبات نشطة داخل سير العمل</small>
+              </div>
+              <div class="po-header-stat po-header-stat-competitive">
+                <span id="po-kpi-label-competitive">التنافسية</span>
+                <strong id="po-kpi-competitive">0</strong>
+                <small id="po-kpi-note-competitive">فرص متاحة للتسعير</small>
+              </div>
+              <div class="po-header-stat po-header-stat-urgent">
+                <span id="po-kpi-label-urgent">العاجلة</span>
+                <strong id="po-kpi-urgent">0</strong>
+                <small id="po-kpi-note-urgent">تحتاج استجابة أسرع</small>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="po-smart-bar ux26-toolbar" aria-live="polite">
-          <div class="po-smart-bar-copy">
-            <div class="po-smart-bar-label-row">
-              <strong id="po-active-view-label">المسندة لي</strong>
-              <span class="po-smart-bar-badge">عرض مباشر</span>
+        <section class="po-command-bar" aria-label="التحكم في أنواع الطلبات والأوامر السريعة">
+          <div class="po-main-tabs-wrap">
+            <div class="status-tabs po-main-tabs tabs-row ux26-status-tabs" id="po-request-tabs">
+              <button class="status-tab active" data-tab="assigned" type="button">
+                <span class="po-tab-copy">
+                  <span id="po-tab-assigned-label">المسندة لي</span>
+                  <small id="po-tab-assigned-note">تشغيل وتنفيذ</small>
+                </span>
+                <span class="po-tab-count" id="po-count-assigned">0</span>
+              </button>
+              <button class="status-tab" data-tab="competitive" type="button">
+                <span class="po-tab-copy">
+                  <span id="po-tab-competitive-label">عروض الأسعار</span>
+                  <small id="po-tab-competitive-note">فرص تنافسية</small>
+                </span>
+                <span class="po-tab-count" id="po-count-competitive">0</span>
+              </button>
+              <button class="status-tab" data-tab="urgent" type="button">
+                <span class="po-tab-copy">
+                  <span id="po-tab-urgent-label">الطلبات العاجلة</span>
+                  <small id="po-tab-urgent-note">استجابة فورية</small>
+                </span>
+                <span class="po-tab-count" id="po-count-urgent">0</span>
+              </button>
             </div>
-            <span id="po-visible-count-label">0 طلب ظاهر</span>
-            <small id="po-workflow-count-label">بانتظار القبول: 0 • بانتظار اعتماد العميل: 0</small>
-            <small id="po-sort-hint-label">الترتيب: الأحدث</small>
           </div>
-          <div class="po-smart-bar-actions">
+
+          <div class="po-smart-bar ux26-toolbar" aria-live="polite">
             <div class="po-sort-wrap">
-              <label for="po-sort-select" class="po-sort-label">الترتيب</label>
+              <label for="po-sort-select" class="po-sort-label" id="po-sort-label">الترتيب</label>
               <select id="po-sort-select" class="po-sort-select">
-                <option value="newest">الأحدث</option>
-                <option value="oldest">الأقدم</option>
-                <option value="status">حسب الحالة</option>
-                <option value="city">حسب المدينة</option>
-                <option value="amount_desc">الأعلى قيمة</option>
-                <option value="deadline">الأقرب موعدًا</option>
+                <option id="po-sort-option-newest" value="newest">الأحدث</option>
+                <option id="po-sort-option-oldest" value="oldest">الأقدم</option>
+                <option id="po-sort-option-status" value="status">حسب الحالة</option>
+                <option id="po-sort-option-city" value="city">حسب المدينة</option>
+                <option id="po-sort-option-amount" value="amount_desc">الأعلى قيمة</option>
+                <option id="po-sort-option-deadline" value="deadline">الأقرب موعدًا</option>
               </select>
             </div>
+
             <button type="button" class="po-toolbar-btn" id="po-refresh-btn">تحديث البيانات</button>
             <button type="button" class="po-toolbar-btn po-toolbar-btn-light" id="po-clear-search-btn">مسح البحث</button>
           </div>
+        </section>
+
+        <div class="po-dashboard-grid">
+          <aside class="po-controls-panel orders-mobile-sheet" aria-label="أدوات التحكم والفلترة">
+            <div class="po-controls-inner">
+              <div class="po-panel-head po-side-head">
+                <span class="po-side-kicker" id="po-controls-kicker">لوحة التحكم</span>
+                <div>
+                  <h2 id="po-controls-title">تصفية ومتابعة</h2>
+                  <p id="po-workflow-count-label">بانتظار القبول: 0 • بانتظار اعتماد العميل: 0</p>
+                </div>
+              </div>
+
+              <div class="po-control-group">
+                <label class="po-control-label" for="po-search" id="po-search-label">البحث الذكي</label>
+                <div class="search-bar po-search">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8375a2" stroke-width="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input type="search" id="po-search" placeholder="بحث برقم الطلب أو العنوان أو العميل أو المدينة" class="search-input" autocomplete="off">
+                </div>
+              </div>
+
+              <div class="po-control-group">
+                <label class="po-control-label" for="po-status-tabs" id="po-status-filter-label">فلتر الحالة</label>
+                <div class="status-tabs tabs-row ux26-status-tabs" id="po-status-tabs">
+                  <button class="status-tab active" data-group="" type="button" id="po-status-all">الكل</button>
+                  <button class="status-tab" data-group="new" type="button" id="po-status-new">جديد</button>
+                  <button class="status-tab" data-group="in_progress" type="button" id="po-status-in-progress">تحت التنفيذ</button>
+                  <button class="status-tab" data-group="completed" type="button" id="po-status-completed">مكتمل</button>
+                  <button class="status-tab" data-group="cancelled" type="button" id="po-status-cancelled">ملغي</button>
+                </div>
+              </div>
+
+              <div class="po-status-legend" id="po-status-legend" aria-hidden="true">
+                <span id="po-legend-1"><i class="po-legend-dot po-legend-new"></i> طلب جديد يحتاج مراجعة أو قبول</span>
+                <span id="po-legend-2"><i class="po-legend-dot po-legend-progress"></i> طلب قيد التنفيذ أو المتابعة</span>
+                <span id="po-legend-3"><i class="po-legend-dot po-legend-completed"></i> طلب مكتمل وتم إغلاقه</span>
+                <span id="po-legend-4"><i class="po-legend-dot po-legend-cancelled"></i> طلب ملغي أو منتهي</span>
+              </div>
+
+              <div class="po-side-note">
+                <strong id="po-side-note-title">إيقاع تشغيل أنظف</strong>
+                <p id="po-side-note-body">استخدم التبويبات العلوية للتبديل بين نوع الطلبات، ثم ضيّق النتائج بالحالة والبحث من هنا بسرعة.</p>
+              </div>
+
+              <div class="po-controls-foot">
+                <small id="po-sort-hint-label">الترتيب: الأحدث</small>
+              </div>
+            </div>
+          </aside>
+
+          <section class="po-results-board orders-mobile-sheet" id="po-results-board" aria-label="نتائج الطلبات">
+            <div class="po-results-hero">
+              <div class="po-smart-bar-copy">
+                <div class="po-smart-bar-label-row">
+                  <strong id="po-active-view-label">المسندة لي</strong>
+                  <span class="po-smart-bar-badge" id="po-active-tab-badge">مباشر</span>
+                </div>
+                <span id="po-visible-count-label">0 طلب ظاهر</span>
+              </div>
+
+              <span class="po-results-chip" id="po-results-chip">عرض منظم حسب التبويب الحالي</span>
+            </div>
+
+            <div id="po-error" class="form-error ux26-alert ux26-alert-danger hidden"></div>
+
+            <div id="po-list" class="orders-list"></div>
+
+            <div id="po-empty" class="empty-state po-empty-state ux26-alert" style="display:none">
+              <div>
+                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#9e90bc" stroke-width="1.8" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <p id="po-empty-text">لا توجد طلبات في هذا العرض</p>
+                <small id="po-empty-hint">بدّل التبويب أو غيّر الفلاتر أو امسح البحث للوصول إلى نتائج أخرى.</small>
+              </div>
+            </div>
+
+            <div id="po-loading" class="loading-center po-loading-state">
+              <div>
+                <div class="spinner"></div>
+                <p id="po-loading-text">جاري تحميل الطلبات...</p>
+              </div>
+            </div>
+          </section>
         </div>
-
-        <section class="po-controls-panel orders-mobile-sheet" aria-label="أدوات التحكم والفلترة">
-          <div class="po-panel-head">
-            <div>
-              <h2>لوحة التصفية والتحكم</h2>
-              <p>اختر نوع الطلب، صفِّ حسب الحالة، ثم استخدم البحث للوصول إلى الطلب المطلوب بسرعة.</p>
-            </div>
-          </div>
-
-          <div class="search-bar po-search">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="po-search" placeholder="بحث برقم الطلب أو العنوان أو العميل أو المدينة" class="search-input">
-          </div>
-
-          <div class="status-tabs po-main-tabs tabs-row ux26-status-tabs" id="po-request-tabs">
-            <button class="status-tab active" data-tab="assigned">
-              المسندة لي
-              <span class="po-tab-count" id="po-count-assigned">0</span>
-            </button>
-            <button class="status-tab" data-tab="competitive">
-              عروض الأسعار
-              <span class="po-tab-count" id="po-count-competitive">0</span>
-            </button>
-            <button class="status-tab" data-tab="urgent">
-              العاجلة المتاحة
-              <span class="po-tab-count" id="po-count-urgent">0</span>
-            </button>
-          </div>
-
-          <div class="status-tabs tabs-row ux26-status-tabs" id="po-status-tabs">
-            <button class="status-tab active" data-group="">الكل</button>
-            <button class="status-tab" data-group="new">جديد</button>
-            <button class="status-tab" data-group="in_progress">تحت التنفيذ</button>
-            <button class="status-tab" data-group="completed">مكتمل</button>
-            <button class="status-tab" data-group="cancelled">ملغي</button>
-          </div>
-
-          <div class="po-status-legend" id="po-status-legend" aria-hidden="true">
-            <span><i class="po-legend-dot po-legend-new"></i> جديد</span>
-            <span><i class="po-legend-dot po-legend-progress"></i> تحت التنفيذ</span>
-            <span><i class="po-legend-dot po-legend-completed"></i> مكتمل</span>
-            <span><i class="po-legend-dot po-legend-cancelled"></i> ملغي</span>
-          </div>
-        </section>
-
-        <section class="po-results-board orders-mobile-sheet" aria-label="نتائج الطلبات">
-          <div class="po-panel-head po-results-head">
-            <div>
-              <h2>الطلبات الظاهرة</h2>
-              <p>كل بطاقة تعرض أهم البيانات المطلوبة لاتخاذ القرار أو متابعة التنفيذ بسرعة.</p>
-            </div>
-          </div>
-
-          <div id="po-error" class="form-error ux26-alert ux26-alert-danger hidden"></div>
-
-          <div id="po-list" class="orders-list"></div>
-          <div id="po-empty" class="empty-state po-empty-state ux26-alert" style="display:none">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <p>لا توجد طلبات</p>
-            <small>جرب تغيير التبويب أو كلمات البحث لعرض نتائج أخرى.</small>
-          </div>
-          <div id="po-loading" class="loading-center po-loading-state">
-            <div class="spinner"></div>
-            <p>جاري تحميل الطلبات...</p>
-          </div>
-        </section>
       </div>
     </div>
   </div>
@@ -163,5 +1387,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerOrdersPage.js' %}?v=20260413-desktopfix-1"></script>
+<script src="{% static 'mobile_web/js/providerOrdersPage.js' %}?v=20260502-provider-orders-i18n-stage1"></script>
 {% endblock %}

@@ -3091,15 +3091,15 @@ body.page-search.page-search-providers .provider-search-card.promo-featured::bef
         </button>
         <div class="search-discovery-status" aria-hidden="true">
           <span class="search-discovery-status-dot"></span>
-          <span>نتائج محدثة لحظيًا</span>
+          <span id="search-status-text">نتائج محدثة لحظيًا</span>
         </div>
       </div>
 
       <div class="search-discovery-grid">
         <div class="search-discovery-copy">
-          <p class="search-discovery-kicker">اكتشاف احترافي</p>
-          <h1 class="search-mobile-title">البحث عن مزود خدمة</h1>
-          <p class="search-discovery-subtitle">ابحث بسرعة، قارن بثقة، وابدأ الطلب مباشرة من نفس النتيجة بدون خطوات مشتتة.</p>
+          <p class="search-discovery-kicker" id="search-kicker">اكتشاف احترافي</p>
+          <h1 class="search-mobile-title" id="search-page-title">البحث عن مزود خدمة</h1>
+          <p class="search-discovery-subtitle" id="search-page-subtitle">ابحث بسرعة، قارن بثقة، وابدأ الطلب مباشرة من نفس النتيجة بدون خطوات مشتتة.</p>
 
           <div class="search-mobile-input-wrap">
             <span class="search-input-icon" aria-hidden="true">
@@ -3111,15 +3111,15 @@ body.page-search.page-search-providers .provider-search-card.promo-featured::bef
         </div>
 
         <div class="search-discovery-signals" aria-hidden="true">
-          <span class="search-signal-pill">
+          <span class="search-signal-pill" id="search-signal-verified">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
             مزودون موثقون
           </span>
-          <span class="search-signal-pill">
+          <span class="search-signal-pill" id="search-signal-request">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"></path></svg>
             طلب فوري
           </span>
-          <span class="search-signal-pill">
+          <span class="search-signal-pill" id="search-signal-map">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
             خريطة حية
           </span>
@@ -3131,18 +3131,18 @@ body.page-search.page-search-providers .provider-search-card.promo-featured::bef
   <div class="search-discovery-shell">
     <div class="search-discovery-toolbar">
       <div class="search-results-copy">
-        <span class="search-results-eyebrow">إجمالي النتائج</span>
+        <span class="search-results-eyebrow" id="search-results-eyebrow">إجمالي النتائج</span>
         <span class="results-count" id="results-count" aria-live="polite">0 نتيجة</span>
       </div>
 
       <div class="search-mobile-actions-row">
         <button class="search-mobile-map-btn hidden" id="search-map-btn" type="button" aria-haspopup="dialog">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 3 15 5 9 3 3.5 5v16L9 19l6 2 5.5-2V3zM9 5.5l6 2v10l-6-2v-10z"></path></svg>
-          الخريطة
+          <span id="search-map-btn-label">الخريطة</span>
         </button>
         <button class="search-mobile-sort-btn" id="search-sort-btn" type="button" aria-haspopup="dialog">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6v2h18V6H3zm3 7h12v-2H6v2zm4 5h4v-2h-4v2z"></path></svg>
-          فرز النتائج
+          <span id="search-sort-btn-label">فرز النتائج</span>
         </button>
       </div>
     </div>
@@ -3151,7 +3151,7 @@ body.page-search.page-search-providers .provider-search-card.promo-featured::bef
       <div class="search-filters-head">
         <p class="search-filters-current" id="search-active-category">التصنيف الحالي: الكل</p>
         <button class="search-open-categories-btn" id="search-open-categories" type="button" aria-haspopup="dialog" aria-controls="category-picker-modal">
-          كل التصنيفات
+          <span id="search-open-categories-label">كل التصنيفات</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
         </button>
       </div>
@@ -3165,8 +3165,8 @@ body.page-search.page-search-providers .provider-search-card.promo-featured::bef
     <section class="search-discovery-results">
       <div class="search-results-head">
         <div>
-          <h2 class="search-results-title">مزودون جاهزون للعمل</h2>
-          <p class="search-results-note">البطاقات تعرض الثقة، النشاط، والإجراء الأسرع من أول نظرة.</p>
+          <h2 class="search-results-title" id="search-results-title">مزودون جاهزون للعمل</h2>
+          <p class="search-results-note" id="search-results-note">البطاقات تعرض الثقة، النشاط، والإجراء الأسرع من أول نظرة.</p>
         </div>
       </div>
 
@@ -3174,7 +3174,7 @@ body.page-search.page-search-providers .provider-search-card.promo-featured::bef
 
       <div class="empty-state hidden" id="empty-state">
         <svg viewBox="0 0 24 24" fill="none" stroke="#b5becf" stroke-width="1.8"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <p>لا توجد نتائج تطابق البحث الحالي.</p>
+        <p id="search-empty-text">لا توجد نتائج تطابق البحث الحالي.</p>
       </div>
     </section>
   </div>
@@ -3202,12 +3202,12 @@ body.page-search.page-search-providers .provider-search-card.promo-featured::bef
   </div>
   <div class="sort-sheet hidden" id="sort-sheet" role="dialog" aria-modal="true" aria-label="فرز حسب">
     <div class="sort-sheet-handle"></div>
-    <h3 class="sort-sheet-title">فرز حسب</h3>
-    <button class="sort-sheet-option active" data-sort-key="default" type="button">الافتراضي</button>
-    <button class="sort-sheet-option" data-sort-key="nearest" type="button">الأقرب</button>
-    <button class="sort-sheet-option" data-sort-key="rating" type="button">أعلى تقييم</button>
-    <button class="sort-sheet-option" data-sort-key="completed" type="button">الأكثر طلبات مكتملة</button>
-    <button class="sort-sheet-option" data-sort-key="followers" type="button">الأكثر متابعة</button>
+    <h3 class="sort-sheet-title" id="sort-sheet-title">فرز حسب</h3>
+    <button class="sort-sheet-option active" data-sort-key="default" id="sort-option-default" type="button">الافتراضي</button>
+    <button class="sort-sheet-option" data-sort-key="nearest" id="sort-option-nearest" type="button">الأقرب</button>
+    <button class="sort-sheet-option" data-sort-key="rating" id="sort-option-rating" type="button">أعلى تقييم</button>
+    <button class="sort-sheet-option" data-sort-key="completed" id="sort-option-completed" type="button">الأكثر طلبات مكتملة</button>
+    <button class="sort-sheet-option" data-sort-key="followers" id="sort-option-followers" type="button">الأكثر متابعة</button>
   </div>
 
   <div class="sort-sheet-backdrop hidden" id="search-map-backdrop"></div>
@@ -3225,5 +3225,5 @@ body.page-search.page-search-providers .provider-search-card.promo-featured::bef
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/searchPage.js' %}?v=20260422-filters-100plus"></script>
+<script src="{% static 'mobile_web/js/searchPage.js' %}?v=20260502-search-i18n-stage1"></script>
 {% endblock %}

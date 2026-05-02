@@ -2,13 +2,88 @@
 var ServiceDetailPage = (function () {
   var RAW_API = window.ApiClient;
   var API = window.NwApiClient;
-  var Cache = window.NwCache;
+  var Cache = window.NwCache || {
+    get: function () { return null; },
+    set: function () {},
+  };
   var serviceId = null;
   var serviceData = null;
+  var COPY = {
+    ar: {
+      pageTitle: "تفاصيل الخدمة",
+      notFound: "خدمة غير موجودة",
+      loadFailed: "تعذر تحميل الخدمة",
+      fallbackTitle: "تفاصيل الخدمة",
+      noDescription: "لا يوجد وصف للخدمة.",
+      userFallback: "مستخدم",
+      reportButtonTitle: "إبلاغ عن الخدمة",
+      providerProfileAria: "فتح ملف مقدم الخدمة",
+      requestService: "طلب الخدمة",
+      providerMessages: "رسائل مقدم الخدمة",
+      commentsTitle: "التعليقات",
+      mediaCount: "فيديو {videos} • صور {images}",
+      currency: "ر.س",
+      originalLanguageNotice: "بعض تفاصيل الخدمة والأسماء والتعليقات تُعرض بلغتها الأصلية.",
+      reportFallbackAlert: "تم إرسال البلاغ للإدارة. شكراً لك",
+      reportTitle: "إبلاغ عن محتوى خدمة",
+      serviceLabel: "الخدمة:",
+      providerLabel: "مزود الخدمة: {provider}",
+      reportReasonLabel: "سبب الإبلاغ:",
+      reportDetailsLabel: "تفاصيل إضافية (اختياري):",
+      reportDetailsPlaceholder: "اكتب التفاصيل هنا...",
+      reportCancel: "إلغاء",
+      reportSubmit: "إرسال البلاغ",
+      reportSuccess: "تم إرسال البلاغ للإدارة. شكراً لك",
+      reportReasonInappropriate: "محتوى غير لائق",
+      reportReasonHarassment: "تحرش أو إزعاج",
+      reportReasonFraud: "احتيال أو نصب",
+      reportReasonAbuse: "محتوى مسيء",
+      reportReasonPrivacy: "انتهاك الخصوصية",
+      reportReasonOther: "أخرى",
+      serviceFallback: "خدمة",
+      providerFallbackLabel: "مقدم خدمة",
+    },
+    en: {
+      pageTitle: "Service details",
+      notFound: "Service not found",
+      loadFailed: "Unable to load the service",
+      fallbackTitle: "Service details",
+      noDescription: "No service description is available.",
+      userFallback: "User",
+      reportButtonTitle: "Report service",
+      providerProfileAria: "Open provider profile",
+      requestService: "Request service",
+      providerMessages: "Message provider",
+      commentsTitle: "Comments",
+      mediaCount: "Videos {videos} • Images {images}",
+      currency: "SAR",
+      originalLanguageNotice: "Some service details, names, and comments are shown in their original language.",
+      reportFallbackAlert: "Your report has been sent to the administrators. Thank you.",
+      reportTitle: "Report service content",
+      serviceLabel: "Service:",
+      providerLabel: "Provider: {provider}",
+      reportReasonLabel: "Report reason:",
+      reportDetailsLabel: "Additional details (optional):",
+      reportDetailsPlaceholder: "Write the details here...",
+      reportCancel: "Cancel",
+      reportSubmit: "Send report",
+      reportSuccess: "Your report has been sent to the administrators. Thank you.",
+      reportReasonInappropriate: "Inappropriate content",
+      reportReasonHarassment: "Harassment or disturbance",
+      reportReasonFraud: "Fraud or scam",
+      reportReasonAbuse: "Abusive content",
+      reportReasonPrivacy: "Privacy violation",
+      reportReasonOther: "Other",
+      serviceFallback: "Service",
+      providerFallbackLabel: "Provider",
+    },
+  };
 
   function init() {
     var m = location.pathname.match(/\/service\/(\d+)/);
-    if (!m) { document.getElementById("sd-loading").innerHTML = '<p class="text-muted">خدمة غير موجودة</p>'; return; }
+    document.addEventListener("nawafeth:languagechange", _handleLanguageChange);
+    _applyStaticCopy();
+    if (!m) { document.getElementById("sd-loading").innerHTML = '<p class="text-muted">' + _copy().notFound + '</p>'; return; }
     serviceId = m[1];
     var reportBtn = document.getElementById("btn-report");
     if (reportBtn) reportBtn.addEventListener("click", _openReportDialog);
@@ -26,11 +101,12 @@ var ServiceDetailPage = (function () {
         Cache.set("service_" + serviceId, resp.data, 120);
         render(resp.data);
       })
-      .catch(function () { if (!cached) document.getElementById("sd-loading").innerHTML = '<p class="text-muted">تعذر تحميل الخدمة</p>'; });
+      .catch(function () { if (!cached) document.getElementById("sd-loading").innerHTML = '<p class="text-muted">' + _copy().loadFailed + '</p>'; });
   }
 
   function render(d) {
     serviceData = d;
+    _applyStaticCopy();
     document.getElementById("sd-loading").style.display = "none";
     document.getElementById("sd-content").style.display = "";
 
@@ -42,15 +118,20 @@ var ServiceDetailPage = (function () {
     document.getElementById("sd-provider-name").textContent = d.provider_name || d.provider?.name || "";
     document.getElementById("sd-provider-category").textContent =
       d.category_name || d.subcategory?.category_name || d.category?.name || "";
+    _setAutoDirection(document.getElementById("sd-provider-name"), d.provider_name || d.provider?.name || "");
+    _setAutoDirection(document.getElementById("sd-provider-category"), d.category_name || d.subcategory?.category_name || d.category?.name || "");
 
     // Service
-    var serviceTitle = d.name || d.title || "تفاصيل الخدمة";
+    var serviceTitle = d.name || d.title || _copy().fallbackTitle;
     document.getElementById("sd-name").textContent = serviceTitle;
     var pageTitle = document.getElementById("sd-page-title");
     if (pageTitle) pageTitle.textContent = serviceTitle;
+    _setAutoDirection(document.getElementById("sd-name"), serviceTitle);
+    _setAutoDirection(pageTitle, serviceTitle);
     document.getElementById("sd-likes").textContent = d.likes_count || d.likes || 0;
     var description = String(d.description || "").trim();
-    document.getElementById("sd-description").textContent = description || "لا يوجد وصف للخدمة.";
+    document.getElementById("sd-description").textContent = description || _copy().noDescription;
+    _setAutoDirection(document.getElementById("sd-description"), description);
 
     var mediaCountEl = document.getElementById("sd-media-count");
     var filesCountRaw = asNumber(d.files_count || d.filesCount || d.media_count || d.mediaCount);
@@ -75,7 +156,7 @@ var ServiceDetailPage = (function () {
     if (!totalFiles && images.length) totalFiles = images.length;
     var videoCount = totalFiles > 0 ? 1 : 0;
     var imageCount = totalFiles > 1 ? (totalFiles - 1) : totalFiles;
-    if (mediaCountEl) mediaCountEl.textContent = "فيديو " + videoCount + " • صور " + imageCount;
+    if (mediaCountEl) mediaCountEl.textContent = _replaceTokens(_copy().mediaCount, { videos: videoCount, images: imageCount });
 
     var slider = document.getElementById("sd-slider");
     var track = document.getElementById("sd-slider-track");
@@ -110,15 +191,36 @@ var ServiceDetailPage = (function () {
     var commentsWrap = document.getElementById("sd-comments");
     if (comments.length) {
       commentsSection.style.display = "";
-      commentsWrap.innerHTML = comments.map(function (c) {
-        return '<div class="sd-comment"><strong>' + (c.user_name || c.user?.name || "مستخدم") + '</strong>' +
-          '<p>' + (c.text || c.content || "") + '</p>' +
-          '<span class="text-muted">' + (c.created_at ? new Date(c.created_at).toLocaleDateString("ar-SA") : "") + '</span></div>';
-      }).join("");
+      commentsWrap.innerHTML = "";
+      comments.forEach(function (c) {
+        var item = document.createElement("div");
+        item.className = "sd-comment";
+
+        var author = document.createElement("strong");
+        var authorText = c.user_name || c.user?.name || _copy().userFallback;
+        author.textContent = authorText;
+        _setAutoDirection(author, authorText);
+        item.appendChild(author);
+
+        var body = document.createElement("p");
+        var commentText = c.text || c.content || "";
+        body.textContent = commentText;
+        _setAutoDirection(body, commentText);
+        item.appendChild(body);
+
+        var meta = document.createElement("span");
+        meta.className = "text-muted";
+        meta.textContent = c.created_at ? new Date(c.created_at).toLocaleDateString("ar-SA") : "";
+        item.appendChild(meta);
+
+        commentsWrap.appendChild(item);
+      });
     } else if (commentsSection && commentsWrap) {
       commentsSection.style.display = "none";
       commentsWrap.innerHTML = "";
     }
+
+    _updateOriginalLanguageNotice();
 
     // Buttons
     var providerId = d.provider_id || d.provider?.id || d.provider;
@@ -154,6 +256,100 @@ var ServiceDetailPage = (function () {
     });
   }
 
+  function _currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === "function") {
+        return window.NawafethI18n.getLanguage() === "en" ? "en" : "ar";
+      }
+      return (localStorage.getItem("nw_lang") || "ar").toLowerCase() === "en" ? "en" : "ar";
+    } catch (_) {
+      return "ar";
+    }
+  }
+
+  function _copy() {
+    return COPY[_currentLang()] || COPY.ar;
+  }
+
+  function _replaceTokens(text, replacements) {
+    return String(text || "").replace(/\{(\w+)\}/g, function (_, key) {
+      return Object.prototype.hasOwnProperty.call(replacements || {}, key)
+        ? String(replacements[key])
+        : "";
+    });
+  }
+
+  function _applyStaticCopy() {
+    var copy = _copy();
+    if (window.NawafethI18n && typeof window.NawafethI18n.t === "function") {
+      document.title = window.NawafethI18n.t("siteTitle") + " — " + copy.pageTitle;
+    }
+    _setText("sd-page-title", serviceData && (serviceData.name || serviceData.title) ? (serviceData.name || serviceData.title) : copy.pageTitle);
+    _setText("sd-btn-request", copy.requestService);
+    _setText("sd-btn-chat", copy.providerMessages);
+    _setText("sd-comments-title", copy.commentsTitle);
+    _setAttr("btn-report", "title", copy.reportButtonTitle);
+    _setAttr("btn-report", "aria-label", copy.reportButtonTitle);
+    _setAttr("sd-provider-link", "aria-label", copy.providerProfileAria);
+  }
+
+  function _setText(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
+  function _setAttr(id, attr, value) {
+    var el = document.getElementById(id);
+    if (el) el.setAttribute(attr, value);
+  }
+
+  function _locale() {
+    return _currentLang() === "en" ? "en-US" : "ar-SA";
+  }
+
+  function _containsArabicScript(value) {
+    return /[\u0600-\u06FF]/.test(String(value || "").trim());
+  }
+
+  function _setAutoDirection(el, value) {
+    if (!el) return;
+    if (String(value || "").trim()) el.setAttribute("dir", "auto");
+    else el.removeAttribute("dir");
+  }
+
+  function _hasOriginalLanguageContent() {
+    if (!serviceData || _currentLang() !== "en") return false;
+
+    var directFields = [
+      serviceData.name,
+      serviceData.title,
+      serviceData.description,
+      serviceData.provider_name,
+      serviceData.provider?.name,
+    ];
+    if (directFields.some(_containsArabicScript)) return true;
+
+    var comments = Array.isArray(serviceData.comments) ? serviceData.comments : [];
+    return comments.some(function (c) {
+      return _containsArabicScript(c && (c.user_name || c.user?.name)) || _containsArabicScript(c && (c.text || c.content));
+    });
+  }
+
+  function _updateOriginalLanguageNotice() {
+    var note = document.getElementById("sd-original-language-note");
+    if (!note) return;
+    note.textContent = _copy().originalLanguageNotice;
+    note.style.display = _hasOriginalLanguageContent() ? "" : "none";
+  }
+
+  function _handleLanguageChange() {
+    if (!serviceData) {
+      _updateOriginalLanguageNotice();
+      return;
+    }
+    render(serviceData);
+  }
+
   function asNumber(value) {
     if (value === null || value === undefined || value === "") return NaN;
     var n = Number(value);
@@ -171,15 +367,16 @@ var ServiceDetailPage = (function () {
     var to = asNumber(service.price_to || service.max_price);
     var unit = String(service.price_unit || "").trim();
     var suffix = unit ? (" / " + unit) : "";
+    var currency = _copy().currency;
 
     if (!isFinite(from) && !isFinite(to)) return "";
     if (isFinite(from) && isFinite(to)) {
-      if (Math.abs(from - to) < 0.0001) return formatCompactNumber(from) + suffix + " ر.س";
-      return formatCompactNumber(from) + " - " + formatCompactNumber(to) + suffix + " ر.س";
+      if (Math.abs(from - to) < 0.0001) return formatCompactNumber(from) + suffix + " " + currency;
+      return formatCompactNumber(from) + " - " + formatCompactNumber(to) + suffix + " " + currency;
     }
     var value = isFinite(from) ? from : to;
     if (!isFinite(value)) return "";
-    return formatCompactNumber(value) + suffix + " ر.س";
+    return formatCompactNumber(value) + suffix + " " + currency;
   }
 
   function _trimText(value) {
@@ -188,21 +385,21 @@ var ServiceDetailPage = (function () {
 
   function _openReportDialog() {
     if (typeof UI === "undefined" || !UI.el) {
-      alert("تم إرسال البلاغ للإدارة. شكراً لك");
+      alert(_copy().reportFallbackAlert);
       return;
     }
 
     var reasons = [
-      "محتوى غير لائق",
-      "تحرش أو إزعاج",
-      "احتيال أو نصب",
-      "محتوى مسيء",
-      "انتهاك الخصوصية",
-      "أخرى",
+      _copy().reportReasonInappropriate,
+      _copy().reportReasonHarassment,
+      _copy().reportReasonFraud,
+      _copy().reportReasonAbuse,
+      _copy().reportReasonPrivacy,
+      _copy().reportReasonOther,
     ];
 
-    var serviceName = _trimText(document.getElementById("sd-name")?.textContent) || "خدمة";
-    var providerName = _trimText(document.getElementById("sd-provider-name")?.textContent) || "مقدم خدمة";
+    var serviceName = _trimText(document.getElementById("sd-name")?.textContent) || _copy().serviceFallback;
+    var providerName = _trimText(document.getElementById("sd-provider-name")?.textContent) || _copy().providerFallbackLabel;
 
     var oldDialog = document.querySelector(".pd-report-backdrop");
     if (oldDialog) oldDialog.remove();
@@ -221,14 +418,14 @@ var ServiceDetailPage = (function () {
     titleRow.appendChild(titleIcon);
     titleRow.appendChild(UI.el("h3", {
       className: "pd-report-title",
-      textContent: "إبلاغ عن محتوى خدمة",
+      textContent: _copy().reportTitle,
     }));
     dialog.appendChild(titleRow);
 
     var infoBox = UI.el("div", { className: "pd-report-info" });
     infoBox.appendChild(UI.el("p", {
       className: "pd-report-info-label",
-      textContent: "الخدمة:",
+      textContent: _copy().serviceLabel,
     }));
     infoBox.appendChild(UI.el("p", {
       className: "pd-report-info-value",
@@ -236,13 +433,13 @@ var ServiceDetailPage = (function () {
     }));
     infoBox.appendChild(UI.el("p", {
       className: "pd-report-context",
-      textContent: "مزود الخدمة: " + providerName,
+      textContent: _replaceTokens(_copy().providerLabel, { provider: providerName }),
     }));
     dialog.appendChild(infoBox);
 
     var reasonLabel = UI.el("label", {
       className: "pd-report-label",
-      textContent: "سبب الإبلاغ:",
+      textContent: _copy().reportReasonLabel,
     });
     reasonLabel.setAttribute("for", "sd-report-reason");
     dialog.appendChild(reasonLabel);
@@ -258,7 +455,7 @@ var ServiceDetailPage = (function () {
 
     var detailsLabel = UI.el("label", {
       className: "pd-report-label",
-      textContent: "تفاصيل إضافية (اختياري):",
+      textContent: _copy().reportDetailsLabel,
     });
     detailsLabel.setAttribute("for", "sd-report-details");
     dialog.appendChild(detailsLabel);
@@ -267,7 +464,7 @@ var ServiceDetailPage = (function () {
       className: "pd-report-textarea",
       id: "sd-report-details",
       rows: 4,
-      placeholder: "اكتب التفاصيل هنا...",
+      placeholder: _copy().reportDetailsPlaceholder,
     });
     detailsInput.maxLength = 500;
     dialog.appendChild(detailsInput);
@@ -276,18 +473,18 @@ var ServiceDetailPage = (function () {
     var cancelBtn = UI.el("button", {
       type: "button",
       className: "pd-report-btn pd-report-btn-cancel",
-      textContent: "إلغاء",
+      textContent: _copy().reportCancel,
     });
     cancelBtn.addEventListener("click", closeDialog);
 
     var submitBtn = UI.el("button", {
       type: "button",
       className: "pd-report-btn pd-report-btn-submit",
-      textContent: "إرسال البلاغ",
+      textContent: _copy().reportSubmit,
     });
     submitBtn.addEventListener("click", function () {
       closeDialog();
-      _showToast("تم إرسال البلاغ للإدارة. شكراً لك");
+      _showToast(_copy().reportSuccess);
     });
 
     actions.appendChild(cancelBtn);

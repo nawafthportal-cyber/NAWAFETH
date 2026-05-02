@@ -5,16 +5,71 @@
 'use strict';
 
 const TermsPage = (() => {
+  const COPY = {
+    ar: {
+      pageTitle: 'الشروط والأحكام',
+      heroKicker: 'المركز القانوني',
+      pageSummary: 'اطلع على سياسات نوافذ الرسمية بطريقة واضحة ومنظمة قبل استخدام خدمات المنصة.',
+      documentsLabel: 'المستندات',
+      latestUpdateLabel: 'آخر تحديث',
+      officialFilesLabel: 'مرفقات رسمية',
+      railTitle: 'المستندات',
+      railAria: 'مستندات الشروط',
+      emptyLabel: 'لا توجد مستندات متاحة حالياً',
+      openDocumentLabel: 'عرض المستند',
+      fileOnlyHint: 'اضغط على زر عرض المستند لفتح النسخة الرسمية.',
+      missingHint: 'لا توجد بيانات متاحة لهذا المستند حالياً.',
+      versionPrefix: 'الإصدار',
+      lastUpdatePrefix: 'آخر تحديث:',
+      informationalVersion: 'نسخة معلوماتية',
+      documentFallback: 'مستند',
+      clauseFallback: 'بند',
+      docMeta: {
+        terms: 'اتفاقية الاستخدام',
+        privacy: 'سياسة الخصوصية',
+        regulations: 'الأنظمة والتشريعات المتبعة',
+        prohibited_services: 'الخدمات الممنوعة',
+      },
+    },
+    en: {
+      pageTitle: 'Terms & Conditions',
+      heroKicker: 'Legal center',
+      pageSummary: 'Review Nawafeth official policies in a clear and organized way before using platform services.',
+      documentsLabel: 'Documents',
+      latestUpdateLabel: 'Latest update',
+      officialFilesLabel: 'Official files',
+      railTitle: 'Documents',
+      railAria: 'Legal documents',
+      emptyLabel: 'No documents are available right now.',
+      openDocumentLabel: 'Open document',
+      fileOnlyHint: 'Click open document to view the official version.',
+      missingHint: 'No data is currently available for this document.',
+      versionPrefix: 'Version',
+      lastUpdatePrefix: 'Last update:',
+      informationalVersion: 'Informational copy',
+      documentFallback: 'Document',
+      clauseFallback: 'Clause',
+      docMeta: {
+        terms: 'Terms of Use',
+        privacy: 'Privacy Policy',
+        regulations: 'Applicable Regulations',
+        prohibited_services: 'Prohibited Services',
+      },
+    },
+  };
   const DOC_META = {
-    terms: { title: 'اتفاقية الاستخدام', icon: 'document' },
-    privacy: { title: 'سياسة الخصوصية', icon: 'shield' },
-    regulations: { title: 'الأنظمة والتشريعات المتبعة', icon: 'scale' },
-    prohibited_services: { title: 'الخدمات الممنوعة', icon: 'ban' },
+    terms: { titleAr: 'اتفاقية الاستخدام', titleEn: 'Terms of Use', icon: 'document' },
+    privacy: { titleAr: 'سياسة الخصوصية', titleEn: 'Privacy Policy', icon: 'shield' },
+    regulations: { titleAr: 'الأنظمة والتشريعات المتبعة', titleEn: 'Applicable Regulations', icon: 'scale' },
+    prohibited_services: { titleAr: 'الخدمات الممنوعة', titleEn: 'Prohibited Services', icon: 'ban' },
   };
   const DOC_ORDER = ['terms', 'privacy', 'regulations', 'prohibited_services'];
   let _content = {};
+  let _payload = null;
 
   function init() {
+    _applyStaticCopy();
+    document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
     _load();
   }
 
@@ -26,15 +81,17 @@ const TermsPage = (() => {
     const nav = document.getElementById('terms-nav');
 
     const res = await _safeLoadContent();
+    _payload = res;
     const data = (res.ok && res.data && typeof res.data === 'object') ? res.data : {};
     const blocks = data.blocks || {};
     _content = {
-      pageTitle: _resolve(blocks.terms_page_title, 'الشروط والأحكام'),
-      emptyLabel: _resolve(blocks.terms_empty_label, 'لا توجد مستندات متاحة حالياً'),
-      openDocumentLabel: _resolve(blocks.terms_open_document_label, 'عرض المستند'),
-      fileOnlyHint: _resolve(blocks.terms_file_only_hint, 'اضغط على "عرض المستند" لفتح النسخة الرسمية.'),
-      missingHint: _resolve(blocks.terms_missing_document_hint, 'لا توجد بيانات متاحة لهذا المستند حالياً.'),
+      pageTitle: _resolve(blocks.terms_page_title, COPY.ar.pageTitle, _copy().pageTitle),
+      emptyLabel: _resolve(blocks.terms_empty_label, COPY.ar.emptyLabel, _copy().emptyLabel),
+      openDocumentLabel: _resolve(blocks.terms_open_document_label, COPY.ar.openDocumentLabel, _copy().openDocumentLabel),
+      fileOnlyHint: _resolve(blocks.terms_file_only_hint, COPY.ar.fileOnlyHint, _copy().fileOnlyHint),
+      missingHint: _resolve(blocks.terms_missing_document_hint, COPY.ar.missingHint, _copy().missingHint),
     };
+    _applyStaticCopy();
     _setText('terms-page-title', _content.pageTitle);
     _setText('terms-empty-label', _content.emptyLabel);
     const cards = _extractCards(res);
@@ -82,14 +139,14 @@ const TermsPage = (() => {
       const meta = DOC_META[docType] || { title: docType, icon: 'document' };
       const published = doc && doc.published_at ? _formatDate(doc.published_at) : '';
       const publishedTime = doc && doc.published_at ? new Date(doc.published_at).getTime() : 0;
-      const version = doc && doc.version ? 'الإصدار ' + doc.version : '';
+      const version = doc && doc.version ? _copy().versionPrefix + ' ' + doc.version : '';
       const body = doc && doc.body_ar ? String(doc.body_ar).trim() : '';
       const fileUrl = doc && doc.file_url ? ApiClient.mediaUrl(doc.file_url) : '';
-      const subtitle = [version, published ? 'آخر تحديث: ' + published : ''].filter(Boolean).join(' | ');
+      const subtitle = [version, published ? _copy().lastUpdatePrefix + ' ' + published : ''].filter(Boolean).join(' | ');
       return {
         key: docType,
         id: 'terms-doc-' + _slug(docType),
-        title: doc.label_ar || meta.title,
+        title: _resolveDocTitle(docType, doc, meta),
         icon: meta.icon || 'document',
         version,
         published,
@@ -105,7 +162,7 @@ const TermsPage = (() => {
   function _formatDate(iso) {
     const dt = new Date(iso);
     if (Number.isNaN(dt.getTime())) return '';
-    return dt.toLocaleDateString('ar-SA', {
+    return dt.toLocaleDateString(_currentLang() === 'en' ? 'en-US' : 'ar-SA', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -132,11 +189,11 @@ const TermsPage = (() => {
     icon.appendChild(_icon(item.icon));
 
     const copy = UI.el('div', { className: 'terms-doc-copy' });
-    copy.appendChild(UI.el('h2', { className: 'terms-doc-title', textContent: item.title || 'مستند' }));
+    copy.appendChild(UI.el('h2', { className: 'terms-doc-title', textContent: item.title || _copy().documentFallback }));
     const meta = UI.el('div', { className: 'terms-doc-meta' });
     if (item.version) meta.appendChild(UI.el('span', { textContent: item.version }));
-    if (item.published) meta.appendChild(UI.el('span', { textContent: 'آخر تحديث: ' + item.published }));
-    if (!item.version && !item.published) meta.appendChild(UI.el('span', { textContent: 'نسخة معلوماتية' }));
+    if (item.published) meta.appendChild(UI.el('span', { textContent: _copy().lastUpdatePrefix + ' ' + item.published }));
+    if (!item.version && !item.published) meta.appendChild(UI.el('span', { textContent: _copy().informationalVersion }));
     copy.appendChild(meta);
 
     titleWrap.appendChild(icon);
@@ -174,7 +231,7 @@ const TermsPage = (() => {
     const icon = UI.el('span', { className: 'terms-nav-icon', 'aria-hidden': 'true' });
     icon.appendChild(_icon(item.icon));
     link.appendChild(icon);
-    link.appendChild(UI.el('span', { textContent: item.title || 'مستند' }));
+    link.appendChild(UI.el('span', { textContent: item.title || _copy().documentFallback }));
     return link;
   }
 
@@ -182,10 +239,10 @@ const TermsPage = (() => {
     const article = UI.el('article', { className: 'terms-clause' });
     article.appendChild(UI.el('span', {
       className: 'terms-clause-number',
-      textContent: clause.number || _toArabicDigits(String(idx + 1)),
+      textContent: clause.number || _localizeDigits(String(idx + 1)),
     }));
     const copy = UI.el('div', { className: 'terms-clause-copy' });
-    copy.appendChild(UI.el('h3', { textContent: clause.title || 'بند' }));
+    copy.appendChild(UI.el('h3', { textContent: clause.title || _copy().clauseFallback }));
     if (clause.body) {
       copy.appendChild(UI.el('p', { textContent: clause.body }));
     }
@@ -210,7 +267,8 @@ const TermsPage = (() => {
       if (match) {
         if (current) clauses.push(current);
         current = {
-          number: _toArabicDigits(match[1]),
+          number: _localizeDigits(match[1]),
+          number: _localizeDigits(match[1]),
           title: match[2].trim(),
           lines: [],
         };
@@ -218,7 +276,7 @@ const TermsPage = (() => {
       }
       if (!current) {
         current = {
-          number: _toArabicDigits(String(clauses.length + 1)),
+          number: _localizeDigits(String(clauses.length + 1)),
           title: line,
           lines: [],
         };
@@ -302,8 +360,15 @@ const TermsPage = (() => {
     return svg;
   }
 
-  function _resolve(block, fallback) {
-    return String(block && block.title_ar || '').trim() || fallback;
+  function _resolve(block, fallbackAr, fallbackEn) {
+    const arValue = String(block && block.title_ar || '').trim();
+    const enValue = String(block && block.title_en || '').trim();
+    if (_currentLang() === 'en') {
+      if (enValue) return enValue;
+      if (arValue && arValue !== String(fallbackAr || '').trim()) return arValue;
+      return String(fallbackEn || '').trim() || arValue || String(fallbackAr || '').trim();
+    }
+    return arValue || String(fallbackAr || '').trim();
   }
 
   function _setText(id, value) {
@@ -315,8 +380,61 @@ const TermsPage = (() => {
     return String(value || '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'document';
   }
 
-  function _toArabicDigits(value) {
-    return String(value || '').replace(/[0-9]/g, (digit) => '٠١٢٣٤٥٦٧٨٩'[Number(digit)] || digit);
+  function _localizeDigits(value) {
+    const raw = String(value || '');
+    if (_currentLang() === 'en') return raw;
+    return raw.replace(/[0-9]/g, (digit) => '٠١٢٣٤٥٦٧٨٩'[Number(digit)] || digit);
+  }
+
+  function _currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      }
+      return (localStorage.getItem('nw_lang') || 'ar').toLowerCase() === 'en' ? 'en' : 'ar';
+    } catch (_) {
+      return 'ar';
+    }
+  }
+
+  function _copy() {
+    return COPY[_currentLang()] || COPY.ar;
+  }
+
+  function _resolveDocTitle(docType, doc, meta) {
+    const arLabel = String(doc && doc.label_ar || '').trim();
+    const enLabel = String(doc && doc.label_en || '').trim();
+    const fallbackAr = meta.titleAr || (COPY.ar.docMeta[docType] || COPY.ar.documentFallback);
+    const fallbackEn = meta.titleEn || (_copy().docMeta[docType] || COPY.en.documentFallback);
+    if (_currentLang() === 'en') {
+      if (enLabel) return enLabel;
+      return fallbackEn || arLabel || fallbackAr;
+    }
+    return arLabel || fallbackAr;
+  }
+
+  function _applyStaticCopy() {
+    const copy = _copy();
+    _setText('terms-kicker', copy.heroKicker);
+    _setText('terms-page-summary', copy.pageSummary);
+    _setText('terms-documents-label', copy.documentsLabel);
+    _setText('terms-latest-update-label', copy.latestUpdateLabel);
+    _setText('terms-file-count-label', copy.officialFilesLabel);
+    _setText('terms-rail-title', copy.railTitle);
+    const railMeta = document.getElementById('terms-hero-meta');
+    const nav = document.getElementById('terms-nav');
+    if (railMeta) railMeta.setAttribute('aria-label', copy.railTitle);
+    if (nav) nav.setAttribute('aria-label', copy.railAria);
+    if (window.NawafethI18n && typeof window.NawafethI18n.t === 'function') {
+      document.title = window.NawafethI18n.t('siteTitle') + ' — ' + copy.pageTitle;
+    }
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    if (_payload) {
+      _load();
+    }
   }
 
   if (document.readyState === 'loading') {

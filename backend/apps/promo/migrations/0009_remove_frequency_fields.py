@@ -17,7 +17,7 @@ def collapse_frequency_pricing_rules(apps, schema_editor):
         "portfolio_showcase": {
             "code": "portfolio_daily",
             "preferred_legacy_code": "portfolio_60s",
-            "title": "شريط البنرات والمشاريع - لكل 24 ساعة",
+            "title": "البنرات والمشاريع - لكل 24 ساعة",
             "sort_order": 30,
             "default_amount": Decimal("1000.00"),
         },

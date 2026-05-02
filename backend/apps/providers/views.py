@@ -17,6 +17,7 @@ from apps.accounts.models import User
 from apps.accounts.models import UserRole
 from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider
 from apps.accounts.role_context import get_active_role
+from .eligibility import HasProviderProfile
 from apps.reviews.models import ReviewModerationStatus
 from apps.reviews.services import calculate_provider_rating
 
@@ -762,7 +763,7 @@ class ProviderPortfolioFeedView(generics.ListAPIView):
 class MyProviderSpotlightListCreateView(generics.ListCreateAPIView):
 	"""Spotlight items for the authenticated provider (list + add)."""
 
-	permission_classes = [IsAtLeastProvider]
+	permission_classes = [HasProviderProfile]
 
 	def get_queryset(self):
 		pp = getattr(self.request.user, "provider_profile", None)
@@ -799,7 +800,7 @@ class MyProviderSpotlightListCreateView(generics.ListCreateAPIView):
 class MyProviderSpotlightDetailView(generics.RetrieveDestroyAPIView):
 	"""Provider-owned single spotlight item (retrieve/delete)."""
 
-	permission_classes = [IsAtLeastProvider]
+	permission_classes = [HasProviderProfile]
 	serializer_class = ProviderSpotlightItemSerializer
 
 	def get_queryset(self):

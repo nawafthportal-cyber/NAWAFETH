@@ -11,50 +11,216 @@ const RequestQuotePage = (() => {
   let _files = [];
   let _audio = null;
   let _toastTimer = null;
-  const _submitButtonMarkup = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg><span>تقديم الطلب</span>';
-  const _toastTones = {
-    info: {
-      title: 'معلومة سريعة',
-      role: 'status',
-      live: 'polite',
-      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+  let _languageObserver = null;
+  let _languageSyncTimer = null;
+  let _lastAppliedLang = null;
+  const COPY = {
+    ar: {
+      pageTitle: 'نوافــذ — طلب عروض أسعار',
+      providerGateKicker: 'وضع الحساب الحالي',
+      providerGateTitle: 'طلب عروض الأسعار متاح في وضع العميل فقط',
+      providerGateDescription: 'أنت تستخدم المنصة الآن بوضع مقدم الخدمة، لذلك لا يمكن إنشاء طلب عروض أسعار من هذا الوضع.',
+      providerGateNote: 'بدّل نوع الحساب إلى عميل الآن، ثم أكمل طلب عروض الأسعار مباشرة.',
+      providerGateSwitch: 'التبديل إلى عميل',
+      providerGateProfile: 'الذهاب إلى نافذتي',
+      loginGateTitle: 'سجّل دخولك لطلب عرض سعر',
+      loginGateDescription: 'يمكنك تلقي عروض الأسعار بعد تسجيل الدخول',
+      loginGateButton: 'تسجيل الدخول',
+      heroBadge: 'عروض أسعار تنافسية',
+      heroTitle: 'استقبل عروض أسعار من المزودين الأنسب',
+      backAria: 'رجوع',
+      headerTitle: 'طلب عروض أسعار',
+      pageBadge: 'طلب تنافسي',
+      subtitle: 'صِف الطلب بدقة لتحصل على عروض مناسبة بشكل أسرع وضمن هوية موحدة مع تجربة المنصة.',
+      introChip: 'خطوات سريعة',
+      introText: 'اكتب العنوان والتفاصيل، اختر التصنيف، ثم أضف المرفقات إذا لزم.',
+      titleLabel: 'عنوان الطلب',
+      titlePlaceholder: 'مثال: تصميم شعار لمتجر إلكتروني',
+      titleHint: 'العنوان الواضح يزيد فرص وصول عروض دقيقة.',
+      categoryLabel: 'التصنيف الرئيسي',
+      categoryPlaceholder: 'اختر التصنيف...',
+      subcategoryLabel: 'التصنيف الفرعي',
+      subcategoryPlaceholder: '-- اختر التخصص --',
+      regionLabel: 'المنطقة الإدارية',
+      regionPlaceholder: 'اختر المنطقة الإدارية',
+      cityLabel: 'المدينة',
+      cityPlaceholder: 'اختر المدينة (اختياري)',
+      cityEmptyPlaceholder: 'اختر المنطقة أولًا ثم المدينة...',
+      cityClear: 'إلغاء المدينة (إرسال لجميع المدن)',
+      deadlineLabel: 'آخر موعد لاستلام العروض (اختياري)',
+      detailsLabel: 'تفاصيل الطلب',
+      detailsPlaceholder: 'صِف الخدمة المطلوبة بالتفصيل...',
+      filesLabel: 'مرفقات (اختياري)',
+      fileTrigger: 'إرفاق صور/فيديو/صوت أو ملفات',
+      uploadHint: 'يمكنك رفع أكثر من ملف، وسيتم إرسالها مع الطلب مباشرة.',
+      attachmentEmpty: 'لا توجد مرفقات مضافة',
+      attachmentPreparedOne: 'تمت إضافة مرفق واحد',
+      attachmentPreparedMany: 'تم تجهيز المرفقات',
+      cancel: 'إلغاء',
+      submit: 'تقديم الطلب',
+      submitLoading: 'جاري إرسال الطلب',
+      submitStateTitle: 'جاري إرسال الطلب',
+      submitStateMessage: 'يتم الآن تجهيز بيانات الطلب ورفع المرفقات.',
+      submitStateProgressAria: 'نسبة رفع الطلب',
+      successTitle: 'تم إرسال طلبك بنجاح!',
+      successMessage: 'سيتقدم المزودون بعروضهم خلال الفترة القادمة. تابع من صفحة الطلبات',
+      successOrders: 'متابعة الطلبات',
+      successHome: 'العودة للرئيسية',
+      toastDefaultTitle: 'تنبيه مهم',
+      toastDefaultMessage: 'ستظهر هنا رسائل التحقق والتنبيه أثناء إرسال الطلب.',
+      toastCloseAria: 'إغلاق التنبيه',
+      toneInfo: 'معلومة سريعة',
+      toneSuccess: 'تم بنجاح',
+      toneWarning: 'انتبه قبل المتابعة',
+      toneError: 'تعذر إكمال الطلب',
+      warningAudioSingle: 'يمكن إرفاق تسجيل صوتي واحد فقط مع الطلب',
+      warningNoNewAttachments: 'لم تتم إضافة مرفقات جديدة',
+      sectionImages: 'الصور',
+      sectionVideos: 'الفيديو',
+      sectionAudio: 'الصوت',
+      sectionFiles: 'الملفات',
+      removeVideo: 'إزالة الفيديو',
+      removeImage: 'إزالة الصورة',
+      removeFile: 'إزالة',
+      validationTitleRequired: 'يرجى كتابة عنوان الطلب',
+      validationCategoryRequired: 'يرجى اختيار التصنيف الرئيسي',
+      validationSubcategoryRequired: 'يرجى اختيار التصنيف الفرعي',
+      validationDetailsRequired: 'يرجى كتابة تفاصيل الطلب',
+      validationDetailsTooLong: 'تفاصيل الطلب يجب ألا تتجاوز 500 حرف',
+      validationTitleTooLong: 'عنوان الطلب يجب ألا يتجاوز 50 حرفًا',
+      submitUploadingWithAttachments: 'يتم الآن رفع {count} مع بيانات الطلب. لا تغلق الصفحة حتى يكتمل الإرسال.',
+      submitUploadingNoAttachments: 'يتم الآن إرسال بيانات الطلب. لا تغلق الصفحة حتى يكتمل الإرسال.',
+      submitPreparingAttachments: 'جاري تجهيز المرفقات',
+      submitPreparingAttachmentsMessage: 'تم تجهيز {count} وبدء رفعها الآن.',
+      submitUploadingAttachments: 'جاري رفع المرفقات',
+      submitUploadingAttachmentsMessage: 'تم رفع {percent}% من الطلب حتى الآن. انتظر قليلًا حتى يكتمل الإرسال.',
+      submitApproving: 'جاري اعتماد الطلب',
+      submitApprovingMessage: 'اكتمل رفع البيانات، وجارٍ اعتماد الطلب وإظهاره للمزوّدين.',
+      submitSendingPlatform: 'يتم الآن إرسال بيانات الطلب إلى المنصة.',
+      attachmentTypeFile: 'ملف',
+      attachmentTypeImage: 'صورة',
+      attachmentTypeVideo: 'فيديو',
+      attachmentTypeAudio: 'تسجيل صوتي',
+      attachmentTypeGeneralFile: 'ملف عام',
+      attachmentWithoutAny: 'بدون مرفقات',
+      attachmentOne: 'مرفق واحد',
+      attachmentTwo: 'مرفقان',
+      attachmentMany: '{count} مرفقات',
+      attachmentNoteMessage: 'تمت إضافة {items}، وستُرسل مع الطلب مباشرة عند الإرسال.',
+      submitErrorFallback: 'تعذر إرسال الطلب، تحقق من البيانات وحاول مرة أخرى',
+      serverConnectionError: 'تعذر الاتصال بالخادم، حاول مرة أخرى',
     },
-    success: {
-      title: 'تم بنجاح',
-      role: 'status',
-      live: 'polite',
-      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
-    },
-    warning: {
-      title: 'انتبه قبل المتابعة',
-      role: 'alert',
-      live: 'assertive',
-      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>',
-    },
-    error: {
-      title: 'تعذر إكمال الطلب',
-      role: 'alert',
-      live: 'assertive',
-      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>',
+    en: {
+      pageTitle: 'Nawafeth — Request Quotes',
+      providerGateKicker: 'Current account mode',
+      providerGateTitle: 'Quote requests are only available in client mode',
+      providerGateDescription: 'You are using the platform in provider mode right now, so a quote request cannot be created from this mode.',
+      providerGateNote: 'Switch to client mode now, then continue your quote request right away.',
+      providerGateSwitch: 'Switch to client',
+      providerGateProfile: 'Go to My Profile',
+      loginGateTitle: 'Sign in to request quotes',
+      loginGateDescription: 'You can receive quote offers after signing in',
+      loginGateButton: 'Sign in',
+      heroBadge: 'Competitive quotes',
+      heroTitle: 'Receive quotes from the most suitable providers',
+      backAria: 'Back',
+      headerTitle: 'Request quotes',
+      pageBadge: 'Competitive request',
+      subtitle: 'Describe your request clearly to receive suitable offers faster while keeping the platform experience consistent.',
+      introChip: 'Quick steps',
+      introText: 'Write the title and details, choose the category, then add attachments if needed.',
+      titleLabel: 'Request title',
+      titlePlaceholder: 'Example: Logo design for an online store',
+      titleHint: 'A clear title improves your chances of getting accurate offers.',
+      categoryLabel: 'Main category',
+      categoryPlaceholder: 'Choose a category...',
+      subcategoryLabel: 'Subcategory',
+      subcategoryPlaceholder: '-- Choose a specialty --',
+      regionLabel: 'Administrative region',
+      regionPlaceholder: 'Choose an administrative region',
+      cityLabel: 'City',
+      cityPlaceholder: 'Choose a city (optional)',
+      cityEmptyPlaceholder: 'Choose the region first, then the city...',
+      cityClear: 'Clear city (send to all cities)',
+      deadlineLabel: 'Quote deadline (optional)',
+      detailsLabel: 'Request details',
+      detailsPlaceholder: 'Describe the requested service in detail...',
+      filesLabel: 'Attachments (optional)',
+      fileTrigger: 'Attach images, video, audio, or files',
+      uploadHint: 'You can upload multiple files and they will be sent with the request directly.',
+      attachmentEmpty: 'No attachments added',
+      attachmentPreparedOne: 'One attachment added',
+      attachmentPreparedMany: 'Attachments are ready',
+      cancel: 'Cancel',
+      submit: 'Submit request',
+      submitLoading: 'Submitting request',
+      submitStateTitle: 'Submitting request',
+      submitStateMessage: 'Preparing your request data and uploading attachments.',
+      submitStateProgressAria: 'Request upload progress',
+      successTitle: 'Your request was sent successfully!',
+      successMessage: 'Providers will start sending offers soon. Track everything from the orders page.',
+      successOrders: 'Track orders',
+      successHome: 'Back to home',
+      toastDefaultTitle: 'Important notice',
+      toastDefaultMessage: 'Validation and submission messages will appear here.',
+      toastCloseAria: 'Close notification',
+      toneInfo: 'Quick info',
+      toneSuccess: 'Done successfully',
+      toneWarning: 'Check before continuing',
+      toneError: 'Could not complete the request',
+      warningAudioSingle: 'Only one voice recording can be attached to the request',
+      warningNoNewAttachments: 'No new attachments were added',
+      sectionImages: 'Images',
+      sectionVideos: 'Videos',
+      sectionAudio: 'Audio',
+      sectionFiles: 'Files',
+      removeVideo: 'Remove video',
+      removeImage: 'Remove image',
+      removeFile: 'Remove',
+      validationTitleRequired: 'Please enter a request title',
+      validationCategoryRequired: 'Please choose the main category',
+      validationSubcategoryRequired: 'Please choose the subcategory',
+      validationDetailsRequired: 'Please enter the request details',
+      validationDetailsTooLong: 'Request details must not exceed 500 characters',
+      validationTitleTooLong: 'Request title must not exceed 50 characters',
+      submitUploadingWithAttachments: 'Uploading {count} with the request data. Do not close the page until sending is complete.',
+      submitUploadingNoAttachments: 'Sending your request data now. Do not close the page until it finishes.',
+      submitPreparingAttachments: 'Preparing attachments',
+      submitPreparingAttachmentsMessage: '{count} prepared and upload has just started.',
+      submitUploadingAttachments: 'Uploading attachments',
+      submitUploadingAttachmentsMessage: '{percent}% of the request has been uploaded so far. Please wait a moment until it completes.',
+      submitApproving: 'Finalizing request',
+      submitApprovingMessage: 'The data upload is complete and the request is being finalized for providers.',
+      submitSendingPlatform: 'Sending the request data to the platform.',
+      attachmentTypeFile: 'file',
+      attachmentTypeImage: 'image',
+      attachmentTypeVideo: 'video',
+      attachmentTypeAudio: 'voice note',
+      attachmentTypeGeneralFile: 'general file',
+      attachmentWithoutAny: 'No attachments',
+      attachmentOne: '1 attachment',
+      attachmentTwo: '2 attachments',
+      attachmentMany: '{count} attachments',
+      attachmentNoteMessage: 'Added {items}, and they will be sent with the request as soon as you submit it.',
+      submitErrorFallback: 'Could not send the request. Check the data and try again.',
+      serverConnectionError: 'Could not reach the server. Please try again.',
     },
   };
+  const TOAST_ICONS = {
+    info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+    success: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    warning: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>',
+    error: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>',
+  };
+
   function init() {
+    document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
+    _observeLanguageAttributes();
+    _startLanguageSync();
     _resetSuccessOverlay();
-    const serverAuth = window.NAWAFETH_SERVER_AUTH || null;
-    const isLoggedIn = !!(
-      (window.Auth && typeof Auth.isLoggedIn === 'function' && Auth.isLoggedIn())
-      || (serverAuth && serverAuth.isAuthenticated)
-    );
-    if (isLoggedIn && window.Auth && typeof window.Auth.ensureServiceRequestAccess === 'function' && !window.Auth.ensureServiceRequestAccess({
-      gateId: 'auth-gate',
-      contentId: 'form-content',
-      target: '/request-quote/',
-      title: 'طلب عروض الأسعار متاح في وضع العميل فقط',
-      description: 'أنت تستخدم المنصة الآن بوضع مقدم الخدمة، لذلك لا يمكن إنشاء طلب عروض أسعار من هذا الوضع.',
-      note: 'بدّل نوع الحساب إلى عميل الآن، ثم أكمل طلب عروض الأسعار مباشرة.',
-      switchLabel: 'التبديل إلى عميل',
-      profileLabel: 'الذهاب إلى نافذتي',
-    })) return;
+    _syncLanguageUI(true);
+    const isLoggedIn = _isLoggedIn();
+    if (isLoggedIn && _ensureProviderAccess()) return;
     _setAuthState(isLoggedIn);
     if (!isLoggedIn) return;
 
@@ -100,6 +266,49 @@ const RequestQuotePage = (() => {
     }
   }
 
+  function _handleLanguageChange() {
+    _syncLanguageUI(true);
+    const isLoggedIn = _isLoggedIn();
+    if (isLoggedIn && _ensureProviderAccess()) return;
+    _setAuthState(isLoggedIn);
+    if (!isLoggedIn) return;
+    _refreshRegionCityOptions();
+    _renderAttachments();
+    const overlay = document.getElementById('rq-submit-state');
+    if (overlay && !overlay.classList.contains('hidden')) {
+      const progressValue = Number(document.getElementById('rq-submit-state-progress')?.getAttribute('aria-valuenow') || 0);
+      _setSubmitProgress(progressValue, _getAttachmentCount());
+    }
+  }
+
+  function _observeLanguageAttributes() {
+    if (_languageObserver || typeof MutationObserver !== 'function') return;
+    const root = document.documentElement;
+    if (!root) return;
+    _languageObserver = new MutationObserver((mutations) => {
+      if (!Array.isArray(mutations) || !mutations.length) return;
+      _handleLanguageChange();
+    });
+    _languageObserver.observe(root, {
+      attributes: true,
+      attributeFilter: ['lang', 'dir'],
+    });
+  }
+
+  function _startLanguageSync() {
+    if (_languageSyncTimer) return;
+    _languageSyncTimer = window.setInterval(() => {
+      _syncLanguageUI(false);
+    }, 250);
+  }
+
+  function _syncLanguageUI(force) {
+    const lang = _currentLang();
+    if (!force && _lastAppliedLang === lang) return;
+    _lastAppliedLang = lang;
+    _applyStaticCopy();
+  }
+
   function _resetSuccessOverlay() {
     const overlay = document.getElementById('rq-success');
     if (!overlay) return;
@@ -114,6 +323,138 @@ const RequestQuotePage = (() => {
     if (formContent) formContent.classList.toggle('hidden', !isLoggedIn);
   }
 
+  function _isLoggedIn() {
+    const serverAuth = window.NAWAFETH_SERVER_AUTH || null;
+    return !!(
+      (window.Auth && typeof Auth.isLoggedIn === 'function' && Auth.isLoggedIn())
+      || (serverAuth && serverAuth.isAuthenticated)
+    );
+  }
+
+  function _ensureProviderAccess() {
+    if (!window.Auth || typeof window.Auth.ensureServiceRequestAccess !== 'function') return false;
+    return !window.Auth.ensureServiceRequestAccess(_providerGateOptions());
+  }
+
+  function _providerGateOptions() {
+    return {
+      gateId: 'auth-gate',
+      contentId: 'form-content',
+      target: '/request-quote/',
+      kicker: _copy('providerGateKicker'),
+      title: _copy('providerGateTitle'),
+      description: _copy('providerGateDescription'),
+      note: _copy('providerGateNote'),
+      switchLabel: _copy('providerGateSwitch'),
+      profileLabel: _copy('providerGateProfile'),
+    };
+  }
+
+  function _currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      }
+    } catch (_) {}
+    try {
+      return (localStorage.getItem('nw_lang') || 'ar').toLowerCase() === 'en' ? 'en' : 'ar';
+    } catch (_) {
+      return 'ar';
+    }
+  }
+
+  function _copy(key, tokens = null) {
+    const bundle = COPY[_currentLang()] || COPY.ar;
+    const fallback = COPY.ar[key] || '';
+    let value = Object.prototype.hasOwnProperty.call(bundle, key) ? bundle[key] : fallback;
+    if (!tokens) return value;
+    Object.entries(tokens).forEach(([token, replacement]) => {
+      value = value.replace(new RegExp(`\\{${token}\\}`, 'g'), String(replacement));
+    });
+    return value;
+  }
+
+  function _setText(id, value) {
+    const node = document.getElementById(id);
+    if (node) node.textContent = value;
+  }
+
+  function _setAttr(id, name, value) {
+    const node = document.getElementById(id);
+    if (node) node.setAttribute(name, value);
+  }
+
+  function _setPlaceholder(id, value) {
+    const node = document.getElementById(id);
+    if (node) node.setAttribute('placeholder', value);
+  }
+
+  function _applyStaticCopy() {
+    document.title = _copy('pageTitle');
+    _setText('rq-provider-kicker', _copy('providerGateKicker'));
+    _setText('rq-provider-title', _copy('providerGateTitle'));
+    _setText('rq-provider-description', _copy('providerGateDescription'));
+    _setText('rq-provider-switch', _copy('providerGateSwitch'));
+    _setText('rq-provider-profile', _copy('providerGateProfile'));
+    _setText('rq-provider-note', _copy('providerGateNote'));
+    _setText('rq-login-title', _copy('loginGateTitle'));
+    _setText('rq-login-description', _copy('loginGateDescription'));
+    _setText('rq-login-button', _copy('loginGateButton'));
+    _setText('rq-type-badge-text', _copy('heroBadge'));
+    _setText('rq-hero-title', _copy('heroTitle'));
+    _setAttr('rq-back-link', 'aria-label', _copy('backAria'));
+    _setText('rq-header-title', _copy('headerTitle'));
+    _setText('rq-page-badge-text', _copy('pageBadge'));
+    _setText('rq-subtitle', _copy('subtitle'));
+    _setText('rq-intro-chip', _copy('introChip'));
+    _setText('rq-intro-text', _copy('introText'));
+    _setText('rq-title-label', _copy('titleLabel'));
+    _setPlaceholder('rq-title', _copy('titlePlaceholder'));
+    _setText('rq-title-hint', _copy('titleHint'));
+    _setText('rq-category-label', _copy('categoryLabel'));
+    _setText('rq-subcategory-label', _copy('subcategoryLabel'));
+    _setText('rq-region-label', _copy('regionLabel'));
+    _setText('rq-city-label', _copy('cityLabel'));
+    _setText('rq-city-clear', _copy('cityClear'));
+    _setText('rq-deadline-label', _copy('deadlineLabel'));
+    _setText('rq-details-label', _copy('detailsLabel'));
+    _setPlaceholder('rq-details', _copy('detailsPlaceholder'));
+    _setText('rq-files-label', _copy('filesLabel'));
+    _setText('rq-file-trigger-text', _copy('fileTrigger'));
+    _setText('rq-upload-hint', _copy('uploadHint'));
+    _setText('rq-file-summary', _copy('attachmentEmpty'));
+    _setText('rq-attachment-note-title', _copy('attachmentPreparedMany'));
+    _setText('rq-attachment-note-text', _copy('submitUploadingNoAttachments'));
+    _setText('rq-cancel-link', _copy('cancel'));
+    const submitBtn = document.getElementById('rq-submit');
+    if (submitBtn) {
+      if (submitBtn.classList.contains('is-loading')) {
+        submitBtn.innerHTML = `<span class="spinner-inline"></span><span>${_copy('submitLoading')}</span>`;
+      } else {
+        _resetBtn(submitBtn);
+      }
+    }
+    _setText('rq-submit-state-title', _copy('submitStateTitle'));
+    _setText('rq-submit-state-message', _copy('submitStateMessage'));
+    _setAttr('rq-submit-state-progress', 'aria-label', _copy('submitStateProgressAria'));
+    _setText('rq-success-title', _copy('successTitle'));
+    _setText('rq-success-message', _copy('successMessage'));
+    _setText('rq-success-orders-link', _copy('successOrders'));
+    _setText('rq-success-home-link', _copy('successHome'));
+    _setText('rq-toast-title', _copy('toastDefaultTitle'));
+    _setText('rq-toast-message', _copy('toastDefaultMessage'));
+    _setAttr('rq-toast-close', 'aria-label', _copy('toastCloseAria'));
+    _refreshSelectPlaceholder('rq-category', _copy('categoryPlaceholder'));
+    _refreshSelectPlaceholder('rq-subcategory', _copy('subcategoryPlaceholder'));
+    _refreshRegionCityOptions();
+  }
+
+  function _refreshSelectPlaceholder(id, label) {
+    const select = document.getElementById(id);
+    const placeholder = select?.querySelector('option[value=""]');
+    if (placeholder) placeholder.textContent = label;
+  }
+
   async function _loadRegionCatalog() {
     const res = await ApiClient.get('/api/providers/geo/regions-cities/');
     if (res.ok && res.data) {
@@ -122,18 +463,36 @@ const RequestQuotePage = (() => {
     if (!_regionCatalog.length) {
       _regionCatalog = UI.getRegionCatalogFallback();
     }
-    UI.populateRegionOptions(document.getElementById('rq-region'), _regionCatalog, {
-      placeholder: 'اختر المنطقة الإدارية',
-    });
-    _populateCitiesForRegion('');
+    _refreshRegionCityOptions();
+  }
+
+  function _refreshRegionCityOptions() {
+    const regionSelect = document.getElementById('rq-region');
+    const citySelect = document.getElementById('rq-city');
+    const currentRegion = regionSelect?.value || '';
+    const currentCity = citySelect?.value || '';
+    if (_regionCatalog.length) {
+      UI.populateRegionOptions(regionSelect, _regionCatalog, {
+        placeholder: _copy('regionPlaceholder'),
+        currentValue: currentRegion,
+      });
+      UI.populateCityOptions(citySelect, _regionCatalog, regionSelect?.value || '', {
+        currentValue: currentCity,
+        placeholder: _copy('cityPlaceholder'),
+        emptyPlaceholder: _copy('cityEmptyPlaceholder'),
+      });
+    } else {
+      _setText('rq-region-placeholder', _copy('regionPlaceholder'));
+      _setText('rq-city-placeholder', _copy('cityEmptyPlaceholder'));
+    }
     _updateCityClearVisibility();
   }
 
   function _populateCitiesForRegion(selectedCity) {
     UI.populateCityOptions(document.getElementById('rq-city'), _regionCatalog, document.getElementById('rq-region')?.value || '', {
       currentValue: selectedCity || '',
-      placeholder: 'اختر المدينة (اختياري)',
-      emptyPlaceholder: 'اختر المنطقة أولًا ثم المدينة...',
+      placeholder: _copy('cityPlaceholder'),
+      emptyPlaceholder: _copy('cityEmptyPlaceholder'),
     });
   }
 
@@ -220,6 +579,7 @@ const RequestQuotePage = (() => {
     const cats = Array.isArray(res.data) ? res.data : (res.data.results || []);
     const sel = document.getElementById('rq-category');
     if (!sel) return;
+    _refreshSelectPlaceholder('rq-category', _copy('categoryPlaceholder'));
     cats.forEach(c => {
       const opt = document.createElement('option');
       opt.value = c.id;
@@ -235,7 +595,7 @@ const RequestQuotePage = (() => {
     if (!sel || !subSel) return;
     _clearFieldError('rq-category');
     _clearFieldError('rq-subcategory');
-    subSel.innerHTML = '<option value="">-- اختر التخصص --</option>';
+    subSel.innerHTML = `<option value="">${_copy('subcategoryPlaceholder')}</option>`;
     const opt = sel.options[sel.selectedIndex];
     if (!opt || !opt.dataset.subs) return;
     try {
@@ -281,10 +641,10 @@ const RequestQuotePage = (() => {
 
     _renderAttachments();
     if (audioSkipped) {
-      _showToast('يمكن إرفاق تسجيل صوتي واحد فقط مع الطلب', 'warning');
+      _showToast(_copy('warningAudioSingle'), 'warning');
       return;
     }
-    if (!added) _showToast('لم تتم إضافة مرفقات جديدة', 'warning');
+    if (!added) _showToast(_copy('warningNoNewAttachments'), 'warning');
   }
 
   function _fileKey(file) {
@@ -344,8 +704,8 @@ const RequestQuotePage = (() => {
           type: 'button',
           className: 'attach-thumb-remove',
           textContent: '×',
-          title: kind === 'video' ? 'إزالة الفيديو' : 'إزالة الصورة',
-          'aria-label': kind === 'video' ? 'إزالة الفيديو' : 'إزالة الصورة',
+          title: kind === 'video' ? _copy('removeVideo') : _copy('removeImage'),
+          'aria-label': kind === 'video' ? _copy('removeVideo') : _copy('removeImage'),
         });
         removeBtn.addEventListener('click', () => {
           const idx = items.indexOf(file);
@@ -361,8 +721,8 @@ const RequestQuotePage = (() => {
       list.appendChild(section);
     };
 
-    renderThumbSection('الصور', _images, 'image');
-    renderThumbSection('الفيديو', _videos, 'video');
+    renderThumbSection(_copy('sectionImages'), _images, 'image');
+    renderThumbSection(_copy('sectionVideos'), _videos, 'video');
 
     const renderSection = (title, items, removeItem) => {
       if (!items.length) return;
@@ -376,7 +736,7 @@ const RequestQuotePage = (() => {
         const removeBtn = UI.el('button', {
           type: 'button',
           className: 'file-remove-btn',
-          textContent: 'إزالة',
+          textContent: _copy('removeFile'),
         });
         removeBtn.addEventListener('click', () => {
           removeItem(idx);
@@ -397,7 +757,7 @@ const RequestQuotePage = (() => {
       const removeBtn = UI.el('button', {
         type: 'button',
         className: 'file-remove-btn',
-        textContent: 'إزالة',
+        textContent: _copy('removeFile'),
       });
       removeBtn.addEventListener('click', () => {
         _audio = null;
@@ -406,15 +766,15 @@ const RequestQuotePage = (() => {
 
       item.appendChild(removeBtn);
       const section = UI.el('div', { className: 'attach-section' });
-      section.appendChild(UI.el('strong', { className: 'attach-section-title', textContent: 'الصوت' }));
+      section.appendChild(UI.el('strong', { className: 'attach-section-title', textContent: _copy('sectionAudio') }));
       section.appendChild(item);
       list.appendChild(section);
     }
 
-    renderSection('الملفات', _files, (idx) => { _files.splice(idx, 1); });
+    renderSection(_copy('sectionFiles'), _files, (idx) => { _files.splice(idx, 1); });
 
     if (!_images.length && !_videos.length && !_files.length && !_audio) {
-      list.appendChild(UI.el('span', { className: 'attach-empty', textContent: 'لا توجد مرفقات مضافة' }));
+      list.appendChild(UI.el('span', { className: 'attach-empty', textContent: _copy('attachmentEmpty') }));
     }
   }
 
@@ -426,19 +786,19 @@ const RequestQuotePage = (() => {
     if (!summary) return;
     const total = _images.length + _videos.length + _files.length + (_audio ? 1 : 0);
     if (!total) {
-      summary.textContent = 'لا توجد مرفقات مضافة';
+      summary.textContent = _copy('attachmentEmpty');
       if (note) note.classList.add('hidden');
       return;
     }
-    const parts = [`${total} ملف`];
-    if (_images.length) parts.push(`${_images.length} صورة`);
-    if (_videos.length) parts.push(`${_videos.length} فيديو`);
-    if (_audio) parts.push('تسجيل صوتي');
-    if (_files.length) parts.push(`${_files.length} ملف عام`);
+    const parts = [_formatAttachmentPart(_copy('attachmentTypeFile'), total)];
+    if (_images.length) parts.push(_formatAttachmentPart(_copy('attachmentTypeImage'), _images.length));
+    if (_videos.length) parts.push(_formatAttachmentPart(_copy('attachmentTypeVideo'), _videos.length));
+    if (_audio) parts.push(_copy('attachmentTypeAudio'));
+    if (_files.length) parts.push(_formatAttachmentPart(_copy('attachmentTypeGeneralFile'), _files.length));
     summary.textContent = parts.join(' - ');
     if (note && noteTitle && noteText) {
-      noteTitle.textContent = total === 1 ? 'تمت إضافة مرفق واحد' : 'تم تجهيز المرفقات';
-      noteText.textContent = `تمت إضافة ${parts.join(' و')}، وستُرسل مع الطلب مباشرة عند الإرسال.`;
+      noteTitle.textContent = total === 1 ? _copy('attachmentPreparedOne') : _copy('attachmentPreparedMany');
+      noteText.textContent = _copy('attachmentNoteMessage', { items: _joinList(parts) });
       note.classList.remove('hidden');
     }
   }
@@ -455,10 +815,25 @@ const RequestQuotePage = (() => {
   }
 
   function _formatAttachmentCount(count) {
-    if (!count) return 'بدون مرفقات';
-    if (count === 1) return 'مرفق واحد';
-    if (count === 2) return 'مرفقان';
-    return `${count} مرفقات`;
+    if (!count) return _copy('attachmentWithoutAny');
+    if (count === 1) return _copy('attachmentOne');
+    if (count === 2) return _copy('attachmentTwo');
+    return _copy('attachmentMany', { count });
+  }
+
+  function _formatAttachmentPart(label, count) {
+    if (_currentLang() === 'en') {
+      return `${count} ${label}${count === 1 ? '' : 's'}`;
+    }
+    return `${count} ${label}`;
+  }
+
+  function _joinList(parts) {
+    if (!Array.isArray(parts) || !parts.length) return '';
+    if (parts.length === 1) return parts[0];
+    if (_currentLang() === 'en') return parts.join(', ');
+    if (parts.length === 2) return `${parts[0]} و${parts[1]}`;
+    return `${parts.slice(0, -1).join('، ')} و${parts[parts.length - 1]}`;
   }
 
   function _markFieldInvalid(id) {
@@ -517,28 +892,28 @@ const RequestQuotePage = (() => {
 
     const missing = [];
     if (!title) {
-      _setFieldError('rq-title', 'يرجى كتابة عنوان الطلب');
-      missing.push({ id: 'rq-title', message: 'يرجى كتابة عنوان الطلب' });
+      _setFieldError('rq-title', _copy('validationTitleRequired'));
+      missing.push({ id: 'rq-title', message: _copy('validationTitleRequired') });
     }
     if (!category) {
-      _setFieldError('rq-category', 'يرجى اختيار التصنيف الرئيسي');
-      missing.push({ id: 'rq-category', message: 'يرجى اختيار التصنيف الرئيسي' });
+      _setFieldError('rq-category', _copy('validationCategoryRequired'));
+      missing.push({ id: 'rq-category', message: _copy('validationCategoryRequired') });
     }
     if (!subcategory) {
-      _setFieldError('rq-subcategory', 'يرجى اختيار التصنيف الفرعي');
-      missing.push({ id: 'rq-subcategory', message: 'يرجى اختيار التصنيف الفرعي' });
+      _setFieldError('rq-subcategory', _copy('validationSubcategoryRequired'));
+      missing.push({ id: 'rq-subcategory', message: _copy('validationSubcategoryRequired') });
     }
     if (!details) {
-      _setFieldError('rq-details', 'يرجى كتابة تفاصيل الطلب');
-      missing.push({ id: 'rq-details', message: 'يرجى كتابة تفاصيل الطلب' });
+      _setFieldError('rq-details', _copy('validationDetailsRequired'));
+      missing.push({ id: 'rq-details', message: _copy('validationDetailsRequired') });
     }
     if (details.length > 500) {
-      _setFieldError('rq-details', 'تفاصيل الطلب يجب ألا تتجاوز 500 حرف');
-      missing.push({ id: 'rq-details', message: 'تفاصيل الطلب يجب ألا تتجاوز 500 حرف' });
+      _setFieldError('rq-details', _copy('validationDetailsTooLong'));
+      missing.push({ id: 'rq-details', message: _copy('validationDetailsTooLong') });
     }
     if (title.length > 50) {
-      _setFieldError('rq-title', 'عنوان الطلب يجب ألا يتجاوز 50 حرفًا');
-      missing.push({ id: 'rq-title', message: 'عنوان الطلب يجب ألا يتجاوز 50 حرفًا' });
+      _setFieldError('rq-title', _copy('validationTitleTooLong'));
+      missing.push({ id: 'rq-title', message: _copy('validationTitleTooLong') });
     }
 
     if (missing.length) {
@@ -702,8 +1077,13 @@ const RequestQuotePage = (() => {
     const toastTitle = document.getElementById('rq-toast-title');
     const toastMessage = document.getElementById('rq-toast-message');
     const toastIcon = document.getElementById('rq-toast-icon');
-    const toneKey = _toastTones[type] ? type : 'info';
-    const tone = _toastTones[toneKey];
+    const toneKey = TOAST_ICONS[type] ? type : 'info';
+    const tone = {
+      title: _copy(`tone${toneKey.charAt(0).toUpperCase()}${toneKey.slice(1)}`),
+      role: toneKey === 'info' || toneKey === 'success' ? 'status' : 'alert',
+      live: toneKey === 'info' || toneKey === 'success' ? 'polite' : 'assertive',
+      icon: TOAST_ICONS[toneKey],
+    };
     if (!toast) {
       window.alert(message || '');
       return;
@@ -733,7 +1113,7 @@ const RequestQuotePage = (() => {
     const count = document.getElementById('rq-submit-state-count');
     const percent = document.getElementById('rq-submit-state-percent');
     const progress = document.getElementById('rq-submit-state-bar');
-    const progressWrap = document.querySelector('.rq-submit-state-progress');
+    const progressWrap = document.getElementById('rq-submit-state-progress');
     if (!overlay) return;
 
     if (!visible) {
@@ -744,11 +1124,11 @@ const RequestQuotePage = (() => {
 
     const attachmentCount = Number(options.attachmentCount || 0);
     const progressValue = Math.max(0, Math.min(100, Math.round(Number(options.progress || 0))));
-    if (title) title.textContent = options.title || 'جاري إرسال الطلب';
+    if (title) title.textContent = options.title || _copy('submitStateTitle');
     if (message) {
       message.textContent = options.message || (attachmentCount
-        ? `يتم الآن رفع ${_formatAttachmentCount(attachmentCount)} مع بيانات الطلب. لا تغلق الصفحة حتى يكتمل الإرسال.`
-        : 'يتم الآن إرسال بيانات الطلب. لا تغلق الصفحة حتى يكتمل الإرسال.');
+        ? _copy('submitUploadingWithAttachments', { count: _formatAttachmentCount(attachmentCount) })
+        : _copy('submitUploadingNoAttachments'));
     }
     if (count) count.textContent = _formatAttachmentCount(attachmentCount);
     if (percent) percent.textContent = `${progressValue}%`;
@@ -763,20 +1143,20 @@ const RequestQuotePage = (() => {
 
   function _setSubmitProgress(progress, attachmentCount) {
     const safeProgress = Math.max(0, Math.min(100, Math.round(Number(progress || 0))));
-    let title = 'جاري إرسال الطلب';
+    let title = _copy('submitStateTitle');
     let message = attachmentCount
-      ? `يتم الآن رفع ${_formatAttachmentCount(attachmentCount)} مع بيانات الطلب.`
-      : 'يتم الآن إرسال بيانات الطلب إلى المنصة.';
+      ? _copy('submitUploadingWithAttachments', { count: _formatAttachmentCount(attachmentCount) })
+      : _copy('submitSendingPlatform');
 
     if (attachmentCount && safeProgress <= 10) {
-      title = 'جاري تجهيز المرفقات';
-      message = `تم تجهيز ${_formatAttachmentCount(attachmentCount)} وبدء رفعها الآن.`;
+      title = _copy('submitPreparingAttachments');
+      message = _copy('submitPreparingAttachmentsMessage', { count: _formatAttachmentCount(attachmentCount) });
     } else if (attachmentCount && safeProgress < 100) {
-      title = 'جاري رفع المرفقات';
-      message = `تم رفع ${safeProgress}% من الطلب حتى الآن. انتظر قليلًا حتى يكتمل الإرسال.`;
+      title = _copy('submitUploadingAttachments');
+      message = _copy('submitUploadingAttachmentsMessage', { percent: safeProgress });
     } else if (safeProgress >= 100) {
-      title = 'جاري اعتماد الطلب';
-      message = 'اكتمل رفع البيانات، وجارٍ اعتماد الطلب وإظهاره للمزوّدين.';
+      title = _copy('submitApproving');
+      message = _copy('submitApprovingMessage');
     }
 
     _setSubmitOverlay(true, {
@@ -799,7 +1179,7 @@ const RequestQuotePage = (() => {
     if (btn) {
       btn.disabled = true;
       btn.classList.add('is-loading');
-      btn.innerHTML = '<span class="spinner-inline"></span><span>جاري إرسال الطلب</span>';
+      btn.innerHTML = `<span class="spinner-inline"></span><span>${_copy('submitLoading')}</span>`;
     }
     _setSubmitProgress(0, attachmentCount);
 
@@ -830,10 +1210,10 @@ const RequestQuotePage = (() => {
         setTimeout(() => { window.location.href = '/orders/'; }, 2000);
       } else {
         const apiFieldMessage = _applyApiFieldErrors(res.data);
-        _showToast(apiFieldMessage || _extractApiError(res.data) || 'تعذر إرسال الطلب، تحقق من البيانات وحاول مرة أخرى', 'error', { duration: 5200 });
+        _showToast(apiFieldMessage || _extractApiError(res.data) || _copy('submitErrorFallback'), 'error', { duration: 5200 });
       }
     } catch (err) {
-      _showToast('تعذر الاتصال بالخادم، حاول مرة أخرى', 'error', { duration: 5200 });
+      _showToast(_copy('serverConnectionError'), 'error', { duration: 5200 });
     } finally {
       _setSubmitOverlay(false);
       _resetBtn(btn);
@@ -852,7 +1232,7 @@ const RequestQuotePage = (() => {
     if (!btn) return;
     btn.disabled = false;
     btn.classList.remove('is-loading');
-    btn.innerHTML = _submitButtonMarkup;
+    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg><span>${_copy('submit')}</span>`;
   }
 
   function _dateIso(date) {
@@ -863,5 +1243,7 @@ const RequestQuotePage = (() => {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
   window.addEventListener('pageshow', _resetSuccessOverlay);
-  return {};
+  return {
+    refreshLanguage: _handleLanguageChange,
+  };
 })();

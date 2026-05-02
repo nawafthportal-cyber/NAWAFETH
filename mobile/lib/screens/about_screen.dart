@@ -17,6 +17,35 @@ class _AboutScreenState extends State<AboutScreen> {
   String _heroSubtitle = 'حلول تقنية مبتكرة تربط مزوّدي الخدمات بطالبيها';
   String _socialTitle = 'تواصل معنا';
   String _websiteLabel = 'الموقع الرسمي';
+  String? _errorMessage;
+
+  static const Map<String, Map<String, dynamic>> _sectionMeta = {
+    'about': {
+      'icon': Icons.info_outline_rounded,
+      'tone': Color(0xFF6D5DF6),
+      'kicker': 'نبذة',
+    },
+    'vision': {
+      'icon': Icons.visibility_outlined,
+      'tone': Color(0xFF8B5CF6),
+      'kicker': 'رؤيتنا',
+    },
+    'goals': {
+      'icon': Icons.track_changes_outlined,
+      'tone': Color(0xFFD97706),
+      'kicker': 'أهدافنا',
+    },
+    'values': {
+      'icon': Icons.star_border_rounded,
+      'tone': Color(0xFF0E8F72),
+      'kicker': 'قيمنا',
+    },
+    'app': {
+      'icon': Icons.phone_iphone_rounded,
+      'tone': Color(0xFF334155),
+      'kicker': 'عن التطبيق',
+    },
+  };
 
   static const Map<String, String> _defaultTitles = {
     "about": "من نحن",
@@ -45,17 +74,12 @@ class _AboutScreenState extends State<AboutScreen> {
   String _iosStoreUrl = '';
   String _websiteUrl = '';
   String _xUrl = '';
+  String _instagramUrl = '';
+  String _snapchatUrl = '';
+  String _tiktokUrl = '';
+  String _youtubeUrl = '';
   String _whatsappUrl = '';
   String _emailUrl = '';
-
-  /// 🔹 التحكم بفتح/إغلاق الكروت
-  final Map<String, bool> _expanded = {
-    "about": false,
-    "vision": false,
-    "goals": false,
-    "values": false,
-    "app": false,
-  };
 
   @override
   void initState() {
@@ -132,8 +156,17 @@ class _AboutScreenState extends State<AboutScreen> {
         _iosStoreUrl = (links['ios_store'] as String? ?? '').trim();
         _websiteUrl = (links['website_url'] as String? ?? '').trim();
         _xUrl = (links['x_url'] as String? ?? '').trim();
+        _instagramUrl = (links['instagram_url'] as String? ?? '').trim();
+        _snapchatUrl = (links['snapchat_url'] as String? ?? '').trim();
+        _tiktokUrl = (links['tiktok_url'] as String? ?? '').trim();
+        _youtubeUrl = (links['youtube_url'] as String? ?? '').trim();
         _whatsappUrl = (links['whatsapp_url'] as String? ?? '').trim();
         _emailUrl = (links['email'] as String? ?? '').trim();
+        _errorMessage = null;
+      });
+    } else {
+      setState(() {
+        _errorMessage = 'تعذر تحميل محتوى الصفحة الآن. يتم عرض المحتوى الافتراضي.';
       });
     }
 
@@ -180,124 +213,207 @@ class _AboutScreenState extends State<AboutScreen> {
     return 'mailto:$v';
   }
 
-  /// 🔹 بناء الكرت القابل للتوسيع
-  Widget _buildExpandableCard(
-    String key,
-    String title,
-    String content,
-    IconData icon,
-  ) {
-    final isExpanded = _expanded[key] ?? false;
+  Widget _buildInfoCard(String key, String title, String content) {
+    final meta = _sectionMeta[key] ?? _sectionMeta['about']!;
+    final tone = meta['tone'] as Color;
+    final icon = meta['icon'] as IconData;
+    final kicker = meta['kicker'] as String;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Column(
-        children: [
-          ListTile(
-              leading: CircleAvatar(
-              backgroundColor: Colors.deepPurple.withValues(alpha: 0.1),
-              child: Icon(icon, color: Colors.deepPurple, size: 20),
-            ),
-            title: Text(
-              title,
-              style: const TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            trailing: Icon(
-              isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              color: Colors.deepPurple,
-            ),
-            onTap: () {
-              setState(() {
-                _expanded[key] = !isExpanded;
-              });
-            },
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: tone.withValues(alpha: 0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Text(
-                content,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 13,
-                  height: 1.6,
-                  color: Colors.black87,
-                ),
-              ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(16),
             ),
-            crossFadeState:
-                isExpanded
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 300),
+            child: Icon(icon, color: tone, size: 22),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            kicker,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: tone,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF22163F),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            content,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.8,
+              color: Color(0xFF625B78),
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// 🔹 أيقونة تواصل اجتماعي
-  Widget _buildSocialIcon(IconData icon, String tooltip, String url, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Tooltip(
-        message: tooltip,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(50),
-          onTap: () => _openExternalUrl(url),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 24),
+  Widget _buildLinkTile({
+    required IconData icon,
+    required String label,
+    required String caption,
+    required Color color,
+    required String url,
+    bool outlined = false,
+  }) {
+    return InkWell(
+      onTap: () => _openExternalUrl(url),
+      borderRadius: BorderRadius.circular(22),
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: outlined ? Colors.white : color,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: outlined ? const Color(0x1A5F3DC4) : color,
           ),
+          boxShadow: outlined
+              ? []
+              : [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.18),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: outlined
+                    ? color.withValues(alpha: 0.10)
+                    : Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                icon,
+                color: outlined ? color : Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: outlined ? const Color(0xFF22163F) : Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    caption,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: outlined
+                          ? const Color(0xFF6D6488)
+                          : Colors.white.withValues(alpha: 0.84),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_rounded,
+              color: outlined ? color : Colors.white,
+              size: 20,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  /// 🔹 زر متجر أنيق
-  Widget _buildStoreButton(IconData icon, String label, Color color, String url) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+  Widget _buildSocialTile({
+    required IconData icon,
+    required String label,
+    required String url,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: () => _openExternalUrl(url),
+      borderRadius: BorderRadius.circular(20),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.12)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
-          ),
-          onPressed: () => _openExternalUrl(url),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(16),
               ),
-            ],
-          ),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF2D1D57),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -318,28 +434,67 @@ class _AboutScreenState extends State<AboutScreen> {
           : ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // ✅ هيدر أنيق
           Container(
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.deepPurple, Colors.deepPurple.shade400],
+              gradient: const LinearGradient(
+                colors: [Color(0xFF34156F), Color(0xFF552BC0), Color(0xFF7A5AE8)],
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
               ),
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF34156F).withValues(alpha: 0.18),
+                  blurRadius: 34,
+                  offset: const Offset(0, 18),
+                ),
+              ],
             ),
-            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.window_rounded, size: 42, color: Colors.white),
-                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'عن المنصة',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  width: 82,
+                  height: 82,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.26),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.dashboard_customize_rounded,
+                    size: 38,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Text(
                   _heroTitle,
                   style: const TextStyle(
-                    fontSize: 20,
                     fontFamily: 'Cairo',
-                    fontWeight: FontWeight.bold,
+                    fontSize: 30,
+                    height: 1.15,
+                    fontWeight: FontWeight.w900,
                     color: Colors.white,
                   ),
                 ),
@@ -347,137 +502,272 @@ class _AboutScreenState extends State<AboutScreen> {
                 Text(
                   _heroSubtitle,
                   style: const TextStyle(
-                    fontSize: 13,
                     fontFamily: 'Cairo',
-                    color: Colors.white70,
+                    fontSize: 14,
+                    height: 1.9,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFF3ECFF),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'الوصول الرسمي',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFF3ECFF),
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'روابط موثقة وهوية أوضح',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'اعرض الموقع الرسمي وروابط المتاجر ومنصات التواصل من واجهة واحدة منظمة.',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          height: 1.7,
+                          color: Color(0xE6FFFFFF),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFFED7AA)),
+              ),
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF9A3412),
+                ),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 22),
 
-          // ✅ الكروت القابلة للتوسيع
-          _buildExpandableCard(
+          const Text(
+            'تعرف على نوافذ',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF22163F),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'محتوى مباشر وواضح بدل القوائم القابلة للطي، كما في واجهة الويب.',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF625B78),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          _buildInfoCard(
             "about",
             _titles["about"] ?? _defaultTitles["about"]!,
             _bodies["about"] ?? _defaultBodies["about"]!,
-            Icons.info_outline,
           ),
-          _buildExpandableCard(
+          _buildInfoCard(
             "vision",
             _titles["vision"] ?? _defaultTitles["vision"]!,
             _bodies["vision"] ?? _defaultBodies["vision"]!,
-            Icons.visibility_outlined,
           ),
-          _buildExpandableCard(
+          _buildInfoCard(
             "goals",
             _titles["goals"] ?? _defaultTitles["goals"]!,
             _bodies["goals"] ?? _defaultBodies["goals"]!,
-            Icons.track_changes_outlined,
           ),
-          _buildExpandableCard(
+          _buildInfoCard(
             "values",
             _titles["values"] ?? _defaultTitles["values"]!,
             _bodies["values"] ?? _defaultBodies["values"]!,
-            Icons.star_border_outlined,
           ),
-          _buildExpandableCard(
+          _buildInfoCard(
             "app",
             _titles["app"] ?? _defaultTitles["app"]!,
             _bodies["app"] ?? _defaultBodies["app"]!,
-            Icons.mobile_screen_share_outlined,
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
-          // ✅ أزرار المتاجر
-          Row(
-            children: [
-              _buildStoreButton(
-                FontAwesomeIcons.googlePlay,
-                "Google Play",
-                Colors.green,
-                _androidStoreUrl,
-              ),
-              _buildStoreButton(
-                FontAwesomeIcons.appStoreIos,
-                "App Store",
-                Colors.blue,
-                _iosStoreUrl,
-              ),
-            ],
-          ),
-
-          if (_websiteUrl.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _openExternalUrl(_websiteUrl),
-                icon: const Icon(Icons.public),
-                    label: Text(_websiteLabel),
+          if (_androidStoreUrl.isNotEmpty || _iosStoreUrl.isNotEmpty || _websiteUrl.isNotEmpty) ...[
+            const Text(
+              'روابط المنصة',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF22163F),
               ),
             ),
+            const SizedBox(height: 12),
+            if (_androidStoreUrl.isNotEmpty)
+              _buildLinkTile(
+                icon: FontAwesomeIcons.googlePlay,
+                label: 'Google Play',
+                caption: 'تطبيق Android',
+                color: const Color(0xFF43218D),
+                url: _androidStoreUrl,
+              ),
+            if (_androidStoreUrl.isNotEmpty &&
+                (_iosStoreUrl.isNotEmpty || _websiteUrl.isNotEmpty))
+              const SizedBox(height: 10),
+            if (_iosStoreUrl.isNotEmpty)
+              _buildLinkTile(
+                icon: FontAwesomeIcons.appStoreIos,
+                label: 'App Store',
+                caption: 'تطبيق iPhone',
+                color: const Color(0xFF5F3DC4),
+                url: _iosStoreUrl,
+              ),
+            if (_iosStoreUrl.isNotEmpty && _websiteUrl.isNotEmpty)
+              const SizedBox(height: 10),
+            if (_websiteUrl.isNotEmpty)
+              _buildLinkTile(
+                icon: Icons.public_rounded,
+                label: _websiteLabel,
+                caption: 'زيارة موقع نوافذ',
+                color: const Color(0xFF5F3DC4),
+                url: _websiteUrl,
+                outlined: true,
+              ),
           ],
 
-          // ✅ روابط التواصل الاجتماعي
-          if (_xUrl.isNotEmpty || _whatsappUrl.isNotEmpty || _emailUrl.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Center(
-              child: Text(
-                _socialTitle,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
-                ),
+          if (_xUrl.isNotEmpty ||
+              _instagramUrl.isNotEmpty ||
+              _snapchatUrl.isNotEmpty ||
+              _tiktokUrl.isNotEmpty ||
+              _youtubeUrl.isNotEmpty ||
+              _whatsappUrl.isNotEmpty ||
+              _emailUrl.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Text(
+              _socialTitle,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF22163F),
               ),
             ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: [
                 if (_xUrl.isNotEmpty)
-                  _buildSocialIcon(
-                    FontAwesomeIcons.xTwitter,
-                    'X',
-                    _xUrl,
-                    Colors.black,
+                  _buildSocialTile(
+                    icon: FontAwesomeIcons.xTwitter,
+                    label: 'X',
+                    url: _xUrl,
+                    color: Colors.black,
+                  ),
+                if (_instagramUrl.isNotEmpty)
+                  _buildSocialTile(
+                    icon: FontAwesomeIcons.instagram,
+                    label: 'Instagram',
+                    url: _instagramUrl,
+                    color: const Color(0xFFC13584),
+                  ),
+                if (_snapchatUrl.isNotEmpty)
+                  _buildSocialTile(
+                    icon: FontAwesomeIcons.snapchat,
+                    label: 'Snapchat',
+                    url: _snapchatUrl,
+                    color: const Color(0xFFFACC15),
+                  ),
+                if (_tiktokUrl.isNotEmpty)
+                  _buildSocialTile(
+                    icon: FontAwesomeIcons.tiktok,
+                    label: 'TikTok',
+                    url: _tiktokUrl,
+                    color: const Color(0xFF111827),
+                  ),
+                if (_youtubeUrl.isNotEmpty)
+                  _buildSocialTile(
+                    icon: FontAwesomeIcons.youtube,
+                    label: 'YouTube',
+                    url: _youtubeUrl,
+                    color: const Color(0xFFDC2626),
                   ),
                 if (_whatsappUrl.isNotEmpty)
-                  _buildSocialIcon(
-                    FontAwesomeIcons.whatsapp,
-                    'واتساب',
-                    _normalizeWhatsapp(_whatsappUrl),
-                    const Color(0xFF25D366),
+                  _buildSocialTile(
+                    icon: FontAwesomeIcons.whatsapp,
+                    label: 'واتساب',
+                    url: _normalizeWhatsapp(_whatsappUrl),
+                    color: const Color(0xFF25D366),
                   ),
                 if (_emailUrl.isNotEmpty)
-                  _buildSocialIcon(
-                    Icons.email_outlined,
-                    'البريد',
-                    _normalizeEmail(_emailUrl),
-                    Colors.deepPurple,
+                  _buildSocialTile(
+                    icon: Icons.email_outlined,
+                    label: 'البريد',
+                    url: _normalizeEmail(_emailUrl),
+                    color: const Color(0xFF5F3DC4),
                   ),
               ],
             ),
           ],
 
-          const SizedBox(height: 30),
-
-          // ✅ بيانات ختامية
-          Center(
+          const SizedBox(height: 26),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0x1A5F3DC4)),
+            ),
             child: Text(
-              "مؤسسة نوافذ للخدمات لتقنية المعلومات\n"
-              "📍 المملكة العربية السعودية - الرياض",
+              'مؤسسة نوافذ للخدمات لتقنية المعلومات\nالمملكة العربية السعودية - الرياض',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 12,
-                color: Colors.grey[700],
-                height: 1.6,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF625B78),
+                height: 1.8,
               ),
             ),
           ),

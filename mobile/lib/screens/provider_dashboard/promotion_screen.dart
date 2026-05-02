@@ -170,7 +170,7 @@ const _promoServices = [
   ),
   _PromoServiceDef(
     type: 'portfolio_showcase',
-    label: 'شريط البنرات والمشاريع',
+    label: 'البنرات والمشاريع',
     icon: Icons.collections_rounded,
     needsRange: true,
     needsFrequency: true,

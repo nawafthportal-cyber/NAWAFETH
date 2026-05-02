@@ -718,8 +718,14 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             MaterialPageRoute(builder: (_) => const OrdersHubScreen()));
       }),
       _QuickAction(Icons.bookmark_border_rounded, 'محفوظاتي', () {
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const InteractiveScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const InteractiveScreen(
+              initialTab: InteractiveInitialTab.favorites,
+            ),
+          ),
+        );
       }),
       _QuickAction(Icons.chat_bubble_outline_rounded, 'محادثاتي', () {
         Navigator.push(
@@ -902,8 +908,14 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             trailing: '${profile.favoritesMediaCount}',
             isDark: isDark,
             purple: purple,
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const InteractiveScreen())),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const InteractiveScreen(
+                  initialTab: InteractiveInitialTab.favorites,
+                ),
+              ),
+            ),
           ),
         ],
       ),

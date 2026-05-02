@@ -4,12 +4,59 @@
 'use strict';
 
 const MyQrPage = (() => {
+  const COPY = {
+    ar: {
+      pageTitle: 'نوافــذ — QR نافذتي',
+      authTitle: 'سجّل دخولك',
+      authDesc: 'لعرض كود نافذتي، سجّل دخولك أولاً',
+      authCta: 'تسجيل الدخول',
+      retry: 'إعادة المحاولة',
+      qrTitle: 'رابط نافذتي',
+      qrImageAlt: 'QR نافذتي',
+      qrImageFallback: 'تعذر تحميل صورة QR',
+      copy: 'نسخ الرابط',
+      share: 'مشاركة',
+      open: 'فتح الرابط',
+      linkUnavailable: 'الرابط غير متاح حاليًا',
+      initFailed: 'تعذر تهيئة QR',
+      buildFailed: 'تعذر إنشاء بيانات QR',
+      loadFailed: 'تعذر تحميل بيانات QR',
+      copySuccess: 'تم نسخ الرابط',
+      copyFailed: 'تعذر نسخ الرابط',
+      subtitleFallback: 'حسابك في نوافذ',
+      shareTitle: 'QR نافذتي',
+    },
+    en: {
+      pageTitle: 'Nawafeth — My QR',
+      authTitle: 'Sign in',
+      authDesc: 'Sign in first to view your Nawafeth QR code.',
+      authCta: 'Sign in',
+      retry: 'Try again',
+      qrTitle: 'My Nawafeth link',
+      qrImageAlt: 'My Nawafeth QR',
+      qrImageFallback: 'Unable to load the QR image',
+      copy: 'Copy link',
+      share: 'Share',
+      open: 'Open link',
+      linkUnavailable: 'The link is not available right now.',
+      initFailed: 'Unable to initialize the QR flow.',
+      buildFailed: 'Unable to build the QR data.',
+      loadFailed: 'Unable to load the QR data.',
+      copySuccess: 'Link copied',
+      copyFailed: 'Unable to copy the link',
+      subtitleFallback: 'Your Nawafeth account',
+      shareTitle: 'My Nawafeth QR',
+    },
+  };
+
   let _qrData = null;
+  let _currentPayload = null;
   let _providerProfileId = null;
   let _eventsBound = false;
   let _toastTimer = null;
 
   function init() {
+    _applyStaticCopy();
     const authGate = document.getElementById('qr-auth-gate');
     const app = document.getElementById('qr-app');
 
@@ -23,6 +70,7 @@ const MyQrPage = (() => {
     if (app) app.classList.remove('hidden');
 
     _bindEvents();
+    window.addEventListener('nawafeth:languagechange', _handleLanguageChange);
     _loadQrData();
   }
 
@@ -42,7 +90,7 @@ const MyQrPage = (() => {
       openBtn.addEventListener('click', (event) => {
         if (!_qrData || !_qrData.targetUrl) {
           event.preventDefault();
-          _showToast('الرابط غير متاح حاليًا', 'error');
+          _showToast(_copy('linkUnavailable'), 'error');
         }
       });
     }
@@ -54,58 +102,36 @@ const MyQrPage = (() => {
 
     try {
       if (!window.NwProfileQr || typeof window.NwProfileQr.loadCurrent !== 'function') {
-        throw new Error('تعذر تهيئة QR');
+        throw new Error(_copy('initFailed'));
       }
 
       const current = await window.NwProfileQr.loadCurrent();
       const qr = current && current.qr ? current.qr : null;
       if (!qr || !qr.targetUrl) {
-        throw new Error('تعذر إنشاء بيانات QR');
+        throw new Error(_copy('buildFailed'));
       }
 
+      _currentPayload = current;
       _qrData = qr;
       _providerProfileId = current && current.providerProfile && current.providerProfile.id
         ? current.providerProfile.id
         : null;
 
-      const titleEl = document.getElementById('qr-title');
-      const subtitleEl = document.getElementById('qr-subtitle');
-      const textEl = document.getElementById('qr-link-text');
-      const imgEl = document.getElementById('my-qr-image');
-      const fallbackEl = document.getElementById('my-qr-fallback');
-      const openEl = document.getElementById('open-qr-link');
-
-      if (titleEl) titleEl.textContent = qr.title;
-      if (subtitleEl) subtitleEl.textContent = _subtitleFromCurrent(current);
-      if (textEl) textEl.textContent = qr.targetUrl;
-      if (openEl) openEl.href = qr.targetUrl;
-
-      if (imgEl) {
-        imgEl.onload = () => {
-          if (fallbackEl) fallbackEl.classList.add('hidden');
-          imgEl.classList.remove('hidden');
-        };
-        imgEl.onerror = () => {
-          imgEl.classList.add('hidden');
-          if (fallbackEl) fallbackEl.classList.remove('hidden');
-        };
-        imgEl.classList.remove('hidden');
-        if (fallbackEl) fallbackEl.classList.add('hidden');
-        imgEl.src = qr.imageUrl;
-      }
+      _renderQrCard();
 
       _setLoadingState(false);
       _setContentVisible(true);
     } catch (error) {
       _qrData = null;
+      _currentPayload = null;
       _setLoadingState(false);
-      _setErrorState(error && error.message ? error.message : 'تعذر تحميل بيانات QR');
+      _setErrorState(error && error.message ? error.message : _copy('loadFailed'));
     }
   }
 
   async function _copyLink() {
     if (!_qrData || !_qrData.targetUrl) {
-      _showToast('الرابط غير متاح حاليًا', 'error');
+      _showToast(_copy('linkUnavailable'), 'error');
       return;
     }
     try {
@@ -116,19 +142,19 @@ const MyQrPage = (() => {
           body: { content_type: 'profile', channel: 'copy_link' },
         });
       }
-      _showToast('تم نسخ الرابط', 'success');
+      _showToast(_copy('copySuccess'), 'success');
     } catch (_) {
-      _showToast('تعذر نسخ الرابط', 'error');
+      _showToast(_copy('copyFailed'), 'error');
     }
   }
 
   async function _shareLink() {
     if (!_qrData || !_qrData.targetUrl) {
-      _showToast('الرابط غير متاح حاليًا', 'error');
+      _showToast(_copy('linkUnavailable'), 'error');
       return;
     }
     const sharePayload = {
-      title: _qrData.title || 'QR نافذتي',
+      title: _qrData.title || _copy('shareTitle'),
       text: _qrData.targetUrl,
       url: _qrData.targetUrl,
     };
@@ -172,7 +198,7 @@ const MyQrPage = (() => {
       _safeText(me && me.name),
       _safeText(me && me.username),
     ]);
-    return subtitle || 'حسابك في نوافذ';
+    return subtitle || _copy('subtitleFallback');
   }
 
   function _pickFirstText(values) {
@@ -235,6 +261,77 @@ const MyQrPage = (() => {
         if (toast.parentNode) toast.remove();
       }, 180);
     }, 2200);
+  }
+
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function _copy(key) {
+    const lang = _currentLang();
+    return (COPY[lang] && COPY[lang][key]) || COPY.ar[key] || '';
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value;
+  }
+
+  function _applyStaticCopy() {
+    document.title = _copy('pageTitle');
+    _setText('qr-auth-title', _copy('authTitle'));
+    _setText('qr-auth-desc', _copy('authDesc'));
+    _setText('qr-auth-cta', _copy('authCta'));
+    _setText('qr-retry', _copy('retry'));
+    _setText('qr-title', _copy('qrTitle'));
+    _setText('my-qr-fallback', _copy('qrImageFallback'));
+    _setText('copy-qr-link', _copy('copy'));
+    _setText('share-qr-link', _copy('share'));
+    _setText('open-qr-link', _copy('open'));
+    const imgEl = document.getElementById('my-qr-image');
+    if (imgEl) imgEl.alt = _copy('qrImageAlt');
+  }
+
+  function _renderQrCard() {
+    if (!_qrData) return;
+
+    const titleEl = document.getElementById('qr-title');
+    const subtitleEl = document.getElementById('qr-subtitle');
+    const textEl = document.getElementById('qr-link-text');
+    const imgEl = document.getElementById('my-qr-image');
+    const fallbackEl = document.getElementById('my-qr-fallback');
+    const openEl = document.getElementById('open-qr-link');
+
+    if (titleEl) titleEl.textContent = _qrData.title || _copy('qrTitle');
+    if (subtitleEl) subtitleEl.textContent = _subtitleFromCurrent(_currentPayload);
+    if (textEl) textEl.textContent = _qrData.targetUrl;
+    if (openEl) openEl.href = _qrData.targetUrl;
+
+    if (imgEl) {
+      imgEl.alt = _copy('qrImageAlt');
+      imgEl.onload = () => {
+        if (fallbackEl) fallbackEl.classList.add('hidden');
+        imgEl.classList.remove('hidden');
+      };
+      imgEl.onerror = () => {
+        imgEl.classList.add('hidden');
+        if (fallbackEl) fallbackEl.classList.remove('hidden');
+      };
+      imgEl.classList.remove('hidden');
+      if (fallbackEl) fallbackEl.classList.add('hidden');
+      imgEl.src = _qrData.imageUrl;
+    }
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    if (_qrData) {
+      _renderQrCard();
+    }
   }
 
   if (document.readyState === 'loading') {

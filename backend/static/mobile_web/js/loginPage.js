@@ -9,9 +9,55 @@ const LoginPage = (() => {
   const FACE_ID_PHONE_KEY = 'nw_faceid_phone';
   const FACE_ID_DEVICE_TOKEN_KEY = 'nw_faceid_device_token';
   const FACE_ID_CRED_ID_KEY = 'nw_faceid_cred_id';
+  const COPY = {
+    ar: {
+      pageTitle: 'نوافــذ — تسجيل الدخول',
+      title: 'تسجيل الدخول',
+      description: 'أدخل رقم الجوال وسنرسل لك رمز تحقق لإكمال الدخول بأمان.',
+      phoneLabel: 'رقم الجوال',
+      phoneHint: 'الصيغة المعتمدة: 05XXXXXXXX',
+      submit: 'إرسال رمز التحقق',
+      guest: 'المتابعة كضيف',
+      faceId: 'الدخول بمعرف الوجه',
+      divider: 'أو',
+      invalidPhone: 'الصيغة الصحيحة: 05XXXXXXXX',
+      sendFailed: 'فشل إرسال الرمز',
+      biometricFailed: 'فشل التحقق البيومتري.',
+      biometricLoginFailed: 'فشل تسجيل الدخول بمعرف الوجه.',
+      retryIn: 'أعد المحاولة بعد {time}',
+      timeSecond: 'ث',
+      timeMinute: 'د',
+      timeHour: 'س',
+      welcomeTitle: 'مرحبًا بعودتك',
+      welcomeMessage: 'مرحبًا بعودتك إلى منصة نوافذ. يسعدنا استمرار ثقتك بنا، ونتمنى لك تجربة سلسة ومثمرة.',
+    },
+    en: {
+      pageTitle: 'Nawafeth — Sign in',
+      title: 'Sign in',
+      description: 'Enter your mobile number and we will send a verification code to complete your sign-in securely.',
+      phoneLabel: 'Mobile number',
+      phoneHint: 'Accepted format: 05XXXXXXXX',
+      submit: 'Send verification code',
+      guest: 'Continue as guest',
+      faceId: 'Sign in with Face ID',
+      divider: 'or',
+      invalidPhone: 'Use this format: 05XXXXXXXX',
+      sendFailed: 'Failed to send the code.',
+      biometricFailed: 'Biometric verification failed.',
+      biometricLoginFailed: 'Face ID sign-in failed.',
+      retryIn: 'Retry in {time}',
+      timeSecond: 's',
+      timeMinute: 'm',
+      timeHour: 'h',
+      welcomeTitle: 'Welcome back',
+      welcomeMessage: 'Welcome back to Nawafeth. We are glad to continue serving you and hope your experience stays smooth and productive.',
+    },
+  };
+
   let _sendCooldownTimer = null;
   let _sendCooldownSeconds = 0;
-  let _sendOtpDefaultLabel = 'إرسال رمز التحقق';
+  let _sendOtpDefaultLabel = COPY.ar.submit;
+  let _contentBlocks = {};
 
   function init() {
     if (Auth.isLoggedIn()) {
@@ -27,8 +73,11 @@ const LoginPage = (() => {
     const btnGuest = document.getElementById('btn-guest');
 
     if (!phoneInput || !btnSend || !btnGuest) return;
+    _applyStaticCopy();
     _loadContent();
     _initFaceIdLogin();
+
+    window.addEventListener('nawafeth:languagechange', _handleLanguageChange);
 
     btnSend.addEventListener('click', () => _sendOTP(phoneInput));
     phoneInput.addEventListener('input', () => {
@@ -51,14 +100,8 @@ const LoginPage = (() => {
   async function _loadContent() {
     const res = await ApiClient.get('/api/content/public/');
     if (!res.ok || !res.data || typeof res.data !== 'object') return;
-    const blocks = res.data.blocks || {};
-    _setText('login-title', _resolveTitle(blocks.login_title, 'تسجيل الدخول'));
-    _setText('login-desc', _resolveTitle(blocks.login_description, 'أدخل رقم الجوال وسنرسل لك رمز تحقق لإكمال الدخول بأمان.'));
-    _setText('login-phone-hint', _resolveTitle(blocks.login_phone_hint, 'الصيغة المعتمدة: 05XXXXXXXX'));
-    _sendOtpDefaultLabel = _resolveTitle(blocks.login_submit_label, 'إرسال رمز التحقق');
-    _setText('send-otp-text', _sendOtpDefaultLabel);
-    _setText('guest-login-text', _resolveTitle(blocks.login_guest_label, 'المتابعة كضيف'));
-    _syncSendOtpButton();
+    _contentBlocks = res.data.blocks || {};
+    _applyContentCopy();
   }
 
   function _sanitizePhoneInput(value) {
@@ -89,7 +132,7 @@ const LoginPage = (() => {
     }
 
     if (!_isValidPhone(normalizedPhone)) {
-      _showError(errEl, 'الصيغة الصحيحة: 05XXXXXXXX');
+      _showError(errEl, _copy('invalidPhone'));
       return;
     }
     _hideError(errEl);
@@ -107,7 +150,7 @@ const LoginPage = (() => {
       if (retryAfterSeconds > 0) {
         _startSendCooldown(retryAfterSeconds);
       }
-      const msg = (res.data && (res.data.detail || res.data.error)) || 'فشل إرسال الرمز';
+      const msg = (res.data && (res.data.detail || res.data.error)) || _copy('sendFailed');
       _showError(errEl, msg);
       return;
     }
@@ -171,7 +214,7 @@ const LoginPage = (() => {
       });
 
       if (!res.ok || !res.data) {
-        _showError(errEl, _extractError(res, 'فشل تسجيل الدخول بمعرف الوجه.'));
+        _showError(errEl, _extractError(res, _copy('biometricLoginFailed')));
         return;
       }
 
@@ -198,7 +241,7 @@ const LoginPage = (() => {
       window.location.href = next;
     } catch (err) {
       if (err.name !== 'NotAllowedError') {
-        _showError(errEl, 'فشل التحقق البيومتري.');
+        _showError(errEl, _copy('biometricFailed'));
       }
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = ''; }
@@ -247,22 +290,26 @@ const LoginPage = (() => {
     if (btn) btn.disabled = loading || _sendCooldownSeconds > 0;
     if (txt && !loading) {
       txt.textContent = _sendCooldownSeconds > 0
-        ? 'أعد المحاولة بعد ' + _formatWaitShort(_sendCooldownSeconds)
+        ? _copy('retryIn').replace('{time}', _formatWaitShort(_sendCooldownSeconds))
         : _sendOtpDefaultLabel;
     }
   }
 
   function _formatWaitShort(seconds) {
     const total = _readPositiveInt(seconds);
-    if (total < 60) return total + ' ث';
+    if (total < 60) return total + ' ' + _copy('timeSecond');
     const minutes = Math.floor(total / 60);
     const remainingSeconds = total % 60;
     if (minutes < 60) {
-      return remainingSeconds ? (minutes + ' د ' + remainingSeconds + ' ث') : (minutes + ' د');
+      return remainingSeconds
+        ? (minutes + ' ' + _copy('timeMinute') + ' ' + remainingSeconds + ' ' + _copy('timeSecond'))
+        : (minutes + ' ' + _copy('timeMinute'));
     }
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
-    return remainingMinutes ? (hours + ' س ' + remainingMinutes + ' د') : (hours + ' س');
+    return remainingMinutes
+      ? (hours + ' ' + _copy('timeHour') + ' ' + remainingMinutes + ' ' + _copy('timeMinute'))
+      : (hours + ' ' + _copy('timeHour'));
   }
 
   function _readPositiveInt(value) {
@@ -282,10 +329,70 @@ const LoginPage = (() => {
     el.classList.add('hidden');
   }
 
-  function _resolveTitle(block, fallback) {
-    if (!block || typeof block !== 'object') return fallback;
-    const title = String(block.title_ar || '').trim();
-    return title || fallback;
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function _copy(key) {
+    const lang = _currentLang();
+    return (COPY[lang] && COPY[lang][key]) || COPY.ar[key] || '';
+  }
+
+  function _resolveLocalizedText(block, fallbackKey) {
+    const fallback = _copy(fallbackKey);
+    if (!block) return fallback;
+    if (typeof block === 'string') {
+      const raw = block.trim();
+      return raw || fallback;
+    }
+    if (typeof block !== 'object') return fallback;
+
+    const lang = _currentLang();
+    const preferred = lang === 'en'
+      ? ['title_en', 'body_en', 'title_ar', 'body_ar']
+      : ['title_ar', 'body_ar', 'title_en', 'body_en'];
+
+    for (let i = 0; i < preferred.length; i += 1) {
+      const value = String(block[preferred[i]] || '').trim();
+      if (value) return value;
+    }
+
+    return fallback;
+  }
+
+  function _applyStaticCopy() {
+    document.title = _copy('pageTitle');
+    _setText('login-phone-label', _copy('phoneLabel'));
+    _setText('login-faceid-divider', _copy('divider'));
+    _setText('login-faceid-label', _copy('faceId'));
+    _setText('login-guest-divider', _copy('divider'));
+    const phoneInput = document.getElementById('phone-input');
+    if (phoneInput) {
+      phoneInput.placeholder = '05XXXXXXXX';
+      phoneInput.setAttribute('aria-label', _copy('phoneLabel'));
+    }
+    const faceIdButton = document.getElementById('btn-faceid-login');
+    if (faceIdButton) {
+      faceIdButton.setAttribute('aria-label', _copy('faceId'));
+      faceIdButton.setAttribute('title', _copy('faceId'));
+    }
+  }
+
+  function _applyContentCopy() {
+    _setText('login-title', _resolveLocalizedText(_contentBlocks.login_title, 'title'));
+    _setText('login-desc', _resolveLocalizedText(_contentBlocks.login_description, 'description'));
+    _setText('login-phone-hint', _resolveLocalizedText(_contentBlocks.login_phone_hint, 'phoneHint'));
+    _sendOtpDefaultLabel = _resolveLocalizedText(_contentBlocks.login_submit_label, 'submit');
+    _setText('guest-login-text', _resolveLocalizedText(_contentBlocks.login_guest_label, 'guest'));
+    _syncSendOtpButton();
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    _applyContentCopy();
   }
 
   function _setText(id, value) {
@@ -376,9 +483,9 @@ const LoginPage = (() => {
   function _queueWelcomeBackToast(data) {
     if (!window.Toast || typeof window.Toast.queue !== 'function') return;
     window.Toast.queue(
-      'مرحبًا بعودتك إلى منصة نوافذ. يسعدنا استمرار ثقتك بنا، ونتمنى لك تجربة سلسة ومثمرة.',
+      _copy('welcomeMessage'),
       {
-        title: 'مرحبًا بعودتك',
+        title: _copy('welcomeTitle'),
         type: 'success',
         duration: 6200,
       }

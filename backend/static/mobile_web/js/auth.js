@@ -107,6 +107,7 @@ const Auth = (() => {
   }
 
   function _providerRequestBlockMarkup(options) {
+    const kicker = String(options?.kicker || 'وضع الحساب الحالي').trim();
     const title = String(options?.title || 'طلبات الخدمة متاحة في وضع العميل فقط').trim();
     const description = String(
       options?.description
@@ -119,7 +120,7 @@ const Auth = (() => {
     const switchLabel = String(options?.switchLabel || 'التبديل إلى عميل الآن').trim();
     const profileLabel = String(options?.profileLabel || 'الذهاب إلى نافذتي').trim();
     return '' +
-      '<p class="auth-gate-unified-kicker">وضع الحساب الحالي</p>' +
+      '<p class="auth-gate-unified-kicker">' + kicker + '</p>' +
       '<div class="auth-gate-unified-icon" aria-hidden="true">' +
         '<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-2 .9-2 2v11c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>' +
       '</div>' +

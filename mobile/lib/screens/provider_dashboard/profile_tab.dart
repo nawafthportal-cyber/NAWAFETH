@@ -624,11 +624,186 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     );
   }
 
-  Widget buildSection(List<Map<String, dynamic>> fields) {
+  Widget _buildSectionIntroCard({
+    required String kicker,
+    required String title,
+    required String intro,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            mainColor.withValues(alpha: 0.10),
+            const Color(0xFF0EA5A4).withValues(alpha: 0.08),
+          ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: mainColor.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            kicker,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: mainColor,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            intro,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12.5,
+              height: 1.6,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF475569),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkflowStrip({required int activeIndex}) {
+    const steps = [
+      ('الحساب', '1'),
+      ('العام', '2'),
+      ('الإضافي', '3'),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: mainColor.withValues(alpha: 0.10)),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'أنجز ملفك في 3 خطوات واضحة',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: mainColor,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: List.generate(steps.length, (index) {
+              final step = steps[index];
+              final isActive = index == activeIndex;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsetsDirectional.only(start: index == 0 ? 0 : 6),
+                  child: InkWell(
+                    onTap: () => _tabController.animateTo(index),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? mainColor.withValues(alpha: 0.12)
+                            : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isActive
+                              ? mainColor.withValues(alpha: 0.26)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isActive ? mainColor : const Color(0xFFE2E8F0),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              step.$2,
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: isActive ? Colors.white : const Color(0xFF475569),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            step.$1,
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: isActive ? mainColor : const Color(0xFF475569),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildSection({
+    required int activeIndex,
+    required String kicker,
+    required String title,
+    required String intro,
+    required List<Map<String, dynamic>> fields,
+  }) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _buildProfileIdentityCard(),
+        const SizedBox(height: 10),
+        _buildSectionIntroCard(
+          kicker: kicker,
+          title: title,
+          intro: intro,
+        ),
+        const SizedBox(height: 10),
+        _buildWorkflowStrip(activeIndex: activeIndex),
+        const SizedBox(height: 10),
         InkWell(
           onTap: _openPortfolio,
           borderRadius: BorderRadius.circular(18),
@@ -801,83 +976,104 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
                     child: TabBarView(
                       controller: _tabController,
                       children: [
-                        buildSection([
-                          {
-                            "key": "fullName",
-                            "label": "اسم العرض",
-                            "icon": Icons.person,
-                          },
-                          {
-                            "key": "accountType",
-                            "label": "صفة الحساب",
-                            "icon": Icons.badge_outlined,
-                            "readOnly": true,
-                          },
-                          {
-                            "key": "about",
-                            "label": "نبذة عنك",
-                            "icon": Icons.info_outline,
-                            "multiline": true,
-                          },
-                          {
-                            "key": "specialization",
-                            "label": "تفاصيل إضافية",
-                            "icon": Icons.category,
-                            "multiline": true,
-                          },
-                        ]),
-                        buildSection([
-                          {
-                            "key": "experience",
-                            "label": "سنوات الخبرة",
-                            "icon": Icons.work_history,
-                          },
-                          {
-                            "key": "languages",
-                            "label": "لغات التواصل",
-                            "icon": Icons.language,
-                          },
-                          {
-                            "key": "location",
-                            "label": "المدينة",
-                            "icon": Icons.location_on_outlined,
-                          },
-                        ]),
-                        buildSection([
-                          {
-                            "key": "details",
-                            "label": "شرح تفصيلي",
-                            "icon": Icons.notes,
-                            "multiline": true,
-                          },
-                          {
-                            "key": "qualification",
-                            "label": "المؤهلات",
-                            "icon": Icons.school,
-                          },
-                          {
-                            "key": "website",
-                            "label": "الموقع الإلكتروني",
-                            "icon": Icons.link,
-                          },
-                          {
-                            "key": "social",
-                            "label": "روابط التواصل",
-                            "icon": Icons.share_outlined,
-                            "multiline": true,
-                          },
-                          {
-                            "key": "phone",
-                            "label": "واتساب",
-                            "icon": Icons.phone_android,
-                          },
-                          {
-                            "key": "keywords",
-                            "label": "الكلمات المفتاحية (SEO)",
-                            "icon": Icons.label_outline,
-                            "multiline": true,
-                          },
-                        ]),
+                        buildSection(
+                          activeIndex: 0,
+                          kicker: 'القسم الأول',
+                          title: 'معلومات الحساب',
+                          intro:
+                              'حدّث اسم الحساب، صفته، النبذة، وتفاصيل الهوية الأساسية ليظهر ملفك بصورة احترافية وواضحة.',
+                          fields: [
+                            {
+                              "key": "fullName",
+                              "label": "اسم العرض",
+                              "icon": Icons.person,
+                            },
+                            {
+                              "key": "accountType",
+                              "label": "صفة الحساب",
+                              "icon": Icons.badge_outlined,
+                              "readOnly": true,
+                            },
+                            {
+                              "key": "about",
+                              "label": "نبذة عنك",
+                              "icon": Icons.info_outline,
+                              "multiline": true,
+                            },
+                            {
+                              "key": "specialization",
+                              "label": "تفاصيل إضافية",
+                              "icon": Icons.category,
+                              "multiline": true,
+                            },
+                          ],
+                        ),
+                        buildSection(
+                          activeIndex: 1,
+                          kicker: 'القسم الثاني',
+                          title: 'معلومات عامة',
+                          intro:
+                              'رتّب لغات التواصل، الموقع، ونطاق الخدمة حتى يفهم العميل مكان خدمتك وطريقة التعامل معك بسرعة.',
+                          fields: [
+                            {
+                              "key": "experience",
+                              "label": "سنوات الخبرة",
+                              "icon": Icons.work_history,
+                            },
+                            {
+                              "key": "languages",
+                              "label": "لغات التواصل",
+                              "icon": Icons.language,
+                            },
+                            {
+                              "key": "location",
+                              "label": "المدينة",
+                              "icon": Icons.location_on_outlined,
+                            },
+                          ],
+                        ),
+                        buildSection(
+                          activeIndex: 2,
+                          kicker: 'القسم الثالث',
+                          title: 'معلومات إضافية',
+                          intro:
+                              'أضف الخبرات، المؤهلات، الروابط والكلمات المفتاحية التي توسّع ظهورك وتمنح ملفك تفاصيل أقوى.',
+                          fields: [
+                            {
+                              "key": "details",
+                              "label": "شرح تفصيلي",
+                              "icon": Icons.notes,
+                              "multiline": true,
+                            },
+                            {
+                              "key": "qualification",
+                              "label": "المؤهلات",
+                              "icon": Icons.school,
+                            },
+                            {
+                              "key": "website",
+                              "label": "الموقع الإلكتروني",
+                              "icon": Icons.link,
+                            },
+                            {
+                              "key": "social",
+                              "label": "روابط التواصل",
+                              "icon": Icons.share_outlined,
+                              "multiline": true,
+                            },
+                            {
+                              "key": "phone",
+                              "label": "واتساب",
+                              "icon": Icons.phone_android,
+                            },
+                            {
+                              "key": "keywords",
+                              "label": "الكلمات المفتاحية (SEO)",
+                              "icon": Icons.label_outline,
+                              "multiline": true,
+                            },
+                          ],
+                        ),
                       ],
                     ),
                   ),

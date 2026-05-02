@@ -17,7 +17,7 @@ const PromoPaymentPage = (() => {
     popup_category: 'نافذة منبثقة داخل قسم',
     home_banner: 'بنر الصفحة الرئيسية',
     featured_specialists: 'شريط أبرز المختصين',
-    portfolio_showcase: 'شريط البنرات والمشاريع',
+    portfolio_showcase: 'البنرات والمشاريع',
     snapshots: 'شريط اللمحات',
     search_results: 'الظهور في قوائم البحث',
     promo_messages: 'الرسائل الدعائية',

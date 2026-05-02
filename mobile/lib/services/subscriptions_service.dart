@@ -149,7 +149,12 @@ class SubscriptionsService {
   }
 
   /// إنشاء اشتراك جديد
-  static Future<ApiResponse> subscribe(int planId) async {
-    return ApiClient.post('/api/subscriptions/subscribe/$planId/');
+  static Future<ApiResponse> subscribe(int planId, {int durationCount = 1}) async {
+    return ApiClient.post(
+      '/api/subscriptions/subscribe/$planId/',
+      body: {
+        'duration_count': durationCount,
+      },
+    );
   }
 }

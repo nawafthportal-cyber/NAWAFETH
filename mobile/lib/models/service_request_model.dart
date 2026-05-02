@@ -157,6 +157,8 @@ class ServiceRequest {
   // بيانات العميل
   final String? clientName;
   final String? clientPhone;
+  final String? clientCity;
+  final String? clientCityDisplay;
   final List<String> availableActions;
   final String? providerInputsStage;
 
@@ -204,6 +206,8 @@ class ServiceRequest {
     this.categoryName,
     this.clientName,
     this.clientPhone,
+    this.clientCity,
+    this.clientCityDisplay,
     this.availableActions = const [],
     this.providerInputsStage,
     this.attachments = const [],
@@ -233,6 +237,8 @@ class ServiceRequest {
   double? get remainingAmt => _parseAmount(remainingAmount);
   double? get actualAmount => _parseAmount(actualServiceAmount);
   String get locationDisplay => SaudiCities.formatCityDisplay(cityDisplay ?? city);
+  String get clientLocationDisplay =>
+      SaudiCities.formatCityDisplay(clientCityDisplay ?? clientCity);
   bool hasAction(String action) => availableActions.contains(action.trim());
 
   static double? _parseAmount(String? s) {
@@ -292,6 +298,8 @@ class ServiceRequest {
       categoryName: json['category_name'] as String?,
       clientName: json['client_name'] as String?,
       clientPhone: json['client_phone'] as String?,
+        clientCity: json['client_city'] as String?,
+        clientCityDisplay: json['client_city_display'] as String?,
       availableActions: json['available_actions'] is List
           ? (json['available_actions'] as List)
               .map((item) => item.toString().trim())

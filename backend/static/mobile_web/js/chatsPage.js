@@ -5,6 +5,199 @@
 'use strict';
 
 const ChatsPage = (() => {
+  const COPY = {
+    ar: {
+      pageTitle: 'الرسائل',
+      authTitle: 'سجّل دخولك لعرض الرسائل',
+      authDesc: 'يمكنك التواصل مع مقدمي الخدمات بعد تسجيل الدخول',
+      authCta: 'تسجيل الدخول',
+      pageHeading: 'الرسائل',
+      pageSubtitle: 'تابع رسائلك مع مزودي الخدمة واطلع على أحدث الرسائل بسهولة.',
+      heroTagDirect: 'رسائل مباشرة',
+      heroTagTeam: 'فرق المنصة',
+      heroTagSafe: 'مرفقات آمنة',
+      listTitle: 'قائمة الرسائل',
+      filterAll: 'الكل',
+      filterUnread: 'غير مقروءة',
+      filterFavorite: 'مفضلة',
+      filterClients: 'عملاء',
+      filterRecent: 'الأحدث',
+      searchPlaceholder: 'ابحث في الرسائل...',
+      clearSearch: 'مسح البحث',
+      retry: 'إعادة المحاولة',
+      unreadBadge: '{count} غير مقروء',
+      resultsOne: '{count} نتيجة',
+      resultsMany: '{count} نتائج',
+      emptySearch: 'لا توجد نتائج مطابقة للبحث.',
+      emptyUnread: 'لا توجد رسائل غير مقروءة.',
+      emptyFavorite: 'لا توجد رسائل مفضلة.',
+      emptyClients: 'لا توجد رسائل عملاء حالياً.',
+      emptyRecent: 'لا توجد رسائل حديثة حالياً.',
+      emptyDefault: 'لا توجد رسائل بعد.',
+      sessionChecking: 'يجري الآن التحقق من الجلسة ونوع الحساب. حاول مرة أخرى بعد لحظة.',
+      sessionRefreshing: 'يتم تحديث الجلسة أو نوع الحساب الآن. أعد المحاولة بعد قليل.',
+      loadFailed: 'تعذر تحميل الرسائل حالياً.',
+      loadUnexpected: 'حدث خطأ غير متوقع أثناء تحميل الرسائل. حاول مرة أخرى.',
+      excellenceFallback: 'تميز',
+      unknownUser: 'مستخدم',
+      teamRole: 'فريق المنصة',
+      providerRole: 'مزود خدمة',
+      clientRole: 'عميل',
+      teamSubtitle: 'متابعة مباشرة مع فريق المنصة',
+      providerInCity: 'مقدم خدمة في {city}',
+      providerSubtitle: 'مقدم خدمة على المنصة',
+      clientSubtitle: 'عميل يتابع معك مباشرة',
+      directSubtitle: 'رسائل مباشرة داخل نوافذ',
+      teamPreview: 'رسالة فريق',
+      serviceRequest: 'طلب خدمة',
+      directPreview: 'مباشر',
+      noMessagesYet: 'لا توجد رسائل بعد',
+      directServiceRequestPreview: '🛠️ طلب خدمة مباشر',
+      unreadNew: '{count} جديد',
+      favoriteChip: 'مفضلة',
+      openMessages: 'فتح الرسائل',
+      messageOptions: 'خيارات الرسائل',
+      markRead: 'اجعلها مقروءة',
+      markUnread: 'اجعلها غير مقروءة',
+      addFavorite: 'إضافة للمفضلة',
+      removeFavorite: 'إزالة من المفضلة',
+      block: 'حظر',
+      unblock: 'إلغاء الحظر',
+      report: 'إبلاغ',
+      archive: 'أرشفة',
+      unarchive: 'إلغاء الأرشفة',
+      markReadFailed: 'تعذر تحديث حالة القراءة',
+      markedRead: 'تم تحديد الرسائل كمقروءة',
+      markedUnread: 'تم تحديد الرسائل كغير مقروءة',
+      favoriteFailed: 'تعذر تحديث المفضلة',
+      favoriteAdded: 'تمت إضافة الرسائل للمفضلة',
+      favoriteRemoved: 'تمت إزالة الرسائل من المفضلة',
+      archiveConfirm: 'أرشفة هذه الرسائل؟ سيتم إخفاؤها من قائمة الرسائل.',
+      archiveFailed: 'تعذر تحديث الأرشفة',
+      archiveAdded: 'تمت أرشفة الرسائل',
+      archiveRemoved: 'تم إلغاء أرشفة الرسائل',
+      unblockConfirm: 'هل تريد إلغاء الحظر عن هذا العضو؟',
+      blockConfirm: 'هل أنت متأكد من حظر هذا العضو؟ لن يتمكن من مراسلتك.',
+      blockFailed: 'تعذر تحديث حالة الحظر',
+      blocked: 'تم حظر العضو',
+      unblocked: 'تم إلغاء الحظر',
+      reportDialogTitle: 'إبلاغ عن الرسائل',
+      reportReasonLabel: 'سبب الإبلاغ:',
+      reportDetailsLabel: 'تفاصيل إضافية (اختياري):',
+      reportDetailsPlaceholder: 'اكتب التفاصيل هنا...',
+      reportCancel: 'إلغاء',
+      reportSend: 'إرسال البلاغ',
+      reportSending: 'جارٍ الإرسال...',
+      reportChooseReason: 'اختر سبب الإبلاغ أولاً',
+      reportFailed: 'تعذر إرسال البلاغ',
+      reportSuccess: 'تم إرسال البلاغ للإدارة. شكراً لك',
+      reportReasonInappropriate: 'محتوى غير لائق',
+      reportReasonFraud: 'احتيال أو نصب',
+      reportReasonHarassment: 'إزعاج أو مضايقة',
+      reportReasonImpersonation: 'انتحال شخصية',
+      reportReasonTerms: 'محتوى مخالف للشروط',
+      reportReasonOther: 'أخرى',
+      justNow: 'الآن',
+      minutesAgo: 'منذ {count} د',
+      yesterday: 'الأمس',
+    },
+    en: {
+      pageTitle: 'Messages',
+      authTitle: 'Sign in to view messages',
+      authDesc: 'You can contact providers after signing in',
+      authCta: 'Sign in',
+      pageHeading: 'Messages',
+      pageSubtitle: 'Keep up with your conversations with providers and see the latest messages easily.',
+      heroTagDirect: 'Direct messages',
+      heroTagTeam: 'Platform teams',
+      heroTagSafe: 'Secure attachments',
+      listTitle: 'Messages list',
+      filterAll: 'All',
+      filterUnread: 'Unread',
+      filterFavorite: 'Favorites',
+      filterClients: 'Clients',
+      filterRecent: 'Recent',
+      searchPlaceholder: 'Search messages...',
+      clearSearch: 'Clear search',
+      retry: 'Retry',
+      unreadBadge: '{count} unread',
+      resultsOne: '{count} result',
+      resultsMany: '{count} results',
+      emptySearch: 'No messages match your search.',
+      emptyUnread: 'There are no unread messages.',
+      emptyFavorite: 'There are no favorite messages.',
+      emptyClients: 'There are no client chats right now.',
+      emptyRecent: 'There are no recent messages right now.',
+      emptyDefault: 'No messages yet.',
+      sessionChecking: 'The session and account mode are being verified right now. Try again in a moment.',
+      sessionRefreshing: 'The session or account mode is being refreshed right now. Please try again shortly.',
+      loadFailed: 'Unable to load messages right now.',
+      loadUnexpected: 'An unexpected error occurred while loading messages. Please try again.',
+      excellenceFallback: 'Excellence',
+      unknownUser: 'User',
+      teamRole: 'Platform team',
+      providerRole: 'Provider',
+      clientRole: 'Client',
+      teamSubtitle: 'Direct follow-up with the platform team',
+      providerInCity: 'Provider in {city}',
+      providerSubtitle: 'Provider on the platform',
+      clientSubtitle: 'Client following up with you directly',
+      directSubtitle: 'Direct messages inside Nawafeth',
+      teamPreview: 'Team message',
+      serviceRequest: 'Service request',
+      directPreview: 'Direct',
+      noMessagesYet: 'No messages yet',
+      directServiceRequestPreview: '🛠️ Direct service request',
+      unreadNew: '{count} new',
+      favoriteChip: 'Favorite',
+      openMessages: 'Open messages',
+      messageOptions: 'Message options',
+      markRead: 'Mark as read',
+      markUnread: 'Mark as unread',
+      addFavorite: 'Add to favorites',
+      removeFavorite: 'Remove from favorites',
+      block: 'Block',
+      unblock: 'Unblock',
+      report: 'Report',
+      archive: 'Archive',
+      unarchive: 'Remove archive',
+      markReadFailed: 'Unable to update the read state',
+      markedRead: 'Messages marked as read',
+      markedUnread: 'Messages marked as unread',
+      favoriteFailed: 'Unable to update favorites',
+      favoriteAdded: 'Messages added to favorites',
+      favoriteRemoved: 'Messages removed from favorites',
+      archiveConfirm: 'Archive these messages? They will be hidden from the messages list.',
+      archiveFailed: 'Unable to update the archive state',
+      archiveAdded: 'Messages archived',
+      archiveRemoved: 'Messages unarchived',
+      unblockConfirm: 'Do you want to unblock this member?',
+      blockConfirm: 'Are you sure you want to block this member? They will not be able to message you.',
+      blockFailed: 'Unable to update the block state',
+      blocked: 'Member blocked',
+      unblocked: 'Member unblocked',
+      reportDialogTitle: 'Report messages',
+      reportReasonLabel: 'Report reason:',
+      reportDetailsLabel: 'Additional details (optional):',
+      reportDetailsPlaceholder: 'Write the details here...',
+      reportCancel: 'Cancel',
+      reportSend: 'Send report',
+      reportSending: 'Sending...',
+      reportChooseReason: 'Choose a report reason first',
+      reportFailed: 'Unable to send the report',
+      reportSuccess: 'The report was sent to the admin. Thank you.',
+      reportReasonInappropriate: 'Inappropriate content',
+      reportReasonFraud: 'Fraud or scam',
+      reportReasonHarassment: 'Harassment',
+      reportReasonImpersonation: 'Impersonation',
+      reportReasonTerms: 'Content against the terms',
+      reportReasonOther: 'Other',
+      justNow: 'Now',
+      minutesAgo: '{count} min ago',
+      yesterday: 'Yesterday',
+    },
+  };
+
   let _threads = [];
   let _activeFilter = 'all';
   let _searchQuery = '';
@@ -14,8 +207,13 @@ const ChatsPage = (() => {
   let _toastTimer = null;
   let _reportDialogState = null;
   let _eventsBound = false;
+  let _lastErrorMessage = '';
+  let _lastErrorCopyKey = '';
 
   function init() {
+    _applyStaticCopy();
+    document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
+
     if (!Auth.isLoggedIn()) {
       _showGate();
       return;
@@ -188,7 +386,7 @@ const ChatsPage = (() => {
         _showGate();
         return;
       }
-      _setError('يجري الآن التحقق من الجلسة ونوع الحساب. حاول مرة أخرى بعد لحظة.');
+      _setError(_copy('sessionChecking'), 'sessionChecking');
       return;
     }
 
@@ -204,14 +402,14 @@ const ChatsPage = (() => {
           _showGate();
           return;
         }
-        _setError('يتم تحديث الجلسة أو نوع الحساب الآن. أعد المحاولة بعد قليل.');
+        _setError(_copy('sessionRefreshing'), 'sessionRefreshing');
         return;
       }
 
       if (!threadsRes.ok || !threadsRes.data) {
         _threads = [];
         _render();
-        _setError(_extractError(threadsRes, 'تعذر تحميل الرسائل حالياً.'));
+        _setError(_extractError(threadsRes, _copy('loadFailed')), 'loadFailed');
         return;
       }
 
@@ -227,7 +425,7 @@ const ChatsPage = (() => {
     } catch (_) {
       _threads = [];
       _render();
-      _setError('حدث خطأ غير متوقع أثناء تحميل الرسائل. حاول مرة أخرى.');
+      _setError(_copy('loadUnexpected'), 'loadUnexpected');
     } finally {
       _setLoading(false);
     }
@@ -383,12 +581,12 @@ const ChatsPage = (() => {
 
     if (unreadEl) {
       const unreadCount = counts.unreadMessages || 0;
-      unreadEl.textContent = unreadCount + ' غير مقروء';
+      unreadEl.textContent = _copy('unreadBadge', { count: unreadCount });
       unreadEl.classList.toggle('hidden', unreadCount <= 0);
     }
 
     if (resultsEl) {
-      resultsEl.textContent = visibleCount + (visibleCount === 1 ? ' نتيجة' : ' نتائج');
+      resultsEl.textContent = _copy(visibleCount === 1 ? 'resultsOne' : 'resultsMany', { count: visibleCount });
     }
 
     document.querySelectorAll('.chat-filter-count').forEach((node) => {
@@ -398,19 +596,19 @@ const ChatsPage = (() => {
   }
 
   function _emptyMessage() {
-    if (_searchQuery) return 'لا توجد نتائج مطابقة للبحث.';
+    if (_searchQuery) return _copy('emptySearch');
 
     switch (_activeFilter) {
       case 'unread':
-        return 'لا توجد رسائل غير مقروءة.';
+        return _copy('emptyUnread');
       case 'favorite':
-        return 'لا توجد رسائل مفضلة.';
+        return _copy('emptyFavorite');
       case 'clients':
-        return 'لا توجد رسائل عملاء حالياً.';
+        return _copy('emptyClients');
       case 'recent':
-        return 'لا توجد رسائل حديثة حالياً.';
+        return _copy('emptyRecent');
       default:
-        return 'لا توجد رسائل بعد.';
+        return _copy('emptyDefault');
     }
   }
 
@@ -452,14 +650,14 @@ const ChatsPage = (() => {
     if (peerImage) {
       avatar.appendChild(UI.lazyImg(ApiClient.mediaUrl(peerImage), displayName));
     } else {
-      avatar.textContent = (displayName || 'م').charAt(0);
+      avatar.textContent = (displayName || _copy('unknownUser')).charAt(0);
     }
 
     const excellenceBadges = UI.normalizeExcellenceBadges(thread.peer_excellence_badges);
     if (excellenceBadges.length) {
       avatarWrap.appendChild(UI.el('span', {
         className: 'thread-avatar-excellence-top',
-        textContent: excellenceBadges[0].name || excellenceBadges[0].code || 'تميز',
+        textContent: excellenceBadges[0].name || excellenceBadges[0].code || _copy('excellenceFallback'),
       }));
     }
 
@@ -473,7 +671,9 @@ const ChatsPage = (() => {
     const topRow = UI.el('div', { className: 'thread-top-row' });
     const titleWrap = UI.el('div', { className: 'thread-title-wrap' });
     const nameWrap = UI.el('div', { className: 'thread-name-wrap' });
-    nameWrap.appendChild(UI.el('span', { className: 'thread-name', textContent: displayName || 'مستخدم' }));
+    const nameEl = UI.el('span', { className: 'thread-name', textContent: displayName || _copy('unknownUser') });
+    _setAutoDirection(nameEl, displayName);
+    nameWrap.appendChild(nameEl);
 
     const inlineExcellence = UI.buildExcellenceBadges(excellenceBadges, {
       className: 'excellence-badges compact thread-inline-excellence',
@@ -493,7 +693,9 @@ const ChatsPage = (() => {
 
     const subtitle = _threadSubtitle(thread, kind);
     if (subtitle) {
-      content.appendChild(UI.el('div', { className: 'thread-subtitle', textContent: subtitle }));
+      const subtitleEl = UI.el('div', { className: 'thread-subtitle', textContent: subtitle });
+      _setAutoDirection(subtitleEl, subtitle);
+      content.appendChild(subtitleEl);
     }
 
     topRow.appendChild(titleWrap);
@@ -518,7 +720,9 @@ const ChatsPage = (() => {
         textContent: previewLabel.text,
       }));
     }
-    previewRow.appendChild(UI.el('p', { className: 'thread-last-msg', textContent: lastMessage }));
+    const previewTextEl = UI.el('p', { className: 'thread-last-msg', textContent: lastMessage });
+    _setAutoDirection(previewTextEl, lastMessage);
+    previewRow.appendChild(previewTextEl);
     content.appendChild(previewRow);
 
     const metaRow = UI.el('div', { className: 'thread-meta-row' });
@@ -526,34 +730,38 @@ const ChatsPage = (() => {
     if (unreadCount > 0) {
       metaRow.appendChild(UI.el('span', {
         className: 'thread-unread-badge',
-        textContent: unreadCount + ' جديد',
+        textContent: _copy('unreadNew', { count: unreadCount }),
       }));
     }
 
     if (thread.is_favorite) {
       metaRow.appendChild(UI.el('span', {
         className: 'thread-favorite-chip',
-        textContent: thread.favorite_label || 'مفضلة',
+        textContent: thread.favorite_label || _copy('favoriteChip'),
       }));
     }
 
     if (thread.client_label) {
-      metaRow.appendChild(UI.el('span', {
+      const clientLabelEl = UI.el('span', {
         className: 'thread-label-chip',
         textContent: thread.client_label,
-      }));
+      });
+      _setAutoDirection(clientLabelEl, thread.client_label);
+      metaRow.appendChild(clientLabelEl);
     }
 
     if (_meaningfulValue(thread.peer_city)) {
-      metaRow.appendChild(UI.el('span', {
+      const cityLabelEl = UI.el('span', {
         className: 'thread-label-chip city-chip',
         textContent: UI.formatCityDisplay(thread.peer_city),
-      }));
+      });
+      _setAutoDirection(cityLabelEl, thread.peer_city);
+      metaRow.appendChild(cityLabelEl);
     }
 
     const openHint = UI.el('span', {
       className: 'thread-open-hint',
-      textContent: 'فتح الرسائل',
+      textContent: _copy('openMessages'),
     });
     metaRow.appendChild(openHint);
 
@@ -571,8 +779,8 @@ const ChatsPage = (() => {
     const menuBtn = UI.el('button', {
       type: 'button',
       className: 'chats-thread-menu-btn',
-      title: 'خيارات الرسائل',
-      ariaLabel: 'خيارات الرسائل',
+      title: _copy('messageOptions'),
+      ariaLabel: _copy('messageOptions'),
     });
     menuBtn.innerHTML = [
       '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">',
@@ -587,28 +795,28 @@ const ChatsPage = (() => {
 
     const canMarkRead = (Number(thread.unread_count) || 0) > 0;
     menu.appendChild(_buildThreadMenuItem(
-      canMarkRead ? 'اجعلها مقروءة' : 'اجعلها غير مقروءة',
+      canMarkRead ? _copy('markRead') : _copy('markUnread'),
       async () => {
         if (canMarkRead) await _markThreadRead(threadId);
         else await _markThreadUnread(threadId);
       }
     ));
     menu.appendChild(_buildThreadMenuItem(
-      thread.is_favorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
+      thread.is_favorite ? _copy('removeFavorite') : _copy('addFavorite'),
       async () => _toggleFavoriteState(threadId)
     ));
     menu.appendChild(_buildThreadMenuItem(
-      thread.is_blocked ? 'إلغاء الحظر' : 'حظر',
+      thread.is_blocked ? _copy('unblock') : _copy('block'),
       async () => _toggleBlockState(threadId),
       true
     ));
     menu.appendChild(_buildThreadMenuItem(
-      'إبلاغ',
+      _copy('report'),
       async () => _openReportDialog(thread, displayName),
       true
     ));
     menu.appendChild(_buildThreadMenuItem(
-      thread.is_archived ? 'إلغاء الأرشفة' : 'أرشفة',
+      thread.is_archived ? _copy('unarchive') : _copy('archive'),
       async () => _toggleArchiveState(threadId)
     ));
 
@@ -682,14 +890,14 @@ const ChatsPage = (() => {
       { method: 'POST' }
     );
     if (!res.ok) {
-      _showToast(_extractError(res, 'تعذر تحديث حالة القراءة'), 'error');
+      _showToast(_extractError(res, _copy('markReadFailed')), 'error');
       return;
     }
 
     _threads[index].unread_count = 0;
     _render();
     window.dispatchEvent(new Event('nw:badge-refresh'));
-    _showToast('تم تحديد الرسائل كمقروءة', 'success');
+    _showToast(_copy('markedRead'), 'success');
   }
 
   async function _markThreadUnread(threadId) {
@@ -700,14 +908,14 @@ const ChatsPage = (() => {
       { method: 'POST' }
     );
     if (!res.ok) {
-      _showToast(_extractError(res, 'تعذر تحديث حالة القراءة'), 'error');
+      _showToast(_extractError(res, _copy('markReadFailed')), 'error');
       return;
     }
 
     _threads[index].unread_count = Math.max(1, Number(_threads[index].unread_count) || 0);
     _render();
     window.dispatchEvent(new Event('nw:badge-refresh'));
-    _showToast('تم تحديد الرسائل كغير مقروءة', 'success');
+    _showToast(_copy('markedUnread'), 'success');
   }
 
   async function _toggleFavoriteState(threadId) {
@@ -719,34 +927,34 @@ const ChatsPage = (() => {
       body: remove ? { action: 'remove' } : {},
     });
     if (!res.ok) {
-      _showToast(_extractError(res, 'تعذر تحديث المفضلة'), 'error');
+      _showToast(_extractError(res, _copy('favoriteFailed')), 'error');
       return;
     }
 
     _threads[index].is_favorite = !!res.data?.is_favorite;
     _threads[index].favorite_label = String(res.data?.favorite_label || _threads[index].favorite_label || '').trim();
     _render();
-    _showToast(remove ? 'تمت إزالة الرسائل من المفضلة' : 'تمت إضافة الرسائل للمفضلة', 'success');
+    _showToast(remove ? _copy('favoriteRemoved') : _copy('favoriteAdded'), 'success');
   }
 
   async function _toggleArchiveState(threadId) {
     const index = _findThreadIndex(threadId);
     if (index < 0) return;
     const remove = !!_threads[index].is_archived;
-    if (!remove && !window.confirm('أرشفة هذه الرسائل؟ سيتم إخفاؤها من قائمة الرسائل.')) return;
+    if (!remove && !window.confirm(_copy('archiveConfirm'))) return;
 
     const res = await ApiClient.request(_withMode('/api/messaging/thread/' + threadId + '/archive/'), {
       method: 'POST',
       body: remove ? { action: 'remove' } : {},
     });
     if (!res.ok) {
-      _showToast(_extractError(res, 'تعذر تحديث الأرشفة'), 'error');
+      _showToast(_extractError(res, _copy('archiveFailed')), 'error');
       return;
     }
 
     _threads[index].is_archived = !!res.data?.is_archived;
     _render();
-    _showToast(remove ? 'تم إلغاء أرشفة الرسائل' : 'تمت أرشفة الرسائل', 'success');
+    _showToast(remove ? _copy('archiveRemoved') : _copy('archiveAdded'), 'success');
   }
 
   async function _toggleBlockState(threadId) {
@@ -754,8 +962,8 @@ const ChatsPage = (() => {
     if (index < 0) return;
     const remove = !!_threads[index].is_blocked;
     const msg = remove
-      ? 'هل تريد إلغاء الحظر عن هذا العضو؟'
-      : 'هل أنت متأكد من حظر هذا العضو؟ لن يتمكن من مراسلتك.';
+      ? _copy('unblockConfirm')
+      : _copy('blockConfirm');
     if (!window.confirm(msg)) return;
 
     const res = await ApiClient.request(_withMode('/api/messaging/thread/' + threadId + '/block/'), {
@@ -763,13 +971,13 @@ const ChatsPage = (() => {
       body: remove ? { action: 'remove' } : {},
     });
     if (!res.ok) {
-      _showToast(_extractError(res, 'تعذر تحديث حالة الحظر'), 'error');
+      _showToast(_extractError(res, _copy('blockFailed')), 'error');
       return;
     }
 
     _threads[index].is_blocked = !!res.data?.is_blocked;
     _render();
-    _showToast(_threads[index].is_blocked ? 'تم حظر العضو' : 'تم إلغاء الحظر', 'success');
+    _showToast(_threads[index].is_blocked ? _copy('blocked') : _copy('unblocked'), 'success');
   }
 
   function _openReportDialog(thread, displayName) {
@@ -778,36 +986,37 @@ const ChatsPage = (() => {
     if (!threadId) return;
 
     const reasons = [
-      'محتوى غير لائق',
-      'احتيال أو نصب',
-      'إزعاج أو مضايقة',
-      'انتحال شخصية',
-      'محتوى مخالف للشروط',
-      'أخرى',
+      { value: 'محتوى غير لائق', label: _copy('reportReasonInappropriate') },
+      { value: 'احتيال أو نصب', label: _copy('reportReasonFraud') },
+      { value: 'إزعاج أو مضايقة', label: _copy('reportReasonHarassment') },
+      { value: 'انتحال شخصية', label: _copy('reportReasonImpersonation') },
+      { value: 'محتوى مخالف للشروط', label: _copy('reportReasonTerms') },
+      { value: 'أخرى', label: _copy('reportReasonOther') },
     ];
 
     const backdrop = UI.el('div', { className: 'chats-report-backdrop' });
     const dialog = UI.el('div', { className: 'chats-report-dialog' });
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
-    dialog.setAttribute('aria-label', 'إبلاغ عن الرسائل');
+    dialog.setAttribute('aria-label', _copy('reportDialogTitle'));
 
-    dialog.appendChild(UI.el('h3', { textContent: 'إبلاغ عن الرسائل' }));
-    const peerInfo = UI.el('div', { className: 'chats-report-peer', textContent: displayName || 'مستخدم' });
+    dialog.appendChild(UI.el('h3', { textContent: _copy('reportDialogTitle') }));
+    const peerInfo = UI.el('div', { className: 'chats-report-peer', textContent: displayName || _copy('unknownUser') });
+    _setAutoDirection(peerInfo, displayName);
     dialog.appendChild(peerInfo);
 
-    dialog.appendChild(UI.el('label', { textContent: 'سبب الإبلاغ:' }));
+    dialog.appendChild(UI.el('label', { textContent: _copy('reportReasonLabel') }));
     const reasonSelect = UI.el('select', { className: 'chats-report-select' });
     reasons.forEach((reason) => {
-      reasonSelect.appendChild(UI.el('option', { value: reason, textContent: reason }));
+      reasonSelect.appendChild(UI.el('option', { value: reason.value, textContent: reason.label }));
     });
     dialog.appendChild(reasonSelect);
 
-    dialog.appendChild(UI.el('label', { textContent: 'تفاصيل إضافية (اختياري):' }));
+    dialog.appendChild(UI.el('label', { textContent: _copy('reportDetailsLabel') }));
     const detailsInput = UI.el('textarea', {
       className: 'chats-report-textarea',
       rows: '4',
-      placeholder: 'اكتب التفاصيل هنا...',
+      placeholder: _copy('reportDetailsPlaceholder'),
       maxLength: '500',
     });
     dialog.appendChild(detailsInput);
@@ -816,12 +1025,12 @@ const ChatsPage = (() => {
     const cancelBtn = UI.el('button', {
       type: 'button',
       className: 'chats-report-btn ghost',
-      textContent: 'إلغاء',
+      textContent: _copy('reportCancel'),
     });
     const sendBtn = UI.el('button', {
       type: 'button',
       className: 'chats-report-btn primary',
-      textContent: 'إرسال البلاغ',
+      textContent: _copy('reportSend'),
     });
     actions.appendChild(cancelBtn);
     actions.appendChild(sendBtn);
@@ -854,11 +1063,11 @@ const ChatsPage = (() => {
     sendBtn.addEventListener('click', async () => {
       const reason = String(reasonSelect.value || '').trim();
       if (!reason) {
-        _showToast('اختر سبب الإبلاغ أولاً', 'error');
+        _showToast(_copy('reportChooseReason'), 'error');
         return;
       }
       sendBtn.disabled = true;
-      sendBtn.textContent = 'جارٍ الإرسال...';
+      sendBtn.textContent = _copy('reportSending');
       const details = String(detailsInput.value || '').trim();
       const res = await ApiClient.request(_withMode('/api/messaging/thread/' + threadId + '/report/'), {
         method: 'POST',
@@ -869,14 +1078,14 @@ const ChatsPage = (() => {
         },
       });
       sendBtn.disabled = false;
-      sendBtn.textContent = 'إرسال البلاغ';
+      sendBtn.textContent = _copy('reportSend');
 
       if (!res.ok) {
-        _showToast(_extractError(res, 'تعذر إرسال البلاغ'), 'error');
+        _showToast(_extractError(res, _copy('reportFailed')), 'error');
         return;
       }
       close();
-      _showToast('تم إرسال البلاغ للإدارة. شكراً لك', 'success');
+      _showToast(_copy('reportSuccess'), 'success');
     });
 
     document.body.appendChild(backdrop);
@@ -899,7 +1108,7 @@ const ChatsPage = (() => {
     if ((thread.peer_name || '').trim()) return thread.peer_name.trim();
     if ((thread.peer_username || '').trim()) return thread.peer_username.trim();
 
-    return (thread.peer_phone || '').trim();
+    return (thread.peer_phone || '').trim() || _copy('unknownUser');
   }
 
   function _threadKind(thread, displayName) {
@@ -910,21 +1119,21 @@ const ChatsPage = (() => {
   }
 
   function _threadRoleLabel(kind) {
-    if (kind === 'team') return 'فريق المنصة';
-    if (kind === 'provider') return 'مزود خدمة';
-    if (kind === 'client') return 'عميل';
+    if (kind === 'team') return _copy('teamRole');
+    if (kind === 'provider') return _copy('providerRole');
+    if (kind === 'client') return _copy('clientRole');
     return '';
   }
 
   function _threadSubtitle(thread, kind) {
-    if (kind === 'team') return 'متابعة مباشرة مع فريق المنصة';
+    if (kind === 'team') return _copy('teamSubtitle');
     if (kind === 'provider') return _meaningfulValue(thread.peer_city)
-      ? 'مقدم خدمة في ' + UI.formatCityDisplay(thread.peer_city)
-      : 'مقدم خدمة على المنصة';
+      ? _copy('providerInCity', { city: UI.formatCityDisplay(thread.peer_city) })
+      : _copy('providerSubtitle');
     if (kind === 'client') return _meaningfulValue(thread.client_label)
       ? String(thread.client_label).trim()
-      : 'عميل يتابع معك مباشرة';
-    return 'رسائل مباشرة داخل نوافذ';
+      : _copy('clientSubtitle');
+    return _copy('directSubtitle');
   }
 
   function _threadPreviewTone(thread, previewText, kind) {
@@ -934,22 +1143,22 @@ const ChatsPage = (() => {
   }
 
   function _threadPreviewLabel(previewTone, kind) {
-    if (previewTone === 'team') return { text: 'رسالة فريق', accent: 'violet' };
-    if (previewTone === 'service') return { text: 'طلب خدمة', accent: 'amber' };
-    if (kind === 'provider') return { text: 'مباشر', accent: 'blue' };
+    if (previewTone === 'team') return { text: _copy('teamPreview'), accent: 'violet' };
+    if (previewTone === 'service') return { text: _copy('serviceRequest'), accent: 'amber' };
+    if (kind === 'provider') return { text: _copy('directPreview'), accent: 'blue' };
     return null;
   }
 
   function _threadPreviewText(rawText) {
     const text = (rawText || '').toString().trim();
-    if (!text) return 'لا توجد رسائل بعد';
+    if (!text) return _copy('noMessagesYet');
 
     if (
       /(https?:\/\/[^\s]+|\/service-request\/[^\s]*)/i.test(text)
       && /service-request/i.test(text)
       && /provider_id=\d+/i.test(text)
     ) {
-      return '🛠️ طلب خدمة مباشر';
+      return _copy('directServiceRequestPreview');
     }
 
     return text;
@@ -960,7 +1169,8 @@ const ChatsPage = (() => {
   }
 
   function _isPlatformTeamName(name) {
-    return String(name || '').trim().startsWith('فريق ');
+    const normalized = String(name || '').trim();
+    return normalized.startsWith('فريق ') || normalized.toLowerCase().startsWith('team ');
   }
 
   function _relativeTime(dateStr) {
@@ -970,23 +1180,18 @@ const ChatsPage = (() => {
     const now = new Date();
     const diffMs = now.getTime() - dt.getTime();
     const diffMinutes = Math.floor(diffMs / 60000);
-    if (diffMinutes < 1) return 'الآن';
-    if (diffMinutes < 60) return 'منذ ' + diffMinutes + ' د';
+    if (diffMinutes < 1) return _copy('justNow');
+    if (diffMinutes < 60) return _copy('minutesAgo', { count: diffMinutes });
 
     const diffDays = Math.floor(diffMs / 86400000);
     if (diffDays < 1) {
-      const h24 = dt.getHours();
-      const h = h24 > 12 ? h24 - 12 : h24;
-      const amPm = h24 >= 12 ? 'م' : 'ص';
-      const m = String(dt.getMinutes()).padStart(2, '0');
-      return h + ':' + m + ' ' + amPm;
+      return dt.toLocaleTimeString(_locale(), { hour: 'numeric', minute: '2-digit' });
     }
-    if (diffDays === 1) return 'الأمس';
+    if (diffDays === 1) return _copy('yesterday');
     if (diffDays < 7) {
-      const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-      return days[dt.getDay()];
+      return dt.toLocaleDateString(_locale(), { weekday: 'long' });
     }
-    return dt.getDate() + '/' + (dt.getMonth() + 1) + '/' + dt.getFullYear();
+    return dt.toLocaleDateString(_locale(), { day: 'numeric', month: 'numeric', year: 'numeric' });
   }
 
   function _setLoading(value) {
@@ -994,10 +1199,13 @@ const ChatsPage = (() => {
     _render();
   }
 
-  function _setError(message) {
+  function _setError(message, copyKey) {
     const errorEl = document.getElementById('chats-error');
     const retryBtn = document.getElementById('chats-retry');
     if (!errorEl) return;
+
+    _lastErrorMessage = message || '';
+    _lastErrorCopyKey = copyKey || '';
 
     if (!message) {
       errorEl.classList.add('hidden');
@@ -1034,6 +1242,84 @@ const ChatsPage = (() => {
   function _extractError(res, fallback) {
     const body = (res && res.data) || {};
     return body.detail || body.message || body.error || fallback;
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    if (_lastErrorMessage) {
+      _setError(_lastErrorCopyKey ? _copy(_lastErrorCopyKey) : _lastErrorMessage, _lastErrorCopyKey);
+    }
+    _render();
+  }
+
+  function _applyStaticCopy() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.t === 'function') {
+      document.title = window.NawafethI18n.t('siteTitle') + ' — ' + _copy('pageTitle');
+    }
+
+    _setText('chats-auth-title', _copy('authTitle'));
+    _setText('chats-auth-desc', _copy('authDesc'));
+    _setText('chats-auth-cta', _copy('authCta'));
+    _setText('chats-page-title', _copy('pageHeading'));
+    _setText('chats-page-subtitle', _copy('pageSubtitle'));
+    _setText('chats-hero-tag-direct', _copy('heroTagDirect'));
+    _setText('chats-hero-tag-team', _copy('heroTagTeam'));
+    _setText('chats-hero-tag-safe', _copy('heroTagSafe'));
+    _setText('chats-list-title', _copy('listTitle'));
+    _setText('chat-filter-all-label', _copy('filterAll'));
+    _setText('chat-filter-unread-label', _copy('filterUnread'));
+    _setText('chat-filter-favorite-label', _copy('filterFavorite'));
+    _setText('chat-filter-clients-label', _copy('filterClients'));
+    _setText('chat-filter-recent-label', _copy('filterRecent'));
+    _setText('chats-empty-text', _emptyMessage());
+    _setText('chats-retry', _copy('retry'));
+    _setAttr('chat-search', 'placeholder', _copy('searchPlaceholder'));
+    _setAttr('chat-search-clear', 'aria-label', _copy('clearSearch'));
+  }
+
+  function _currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      }
+      return (localStorage.getItem('nw_lang') || 'ar').toLowerCase() === 'en' ? 'en' : 'ar';
+    } catch (_) {
+      return 'ar';
+    }
+  }
+
+  function _copy(key, replacements) {
+    const bundle = COPY[_currentLang()] || COPY.ar;
+    if (!key) return bundle;
+    const value = Object.prototype.hasOwnProperty.call(bundle, key) ? bundle[key] : COPY.ar[key];
+    return _replaceTokens(value, replacements);
+  }
+
+  function _replaceTokens(text, replacements) {
+    if (typeof text !== 'string' || !replacements) return text;
+    return text.replace(/\{(\w+)\}/g, (_, key) => (
+      Object.prototype.hasOwnProperty.call(replacements, key) ? String(replacements[key]) : ''
+    ));
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value == null ? '' : String(value);
+  }
+
+  function _setAttr(id, name, value) {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute(name, value == null ? '' : String(value));
+  }
+
+  function _setAutoDirection(el, value) {
+    if (!el) return;
+    if (String(value || '').trim()) el.setAttribute('dir', 'auto');
+    else el.removeAttribute('dir');
+  }
+
+  function _locale() {
+    return _currentLang() === 'en' ? 'en-US' : 'ar-SA';
   }
 
   if (document.readyState === 'loading') {

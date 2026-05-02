@@ -4,6 +4,145 @@
 'use strict';
 
 const InteractivePage = (() => {
+  const COPY = {
+    ar: {
+      pageTitle: 'نوافــذ — تفاعلي',
+      gateKicker: 'شبكة تفاعلك',
+      gateTitle: 'سجّل دخولك لعرض تفاعلي',
+      gateDescription: 'يلزم تسجيل الدخول للوصول إلى المتابعة، المتابعين، والمفضلة.',
+      gateNote: 'تابع المهتمين بك ووسائطك المفضلة من مكان واحد.',
+      gateButton: 'تسجيل الدخول',
+      heroKicker: 'لوحة تفاعلك',
+      heroTitle: 'شبكتك التفاعلية',
+      summaryFollowing: 'من أتابع',
+      summaryFollowers: 'متابعيني',
+      summaryFavorites: 'مفضلتي',
+      tabsKicker: 'إدارة التفاعل',
+      tabsNote: 'بدّل بين الأقسام للوصول السريع إلى الأشخاص والوسائط التي تهمك.',
+      followingTitle: 'من أتابع',
+      followingSubtitle: 'مزودو الخدمة والأشخاص الذين تتابع نشاطهم.',
+      followersTitle: 'متابعيني',
+      followersSubtitle: 'العملاء والأشخاص الذين يتابعون ملفك.',
+      favoritesTitle: 'مفضلتي',
+      favoritesSubtitle: 'الريلز والوسائط التي احتفظت بها للرجوع إليها بسرعة.',
+      searchFollowingLabel: 'ابحث في من أتابع',
+      searchFollowingPlaceholder: 'ابحث بالاسم أو المدينة…',
+      searchFollowersLabel: 'ابحث في المتابعين',
+      searchFollowersPlaceholder: 'ابحث بالاسم…',
+      searchFavoritesLabel: 'ابحث في المفضلة',
+      searchFavoritesPlaceholder: 'ابحث في المفضلة…',
+      densityLabel: 'كثافة العرض',
+      normalDensity: 'عرض شبكي',
+      compactDensity: 'عرض مدمج',
+      tabFollowing: 'من أتابع',
+      tabFollowers: 'متابعيني',
+      tabFavorites: 'مفضلتي',
+      modeSyncError: 'يجري الآن تثبيت نوع الحساب الحالي. أعد المحاولة بعد لحظة.',
+      retry: 'إعادة المحاولة',
+      loadingFollowing: 'جاري تحميل المتابَعين...',
+      loadingFollowers: 'جاري تحميل المتابعين...',
+      loadingFavorites: 'جاري تحميل المفضلة...',
+      sessionRefresh: 'يتم تحديث الجلسة أو نوع الحساب. أعد المحاولة بعد قليل.',
+      listLoadFailed: 'تعذر تحميل القائمة',
+      followingEmpty: 'لا تتابع أي مزود خدمة حتى الآن',
+      verifiedProvider: 'مزود موثق',
+      excellence: 'تميز',
+      providerType: 'مزود خدمة',
+      providerName: 'مقدم خدمة',
+      cityUnset: 'غير محدد',
+      followersCount: 'متابع',
+      completedCount: 'مكتمل',
+      viewProfile: 'عرض الملف والتفاصيل الكاملة',
+      followersLoadFailed: 'تعذر تحميل المتابعين',
+      followersEmpty: 'لا يوجد متابعون بعد',
+      userFallback: 'مستخدم',
+      openProfile: 'فتح الملف',
+      favoritesLoadFailed: 'تعذر تحميل عناصر المفضلة',
+      favoritesEmpty: 'لا توجد عناصر محفوظة في المفضلة',
+      reelsSaved: 'الريلز المحفوظة',
+      mediaSaved: 'الوسائط المحفوظة',
+      spotlightSource: 'أضواء',
+      portfolioSource: 'معرض',
+      favoriteRemoveLabel: 'إزالة من المفضلة',
+      viewerLabel: 'مفضلتي',
+      viewerOpenFailed: 'تعذر فتح العارض حالياً',
+      removeConfirmTitle: 'تأكيد الإزالة',
+      removeConfirmText: 'هل تريد إزالة المحتوى من المفضلة؟',
+      cancel: 'إلغاء',
+      confirm: 'تأكيد',
+      removeFailed: 'فشل إزالة العنصر — حاول مرة أخرى',
+      removedSuccess: 'تم إزالة العنصر من المفضلة',
+    },
+    en: {
+      pageTitle: 'Nawafeth — Interactive',
+      gateKicker: 'Your interaction network',
+      gateTitle: 'Sign in to view Interactive',
+      gateDescription: 'You need to sign in to access following, followers, and favorites.',
+      gateNote: 'Track the people interested in you and your saved media from one place.',
+      gateButton: 'Sign in',
+      heroKicker: 'Your activity board',
+      heroTitle: 'Your interactive network',
+      summaryFollowing: 'Following',
+      summaryFollowers: 'Followers',
+      summaryFavorites: 'Favorites',
+      tabsKicker: 'Interaction control',
+      tabsNote: 'Switch between sections for quick access to the people and media that matter to you.',
+      followingTitle: 'Following',
+      followingSubtitle: 'Service providers and people whose activity you follow.',
+      followersTitle: 'Followers',
+      followersSubtitle: 'Clients and people following your profile.',
+      favoritesTitle: 'Favorites',
+      favoritesSubtitle: 'Reels and media you saved to return to quickly.',
+      searchFollowingLabel: 'Search following',
+      searchFollowingPlaceholder: 'Search by name or city…',
+      searchFollowersLabel: 'Search followers',
+      searchFollowersPlaceholder: 'Search by name…',
+      searchFavoritesLabel: 'Search favorites',
+      searchFavoritesPlaceholder: 'Search favorites…',
+      densityLabel: 'View density',
+      normalDensity: 'Grid view',
+      compactDensity: 'Compact view',
+      tabFollowing: 'Following',
+      tabFollowers: 'Followers',
+      tabFavorites: 'Favorites',
+      modeSyncError: 'The current account mode is still being stabilized. Please try again shortly.',
+      retry: 'Try again',
+      loadingFollowing: 'Loading following...',
+      loadingFollowers: 'Loading followers...',
+      loadingFavorites: 'Loading favorites...',
+      sessionRefresh: 'The session or account mode is being refreshed. Please try again shortly.',
+      listLoadFailed: 'Unable to load the list',
+      followingEmpty: 'You are not following any service providers yet',
+      verifiedProvider: 'Verified provider',
+      excellence: 'Excellence',
+      providerType: 'Service provider',
+      providerName: 'Provider',
+      cityUnset: 'Not specified',
+      followersCount: 'followers',
+      completedCount: 'completed',
+      viewProfile: 'Open full profile and details',
+      followersLoadFailed: 'Unable to load followers',
+      followersEmpty: 'No followers yet',
+      userFallback: 'User',
+      openProfile: 'Open profile',
+      favoritesLoadFailed: 'Unable to load favorite items',
+      favoritesEmpty: 'No saved items in favorites',
+      reelsSaved: 'Saved reels',
+      mediaSaved: 'Saved media',
+      spotlightSource: 'Spotlights',
+      portfolioSource: 'Portfolio',
+      favoriteRemoveLabel: 'Remove from favorites',
+      viewerLabel: 'Favorites',
+      viewerOpenFailed: 'Unable to open the viewer right now',
+      removeConfirmTitle: 'Confirm removal',
+      removeConfirmText: 'Do you want to remove this item from favorites?',
+      cancel: 'Cancel',
+      confirm: 'Confirm',
+      removeFailed: 'Failed to remove the item. Please try again.',
+      removedSuccess: 'The item was removed from favorites',
+    },
+  };
+
   let _activeTab = 'following';
   let _mode = 'client';
   let _isProviderMode = false;
@@ -11,6 +150,7 @@ const InteractivePage = (() => {
   const _roleModes = ['client', 'provider'];
 
   async function init() {
+    _applyStaticCopy();
     _setInitialLoading(true);
 
     const loggedIn = !!Auth.isLoggedIn();
@@ -28,6 +168,7 @@ const InteractivePage = (() => {
     _bindTabs();
     _switchTab(_activeTab);
     _setInitialLoading(false);
+    window.addEventListener('nawafeth:languagechange', _handleLanguageChange);
     await _loadAll();
   }
 
@@ -89,9 +230,9 @@ const InteractivePage = (() => {
     if (!tabsWrap) return;
     tabsWrap.innerHTML = '';
 
-    const tabs = [{ id: 'following', label: 'من أتابع', icon: 'people' }];
-    if (_isProviderMode) tabs.push({ id: 'followers', label: 'متابعيني', icon: 'person' });
-    tabs.push({ id: 'favorites', label: 'مفضلتي', icon: 'bookmark' });
+    const tabs = [{ id: 'following', label: _copy('tabFollowing'), icon: 'people' }];
+    if (_isProviderMode) tabs.push({ id: 'followers', label: _copy('tabFollowers'), icon: 'person' });
+    tabs.push({ id: 'favorites', label: _copy('tabFavorites'), icon: 'bookmark' });
 
     tabs.forEach((tab, idx) => {
       const btn = UI.el('button', {
@@ -144,7 +285,7 @@ const InteractivePage = (() => {
         _showGate();
         return;
       }
-      _toast('يجري الآن تثبيت نوع الحساب الحالي. أعد المحاولة بعد لحظة.', 'error');
+      _toast(_copy('modeSyncError'), 'error');
       return;
     }
     if (profileState.mode && profileState.mode !== _mode) {
@@ -251,7 +392,7 @@ const InteractivePage = (() => {
     const retryBtn = UI.el('button', {
       type: 'button',
       className: 'interactive-retry-btn',
-      textContent: 'إعادة المحاولة',
+      textContent: _copy('retry'),
     });
     retryBtn.addEventListener('click', onRetry);
     state.appendChild(retryBtn);
@@ -260,7 +401,7 @@ const InteractivePage = (() => {
 
   async function _fetchFollowing() {
     const container = document.getElementById('following-list');
-    _renderLoading(container, 'جاري تحميل المتابَعين...');
+    _renderLoading(container, _copy('loadingFollowing'));
 
     const response = await ApiClient.get(_withMode('/api/providers/me/following/', _mode));
 
@@ -270,12 +411,12 @@ const InteractivePage = (() => {
         _showGate();
         return;
       }
-      _renderError(container, 'يتم تحديث الجلسة أو نوع الحساب. أعد المحاولة بعد قليل.', _fetchFollowing);
+      _renderError(container, _copy('sessionRefresh'), _fetchFollowing);
       return;
     }
 
     if (!response.ok) {
-      _renderError(container, response.error || 'تعذر تحميل القائمة', _fetchFollowing);
+      _renderError(container, response.error || _copy('listLoadFailed'), _fetchFollowing);
       return;
     }
 
@@ -291,7 +432,7 @@ const InteractivePage = (() => {
 
     const list = Array.from(mergedMap.values());
     if (!list.length) {
-      _renderEmpty(container, 'group-off', 'لا تتابع أي مزود خدمة حتى الآن');
+      _renderEmpty(container, 'group-off', _copy('followingEmpty'));
       return;
     }
 
@@ -337,7 +478,7 @@ const InteractivePage = (() => {
     if (excellenceItems.length) {
       avatarWrap.appendChild(UI.el('span', {
         className: 'interactive-following-avatar-excellence-top',
-        textContent: excellenceItems[0].name || excellenceItems[0].code || 'تميز',
+        textContent: excellenceItems[0].name || excellenceItems[0].code || _copy('excellence'),
       }));
     }
     avatarWrap.appendChild(avatar);
@@ -346,18 +487,18 @@ const InteractivePage = (() => {
     const meta = UI.el('div', { className: 'interactive-person-meta interactive-following-meta' });
     meta.appendChild(UI.el('span', {
       className: 'interactive-person-kicker',
-      textContent: provider.provider_type_label || 'مزود خدمة',
+      textContent: provider.provider_type_label || _copy('providerType'),
     }));
     const nameRow = UI.el('div', { className: 'interactive-following-name-row' });
     nameRow.appendChild(UI.el('span', {
       className: 'interactive-following-name',
-      textContent: provider.display_name || 'مقدم خدمة',
+      textContent: provider.display_name || _copy('providerName'),
     }));
     if (provider.is_verified_blue || provider.is_verified_green || provider.is_verified) {
       const badge = UI.el('span', {
         className: 'interactive-verified-badge',
-        title: 'مزود موثق',
-        'aria-label': 'مزود موثق',
+        title: _copy('verifiedProvider'),
+        'aria-label': _copy('verifiedProvider'),
       });
       badge.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2l-3.5-3.5L4 14.2l5 5 11-11-1.5-1.5z"/></svg>';
       if (provider.is_verified_blue) badge.classList.add('blue');
@@ -380,7 +521,7 @@ const InteractivePage = (() => {
     });
     if (excellence) nameRow.appendChild(excellence);
 
-    const cityText = UI.formatCityDisplay(provider.city_display || provider.city, provider.region || provider.region_name) || 'غير محدد';
+    const cityText = UI.formatCityDisplay(provider.city_display || provider.city, provider.region || provider.region_name) || _copy('cityUnset');
     const rating = Number(provider.rating_avg || provider.ratingAvg || 0);
     const ratingText = Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : '0.0';
     const categoryText = String(provider.primary_category_name || '').trim();
@@ -400,12 +541,12 @@ const InteractivePage = (() => {
     ratingPill.innerHTML = '<span class="interactive-following-pill-icon">' + _miniIcon('star') + '</span><span>' + ratingText + '</span>';
     metaRow.appendChild(ratingPill);
     const followersPill = UI.el('span', { className: 'interactive-following-pill stat' });
-    followersPill.innerHTML = '<span class="interactive-following-pill-icon">' + _miniIcon('people') + '</span><span>' + _toInt(provider.followers_count || 0) + ' متابع</span>';
+    followersPill.innerHTML = '<span class="interactive-following-pill-icon">' + _miniIcon('people') + '</span><span>' + _toInt(provider.followers_count || 0) + ' ' + _copy('followersCount') + '</span>';
     metaRow.appendChild(followersPill);
     const completed = _toInt(provider.completed_requests || 0);
     if (completed > 0) {
       const completedPill = UI.el('span', { className: 'interactive-following-pill stat soft' });
-      completedPill.innerHTML = '<span>' + completed + ' مكتمل</span>';
+      completedPill.innerHTML = '<span>' + completed + ' ' + _copy('completedCount') + '</span>';
       metaRow.appendChild(completedPill);
     }
 
@@ -416,7 +557,7 @@ const InteractivePage = (() => {
     const footer = UI.el('div', { className: 'interactive-person-footer' });
     footer.appendChild(UI.el('span', {
       className: 'interactive-person-footnote',
-      textContent: 'عرض الملف والتفاصيل الكاملة',
+      textContent: _copy('viewProfile'),
     }));
     const arrow = UI.el('span', { className: 'interactive-person-arrow', 'aria-hidden': 'true' });
     arrow.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -428,7 +569,7 @@ const InteractivePage = (() => {
 
   async function _fetchFollowers() {
     const container = document.getElementById('followers-list');
-    _renderLoading(container, 'جاري تحميل المتابعين...');
+    _renderLoading(container, _copy('loadingFollowers'));
 
     const res = await ApiClient.get(_withMode('/api/providers/me/followers/', _mode));
     if (res.status === 401) {
@@ -437,17 +578,17 @@ const InteractivePage = (() => {
         _showGate();
         return;
       }
-      _renderError(container, 'يتم تحديث الجلسة أو نوع الحساب. أعد المحاولة بعد قليل.', _fetchFollowers);
+      _renderError(container, _copy('sessionRefresh'), _fetchFollowers);
       return;
     }
     if (!res.ok) {
-      _renderError(container, res.error || 'تعذر تحميل المتابعين', _fetchFollowers);
+      _renderError(container, res.error || _copy('followersLoadFailed'), _fetchFollowers);
       return;
     }
 
     const list = _parseList(res.data);
     if (!list.length) {
-      _renderEmpty(container, 'person-off', 'لا يوجد متابعون بعد');
+      _renderEmpty(container, 'person-off', _copy('followersEmpty'));
       return;
     }
 
@@ -489,7 +630,7 @@ const InteractivePage = (() => {
     const header = UI.el('div', { className: 'interactive-person-head' });
 
     const avatar = UI.el('div', { className: 'interactive-follower-avatar' });
-    const displayName = String(user.display_name || user.name || user.username || 'مستخدم').trim() || 'مستخدم';
+    const displayName = String(user.display_name || user.name || user.username || _copy('userFallback')).trim() || _copy('userFallback');
     const profileUrl = ApiClient.mediaUrl(user.profile_image || user.avatar || '');
     if (profileUrl) avatar.appendChild(UI.lazyImg(profileUrl, displayName));
     else avatar.appendChild(UI.text(displayName.charAt(0) || '؟'));
@@ -509,7 +650,7 @@ const InteractivePage = (() => {
       const footer = UI.el('div', { className: 'interactive-person-footer' });
       footer.appendChild(UI.el('span', {
         className: 'interactive-person-footnote',
-        textContent: 'فتح الملف',
+        textContent: _copy('openProfile'),
       }));
       const arrow = UI.el('span', { className: 'interactive-person-arrow', 'aria-hidden': 'true' });
       arrow.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -521,7 +662,7 @@ const InteractivePage = (() => {
 
   async function _fetchFavorites() {
     const container = document.getElementById('favorites-list');
-    _renderLoading(container, 'جاري تحميل المفضلة...');
+    _renderLoading(container, _copy('loadingFavorites'));
 
     const [portfolioRes, spotlightsRes] = await Promise.all([
       ApiClient.get(_withMode('/api/providers/me/favorites/', _mode)),
@@ -534,12 +675,12 @@ const InteractivePage = (() => {
         _showGate();
         return;
       }
-      _renderError(container, 'يتم تحديث الجلسة أو نوع الحساب. أعد المحاولة بعد قليل.', _fetchFavorites);
+      _renderError(container, _copy('sessionRefresh'), _fetchFavorites);
       return;
     }
 
     if (!portfolioRes.ok && !spotlightsRes.ok) {
-      _renderError(container, 'تعذر تحميل عناصر المفضلة', _fetchFavorites);
+      _renderError(container, _copy('favoritesLoadFailed'), _fetchFavorites);
       return;
     }
 
@@ -568,7 +709,7 @@ const InteractivePage = (() => {
       id: _toInt(raw && raw.id),
       source,
       provider_id: _toInt((raw && raw.provider_id) || (providerObj && providerObj.id)),
-      provider_display_name: (raw && raw.provider_display_name) || (raw && raw.provider_name) || (providerObj && providerObj.display_name) || 'مقدم خدمة',
+      provider_display_name: (raw && raw.provider_display_name) || (raw && raw.provider_name) || (providerObj && providerObj.display_name) || _copy('providerName'),
       provider_profile_image: (raw && raw.provider_profile_image) || (providerObj && providerObj.profile_image) || '',
       file_type: fileTypeRaw.startsWith('video') ? 'video' : 'image',
       file_url: (raw && raw.file_url) || (raw && raw.media_url) || (raw && raw.image) || '',
@@ -589,7 +730,7 @@ const InteractivePage = (() => {
     container.innerHTML = '';
 
     if (!_favorites.length) {
-      _renderEmpty(container, 'bookmark', 'لا توجد عناصر محفوظة في المفضلة');
+      _renderEmpty(container, 'bookmark', _copy('favoritesEmpty'));
       return;
     }
 
@@ -601,7 +742,7 @@ const InteractivePage = (() => {
       const section = UI.el('section', { className: 'interactive-favorites-section interactive-favorites-section-reels' });
       section.appendChild(UI.el('div', {
         className: 'interactive-favorites-section-title',
-        textContent: 'الريلز المحفوظة',
+        textContent: _copy('reelsSaved'),
       }));
 
       const track = UI.el('div', { className: 'reels-track interactive-favorites-reels' });
@@ -618,7 +759,7 @@ const InteractivePage = (() => {
       if (spotlightItems.length) {
         section.appendChild(UI.el('div', {
           className: 'interactive-favorites-section-title',
-          textContent: 'الوسائط المحفوظة',
+          textContent: _copy('mediaSaved'),
         }));
       }
 
@@ -638,7 +779,7 @@ const InteractivePage = (() => {
     const thumb = ApiClient.mediaUrl(item.thumbnail_url || item.file_url || '');
     const mediaUrl = ApiClient.mediaUrl(item.file_url || '');
     const isVideo = String(item.file_type || '').toLowerCase() === 'video' && !!mediaUrl;
-    const caption = (item.caption || '').trim() || (item.provider_display_name || 'لمحة');
+    const caption = (item.caption || '').trim() || (item.provider_display_name || _copy('providerName'));
 
     const reel = UI.el('div', {
       className: 'reel-item interactive-favorite-reel',
@@ -755,7 +896,7 @@ const InteractivePage = (() => {
 
     media.appendChild(UI.el('span', {
       className: 'interactive-source-badge ' + (item.source === 'spotlight' ? 'spotlight' : 'portfolio'),
-      textContent: item.source === 'spotlight' ? 'أضواء' : 'معرض',
+      textContent: item.source === 'spotlight' ? _copy('spotlightSource') : _copy('portfolioSource'),
     }));
 
     // Stats overlay — visible on hover (Instagram style)
@@ -781,14 +922,14 @@ const InteractivePage = (() => {
     const bottom = UI.el('div', { className: 'interactive-favorite-bottom' });
     bottom.appendChild(UI.el('strong', {
       className: 'interactive-favorite-provider',
-      textContent: item.provider_display_name || 'مقدم خدمة',
+      textContent: item.provider_display_name || _copy('providerName'),
     }));
 
     const removeBtn = UI.el('button', {
       type: 'button',
       className: 'interactive-favorite-remove-btn',
-      'aria-label': 'إزالة من المفضلة',
-      title: 'إزالة من المفضلة',
+      'aria-label': _copy('favoriteRemoveLabel'),
+      title: _copy('favoriteRemoveLabel'),
     });
     removeBtn.innerHTML = _miniIcon('bookmark');
     removeBtn.addEventListener('click', (event) => {
@@ -807,24 +948,24 @@ const InteractivePage = (() => {
     if (!_favorites.length) return;
     if (typeof SpotlightViewer !== 'undefined') {
       SpotlightViewer.open(_favorites, index, {
-        label: 'مفضلتي',
+        label: _copy('viewerLabel'),
         modeContext: _mode || 'client',
         immersive: true,
       });
       return;
     }
-    _toast('تعذر فتح العارض حالياً', 'error');
+    _toast(_copy('viewerOpenFailed'), 'error');
   }
 
   function _showRemoveConfirm(item, triggerBtn) {
     const backdrop = UI.el('div', { className: 'interactive-confirm-backdrop' });
     const dialog = UI.el('div', { className: 'interactive-confirm-dialog' });
-    dialog.appendChild(UI.el('h3', { className: 'interactive-confirm-title', textContent: 'تأكيد الإزالة' }));
-    dialog.appendChild(UI.el('p', { className: 'interactive-confirm-text', textContent: 'هل تريد إزالة المحتوى من المفضلة؟' }));
+    dialog.appendChild(UI.el('h3', { className: 'interactive-confirm-title', textContent: _copy('removeConfirmTitle') }));
+    dialog.appendChild(UI.el('p', { className: 'interactive-confirm-text', textContent: _copy('removeConfirmText') }));
 
     const actions = UI.el('div', { className: 'interactive-confirm-actions' });
-    const cancelBtn = UI.el('button', { type: 'button', className: 'interactive-btn interactive-btn-cancel', textContent: 'إلغاء' });
-    const okBtn = UI.el('button', { type: 'button', className: 'interactive-btn interactive-btn-confirm', textContent: 'تأكيد' });
+    const cancelBtn = UI.el('button', { type: 'button', className: 'interactive-btn interactive-btn-cancel', textContent: _copy('cancel') });
+    const okBtn = UI.el('button', { type: 'button', className: 'interactive-btn interactive-btn-confirm', textContent: _copy('confirm') });
 
     cancelBtn.addEventListener('click', () => backdrop.remove());
     okBtn.addEventListener('click', async () => {
@@ -853,13 +994,13 @@ const InteractivePage = (() => {
     if (triggerBtn) triggerBtn.disabled = false;
 
     if (!res.ok) {
-      _toast('فشل إزالة العنصر — حاول مرة أخرى', 'error');
+      _toast(_copy('removeFailed'), 'error');
       return;
     }
 
     _favorites = _favorites.filter((entry) => !(entry.id === item.id && entry.source === item.source));
     _renderFavorites();
-    _toast('تم إزالة العنصر من المفضلة', 'success');
+    _toast(_copy('removedSuccess'), 'success');
   }
 
   function _tabIcon(kind) {
@@ -899,6 +1040,86 @@ const InteractivePage = (() => {
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 240);
     }, 2200);
+  }
+
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function _copy(key) {
+    const lang = _currentLang();
+    return (COPY[lang] && COPY[lang][key]) || COPY.ar[key] || '';
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
+  function _applyStaticCopy() {
+    document.title = _copy('pageTitle');
+    const gate = document.getElementById('auth-gate');
+    if (gate) {
+      const kicker = gate.querySelector('.auth-gate-unified-kicker');
+      const title = gate.querySelector('.auth-gate-unified-title');
+      const desc = gate.querySelector('.auth-gate-unified-desc');
+      const note = gate.querySelector('.auth-gate-unified-note');
+      const cta = gate.querySelector('.auth-gate-unified-btn');
+      if (kicker) kicker.textContent = _copy('gateKicker');
+      if (title) title.textContent = _copy('gateTitle');
+      if (desc) desc.textContent = _copy('gateDescription');
+      if (note) note.textContent = _copy('gateNote');
+      if (cta) cta.textContent = _copy('gateButton');
+    }
+    _setText('interactive-hero-kicker', _copy('heroKicker'));
+    _setText('interactive-hero-title', _copy('heroTitle'));
+    _setText('interactive-summary-following', _copy('summaryFollowing'));
+    _setText('interactive-summary-followers', _copy('summaryFollowers'));
+    _setText('interactive-summary-favorites', _copy('summaryFavorites'));
+    _setText('interactive-tabs-kicker', _copy('tabsKicker'));
+    _setText('interactive-tabs-note', _copy('tabsNote'));
+    _setText('interactive-panel-title-following', _copy('followingTitle'));
+    _setText('interactive-panel-subtitle-following', _copy('followingSubtitle'));
+    _setText('interactive-panel-title-followers', _copy('followersTitle'));
+    _setText('interactive-panel-subtitle-followers', _copy('followersSubtitle'));
+    _setText('interactive-panel-title-favorites', _copy('favoritesTitle'));
+    _setText('interactive-panel-subtitle-favorites', _copy('favoritesSubtitle'));
+    const searchFollowingLabel = document.getElementById('interactive-search-label-following');
+    const searchFollowersLabel = document.getElementById('interactive-search-label-followers');
+    const searchFavoritesLabel = document.getElementById('interactive-search-label-favorites');
+    const searchFollowingInput = document.getElementById('interactive-search-input-following');
+    const searchFollowersInput = document.getElementById('interactive-search-input-followers');
+    const searchFavoritesInput = document.getElementById('interactive-search-input-favorites');
+    const densityGroup = document.getElementById('interactive-density-group');
+    if (searchFollowingLabel) searchFollowingLabel.setAttribute('aria-label', _copy('searchFollowingLabel'));
+    if (searchFollowersLabel) searchFollowersLabel.setAttribute('aria-label', _copy('searchFollowersLabel'));
+    if (searchFavoritesLabel) searchFavoritesLabel.setAttribute('aria-label', _copy('searchFavoritesLabel'));
+    if (searchFollowingInput) searchFollowingInput.placeholder = _copy('searchFollowingPlaceholder');
+    if (searchFollowersInput) searchFollowersInput.placeholder = _copy('searchFollowersPlaceholder');
+    if (searchFavoritesInput) searchFavoritesInput.placeholder = _copy('searchFavoritesPlaceholder');
+    if (densityGroup) densityGroup.setAttribute('aria-label', _copy('densityLabel'));
+    document.querySelectorAll('[data-density-btn="normal"]').forEach((btn) => {
+      btn.setAttribute('title', _copy('normalDensity'));
+      btn.setAttribute('aria-label', _copy('normalDensity'));
+    });
+    document.querySelectorAll('[data-density-btn="compact"]').forEach((btn) => {
+      btn.setAttribute('title', _copy('compactDensity'));
+      btn.setAttribute('aria-label', _copy('compactDensity'));
+    });
+  }
+
+  async function _handleLanguageChange() {
+    _applyStaticCopy();
+    if (!Auth.isLoggedIn()) {
+      _showGate();
+      return;
+    }
+    _renderTabs();
+    _switchTab(_activeTab);
+    await _loadAll();
   }
 
   if (document.readyState === 'loading') {

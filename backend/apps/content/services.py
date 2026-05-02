@@ -35,6 +35,11 @@ DEFAULT_TOPBAR_BRAND_SUBTITLE = "المنصة الرقمية للخدمات"
 DEFAULT_FOOTER_BRAND_TITLE = "نوافــذ"
 DEFAULT_FOOTER_BRAND_DESCRIPTION = "منصة تجمعك بالمختصين والعروض والخدمات في تجربة أوضح وأسرع على الويب."
 DEFAULT_FOOTER_COPYRIGHT = "جميع الحقوق محفوظة لمنصة نوافــذ"
+DEFAULT_TOPBAR_BRAND_TITLE_EN = "Nawafeth"
+DEFAULT_TOPBAR_BRAND_SUBTITLE_EN = "Digital Services Platform"
+DEFAULT_FOOTER_BRAND_TITLE_EN = "Nawafeth"
+DEFAULT_FOOTER_BRAND_DESCRIPTION_EN = "A platform that brings you specialists, offers, and services in a clearer and faster web experience."
+DEFAULT_FOOTER_COPYRIGHT_EN = "All rights reserved to Nawafeth Platform"
 
 
 def default_site_links_payload() -> dict[str, str]:
@@ -153,25 +158,64 @@ def _site_links_payload() -> dict[str, str]:
     }
 
 
+def _resolve_bilingual_text(raw_value: str, *, default_ar: str, default_en: str) -> tuple[str, str]:
+    cleaned = sanitize_text(raw_value)
+    if cleaned:
+      return cleaned, cleaned
+    return default_ar, default_en
+
+
 def public_branding_payload(blocks: dict[str, dict] | None = None) -> dict[str, object]:
     blocks = blocks if isinstance(blocks, dict) else _block_payloads()
     logo = blocks.get("topbar_brand_logo") or {}
+    topbar_title, topbar_title_en = _resolve_bilingual_text(
+        (blocks.get("topbar_brand_title") or {}).get("title_ar") or "",
+        default_ar=DEFAULT_TOPBAR_BRAND_TITLE,
+        default_en=DEFAULT_TOPBAR_BRAND_TITLE_EN,
+    )
+    topbar_subtitle, topbar_subtitle_en = _resolve_bilingual_text(
+        (blocks.get("topbar_brand_subtitle") or {}).get("title_ar") or "",
+        default_ar=DEFAULT_TOPBAR_BRAND_SUBTITLE,
+        default_en=DEFAULT_TOPBAR_BRAND_SUBTITLE_EN,
+    )
+    footer_title, footer_title_en = _resolve_bilingual_text(
+        (blocks.get("footer_brand_title") or {}).get("title_ar") or "",
+        default_ar=DEFAULT_FOOTER_BRAND_TITLE,
+        default_en=DEFAULT_FOOTER_BRAND_TITLE_EN,
+    )
+    footer_description, footer_description_en = _resolve_bilingual_text(
+        (blocks.get("footer_brand_description") or {}).get("body_ar")
+        or (blocks.get("footer_brand_description") or {}).get("title_ar")
+        or "",
+        default_ar=DEFAULT_FOOTER_BRAND_DESCRIPTION,
+        default_en=DEFAULT_FOOTER_BRAND_DESCRIPTION_EN,
+    )
+    footer_copyright, footer_copyright_en = _resolve_bilingual_text(
+        (blocks.get("footer_copyright") or {}).get("title_ar")
+        or (blocks.get("footer_copyright") or {}).get("body_ar")
+        or "",
+        default_ar=DEFAULT_FOOTER_COPYRIGHT,
+        default_en=DEFAULT_FOOTER_COPYRIGHT_EN,
+    )
+    logo_alt, logo_alt_en = _resolve_bilingual_text(
+        logo.get("title_ar") or "",
+        default_ar=DEFAULT_TOPBAR_BRAND_TITLE,
+        default_en=DEFAULT_TOPBAR_BRAND_TITLE_EN,
+    )
     return {
-        "topbar_title": sanitize_text((blocks.get("topbar_brand_title") or {}).get("title_ar") or DEFAULT_TOPBAR_BRAND_TITLE),
-        "topbar_subtitle": sanitize_text((blocks.get("topbar_brand_subtitle") or {}).get("title_ar") or DEFAULT_TOPBAR_BRAND_SUBTITLE),
-        "footer_title": sanitize_text((blocks.get("footer_brand_title") or {}).get("title_ar") or DEFAULT_FOOTER_BRAND_TITLE),
-        "footer_description": sanitize_text(
-            (blocks.get("footer_brand_description") or {}).get("body_ar")
-            or (blocks.get("footer_brand_description") or {}).get("title_ar")
-            or DEFAULT_FOOTER_BRAND_DESCRIPTION
-        ),
-        "footer_copyright": sanitize_text(
-            (blocks.get("footer_copyright") or {}).get("title_ar")
-            or (blocks.get("footer_copyright") or {}).get("body_ar")
-            or DEFAULT_FOOTER_COPYRIGHT
-        ),
+        "topbar_title": topbar_title,
+        "topbar_title_en": topbar_title_en,
+        "topbar_subtitle": topbar_subtitle,
+        "topbar_subtitle_en": topbar_subtitle_en,
+        "footer_title": footer_title,
+        "footer_title_en": footer_title_en,
+        "footer_description": footer_description,
+        "footer_description_en": footer_description_en,
+        "footer_copyright": footer_copyright,
+        "footer_copyright_en": footer_copyright_en,
         "logo_url": logo.get("media_url") or "",
-        "logo_alt": sanitize_text(logo.get("title_ar") or DEFAULT_TOPBAR_BRAND_TITLE),
+        "logo_alt": logo_alt,
+        "logo_alt_en": logo_alt_en,
     }
 
 

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../services/auth_service.dart';
+import '../services/profile_service.dart';
 import '../services/subscriptions_service.dart';
 import '../widgets/platform_top_bar.dart';
+import 'login_screen.dart';
 import 'plan_summary_screen.dart';
 
 class PlansScreen extends StatefulWidget {
@@ -12,7 +15,12 @@ class PlansScreen extends StatefulWidget {
 }
 
 class _PlansScreenState extends State<PlansScreen> {
+  static const List<String> _planOrder = <String>['basic', 'riyadi', 'pro'];
+
   List<Map<String, dynamic>> _plans = [];
+  Map<String, dynamic>? _currentSubscription;
+  String _accountDisplayName = 'حساب مقدم الخدمة';
+  bool _isLoggedIn = true;
   bool _loading = true;
   String? _error;
 
@@ -81,11 +89,18 @@ class _PlansScreenState extends State<PlansScreen> {
   List<Map<String, dynamic>> _rowsForPlan(Map<String, dynamic> plan) {
     final offer = SubscriptionsService.planOffer(plan);
     final rows = offer['card_rows'];
-    if (rows is! List) return const <Map<String, dynamic>>[];
-    return rows
-        .whereType<Map>()
-        .map((item) => item.map((key, value) => MapEntry(key.toString(), value)))
-        .toList();
+    if (rows is List) {
+      final normalized = rows
+          .whereType<Map>()
+          .map(
+            (item) => item.map((key, value) => MapEntry(key.toString(), value)),
+          )
+          .toList();
+      if (normalized.isNotEmpty) {
+        return normalized;
+      }
+    }
+    return _comparisonFallbackRows(plan);
   }
 
   Map<String, dynamic> _actionForPlan(Map<String, dynamic> plan) {
@@ -106,16 +121,221 @@ class _PlansScreenState extends State<PlansScreen> {
   }
 
   List<Color> _gradientForTier(Map<String, dynamic> plan) {
-    final tier = _displayText(
-      SubscriptionsService.planOffer(plan)['tier'] ?? plan['canonical_tier'],
-    ).toLowerCase();
+    final tier = _canonicalTier(plan);
     switch (tier) {
       case 'professional':
+      case 'pro':
         return const [Color(0xFF123C32), Color(0xFF0F766E)];
       case 'pioneer':
+      case 'riyadi':
         return const [Color(0xFF0F4C5C), Color(0xFF2A9D8F)];
       default:
         return const [Color(0xFF5F6F52), Color(0xFFA3B18A)];
+    }
+  }
+
+  String _canonicalTier(Map<String, dynamic> plan) {
+    return _displayText(
+      plan['canonical_tier'] ?? SubscriptionsService.planOffer(plan)['tier'],
+    ).toLowerCase();
+  }
+
+  List<Map<String, dynamic>> _orderedPlans(List<Map<String, dynamic>> plans) {
+    final ordered = List<Map<String, dynamic>>.from(plans);
+    ordered.sort((left, right) {
+      final leftIndex = _planOrder.indexOf(_canonicalTier(left));
+      final rightIndex = _planOrder.indexOf(_canonicalTier(right));
+      final normalizedLeft = leftIndex == -1 ? 999 : leftIndex;
+      final normalizedRight = rightIndex == -1 ? 999 : rightIndex;
+      return normalizedLeft.compareTo(normalizedRight);
+    });
+    return ordered;
+  }
+
+  Map<String, dynamic> _capabilitiesForPlan(Map<String, dynamic> plan) {
+    final raw = plan['capabilities'];
+    if (raw is Map) {
+      return raw.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return const <String, dynamic>{};
+  }
+
+  Map<String, dynamic> _promotionalControlsForPlan(Map<String, dynamic> plan) {
+    final raw = _capabilitiesForPlan(plan)['promotional_controls'];
+    if (raw is Map) {
+      return raw.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return const <String, dynamic>{};
+  }
+
+  String _valueOrDash(dynamic value) {
+    return _displayText(value, fallback: '-');
+  }
+
+  String _yesNoValue(dynamic value) {
+    return _asBool(value) ? 'نعم' : '-';
+  }
+
+  String _quotaValue(dynamic value) {
+    if (value is num && value > 0) {
+      return value.toString();
+    }
+    final parsed = num.tryParse(_displayText(value));
+    if (parsed != null && parsed > 0) {
+      return parsed.toString();
+    }
+    return '-';
+  }
+
+  List<Map<String, dynamic>> _comparisonFallbackRows(Map<String, dynamic> plan) {
+    final offer = SubscriptionsService.planOffer(plan);
+    final capabilities = _capabilitiesForPlan(plan);
+    final promotionalControls = _promotionalControlsForPlan(plan);
+    final storage = capabilities['storage'];
+    final urgentRequests = capabilities['urgent_requests'];
+    final competitiveRequests = capabilities['competitive_requests'];
+    final bannerImages = capabilities['banner_images'];
+    final reminders = capabilities['reminders'];
+    final messaging = capabilities['messaging'];
+    final support = capabilities['support'];
+
+    return <Map<String, dynamic>>[
+      {
+        'label': 'جميع الخدمات الأساسية للمنصة كعميل وكمختص',
+        'value': 'نعم',
+      },
+      {
+        'label': 'استلام التنبيهات',
+        'value': _yesNoValue(capabilities['notifications_enabled']),
+      },
+      {
+        'label': 'السعة التخزينية المتاحة',
+        'value': _valueOrDash(storage is Map ? storage['label'] : null),
+      },
+      {
+        'label': 'استقبال الطلبات العاجلة',
+        'value': _valueOrDash(
+          urgentRequests is Map ? urgentRequests['visibility_label'] : null,
+        ),
+      },
+      {
+        'label': 'استقبال طلبات الخدمات التنافسية',
+        'value': _valueOrDash(
+          competitiveRequests is Map
+              ? competitiveRequests['visibility_label']
+              : null,
+        ),
+      },
+      {
+        'label': 'صور شعار المنصة (Banner)',
+        'value': _valueOrDash(bannerImages is Map ? bannerImages['label'] : null),
+      },
+      {
+        'label': 'التحكم برسائل المحادثات الدعائية',
+        'value': _yesNoValue(promotionalControls['chat_messages']),
+      },
+      {
+        'label': 'التحكم برسائل التنبيه الدعائية',
+        'value': _yesNoValue(promotionalControls['notification_messages']),
+      },
+      {
+        'label': 'إرسال رسائل تنبيه للعملاء لتقييم الخدمة',
+        'value': _valueOrDash(reminders is Map ? reminders['label'] : null),
+      },
+      {
+        'label': 'عدد المحادثات المباشرة',
+        'value': _quotaValue(
+          messaging is Map ? messaging['direct_chat_quota'] : null,
+        ),
+      },
+      {
+        'label': 'التوثيق (شارة زرقاء)',
+        'value': _valueOrDash(offer['verification_blue_label']),
+      },
+      {
+        'label': 'التوثيق (شارة خضراء)',
+        'value': _valueOrDash(offer['verification_green_label']),
+      },
+      {
+        'label': 'الدعم الفني',
+        'value': _valueOrDash(support is Map ? support['sla_label'] : null),
+      },
+      {
+        'label': 'سعر الاشتراك السنوي',
+        'value': _valueOrDash(
+          offer['final_payable_label'] ?? offer['annual_price_label'],
+        ),
+      },
+    ];
+  }
+
+  String get _currentPlanTitle =>
+      SubscriptionsService.planTitleFromSubscription(_currentSubscription);
+
+  String get _currentStatusLabel {
+    final statusCode = _displayText(
+      _currentSubscription?['provider_status_code'] ??
+          _currentSubscription?['status'],
+    );
+    if (statusCode.isEmpty) {
+      return 'جاهز للترقية';
+    }
+    return SubscriptionsService.subscriptionStatusLabel(statusCode);
+  }
+
+  String get _heroPillLabel => _accountDisplayName;
+
+  String get _heroNote {
+    if (_currentSubscription == null) {
+      return 'اختر الباقة المناسبة لإكمال الترقية والاستفادة من جميع المزايا.';
+    }
+
+    final endAt = SubscriptionsService.parseSubscriptionEndAt(_currentSubscription);
+    final untilLabel = endAt == null ? '' : ' حتى ${_formatDate(endAt)}';
+    return 'باقتك الحالية: $_currentPlanTitle. حالة الاشتراك: $_currentStatusLabel$untilLabel. اختر الترقية المناسبة أو راجع باقتك الحالية.';
+  }
+
+  String _formatDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
+  }
+
+  bool _looksLikePhone(String value) {
+    final normalized = value.replaceAll(RegExp(r'[\s\-\+\(\)@]'), '');
+    return RegExp(r'^0\d{8,12}$').hasMatch(normalized) ||
+        RegExp(r'^9665\d{8}$').hasMatch(normalized) ||
+        RegExp(r'^5\d{8}$').hasMatch(normalized);
+  }
+
+  String _safeAccountName(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty || _looksLikePhone(text)) {
+      return '';
+    }
+    return text;
+  }
+
+  Future<String> _loadAccountDisplayName() async {
+    try {
+      final result = await ProfileService.fetchMyProfile();
+      final profile = result.data;
+      if (!result.isSuccess || profile == null) {
+        return 'حساب مقدم الخدمة';
+      }
+      final candidates = <String>[
+        _safeAccountName(profile.providerDisplayName),
+        _safeAccountName(profile.displayName),
+        _safeAccountName(profile.username),
+      ];
+      for (final candidate in candidates) {
+        if (candidate.isNotEmpty) {
+          return candidate;
+        }
+      }
+      return 'حساب مقدم الخدمة';
+    } catch (_) {
+      return 'حساب مقدم الخدمة';
     }
   }
 
@@ -130,15 +350,62 @@ class _PlansScreenState extends State<PlansScreen> {
       _loading = true;
       _error = null;
     });
-    final plans = await SubscriptionsService.getPlans();
+    final isLoggedIn = await AuthService.isLoggedIn();
     if (!mounted) return;
-    setState(() {
-      _plans = plans;
-      _loading = false;
-      if (plans.isEmpty) {
-        _error = 'لا توجد باقات متاحة حالياً';
-      }
-    });
+
+    if (!isLoggedIn) {
+      setState(() {
+        _isLoggedIn = false;
+        _plans = const [];
+        _currentSubscription = null;
+        _accountDisplayName = 'حساب مقدم الخدمة';
+        _loading = false;
+      });
+      return;
+    }
+
+    try {
+      final plansFuture = SubscriptionsService.getPlans();
+      final subscriptionsFuture = SubscriptionsService.mySubscriptions();
+      final accountDisplayNameFuture = _loadAccountDisplayName();
+
+      final plans = await plansFuture;
+      final subscriptions = await subscriptionsFuture;
+      final accountDisplayName = await accountDisplayNameFuture;
+      final preferredSubscription =
+          SubscriptionsService.selectPreferredSubscription(subscriptions);
+      if (!mounted) return;
+      setState(() {
+        _isLoggedIn = true;
+        _plans = _orderedPlans(plans);
+        _currentSubscription = preferredSubscription;
+        _accountDisplayName = accountDisplayName;
+        _loading = false;
+        if (plans.isEmpty) {
+          _error = 'لا توجد باقات متاحة حالياً';
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoggedIn = true;
+        _plans = const [];
+        _currentSubscription = null;
+        _accountDisplayName = 'حساب مقدم الخدمة';
+        _loading = false;
+        _error = 'تعذر تحميل الباقات حالياً';
+      });
+    }
+  }
+
+  Future<void> _openLogin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(redirectTo: PlansScreen()),
+      ),
+    );
+    if (!mounted) return;
+    await _loadPlans();
   }
 
   Future<void> _openSummary(Map<String, dynamic> plan) async {
@@ -170,23 +437,8 @@ class _PlansScreenState extends State<PlansScreen> {
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!, style: const TextStyle(fontFamily: 'Cairo')),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                          onPressed: _loadPlans,
-                          child: const Text(
-                            'إعادة المحاولة',
-                            style: TextStyle(fontFamily: 'Cairo'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
+            : !_isLoggedIn
+                ? _buildAuthGate(compact: compact)
                 : Column(
                     children: [
                       Padding(
@@ -196,33 +448,290 @@ class _PlansScreenState extends State<PlansScreen> {
                           compact ? 10 : 12,
                           0,
                         ),
-                        child: const Text(
-                          'اختر الباقة المناسبة لإكمال الترقية.',
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 13,
-                            color: Colors.black54,
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.fromLTRB(
+                            compact ? 16 : 20,
+                            compact ? 18 : 22,
+                            compact ? 16 : 20,
+                            compact ? 18 : 22,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF673AB7),
+                                Color(0xFF4A2D8F),
+                                Color(0xFF3A1F73),
+                              ],
+                              begin: Alignment.topRight,
+                              end: Alignment.bottomLeft,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x403A1F73),
+                                blurRadius: 28,
+                                offset: Offset(0, 14),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.30),
+                                  ),
+                                ),
+                                child: Text(
+                                  _heroPillLabel,
+                                  style: const TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: compact ? 14 : 16),
+                              const Text(
+                                'باقات الاشتراك',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  height: 1.3,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _heroNote,
+                                style: const TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xE0FFFFFF),
+                                  height: 1.8,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                       Expanded(
-                        child: ListView.builder(
-                    padding: EdgeInsets.fromLTRB(
-                      compact ? 10 : 12,
-                      compact ? 10 : 14,
-                      compact ? 10 : 12,
-                      compact ? 10 : 12,
-                    ),
-                    itemCount: _plans.length,
-                    itemBuilder: (context, index) => _planCard(
-                      _plans[index],
-                      compact: compact,
-                      veryCompact: veryCompact,
-                    ),
-                  ),
+                        child: _error != null
+                            ? Center(
+                                child: Padding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    compact ? 12 : 16,
+                                    compact ? 12 : 14,
+                                    compact ? 12 : 16,
+                                    compact ? 18 : 22,
+                                  ),
+                                  child: _buildStateCard(
+                                    message: _error!,
+                                    compact: compact,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: EdgeInsets.fromLTRB(
+                                  compact ? 10 : 12,
+                                  compact ? 10 : 14,
+                                  compact ? 10 : 12,
+                                  compact ? 10 : 12,
+                                ),
+                                itemCount: _plans.length,
+                                itemBuilder: (context, index) => _planCard(
+                                  _plans[index],
+                                  compact: compact,
+                                  veryCompact: veryCompact,
+                                ),
+                              ),
                       ),
                     ],
                   ),
+      ),
+    );
+  }
+
+  Widget _buildAuthGate({required bool compact}) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(compact ? 16 : 24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: EdgeInsets.fromLTRB(
+            compact ? 22 : 28,
+            compact ? 24 : 30,
+            compact ? 22 : 28,
+            compact ? 24 : 30,
+          ),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFFFFF), Color(0xFFF5F0FB)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFD1C4E9)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14673AB7),
+                blurRadius: 28,
+                offset: Offset(0, 14),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: compact ? 62 : 70,
+                height: compact ? 62 : 70,
+                decoration: BoxDecoration(
+                  color: const Color(0x14673AB7),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(
+                  Icons.lock_outline_rounded,
+                  color: const Color(0xFF673AB7),
+                  size: compact ? 30 : 34,
+                ),
+              ),
+              SizedBox(height: compact ? 16 : 18),
+              const Text(
+                'تسجيل الدخول مطلوب',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF3A1F73),
+                ),
+              ),
+              SizedBox(height: compact ? 8 : 10),
+              const Text(
+                'يجب تسجيل الدخول لعرض باقات الاشتراك المناسبة لحسابك.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6E5A99),
+                  height: 1.8,
+                ),
+              ),
+              SizedBox(height: compact ? 18 : 22),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _openLogin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF673AB7),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: compact ? 14 : 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'تسجيل الدخول',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStateCard({
+    required String message,
+    required bool compact,
+  }) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 460),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 18 : 22,
+        compact ? 22 : 26,
+        compact ? 18 : 22,
+        compact ? 20 : 24,
+      ),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFFFFF), Color(0xFFF5F0FB)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFD1C4E9)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: compact ? 52 : 58,
+            height: compact ? 52 : 58,
+            decoration: BoxDecoration(
+              color: const Color(0x14673AB7),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(
+              Icons.info_outline_rounded,
+              color: const Color(0xFF673AB7),
+              size: compact ? 28 : 30,
+            ),
+          ),
+          SizedBox(height: compact ? 14 : 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF4A2D8F),
+              height: 1.8,
+            ),
+          ),
+          SizedBox(height: compact ? 16 : 18),
+          ElevatedButton(
+            onPressed: _loadPlans,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF673AB7),
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 20 : 24,
+                vertical: compact ? 12 : 14,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text(
+              'إعادة المحاولة',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -241,7 +750,10 @@ class _PlansScreenState extends State<PlansScreen> {
       fallback: 'الباقة',
     );
     final description = _displayText(offer['description']);
-    final annualPrice = _displayText(offer['annual_price_label'], fallback: 'مجانية');
+    final annualPrice = _displayText(
+      offer['final_payable_label'] ?? offer['annual_price_label'],
+      fallback: 'مجانية',
+    );
     final verificationEffect = _displayText(offer['verification_effect_label']);
     final buttonLabel = _displayText(action['label'], fallback: 'ترقية');
     final canOpen = _asBool(action['enabled']);

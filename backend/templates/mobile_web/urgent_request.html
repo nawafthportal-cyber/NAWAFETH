@@ -1246,24 +1246,24 @@ body.theme-dark.page-urgent-request textarea{
   <div class="container ur-page">
     <div id="auth-gate" class="auth-gate auth-gate-unified ur-auth-gate{% if request.user.is_authenticated and provider_mode_blocked %}{% elif not request.user.is_authenticated %}{% else %} hidden{% endif %}">
       {% if request.user.is_authenticated and provider_mode_blocked %}
-      <p class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
+      <p id="ur-provider-kicker" class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
       <div class="auth-gate-unified-icon" aria-hidden="true">
         <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-2 .9-2 2v11c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
       </div>
-      <h2 class="auth-gate-unified-title">{{ provider_mode_block.title }}</h2>
-      <p class="auth-gate-unified-desc">{{ provider_mode_block.description }}</p>
+      <h2 id="ur-provider-title" class="auth-gate-unified-title">{{ provider_mode_block.title }}</h2>
+      <p id="ur-provider-description" class="auth-gate-unified-desc">{{ provider_mode_block.description }}</p>
       <div class="auth-gate-unified-actions" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px">
-        <button type="button" class="btn btn-primary auth-gate-unified-btn" data-provider-request-switch="client" data-provider-request-target="{{ provider_mode_block.target }}">{{ provider_mode_block.switch_label }}</button>
-        <a href="/profile/" class="btn btn-secondary" style="min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">{{ provider_mode_block.profile_label }}</a>
+        <button id="ur-provider-switch" type="button" class="btn btn-primary auth-gate-unified-btn" data-provider-request-switch="client" data-provider-request-target="{{ provider_mode_block.target }}">{{ provider_mode_block.switch_label }}</button>
+        <a id="ur-provider-profile" href="/profile/" class="btn btn-secondary" style="min-height:48px;padding:0 18px;border-radius:14px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center">{{ provider_mode_block.profile_label }}</a>
       </div>
-      <p class="auth-gate-unified-note" style="margin-top:12px">{{ provider_mode_block.note }}</p>
+      <p id="ur-provider-note" class="auth-gate-unified-note" style="margin-top:12px">{{ provider_mode_block.note }}</p>
       {% else %}
       <div class="auth-gate-unified-icon" aria-hidden="true">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
       </div>
-      <h2 class="auth-gate-unified-title">سجّل دخولك لإنشاء طلب عاجل</h2>
-      <p class="auth-gate-unified-desc">لإرسال طلب عاجل للمزوّدين المطابقين فورًا.</p>
-      <a href="/login/?next=/urgent-request/" class="btn btn-primary">تسجيل الدخول</a>
+      <h2 id="ur-login-title" class="auth-gate-unified-title">سجّل دخولك لإنشاء طلب عاجل</h2>
+      <p id="ur-login-description" class="auth-gate-unified-desc">لإرسال طلب عاجل للمزوّدين المطابقين فورًا.</p>
+      <a id="ur-login-button" href="/login/?next=/urgent-request/" class="btn btn-primary">تسجيل الدخول</a>
       {% endif %}
     </div>
 
@@ -1272,9 +1272,9 @@ body.theme-dark.page-urgent-request textarea{
         <div class="ur-hero-copy">
           <span class="ur-kicker">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
-            طلب عاجل
+            <span id="ur-hero-kicker-text">طلب عاجل</span>
           </span>
-          <h1>أرسل طلبك للمزوّد الأنسب خلال دقائق</h1>
+          <h1 id="ur-hero-title">أرسل طلبك للمزوّد الأنسب خلال دقائق</h1>
         </div>
       </section>
 
@@ -1284,10 +1284,10 @@ body.theme-dark.page-urgent-request textarea{
             <div class="ur-form-head-copy">
               <span class="ur-badge is-type">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
-                طلب عاجل
+                <span id="ur-form-badge-text">طلب عاجل</span>
               </span>
               <div>
-                <h2>نموذج الطلب</h2>
+                <h2 id="ur-form-title">نموذج الطلب</h2>
               </div>
             </div>
           </div>
@@ -1297,21 +1297,21 @@ body.theme-dark.page-urgent-request textarea{
               <div class="ur-section-head">
                 <span class="ur-step">1</span>
                 <div>
-                  <h3>التصنيف</h3>
+                  <h3 id="ur-step-category-title">التصنيف</h3>
                 </div>
               </div>
               <div class="ur-fields">
                 <div class="ur-field">
-                  <label for="ur-category">التصنيف الرئيسي <span class="ur-required">*</span></label>
+                  <label for="ur-category"><span id="ur-category-label">التصنيف الرئيسي</span> <span class="ur-required">*</span></label>
                   <select id="ur-category" aria-describedby="ur-category-error">
-                    <option value="">اختر التصنيف الرئيسي</option>
+                    <option id="ur-category-placeholder" value="">اختر التصنيف الرئيسي</option>
                   </select>
                   <small class="ur-field-error hidden" id="ur-category-error"></small>
                 </div>
                 <div class="ur-field">
-                  <label for="ur-subcategory">التصنيف الفرعي <span class="ur-required">*</span></label>
+                  <label for="ur-subcategory"><span id="ur-subcategory-label">التصنيف الفرعي</span> <span class="ur-required">*</span></label>
                   <select id="ur-subcategory" aria-describedby="ur-subcategory-error">
-                    <option value="">اختر التصنيف الفرعي</option>
+                    <option id="ur-subcategory-placeholder" value="">اختر التصنيف الفرعي</option>
                   </select>
                   <small class="ur-field-error hidden" id="ur-subcategory-error"></small>
                 </div>
@@ -1322,7 +1322,7 @@ body.theme-dark.page-urgent-request textarea{
               <div class="ur-section-head">
                 <span class="ur-step">2</span>
                 <div>
-                  <h3>نطاق الإرسال</h3>
+                  <h3 id="ur-step-scope-title">نطاق الإرسال</h3>
                 </div>
               </div>
 
@@ -1330,30 +1330,30 @@ body.theme-dark.page-urgent-request textarea{
                 <label class="ur-dispatch-card">
                   <input type="radio" name="dispatch_mode" id="ur-dispatch-all" value="all" checked>
                   <span class="ur-dispatch-card-body">
-                    <strong>إرسال للجميع</strong>
-                    <span>لجميع المزوّدين المطابقين.</span>
+                    <strong id="ur-dispatch-all-title">إرسال للجميع</strong>
+                    <span id="ur-dispatch-all-description">لجميع المزوّدين المطابقين.</span>
                   </span>
                 </label>
                 <label class="ur-dispatch-card">
                   <input type="radio" name="dispatch_mode" id="ur-dispatch-nearest" value="nearest">
                   <span class="ur-dispatch-card-body">
-                    <strong>إرسال للأقرب</strong>
-                    <span>اختيار مزوّد من الخريطة.</span>
+                    <strong id="ur-dispatch-nearest-title">إرسال للأقرب</strong>
+                    <span id="ur-dispatch-nearest-description">اختيار مزوّد من الخريطة.</span>
                   </span>
                 </label>
               </div>
 
               <div class="ur-location-grid" style="margin-top:16px">
                 <div class="ur-field">
-                  <label for="ur-region">المنطقة الإدارية</label>
+                  <label id="ur-region-label" for="ur-region">المنطقة الإدارية</label>
                   <select id="ur-region">
-                    <option value="">اختر المنطقة الإدارية</option>
+                    <option id="ur-region-placeholder" value="">اختر المنطقة الإدارية</option>
                   </select>
                 </div>
                 <div class="ur-field">
-                  <label for="ur-city">المدينة <span id="ur-city-required" class="ur-required hidden">*</span></label>
+                  <label for="ur-city"><span id="ur-city-label">المدينة</span> <span id="ur-city-required" class="ur-required hidden">*</span></label>
                   <select id="ur-city" aria-describedby="ur-city-error">
-                    <option value="">اختر المنطقة أولًا ثم المدينة</option>
+                    <option id="ur-city-placeholder" value="">اختر المنطقة أولًا ثم المدينة</option>
                   </select>
                   <small class="ur-field-error hidden" id="ur-city-error"></small>
                 </div>
@@ -1391,18 +1391,18 @@ body.theme-dark.page-urgent-request textarea{
               <div class="ur-section-head">
                 <span class="ur-step">3</span>
                 <div>
-                  <h3>التفاصيل</h3>
+                  <h3 id="ur-step-details-title">التفاصيل</h3>
                 </div>
               </div>
               <div class="ur-fields">
                 <div class="ur-field span-full">
-                  <label for="ur-title">عنوان الطلب <span class="ur-required">*</span></label>
+                  <label for="ur-title"><span id="ur-title-label">عنوان الطلب</span> <span class="ur-required">*</span></label>
                   <input id="ur-title" type="text" maxlength="50" placeholder="مثال: صيانة عاجلة لمكيف منزل">
                   <small class="ur-field-error hidden" id="ur-title-error"></small>
                   <div class="ur-count" id="ur-title-count-wrap"><span id="ur-title-count">0</span>/50</div>
                 </div>
                 <div class="ur-field span-full">
-                  <label for="ur-description">تفاصيل الطلب <span class="ur-required">*</span></label>
+                  <label for="ur-description"><span id="ur-description-label">تفاصيل الطلب</span> <span class="ur-required">*</span></label>
                   <textarea id="ur-description" maxlength="300" placeholder="اكتب وصفًا مختصرًا وواضحًا..."></textarea>
                   <small class="ur-field-error hidden" id="ur-description-error"></small>
                   <div class="ur-count" id="ur-desc-count-wrap"><span id="ur-desc-count">0</span>/300</div>
@@ -1414,7 +1414,7 @@ body.theme-dark.page-urgent-request textarea{
               <div class="ur-section-head">
                 <span class="ur-step">4</span>
                 <div>
-                  <h3>المرفقات</h3>
+                  <h3 id="ur-step-attachments-title">المرفقات</h3>
                 </div>
               </div>
 
@@ -1422,19 +1422,19 @@ body.theme-dark.page-urgent-request textarea{
                 <div class="ur-picker-grid">
                   <button type="button" class="ur-picker-btn" id="ur-pick-gallery">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2zM4 6H2v14a2 2 0 0 0 2 2h14v-2H4z"/></svg>
-                    صور / فيديو
+                    <span id="ur-pick-gallery-text">صور / فيديو</span>
                   </button>
                   <button type="button" class="ur-picker-btn" id="ur-pick-camera">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 5h-3.17l-1.84-2H9.01L7.17 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
-                    كاميرا
+                    <span id="ur-pick-camera-text">كاميرا</span>
                   </button>
                   <button type="button" class="ur-picker-btn" id="ur-record-audio">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11z"/></svg>
-                    تسجيل صوت
+                    <span id="ur-record-audio-text">تسجيل صوت</span>
                   </button>
                   <button type="button" class="ur-picker-btn" id="ur-pick-pdf">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm0 2.5L18.5 9H14zM8 13h2.5a2 2 0 0 1 0 4H9v2H8zm1 1v2h1.5a1 1 0 0 0 0-2zm5-1a2 2 0 0 1 0 4H13v2h-1v-6zm0 1H13v2h1a1 1 0 1 0 0-2z"/></svg>
-                    PDF
+                    <span id="ur-pick-pdf-text">PDF</span>
                   </button>
                 </div>
 
@@ -1450,8 +1450,8 @@ body.theme-dark.page-urgent-request textarea{
 
             <div class="ur-submit-row">
               <div class="ur-inline-actions">
-                <a href="/add-service/" class="ur-btn-secondary">إلغاء</a>
-                <button type="submit" id="ur-submit" class="ur-btn">إرسال الطلب العاجل</button>
+                <a id="ur-cancel-link" href="/add-service/" class="ur-btn-secondary">إلغاء</a>
+                <button type="submit" id="ur-submit" class="ur-btn"><span id="ur-submit-text">إرسال الطلب العاجل</span></button>
               </div>
             </div>
           </form>
@@ -1484,7 +1484,7 @@ body.theme-dark.page-urgent-request textarea{
           <div class="ur-success-icon">
             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg>
           </div>
-          <h3>تم إرسال طلبك بنجاح</h3>
+          <h3 id="ur-success-title">تم إرسال طلبك بنجاح</h3>
           <p id="ur-success-message">سيتم تحويلك إلى صفحة الطلبات.</p>
         </div>
       </div>
@@ -1507,5 +1507,5 @@ body.theme-dark.page-urgent-request textarea{
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/urgentRequestPage.js' %}?v=20260422-tiles-carto"></script>
+<script src="{% static 'mobile_web/js/urgentRequestPage.js' %}?v=20260502-urgent-request-i18n-stage1"></script>
 {% endblock %}

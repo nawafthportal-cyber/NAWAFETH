@@ -497,21 +497,21 @@
       <div id="interactive-content" class="interactive-content-shell hidden">
         <section class="interactive-hero">
           <div class="interactive-hero-copy">
-            <span class="interactive-kicker">لوحة تفاعلك</span>
-            <h1 class="interactive-hero-title">شبكتك التفاعلية</h1>
+            <span class="interactive-kicker" id="interactive-hero-kicker">لوحة تفاعلك</span>
+            <h1 class="interactive-hero-title" id="interactive-hero-title">شبكتك التفاعلية</h1>
           </div>
           <div class="interactive-hero-summary" id="interactive-hero-summary" aria-hidden="false">
             <div class="interactive-hero-summary-item" data-tab="following">
               <span class="interactive-hero-summary-num" data-summary-for="following">0</span>
-              <span class="interactive-hero-summary-label">من أتابع</span>
+              <span class="interactive-hero-summary-label" id="interactive-summary-following">من أتابع</span>
             </div>
             <div class="interactive-hero-summary-item" data-tab="followers" id="interactive-hero-summary-followers">
               <span class="interactive-hero-summary-num" data-summary-for="followers">0</span>
-              <span class="interactive-hero-summary-label">متابعيني</span>
+              <span class="interactive-hero-summary-label" id="interactive-summary-followers">متابعيني</span>
             </div>
             <div class="interactive-hero-summary-item" data-tab="favorites">
               <span class="interactive-hero-summary-num" data-summary-for="favorites">0</span>
-              <span class="interactive-hero-summary-label">مفضلتي</span>
+              <span class="interactive-hero-summary-label" id="interactive-summary-favorites">مفضلتي</span>
             </div>
           </div>
         </section>
@@ -550,9 +550,9 @@
         <section class="interactive-overview-card">
           <div class="interactive-tabs-heading">
             <div class="interactive-tabs-copy">
-              <span class="interactive-tabs-kicker">إدارة التفاعل</span>
+              <span class="interactive-tabs-kicker" id="interactive-tabs-kicker">إدارة التفاعل</span>
             </div>
-            <p class="interactive-tabs-note">بدّل بين الأقسام للوصول السريع إلى الأشخاص والوسائط التي تهمك.</p>
+            <p class="interactive-tabs-note" id="interactive-tabs-note">بدّل بين الأقسام للوصول السريع إلى الأشخاص والوسائط التي تهمك.</p>
           </div>
 
           <div class="interactive-tabs-shell">
@@ -564,18 +564,18 @@
         <section id="tab-following" class="tab-panel active interactive-panel-shell" data-panel-key="following">
           <div class="interactive-panel-head">
             <div>
-              <h3 class="interactive-panel-title">من أتابع</h3>
-              <p class="interactive-panel-subtitle">مزودو الخدمة والأشخاص الذين تتابع نشاطهم.</p>
+              <h3 class="interactive-panel-title" id="interactive-panel-title-following">من أتابع</h3>
+              <p class="interactive-panel-subtitle" id="interactive-panel-subtitle-following">مزودو الخدمة والأشخاص الذين تتابع نشاطهم.</p>
             </div>
             <div class="interactive-panel-toolbar">
-              <label class="inx-search" aria-label="ابحث في من أتابع">
-                <input type="search" placeholder="ابحث بالاسم أو المدينة…" data-inx-search="following" autocomplete="off" />
+              <label class="inx-search" id="interactive-search-label-following" aria-label="ابحث في من أتابع">
+                <input type="search" id="interactive-search-input-following" placeholder="ابحث بالاسم أو المدينة…" data-inx-search="following" autocomplete="off" />
                 <svg class="inx-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
               </label>
               <span class="inx-counter" id="inx-counter-following" aria-live="polite">
                 <b data-counter-visible="following">0</b><span class="inx-counter-sep">/</span><b data-counter-total="following">0</b>
               </span>
-              <div class="inx-density" role="group" aria-label="كثافة العرض">
+              <div class="inx-density" id="interactive-density-group" role="group" aria-label="كثافة العرض">
                 <button type="button" data-density-btn="normal" class="is-on" title="عرض شبكي" aria-label="عرض شبكي">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
                 </button>
@@ -592,12 +592,12 @@
         <section id="tab-followers" class="tab-panel interactive-panel-shell" data-panel-key="followers">
           <div class="interactive-panel-head">
             <div>
-              <h3 class="interactive-panel-title">متابعيني</h3>
-              <p class="interactive-panel-subtitle">العملاء والأشخاص الذين يتابعون ملفك.</p>
+              <h3 class="interactive-panel-title" id="interactive-panel-title-followers">متابعيني</h3>
+              <p class="interactive-panel-subtitle" id="interactive-panel-subtitle-followers">العملاء والأشخاص الذين يتابعون ملفك.</p>
             </div>
             <div class="interactive-panel-toolbar">
-              <label class="inx-search" aria-label="ابحث في المتابعين">
-                <input type="search" placeholder="ابحث بالاسم…" data-inx-search="followers" autocomplete="off" />
+              <label class="inx-search" id="interactive-search-label-followers" aria-label="ابحث في المتابعين">
+                <input type="search" id="interactive-search-input-followers" placeholder="ابحث بالاسم…" data-inx-search="followers" autocomplete="off" />
                 <svg class="inx-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
               </label>
               <span class="inx-counter" id="inx-counter-followers" aria-live="polite">
@@ -612,12 +612,12 @@
         <section id="tab-favorites" class="tab-panel interactive-panel-shell" data-panel-key="favorites">
           <div class="interactive-panel-head">
             <div>
-              <h3 class="interactive-panel-title">مفضلتي</h3>
-              <p class="interactive-panel-subtitle">الريلز والوسائط التي احتفظت بها للرجوع إليها بسرعة.</p>
+              <h3 class="interactive-panel-title" id="interactive-panel-title-favorites">مفضلتي</h3>
+              <p class="interactive-panel-subtitle" id="interactive-panel-subtitle-favorites">الريلز والوسائط التي احتفظت بها للرجوع إليها بسرعة.</p>
             </div>
             <div class="interactive-panel-toolbar">
-              <label class="inx-search" aria-label="ابحث في المفضلة">
-                <input type="search" placeholder="ابحث في المفضلة…" data-inx-search="favorites" autocomplete="off" />
+              <label class="inx-search" id="interactive-search-label-favorites" aria-label="ابحث في المفضلة">
+                <input type="search" id="interactive-search-input-favorites" placeholder="ابحث في المفضلة…" data-inx-search="favorites" autocomplete="off" />
                 <svg class="inx-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
               </label>
               <span class="inx-counter" id="inx-counter-favorites" aria-live="polite">
@@ -635,7 +635,7 @@
 
 {% block extra_js %}
 <script src="{% static 'mobile_web/js/spotlightViewer.js' %}?v=20260421-tiktok-viewer"></script>
-<script src="{% static 'mobile_web/js/interactivePage.js' %}?v=20260422-interactive-fix"></script>
+<script src="{% static 'mobile_web/js/interactivePage.js' %}?v=20260502-interactive-i18n-stage1"></script>
 <script>
 /* ===========================================================
    Interactive page enhancements: search, density, counters, tab badges.
@@ -643,6 +643,22 @@
    =========================================================== */
 (function () {
   'use strict';
+
+  function currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function inlineCopy(key) {
+    var dict = {
+      ar: { noMatch: 'لا توجد نتائج تطابق بحثك. <strong>جرّب كلمة أخرى.</strong>' },
+      en: { noMatch: 'No results match your search. <strong>Try another keyword.</strong>' }
+    };
+    var lang = currentLang();
+    return (dict[lang] && dict[lang][key]) || dict.ar[key] || '';
+  }
 
   var TAB_TO_LIST = {
     following: 'following-list',
@@ -691,7 +707,7 @@
     if (!nm) {
       nm = document.createElement('div');
       nm.className = 'inx-no-match';
-      nm.innerHTML = 'لا توجد نتائج تطابق بحثك. <strong>جرّب كلمة أخرى.</strong>';
+      nm.innerHTML = inlineCopy('noMatch');
       listEl.appendChild(nm);
     }
     return nm;
@@ -757,6 +773,12 @@
       applyFilter(tabKey);
     });
   }
+
+  window.addEventListener('nawafeth:languagechange', function () {
+    $all('.inx-no-match').forEach(function (el) {
+      el.innerHTML = inlineCopy('noMatch');
+    });
+  });
 
   function bindSearch() {
     $all('[data-inx-search]').forEach(function (input) {

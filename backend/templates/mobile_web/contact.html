@@ -837,9 +837,9 @@ body.page-contact.page-contact-premium .contact-toast.error {
       <h2 id="contact-gate-title" class="auth-gate-unified-title">سجّل دخولك</h2>
       <p id="contact-gate-description" class="auth-gate-unified-desc">يجب تسجيل الدخول لعرض تذاكر الدعم</p>
       <div class="contact-auth-gate-points" aria-hidden="true">
-        <span class="contact-auth-gate-point">عرض سجل البلاغات السابقة</span>
-        <span class="contact-auth-gate-point">متابعة الحالة والتعليقات</span>
-        <span class="contact-auth-gate-point">رفع المرفقات من نفس الواجهة</span>
+        <span class="contact-auth-gate-point" id="contact-gate-point-1">عرض سجل البلاغات السابقة</span>
+        <span class="contact-auth-gate-point" id="contact-gate-point-2">متابعة الحالة والتعليقات</span>
+        <span class="contact-auth-gate-point" id="contact-gate-point-3">رفع المرفقات من نفس الواجهة</span>
       </div>
       <a id="contact-gate-login" href="/login/?next=/contact/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
@@ -847,24 +847,24 @@ body.page-contact.page-contact-premium .contact-toast.error {
     <div id="support-content" class="contact-shell hidden">
       <section class="contact-hero">
         <div class="contact-hero-copy">
-          <p class="contact-hero-eyebrow">مركز الدعم والمساعدة</p>
+          <p class="contact-hero-eyebrow" id="contact-hero-eyebrow">مركز الدعم والمساعدة</p>
           <h1 id="contact-page-title" class="contact-hero-title">تواصل مع منصة نوافذ</h1>
-          <p class="contact-hero-subtitle">
+          <p class="contact-hero-subtitle" id="contact-hero-subtitle">
             قدّم بلاغًا جديدًا، تابع حالة تذاكرك، وأضف التعليقات والمرفقات من واجهة أوضح وأكثر ترتيبًا.
           </p>
           <div class="contact-hero-tags">
-            <span class="contact-hero-tag">متابعة منظمة</span>
-            <span class="contact-hero-tag">سجل كامل للتعليقات</span>
-            <span class="contact-hero-tag">رفع مرفقات بسهولة</span>
+            <span class="contact-hero-tag" id="contact-hero-tag-1">متابعة منظمة</span>
+            <span class="contact-hero-tag" id="contact-hero-tag-2">سجل كامل للتعليقات</span>
+            <span class="contact-hero-tag" id="contact-hero-tag-3">رفع مرفقات بسهولة</span>
           </div>
           <div class="contact-hero-highlights" aria-hidden="true">
             <article class="contact-hero-highlight">
-              <span class="contact-hero-highlight-label">تجربة واضحة</span>
-              <strong>تفاصيل البلاغ، حالته، ومرفقاته معروضة في لوحة واحدة مرتبة وسهلة التتبع.</strong>
+              <span class="contact-hero-highlight-label" id="contact-highlight-label-1">تجربة واضحة</span>
+              <strong id="contact-highlight-body-1">تفاصيل البلاغ، حالته، ومرفقاته معروضة في لوحة واحدة مرتبة وسهلة التتبع.</strong>
             </article>
             <article class="contact-hero-highlight">
-              <span class="contact-hero-highlight-label">تواصل أسرع</span>
-              <strong>أضف تعليقًا جديدًا أو افتح بلاغًا آخر بدون مغادرة نفس الواجهة.</strong>
+              <span class="contact-hero-highlight-label" id="contact-highlight-label-2">تواصل أسرع</span>
+              <strong id="contact-highlight-body-2">أضف تعليقًا جديدًا أو افتح بلاغًا آخر بدون مغادرة نفس الواجهة.</strong>
             </article>
           </div>
         </div>
@@ -873,40 +873,40 @@ body.page-contact.page-contact-premium .contact-toast.error {
           <div class="contact-hero-stats">
             <div class="contact-hero-stat">
               <strong id="support-total-count">0</strong>
-              <span>إجمالي البلاغات</span>
+              <span id="support-total-label">إجمالي البلاغات</span>
             </div>
             <div class="contact-hero-stat">
               <strong id="support-open-count">0</strong>
-              <span>قيد المتابعة</span>
+              <span id="support-open-label">قيد المتابعة</span>
             </div>
             <div class="contact-hero-stat">
               <strong id="support-closed-count">0</strong>
-              <span>مغلقة</span>
+              <span id="support-closed-label">مغلقة</span>
             </div>
           </div>
 
           <div class="contact-hero-brief" aria-hidden="true">
-            <p class="contact-hero-brief-eyebrow">رحلة الدعم باختصار</p>
+            <p class="contact-hero-brief-eyebrow" id="contact-brief-eyebrow">رحلة الدعم باختصار</p>
             <div class="contact-hero-brief-list">
               <div class="contact-hero-brief-item">
                 <span class="contact-hero-brief-index">01</span>
                 <div class="contact-hero-brief-content">
-                  <strong>أنشئ البلاغ</strong>
-                  <p>اختر الفريق المناسب ثم اكتب وصفًا واضحًا وأضف ما يلزم من ملفات.</p>
+                  <strong id="contact-brief-title-1">أنشئ البلاغ</strong>
+                  <p id="contact-brief-body-1">اختر الفريق المناسب ثم اكتب وصفًا واضحًا وأضف ما يلزم من ملفات.</p>
                 </div>
               </div>
               <div class="contact-hero-brief-item">
                 <span class="contact-hero-brief-index">02</span>
                 <div class="contact-hero-brief-content">
-                  <strong>تابع التحديثات</strong>
-                  <p>راجع الحالة الحالية وسجل التعليقات بدون التنقل بين أكثر من شاشة.</p>
+                  <strong id="contact-brief-title-2">تابع التحديثات</strong>
+                  <p id="contact-brief-body-2">راجع الحالة الحالية وسجل التعليقات بدون التنقل بين أكثر من شاشة.</p>
                 </div>
               </div>
               <div class="contact-hero-brief-item">
                 <span class="contact-hero-brief-index">03</span>
                 <div class="contact-hero-brief-content">
-                  <strong>أكمل الحوار</strong>
-                  <p>أضف تعليقًا جديدًا عند الحاجة ليبقى مسار المتابعة واضحًا ومكتملًا.</p>
+                  <strong id="contact-brief-title-3">أكمل الحوار</strong>
+                  <p id="contact-brief-body-3">أضف تعليقًا جديدًا عند الحاجة ليبقى مسار المتابعة واضحًا ومكتملًا.</p>
                 </div>
               </div>
             </div>
@@ -916,8 +916,8 @@ body.page-contact.page-contact-premium .contact-toast.error {
 
       <div class="support-toolbar contact-toolbar">
         <div class="contact-toolbar-copy">
-          <p class="contact-toolbar-title">لوحة دعم أنظف وأوضح</p>
-          <p class="contact-toolbar-subtitle">بدّل بين تحديث القائمة وفتح بلاغ جديد من شريط أوامر سريع ومباشر.</p>
+          <p class="contact-toolbar-title" id="contact-toolbar-title">لوحة دعم أنظف وأوضح</p>
+          <p class="contact-toolbar-subtitle" id="contact-toolbar-subtitle">بدّل بين تحديث القائمة وفتح بلاغ جديد من شريط أوامر سريع ومباشر.</p>
         </div>
         <div class="contact-toolbar-actions">
           <button class="contact-toolbar-btn contact-toolbar-btn-secondary" id="btn-support-refresh" type="button">
@@ -941,11 +941,11 @@ body.page-contact.page-contact-premium .contact-toast.error {
         <section class="support-card contact-panel contact-panel-list">
           <div class="contact-panel-head">
             <div>
-              <span class="contact-panel-kicker">مركز البلاغات</span>
+              <span class="contact-panel-kicker" id="contact-list-kicker">مركز البلاغات</span>
               <h2 class="support-card-title" id="contact-list-title">قائمة البلاغات</h2>
-              <p class="contact-panel-subtitle">تابع جميع البلاغات التي أرسلتها وحالتها الحالية.</p>
+              <p class="contact-panel-subtitle" id="contact-list-subtitle">تابع جميع البلاغات التي أرسلتها وحالتها الحالية.</p>
             </div>
-            <span class="contact-panel-note">تحديث حي للحالة</span>
+            <span class="contact-panel-note" id="contact-list-note">تحديث حي للحالة</span>
           </div>
           <div id="support-list-loading" class="text-center">
             <span class="spinner-inline"></span>
@@ -968,11 +968,11 @@ body.page-contact.page-contact-premium .contact-toast.error {
           <form id="new-ticket-form" class="hidden">
             <div class="contact-panel-head">
               <div>
-                <span class="contact-panel-kicker">إنشاء بلاغ</span>
+                <span class="contact-panel-kicker" id="contact-create-kicker">إنشاء بلاغ</span>
                 <h2 class="support-card-title" id="contact-create-title">إنشاء بلاغ جديد</h2>
-                <p class="contact-panel-subtitle">اختر الجهة المناسبة ثم اكتب وصفًا واضحًا للمشكلة أو الطلب.</p>
+                <p class="contact-panel-subtitle" id="contact-create-subtitle">اختر الجهة المناسبة ثم اكتب وصفًا واضحًا للمشكلة أو الطلب.</p>
               </div>
-              <span class="contact-panel-note">نموذج سريع</span>
+              <span class="contact-panel-note" id="contact-create-note">نموذج سريع</span>
             </div>
             <div class="form-group">
               <label class="form-label" for="support-team" id="contact-team-label">فريق الدعم</label>
@@ -990,7 +990,7 @@ body.page-contact.page-contact-premium .contact-toast.error {
             <div class="form-group">
               <label class="form-label" for="support-files" id="contact-attachments-label">مرفقات (اختياري)</label>
               <input type="file" id="support-files" class="form-input contact-file-input" multiple>
-              <p class="contact-field-hint">يمكنك إرفاق صور أو ملفات تساعد الفريق على فهم البلاغ بسرعة.</p>
+              <p class="contact-field-hint" id="contact-attachments-hint">يمكنك إرفاق صور أو ملفات تساعد الفريق على فهم البلاغ بسرعة.</p>
             </div>
             <div class="form-error hidden" id="support-create-error"></div>
             <div class="support-actions">
@@ -1005,11 +1005,12 @@ body.page-contact.page-contact-premium .contact-toast.error {
           <div id="ticket-detail-view">
             <div class="contact-panel-head">
               <div>
-                <span class="contact-panel-kicker">قراءة ومتابعة</span>
+                <span class="contact-panel-kicker" id="contact-detail-kicker">قراءة ومتابعة</span>
                 <h2 class="support-card-title" id="contact-detail-title">تفاصيل البلاغ</h2>
                 <p class="contact-panel-subtitle" id="contact-detail-helper">هنا ستجد الحالة، الوصف، المرفقات، والتعليقات المرتبطة بالبلاغ.</p>
+                <p id="ticket-original-language-note" class="ticket-muted hidden"></p>
               </div>
-              <span class="contact-panel-note">تفاصيل كاملة</span>
+              <span class="contact-panel-note" id="contact-detail-note">تفاصيل كاملة</span>
             </div>
             <div class="empty-hint contact-detail-empty" id="ticket-detail-empty">
               <div class="contact-empty-icon" aria-hidden="true">
@@ -1032,5 +1033,5 @@ body.page-contact.page-contact-premium .contact-toast.error {
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/contactPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/contactPage.js' %}?v=20260501-contact-i18n-stage1"></script>
 {% endblock %}

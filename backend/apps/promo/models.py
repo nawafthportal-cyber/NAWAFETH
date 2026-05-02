@@ -77,7 +77,7 @@ class PromoOpsStatus(models.TextChoices):
 class PromoServiceType(models.TextChoices):
     HOME_BANNER = "home_banner", "بنر الصفحة الرئيسية"
     FEATURED_SPECIALISTS = "featured_specialists", "شريط أبرز المختصين"
-    PORTFOLIO_SHOWCASE = "portfolio_showcase", "شريط البنرات والمشاريع"
+    PORTFOLIO_SHOWCASE = "portfolio_showcase", "البنرات والمشاريع"
     SNAPSHOTS = "snapshots", "شريط اللمحات"
     SEARCH_RESULTS = "search_results", "الظهور في قوائم البحث"
     PROMO_MESSAGES = "promo_messages", "الرسائل الدعائية"

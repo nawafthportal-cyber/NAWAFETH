@@ -7,6 +7,7 @@ import '../constants/app_theme.dart';
 import '../models/chat_thread_model.dart';
 import '../services/account_mode_service.dart';
 import '../services/api_client.dart';
+import '../services/auth_service.dart';
 import '../services/messaging_service.dart';
 import '../services/unread_badge_service.dart';
 import '../widgets/bottom_nav.dart';
@@ -14,6 +15,7 @@ import '../widgets/custom_drawer.dart';
 import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/platform_top_bar.dart';
 import 'chat_detail_screen.dart';
+import 'login_screen.dart';
 
 class MyChatsScreen extends StatefulWidget {
   const MyChatsScreen({super.key});
@@ -27,6 +29,7 @@ class _MyChatsScreenState extends State<MyChatsScreen>
   String selectedFilter = 'الكل';
   String searchQuery = '';
 
+  bool _isLoggedIn = false;
   bool _isProviderAccount = false;
   bool _isLoading = true;
   String? _errorMessage;
@@ -61,9 +64,29 @@ class _MyChatsScreenState extends State<MyChatsScreen>
   }
 
   Future<void> _loadData() async {
+    final isLoggedIn = await AuthService.isLoggedIn();
+    if (!mounted) return;
+
+    if (!isLoggedIn) {
+      setState(() {
+        _isLoggedIn = false;
+        _isProviderAccount = false;
+        _isLoading = false;
+        _threads = [];
+        _errorMessage = null;
+        _cacheStatusMessage = null;
+        _isOfflineFallback = false;
+        if (selectedFilter == 'عملاء') {
+          selectedFilter = 'الكل';
+        }
+      });
+      return;
+    }
+
     final isProvider = await AccountModeService.isProviderMode();
     if (!mounted) return;
     setState(() {
+      _isLoggedIn = true;
       _isProviderAccount = isProvider;
       if (!_isProviderAccount && selectedFilter == 'عملاء') {
         selectedFilter = 'الكل';
@@ -73,6 +96,19 @@ class _MyChatsScreenState extends State<MyChatsScreen>
   }
 
   Future<void> _fetchThreads() async {
+    if (!_isLoggedIn) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _threads = [];
+          _errorMessage = null;
+          _cacheStatusMessage = null;
+          _isOfflineFallback = false;
+        });
+      }
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -152,6 +188,26 @@ class _MyChatsScreenState extends State<MyChatsScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeroTag(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F8FB),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFD0D5DD)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF52637A),
+        ),
       ),
     );
   }
@@ -778,19 +834,136 @@ class _MyChatsScreenState extends State<MyChatsScreen>
         showNotificationAction: false,
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-              child: _buildEntrance(0, _buildControlPanel(isDark, sortedChats.length)),
-            ),
-            Expanded(
-              child: _buildBody(isDark, sortedChats),
-            ),
-          ],
-        ),
+        child: !_isLoggedIn
+            ? _buildAuthGate(isDark)
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                    child: _buildEntrance(0, _buildControlPanel(isDark, sortedChats.length)),
+                  ),
+                  Expanded(
+                    child: _buildBody(isDark, sortedChats),
+                  ),
+                ],
+              ),
       ),
       bottomNavigationBar: const CustomBottomNav(currentIndex: -1),
+    );
+  }
+
+  Future<void> _openLogin() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(redirectTo: MyChatsScreen()),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    await _loadData();
+  }
+
+  Widget _buildAuthGate(bool isDark) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(28, 30, 28, 30),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDark
+                    ? const [Color(0xFF102231), Color(0xFF163043)]
+                    : const [Color(0xFFFFFFFF), Color(0xFFF4F8FB)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFD0D5DD),
+              ),
+              boxShadow: isDark
+                  ? null
+                  : const [
+                      BoxShadow(
+                        color: Color(0x1222577A),
+                        blurRadius: 28,
+                        offset: Offset(0, 14),
+                      ),
+                    ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22577A).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    size: 34,
+                    color: Color(0xFF22577A),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'سجّل دخولك لعرض الرسائل',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'يمكنك التواصل مع مقدمي الخدمات بعد تسجيل الدخول.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12.5,
+                    height: 1.8,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white70 : const Color(0xFF667085),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _openLogin,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF22577A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'تسجيل الدخول',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -809,6 +982,37 @@ class _MyChatsScreenState extends State<MyChatsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'الرسائل',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'تابع رسائلك مع مزودي الخدمة واطلع على أحدث الرسائل بسهولة.',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 11.5,
+              height: 1.7,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white60 : const Color(0xFF667085),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildHeroTag('رسائل مباشرة'),
+              _buildHeroTag('فرق المنصة'),
+              _buildHeroTag('مرفقات آمنة'),
+            ],
+          ),
+          const SizedBox(height: 12),
           // ── stats row ────────────────────────────────────────────────────
           Row(
             children: [
@@ -841,6 +1045,37 @@ class _MyChatsScreenState extends State<MyChatsScreen>
                 value: '$visibleCount',
                 label: 'محادثة',
                 isDark: isDark,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'قائمة الرسائل',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$visibleCount نتيجة',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 10.8,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white54 : const Color(0xFF667085),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

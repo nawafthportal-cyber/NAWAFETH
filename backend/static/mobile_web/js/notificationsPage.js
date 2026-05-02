@@ -11,6 +11,126 @@
 
 const NotificationsPage = (() => {
   const PAGE_LIMIT = 20;
+  const COPY = {
+    ar: {
+      pageTitle: 'الإشعارات',
+      authTitle: 'سجّل دخولك لعرض الإشعارات',
+      authDesc: 'يمكنك تصفح إشعاراتك وآخر التحديثات بعد تسجيل الدخول',
+      authCta: 'تسجيل الدخول',
+      heading: 'الإشعارات',
+      subtitle: 'تابع آخر التحديثات والعروض والرسائل في مكان واحد.',
+      settings: 'إعدادات الإشعارات',
+      markAllRead: 'تمييز الكل كمقروء',
+      deleteOld: 'حذف القديم',
+      retry: 'إعادة المحاولة',
+      empty: 'لا توجد إشعارات حالياً',
+      loadMore: 'تحميل المزيد',
+      loadingMore: 'جار التحميل...',
+      unreadBadge: '{count} غير مقروء',
+      verifyModeFailed: 'تعذر التحقق من نوع الحساب الحالي. أعد المحاولة بعد لحظة.',
+      sessionRefreshing: 'يتم تحديث الجلسة أو نوع الحساب الآن. أعد المحاولة بعد قليل.',
+      loadFailed: 'تعذر تحميل الإشعارات حاليًا. حاول مرة أخرى بعد قليل.',
+      notificationFallback: 'إشعار',
+      flagPromo: 'دعائي',
+      flagPromoUpdate: 'ترويج',
+      flagFollowUp: 'متابعة',
+      flagPinned: 'مثبت',
+      promoReadHint: 'دعائي - مقروء',
+      promoUnreadHint: 'دعائي - جديد',
+      promoUpdateReadHint: 'تحديث ترويج - مقروء',
+      promoUpdateUnreadHint: 'تحديث ترويج - جديد',
+      readHint: 'مقروء',
+      unreadHint: 'جديد',
+      options: 'خيارات',
+      notificationOptions: 'خيارات الإشعار',
+      markRead: 'تمييز كمقروء',
+      removeFollowUp: 'إزالة التمييز',
+      addFollowUp: 'تمييز مهم للمتابعة',
+      unpin: 'إلغاء التثبيت',
+      pinTop: 'تثبيت بالأعلى',
+      delete: 'حذف',
+      promoMessage: 'رسالة دعائية',
+      close: 'إغلاق',
+      attachments: 'المرفقات',
+      noAttachments: 'لا توجد مرفقات في هذه الرسالة.',
+      attachmentFallback: 'مرفق',
+      fileAttachment: 'ملف مرفق',
+      openAttachment: 'فتح المرفق',
+      noMessageBody: 'لا يوجد نص للرسالة.',
+      loadingAttachments: 'جار تحميل المرفقات...',
+      promoDetailsFailed: 'تعذر تحميل تفاصيل الرسالة الدعائية.',
+      pinFailed: 'تعذر تحديث حالة التثبيت',
+      followUpFailed: 'تعذر تحديث حالة المتابعة',
+      deleteFailed: 'تعذر حذف الإشعار',
+      actionFailed: 'تعذر تنفيذ العملية',
+      markAllReadSuccess: 'تم تمييز الكل كمقروء',
+      deleteOldFailed: 'تعذر حذف الإشعارات القديمة في الوقت الحالي.',
+      deleteOldSuccess: 'تم حذف {deleted} إشعار قديم (أقدم من {days} يوم)',
+      justNow: 'الآن',
+      minutesAgo: 'منذ {count} دقيقة',
+      hoursAgo: 'منذ {count} ساعة',
+      daysAgo: 'منذ {count} يوم',
+    },
+    en: {
+      pageTitle: 'Notifications',
+      authTitle: 'Sign in to view notifications',
+      authDesc: 'You can browse your notifications and latest updates after signing in',
+      authCta: 'Sign in',
+      heading: 'Notifications',
+      subtitle: 'Keep up with the latest updates, offers, and messages in one place.',
+      settings: 'Notification settings',
+      markAllRead: 'Mark all as read',
+      deleteOld: 'Delete old',
+      retry: 'Retry',
+      empty: 'There are no notifications right now',
+      loadMore: 'Load more',
+      loadingMore: 'Loading...',
+      unreadBadge: '{count} unread',
+      verifyModeFailed: 'Unable to verify the current account mode. Please try again shortly.',
+      sessionRefreshing: 'The session or account mode is being refreshed right now. Please try again shortly.',
+      loadFailed: 'Unable to load notifications right now. Please try again later.',
+      notificationFallback: 'Notification',
+      flagPromo: 'Promoted',
+      flagPromoUpdate: 'Promotion',
+      flagFollowUp: 'Follow-up',
+      flagPinned: 'Pinned',
+      promoReadHint: 'Promoted - read',
+      promoUnreadHint: 'Promoted - new',
+      promoUpdateReadHint: 'Promotion update - read',
+      promoUpdateUnreadHint: 'Promotion update - new',
+      readHint: 'Read',
+      unreadHint: 'New',
+      options: 'Options',
+      notificationOptions: 'Notification options',
+      markRead: 'Mark as read',
+      removeFollowUp: 'Remove highlight',
+      addFollowUp: 'Mark for follow-up',
+      unpin: 'Unpin',
+      pinTop: 'Pin to top',
+      delete: 'Delete',
+      promoMessage: 'Promotional message',
+      close: 'Close',
+      attachments: 'Attachments',
+      noAttachments: 'There are no attachments in this message.',
+      attachmentFallback: 'Attachment',
+      fileAttachment: 'Attached file',
+      openAttachment: 'Open attachment',
+      noMessageBody: 'There is no message text.',
+      loadingAttachments: 'Loading attachments...',
+      promoDetailsFailed: 'Unable to load the promotional message details.',
+      pinFailed: 'Unable to update the pin state',
+      followUpFailed: 'Unable to update the follow-up state',
+      deleteFailed: 'Unable to delete the notification',
+      actionFailed: 'Unable to complete the action',
+      markAllReadSuccess: 'All notifications were marked as read',
+      deleteOldFailed: 'Unable to delete old notifications right now.',
+      deleteOldSuccess: 'Deleted {deleted} old notifications (older than {days} days)',
+      justNow: 'Now',
+      minutesAgo: '{count} minute ago',
+      hoursAgo: '{count} hour ago',
+      daysAgo: '{count} day ago',
+    },
+  };
 
   let _notifications = [];
   let _totalCount = 0;
@@ -23,8 +143,13 @@ const NotificationsPage = (() => {
   let _toastTimer = null;
   let _promoModal = null;
   let _promoModalKeyBound = false;
+  let _lastErrorMessage = '';
+  let _lastErrorCopyKey = '';
 
   function init() {
+    _applyStaticCopy();
+    document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
+
     if (!Auth.isLoggedIn()) {
       _showGate();
       return;
@@ -144,7 +269,7 @@ const NotificationsPage = (() => {
         _showGate();
         return;
       }
-      _setError('تعذر التحقق من نوع الحساب الحالي. أعد المحاولة بعد لحظة.', { retry: true });
+      _setError(_copy('verifyModeFailed'), { retry: true, copyKey: 'verifyModeFailed' });
       return;
     }
     const url = _withMode('/api/notifications/?limit=' + PAGE_LIMIT + '&offset=' + requestOffset);
@@ -184,7 +309,7 @@ const NotificationsPage = (() => {
         _showGate();
         return;
       }
-      _setError('يتم تحديث الجلسة أو نوع الحساب الآن. أعد المحاولة بعد قليل.', { retry: true });
+      _setError(_copy('sessionRefreshing'), { retry: true, copyKey: 'sessionRefreshing' });
       return;
     }
 
@@ -196,7 +321,7 @@ const NotificationsPage = (() => {
       _render();
     }
 
-    _setError('تعذر تحميل الإشعارات حاليًا. حاول مرة أخرى بعد قليل.', { retry: reset });
+    _setError(_copy('loadFailed'), { retry: reset, copyKey: 'loadFailed' });
   }
 
   function _render() {
@@ -267,13 +392,15 @@ const NotificationsPage = (() => {
     const headerRow = UI.el('div', { className: 'notif-header-row' });
 
     const titleWrap = UI.el('div', { className: 'notif-title-wrap' });
-    titleWrap.appendChild(UI.el('span', { className: 'notif-title', textContent: notif.title || 'إشعار' }));
+    const titleEl = UI.el('span', { className: 'notif-title', textContent: notif.title || _copy('notificationFallback') });
+    _setAutoDirection(titleEl, notif.title);
+    titleWrap.appendChild(titleEl);
 
     const flagsWrap = UI.el('div', { className: 'notif-flags' });
-    if (isPromo) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag promo', textContent: 'دعائي' }));
-    if (isPromoUpdate) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag promo-update', textContent: 'ترويج' }));
-    if (isFollowUp) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag follow', textContent: 'متابعة' }));
-    if (isPinned) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag pin', textContent: 'مثبت' }));
+    if (isPromo) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag promo', textContent: _copy('flagPromo') }));
+    if (isPromoUpdate) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag promo-update', textContent: _copy('flagPromoUpdate') }));
+    if (isFollowUp) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag follow', textContent: _copy('flagFollowUp') }));
+    if (isPinned) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag pin', textContent: _copy('flagPinned') }));
     if (!isRead) flagsWrap.appendChild(UI.el('span', { className: 'notif-dot' }));
     if (flagsWrap.childNodes.length) titleWrap.appendChild(flagsWrap);
 
@@ -283,7 +410,9 @@ const NotificationsPage = (() => {
     body.appendChild(headerRow);
 
     if (notif.body || notif.message) {
-      body.appendChild(UI.el('div', { className: 'notif-text', textContent: notif.body || notif.message }));
+      const bodyEl = UI.el('div', { className: 'notif-text', textContent: notif.body || notif.message });
+      _setAutoDirection(bodyEl, notif.body || notif.message);
+      body.appendChild(bodyEl);
     }
 
     if (notif.created_at || notif.created) {
@@ -295,10 +424,10 @@ const NotificationsPage = (() => {
         })
       );
       const hintText = isPromo
-        ? (isRead ? 'دعائي - مقروء' : 'دعائي - جديد')
+        ? (isRead ? _copy('promoReadHint') : _copy('promoUnreadHint'))
         : isPromoUpdate
-          ? (isRead ? 'تحديث ترويج - مقروء' : 'تحديث ترويج - جديد')
-        : (isRead ? 'مقروء' : 'جديد');
+          ? (isRead ? _copy('promoUpdateReadHint') : _copy('promoUpdateUnreadHint'))
+        : (isRead ? _copy('readHint') : _copy('unreadHint'));
       metaRow.appendChild(UI.el('div', { className: 'notif-open-hint', textContent: hintText }));
       body.appendChild(metaRow);
     }
@@ -313,8 +442,8 @@ const NotificationsPage = (() => {
     const menuBtn = UI.el('button', {
       type: 'button',
       className: 'notif-menu-btn',
-      title: 'خيارات',
-      ariaLabel: 'خيارات الإشعار',
+      title: _copy('options'),
+      ariaLabel: _copy('notificationOptions'),
     });
     menuBtn.innerHTML = [
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">',
@@ -334,27 +463,27 @@ const NotificationsPage = (() => {
 
     if (!notif.is_read) {
       menu.appendChild(
-        _buildMenuItem('تمييز كمقروء', async () => {
+        _buildMenuItem(_copy('markRead'), async () => {
           await _markRead(notif.id);
         })
       );
     }
 
     menu.appendChild(
-      _buildMenuItem(notif.is_follow_up ? 'إزالة التمييز' : 'تمييز مهم للمتابعة', async () => {
+      _buildMenuItem(notif.is_follow_up ? _copy('removeFollowUp') : _copy('addFollowUp'), async () => {
         await _toggleFollowUp(notif.id);
       })
     );
 
     menu.appendChild(
-      _buildMenuItem(notif.is_pinned ? 'إلغاء التثبيت' : 'تثبيت بالأعلى', async () => {
+      _buildMenuItem(notif.is_pinned ? _copy('unpin') : _copy('pinTop'), async () => {
         await _togglePin(notif.id);
       })
     );
 
     menu.appendChild(
       _buildMenuItem(
-        'حذف',
+        _copy('delete'),
         async () => {
           await _deleteNotification(notif.id);
         },
@@ -454,15 +583,15 @@ const NotificationsPage = (() => {
     const root = UI.el('div', { className: 'notif-promo-modal hidden', id: 'notif-promo-modal' });
     root.innerHTML = [
       '<div class="notif-promo-backdrop" data-close-promo-modal="1"></div>',
-      '<section class="notif-promo-dialog" role="dialog" aria-modal="true" aria-label="رسالة دعائية">',
-      '<button type="button" class="notif-promo-close" data-close-promo-modal="1" aria-label="إغلاق">×</button>',
+      '<section class="notif-promo-dialog" role="dialog" aria-modal="true" aria-label="' + _escapeHtml(_copy('promoMessage')) + '">',
+      '<button type="button" class="notif-promo-close" data-close-promo-modal="1" aria-label="' + _escapeHtml(_copy('close')) + '">×</button>',
       '<div class="notif-promo-head">',
-      '<span class="notif-promo-badge">رسالة دعائية</span>',
+      '<span class="notif-promo-badge">' + _escapeHtml(_copy('promoMessage')) + '</span>',
       '<h3 class="notif-promo-title" id="notif-promo-title"></h3>',
       '<div class="notif-promo-time" id="notif-promo-time"></div>',
       '</div>',
       '<div class="notif-promo-message" id="notif-promo-message"></div>',
-      '<div class="notif-promo-section-title">المرفقات</div>',
+      '<div class="notif-promo-section-title">' + _escapeHtml(_copy('attachments')) + '</div>',
       '<div class="notif-promo-attachments" id="notif-promo-attachments"></div>',
       '</section>',
     ].join('');
@@ -501,14 +630,14 @@ const NotificationsPage = (() => {
   function _renderPromoAttachments(container, attachments) {
     container.innerHTML = '';
     if (!Array.isArray(attachments) || !attachments.length) {
-      container.appendChild(UI.el('div', { className: 'notif-promo-empty', textContent: 'لا توجد مرفقات في هذه الرسالة.' }));
+      container.appendChild(UI.el('div', { className: 'notif-promo-empty', textContent: _copy('noAttachments') }));
       return;
     }
     const frag = document.createDocumentFragment();
     attachments.forEach((asset) => {
       const card = UI.el('div', { className: 'notif-promo-asset' });
       const fileUrl = String((asset && asset.file_url) || '').trim();
-      const caption = String((asset && asset.title) || (asset && asset.file_name) || 'مرفق');
+      const caption = String((asset && asset.title) || (asset && asset.file_name) || _copy('attachmentFallback'));
       const visualType = _assetVisualType(asset);
 
       if (visualType === 'image' && fileUrl) {
@@ -527,7 +656,7 @@ const NotificationsPage = (() => {
           rel: 'noopener',
         });
         fileRow.appendChild(UI.icon('attach_file', 16, '#9a3412'));
-        fileRow.appendChild(UI.el('span', { textContent: String((asset && asset.file_name) || 'ملف مرفق') }));
+        fileRow.appendChild(UI.el('span', { textContent: String((asset && asset.file_name) || _copy('fileAttachment')) }));
         card.appendChild(fileRow);
       }
 
@@ -538,7 +667,7 @@ const NotificationsPage = (() => {
           href: fileUrl,
           target: '_blank',
           rel: 'noopener',
-          textContent: 'فتح المرفق',
+          textContent: _copy('openAttachment'),
         }));
       }
       frag.appendChild(card);
@@ -554,10 +683,12 @@ const NotificationsPage = (() => {
     const attachmentsEl = document.getElementById('notif-promo-attachments');
     if (!titleEl || !timeEl || !messageEl || !attachmentsEl) return;
 
-    titleEl.textContent = String(notif.title || '').trim() || 'رسالة دعائية';
+    titleEl.textContent = String(notif.title || '').trim() || _copy('promoMessage');
     timeEl.textContent = _relativeTime(notif.created_at || notif.created) || '';
-    messageEl.textContent = String(notif.body || notif.message || '').trim() || 'لا يوجد نص للرسالة.';
-    attachmentsEl.innerHTML = '<div class="notif-promo-loading">جار تحميل المرفقات...</div>';
+    messageEl.textContent = String(notif.body || notif.message || '').trim() || _copy('noMessageBody');
+    attachmentsEl.innerHTML = '<div class="notif-promo-loading">' + _escapeHtml(_copy('loadingAttachments')) + '</div>';
+    _setAutoDirection(titleEl, notif.title);
+    _setAutoDirection(messageEl, notif.body || notif.message);
 
     root.classList.remove('hidden');
     requestAnimationFrame(() => root.classList.add('open'));
@@ -569,15 +700,17 @@ const NotificationsPage = (() => {
 
     const res = await ApiClient.get(_withMode('/api/notifications/promo-preview/' + notif.id + '/'));
     if (!res.ok || !res.data) {
-      _showToast('تعذر تحميل تفاصيل الرسالة الدعائية.', 'error');
+      _showToast(_copy('promoDetailsFailed'), 'error');
       _renderPromoAttachments(attachmentsEl, []);
       return;
     }
 
     const payload = res.data || {};
-    titleEl.textContent = String(payload.title || titleEl.textContent).trim() || 'رسالة دعائية';
-    messageEl.textContent = String(payload.body || messageEl.textContent).trim() || 'لا يوجد نص للرسالة.';
+    titleEl.textContent = String(payload.title || titleEl.textContent).trim() || _copy('promoMessage');
+    messageEl.textContent = String(payload.body || messageEl.textContent).trim() || _copy('noMessageBody');
     timeEl.textContent = _relativeTime(payload.created_at || notif.created_at || notif.created) || '';
+    _setAutoDirection(titleEl, payload.title || titleEl.textContent);
+    _setAutoDirection(messageEl, payload.body || messageEl.textContent);
     _renderPromoAttachments(attachmentsEl, payload.attachments || []);
   }
 
@@ -607,7 +740,7 @@ const NotificationsPage = (() => {
     });
 
     if (!res.ok) {
-      _showToast('تعذر تحديث حالة التثبيت', 'error');
+      _showToast(_copy('pinFailed'), 'error');
       return;
     }
 
@@ -631,7 +764,7 @@ const NotificationsPage = (() => {
     });
 
     if (!res.ok) {
-      _showToast('تعذر تحديث حالة المتابعة', 'error');
+      _showToast(_copy('followUpFailed'), 'error');
       return;
     }
 
@@ -654,7 +787,7 @@ const NotificationsPage = (() => {
     });
 
     if (!res.ok) {
-      _showToast('تعذر حذف الإشعار', 'error');
+      _showToast(_copy('deleteFailed'), 'error');
       return;
     }
 
@@ -671,7 +804,7 @@ const NotificationsPage = (() => {
 
     const res = await ApiClient.request(_withMode('/api/notifications/mark-all-read/'), { method: 'POST' });
     if (!res.ok) {
-      _showToast('تعذر تنفيذ العملية', 'error');
+      _showToast(_copy('actionFailed'), 'error');
       return;
     }
 
@@ -680,7 +813,7 @@ const NotificationsPage = (() => {
     });
     _render();
     window.dispatchEvent(new Event('nw:badge-refresh'));
-    _showToast('تم تمييز الكل كمقروء', 'success');
+    _showToast(_copy('markAllReadSuccess'), 'success');
   }
 
   async function _deleteOld() {
@@ -691,14 +824,14 @@ const NotificationsPage = (() => {
     _setLoading(false);
 
     if (!res.ok) {
-      _setError('تعذر حذف الإشعارات القديمة في الوقت الحالي.', { retry: false });
+      _setError(_copy('deleteOldFailed'), { retry: false, copyKey: 'deleteOldFailed' });
       return;
     }
 
     const deleted = _safeInt(res.data && res.data.deleted);
     const retentionDays = Math.max(1, _safeInt(res.data && res.data.retention_days) || 90);
 
-    _showToast('تم حذف ' + deleted + ' إشعار قديم (أقدم من ' + retentionDays + ' يوم)', 'success');
+    _showToast(_copy('deleteOldSuccess', { deleted, days: retentionDays }), 'success');
     window.dispatchEvent(new Event('nw:badge-refresh'));
     _fetchNotifications({ reset: true });
   }
@@ -727,11 +860,11 @@ const NotificationsPage = (() => {
     const dt = new Date(dateStr);
     if (Number.isNaN(dt.getTime())) return '';
     const diff = Math.floor((now - dt) / 1000);
-    if (diff < 60) return 'الآن';
-    if (diff < 3600) return 'منذ ' + Math.floor(diff / 60) + ' دقيقة';
-    if (diff < 86400) return 'منذ ' + Math.floor(diff / 3600) + ' ساعة';
-    if (diff < 604800) return 'منذ ' + Math.floor(diff / 86400) + ' يوم';
-    return dt.toLocaleDateString('ar-SA', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (diff < 60) return _copy('justNow');
+    if (diff < 3600) return _copy('minutesAgo', { count: Math.floor(diff / 60) });
+    if (diff < 86400) return _copy('hoursAgo', { count: Math.floor(diff / 3600) });
+    if (diff < 604800) return _copy('daysAgo', { count: Math.floor(diff / 86400) });
+    return dt.toLocaleDateString(_locale(), { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
   function _refreshCounters() {
@@ -741,7 +874,7 @@ const NotificationsPage = (() => {
     const unread = _notifications.filter((notif) => !notif.is_read).length;
     const unreadEl = document.getElementById('notif-unread');
     if (!unreadEl) return;
-    unreadEl.textContent = String(unread) + ' غير مقروء';
+    unreadEl.textContent = _copy('unreadBadge', { count: unread });
     unreadEl.classList.toggle('hidden', unread <= 0);
   }
 
@@ -754,7 +887,7 @@ const NotificationsPage = (() => {
     wrap.classList.toggle('hidden', !visible);
 
     btn.disabled = _loading || _loadingMore;
-    btn.textContent = _loadingMore ? 'جار التحميل...' : 'تحميل المزيد';
+    btn.textContent = _loadingMore ? _copy('loadingMore') : _copy('loadMore');
   }
 
   function _showGate() {
@@ -796,6 +929,8 @@ const NotificationsPage = (() => {
     const retryWrap = document.getElementById('notif-retry-wrap');
     if (!errorEl) return;
     const showRetry = !options || options.retry !== false;
+    _lastErrorMessage = message || '';
+    _lastErrorCopyKey = options && options.copyKey ? options.copyKey : '';
 
     if (!message) {
       errorEl.textContent = '';
@@ -812,6 +947,17 @@ const NotificationsPage = (() => {
   function _setText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
+  }
+
+  function _setAttr(id, name, value) {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute(name, value);
+  }
+
+  function _setAutoDirection(el, value) {
+    if (!el) return;
+    if (String(value || '').trim()) el.setAttribute('dir', 'auto');
+    else el.removeAttribute('dir');
   }
 
   function _safeInt(value) {
@@ -849,6 +995,65 @@ const NotificationsPage = (() => {
         if (toast.parentNode) toast.remove();
       }, 180);
     }, durationMs);
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    if (_lastErrorMessage) {
+      _setError(_lastErrorCopyKey ? _copy(_lastErrorCopyKey) : _lastErrorMessage, { retry: true, copyKey: _lastErrorCopyKey });
+    }
+    _render();
+  }
+
+  function _applyStaticCopy() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.t === 'function') {
+      document.title = window.NawafethI18n.t('siteTitle') + ' — ' + _copy('pageTitle');
+    }
+    _setText('notif-auth-title', _copy('authTitle'));
+    _setText('notif-auth-desc', _copy('authDesc'));
+    _setText('notif-auth-cta', _copy('authCta'));
+    _setText('notif-page-title', _copy('heading'));
+    _setText('notif-page-subtitle', _copy('subtitle'));
+    _setText('notif-settings-link', _copy('settings'));
+    _setText('btn-mark-all', _copy('markAllRead'));
+    _setText('btn-delete-old', _copy('deleteOld'));
+    _setText('notif-retry', _copy('retry'));
+    _setText('notif-empty-text', _copy('empty'));
+    _setText('notif-load-more', _loadingMore ? _copy('loadingMore') : _copy('loadMore'));
+  }
+
+  function _currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      }
+      return (localStorage.getItem('nw_lang') || 'ar').toLowerCase() === 'en' ? 'en' : 'ar';
+    } catch (_) {
+      return 'ar';
+    }
+  }
+
+  function _copy(key, replacements) {
+    const bundle = COPY[_currentLang()] || COPY.ar;
+    const value = Object.prototype.hasOwnProperty.call(bundle, key) ? bundle[key] : COPY.ar[key];
+    return _replaceTokens(value, replacements);
+  }
+
+  function _replaceTokens(text, replacements) {
+    if (typeof text !== 'string' || !replacements) return text;
+    return text.replace(/\{(\w+)\}/g, (_, token) => (
+      Object.prototype.hasOwnProperty.call(replacements, token) ? String(replacements[token]) : ''
+    ));
+  }
+
+  function _escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, (char) => {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char;
+    });
+  }
+
+  function _locale() {
+    return _currentLang() === 'en' ? 'en-US' : 'ar-SA';
   }
 
   if (document.readyState === 'loading') {

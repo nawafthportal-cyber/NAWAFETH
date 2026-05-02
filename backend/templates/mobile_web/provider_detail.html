@@ -126,17 +126,17 @@
 
   <!-- ═══ Stats card (like mobile) ═══ -->
   <div class="container">
-    <section class="pd-overview-strip" aria-label="ملخص مقدم الخدمة">
+    <section class="pd-overview-strip" id="pd-overview-strip" aria-label="ملخص مقدم الخدمة">
       <article class="pd-overview-card">
-        <span class="pd-overview-label">المدينة</span>
+        <span class="pd-overview-label" id="pd-overview-city-label">المدينة</span>
         <strong class="pd-overview-value" id="pd-overview-city">-</strong>
       </article>
       <article class="pd-overview-card">
-        <span class="pd-overview-label">الخبرة</span>
+        <span class="pd-overview-label" id="pd-overview-experience-label">الخبرة</span>
         <strong class="pd-overview-value" id="pd-overview-experience">-</strong>
       </article>
       <article class="pd-overview-card">
-        <span class="pd-overview-label">نطاق الخدمة</span>
+        <span class="pd-overview-label" id="pd-overview-range-label">نطاق الخدمة</span>
         <strong class="pd-overview-value" id="pd-overview-range">-</strong>
       </article>
     </section>
@@ -144,33 +144,33 @@
     <div class="pd-stats-card" id="pd-stats">
       <div class="pd-stat">
         <span class="pd-stat-value" id="stat-completed">0</span>
-        <span class="pd-stat-label">الطلبات المكتملة</span>
+        <span class="pd-stat-label" id="stat-completed-label">الطلبات المكتملة</span>
       </div>
       <div class="pd-stat-divider"></div>
       <div class="pd-stat">
         <span class="pd-stat-value" id="stat-followers">0</span>
-        <span class="pd-stat-label">متابعون</span>
+        <span class="pd-stat-label" id="stat-followers-label">متابعون</span>
       </div>
       <div class="pd-stat-divider"></div>
       <div class="pd-stat">
         <span class="pd-stat-value" id="stat-likes">0</span>
-        <span class="pd-stat-label">إعجاب</span>
+        <span class="pd-stat-label" id="stat-likes-label">إعجاب</span>
       </div>
       <div class="pd-stat-divider"></div>
       <div class="pd-stat">
         <span class="pd-stat-value" id="stat-rating">-</span>
-        <span class="pd-stat-label">التقييم</span>
+        <span class="pd-stat-label" id="stat-rating-label">التقييم</span>
       </div>
     </div>
 
-    <div class="pd-connections-row" role="group" aria-label="روابط المتابعة">
+    <div class="pd-connections-row" id="pd-connections-row" role="group" aria-label="روابط المتابعة">
       <button class="pd-connections-btn" id="btn-show-followers" type="button" aria-label="عرض من يتابعون مقدم الخدمة">
         <span class="pd-connections-icon" aria-hidden="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </span>
         <span class="pd-connections-text">
-          <span class="pd-connections-label">المتابعون</span>
-          <span class="pd-connections-hint">عرض القائمة</span>
+          <span class="pd-connections-label" id="pd-followers-label">المتابعون</span>
+          <span class="pd-connections-hint" id="pd-followers-hint">عرض القائمة</span>
         </span>
       </button>
       <span class="pd-connections-divider" aria-hidden="true"></span>
@@ -179,8 +179,8 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
         </span>
         <span class="pd-connections-text">
-          <span class="pd-connections-label">المتابعين</span>
-          <span class="pd-connections-hint">عرض القائمة</span>
+          <span class="pd-connections-label" id="pd-following-label">المتابعين</span>
+          <span class="pd-connections-hint" id="pd-following-hint">عرض القائمة</span>
         </span>
       </button>
     </div>
@@ -188,8 +188,8 @@
     <!-- ═══ Highlights / Spotlights ═══ -->
     <div class="pd-highlights-section hidden" id="pd-highlights-section">
       <div class="pd-section-header">
-        <h3 class="pd-section-title">لمحات مقدم الخدمة</h3>
-        <span class="pd-section-hint">اسحب يمين/يسار</span>
+        <h3 class="pd-section-title" id="pd-highlights-title">لمحات مقدم الخدمة</h3>
+        <span class="pd-section-hint" id="pd-highlights-hint">اسحب يمين/يسار</span>
       </div>
       <div class="pd-highlights-row" id="pd-highlights"></div>
     </div>
@@ -198,7 +198,7 @@
     <div class="pd-actions">
       <button class="pd-action-follow" id="btn-follow">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-        متابعة
+        <span id="pd-follow-action-text">متابعة</span>
       </button>
       <button class="pd-action-icon" id="btn-message" aria-label="مراسلة" title="مراسلة">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -215,22 +215,22 @@
     <div class="pd-tabs" id="pd-tabs" role="tablist" aria-label="تبويبات ملف مقدم الخدمة">
       <button class="pd-tab active" id="pd-tab-btn-profile" type="button" role="tab" aria-controls="tab-profile" aria-selected="true" tabindex="0" data-tab="profile">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        <span class="pd-tab-text">الملف الشخصي</span>
+        <span class="pd-tab-text" id="pd-tab-text-profile">الملف الشخصي</span>
         <span class="pd-tab-meta" id="pd-tab-meta-profile">أساسي</span>
       </button>
       <button class="pd-tab" id="pd-tab-btn-services" type="button" role="tab" aria-controls="tab-services" aria-selected="false" tabindex="-1" data-tab="services">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-        <span class="pd-tab-text">خدماتي</span>
+        <span class="pd-tab-text" id="pd-tab-text-services">خدماتي</span>
         <span class="pd-tab-meta" id="pd-tab-meta-services">0</span>
       </button>
       <button class="pd-tab" id="pd-tab-btn-portfolio" type="button" role="tab" aria-controls="tab-portfolio" aria-selected="false" tabindex="-1" data-tab="portfolio">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>
-        <span class="pd-tab-text">معرض خدماتي</span>
+        <span class="pd-tab-text" id="pd-tab-text-portfolio">معرض خدماتي</span>
         <span class="pd-tab-meta" id="pd-tab-meta-portfolio">0</span>
       </button>
       <button class="pd-tab" id="pd-tab-btn-reviews" type="button" role="tab" aria-controls="tab-reviews" aria-selected="false" tabindex="-1" data-tab="reviews">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        <span class="pd-tab-text">المراجعات</span>
+        <span class="pd-tab-text" id="pd-tab-text-reviews">المراجعات</span>
         <span class="pd-tab-meta" id="pd-tab-meta-reviews">0</span>
       </button>
     </div>
@@ -243,7 +243,7 @@
         <div class="pd-card" id="pd-bio-card">
           <h4 class="pd-card-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-            نبذة عن مقدم الخدمة
+            <span id="pd-bio-title">نبذة عن مقدم الخدمة</span>
           </h4>
           <p class="pd-bio-text" id="pd-bio">لا يوجد وصف</p>
         </div>
@@ -252,21 +252,21 @@
         <div class="pd-card" id="pd-categories-card">
           <div class="pd-field-row">
             <div class="pd-field">
-              <span class="pd-field-label">صفة الحساب</span>
+              <span class="pd-field-label" id="pd-provider-type-label">صفة الحساب</span>
               <span class="pd-field-value" id="pd-provider-type">-</span>
             </div>
           </div>
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
             <div class="pd-field">
-              <span class="pd-field-label">التصنيف الرئيسي للخدمات المقدمة</span>
+              <span class="pd-field-label" id="pd-main-category-label">التصنيف الرئيسي للخدمات المقدمة</span>
               <span class="pd-field-value" id="pd-main-category">-</span>
             </div>
           </div>
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
             <div class="pd-field">
-              <span class="pd-field-label"> التخـصص</span>
+              <span class="pd-field-label" id="pd-sub-category-label"> التخـصص</span>
               <span class="pd-field-value" id="pd-sub-category">-</span>
             </div>
           </div>
@@ -277,14 +277,14 @@
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
             <div class="pd-field">
-              <span class="pd-field-label">سنوات الخبرة</span>
+              <span class="pd-field-label" id="pd-experience-label">سنوات الخبرة</span>
               <span class="pd-field-value" id="pd-experience">-</span>
             </div>
           </div>
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
             <div class="pd-field">
-              <span class="pd-field-label">رقم الواتساب</span>
+              <span class="pd-field-label" id="pd-whatsapp-label">رقم الواتساب</span>
               <span class="pd-field-value" id="pd-whatsapp">-</span>
             </div>
           </div>
@@ -292,7 +292,7 @@
           <div class="pd-field-row">
             <div class="pd-field pd-field-with-action">
               <div class="pd-field-main">
-                <span class="pd-field-label">الموقع الالكتروني</span>
+                <span class="pd-field-label" id="pd-website-label">الموقع الالكتروني</span>
                 <span class="pd-field-value" id="pd-website">-</span>
               </div>
               <button class="pd-field-open-link" id="pd-website-open" type="button" aria-label="فتح الموقع الإلكتروني">
@@ -303,7 +303,7 @@
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
             <div class="pd-field">
-              <span class="pd-field-label">المدينة</span>
+              <span class="pd-field-label" id="pd-city-label">المدينة</span>
               <span class="pd-field-value" id="pd-city-name">-</span>
             </div>
           </div>
@@ -312,7 +312,7 @@
         <div class="pd-card" id="pd-service-range-card">
           <h4 class="pd-card-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zM7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 2.75-2.44 6.63-5 9.88C9.44 15.63 7 11.75 7 9zm5-2a2 2 0 100 4 2 2 0 000-4z"/></svg>
-            نطاق الخدمة على الخريطة
+            <span id="pd-service-range-title">نطاق الخدمة على الخريطة</span>
           </h4>
           <p class="pd-map-title" id="pd-service-range-summary">سيظهر نطاق الخدمة بعد تحميل بيانات مقدم الخدمة.</p>
           <div class="pd-map-wrap">
@@ -325,7 +325,7 @@
         <div class="pd-card" id="pd-social-card">
           <h4 class="pd-card-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
-            حسابات التواصل الاجتماعي
+            <span id="pd-social-title">حسابات التواصل الاجتماعي</span>
           </h4>
           <div class="pd-social-list fixed" id="pd-social-list">
             <div class="pd-social-row fixed">
@@ -333,7 +333,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="#E1306C"><rect x="2" y="2" width="20" height="20" rx="5" fill="none" stroke="#E1306C" stroke-width="2"/><circle cx="12" cy="12" r="5" fill="none" stroke="#E1306C" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="#E1306C"/></svg>
               </div>
               <div class="pd-social-info">
-                <div class="pd-social-label">حساب انستقرام</div>
+                <div class="pd-social-label" id="pd-social-instagram-label">حساب انستقرام</div>
                 <div class="pd-social-value" id="pd-social-instagram">غير متوفر</div>
               </div>
               <button class="pd-social-link" id="pd-social-open-instagram" type="button" aria-label="فتح حساب انستقرام">
@@ -345,7 +345,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="#111"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
               </div>
               <div class="pd-social-info">
-                <div class="pd-social-label">حساب X</div>
+                <div class="pd-social-label" id="pd-social-x-label">حساب X</div>
                 <div class="pd-social-value" id="pd-social-x">غير متوفر</div>
               </div>
               <button class="pd-social-link" id="pd-social-open-x" type="button" aria-label="فتح حساب X">
@@ -357,7 +357,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="#FFFC00"><circle cx="12" cy="12" r="10"/><path d="M12 6c1.9 0 3.4 1.5 3.4 3.4 0 .8-.3 1.6-.8 2.2.3.5.8.9 1.6 1.2.3.1.5.4.5.7 0 .4-.3.7-.7.8-.4.1-.9.2-1.4.3-.3.7-.8 1.3-1.5 1.7-.3.2-.7.2-1 0-.7-.4-1.2-1-1.5-1.7-.5-.1-1-.2-1.4-.3-.4-.1-.7-.4-.7-.8 0-.3.2-.6.5-.7.8-.3 1.3-.7 1.6-1.2-.5-.6-.8-1.4-.8-2.2C8.6 7.5 10.1 6 12 6z" fill="#111"/></svg>
               </div>
               <div class="pd-social-info">
-                <div class="pd-social-label">حساب سناب شات</div>
+                <div class="pd-social-label" id="pd-social-snapchat-label">حساب سناب شات</div>
                 <div class="pd-social-value" id="pd-social-snapchat">غير متوفر</div>
               </div>
               <button class="pd-social-link" id="pd-social-open-snapchat" type="button" aria-label="فتح حساب سناب شات">
@@ -374,11 +374,11 @@
         <section class="pd-services-hero">
           <div class="pd-services-hero-badge">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7L12 3 4 7l8 4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 17l8 4 8-4"/></svg>
-            <span>خدمات المزود</span>
+            <span id="pd-services-badge">خدمات المزود</span>
           </div>
           <div class="pd-services-hero-copy">
-            <h3>خدمات مرتبة وواضحة قبل بدء التواصل</h3>
-            <p>راجع ما يقدمه المزوّد، نطاق التسعير، ووصف كل خدمة قبل الانتقال إلى الرسائل أو طلب التنفيذ.</p>
+            <h3 id="pd-services-hero-title">خدمات مرتبة وواضحة قبل بدء التواصل</h3>
+            <p id="pd-services-hero-subtitle">راجع ما يقدمه المزوّد، نطاق التسعير، ووصف كل خدمة قبل الانتقال إلى الرسائل أو طلب التنفيذ.</p>
           </div>
           <div class="pd-services-hero-count" id="pd-services-count">0 خدمة</div>
         </section>
@@ -397,8 +397,8 @@
         <div class="pd-services-grid" id="pd-services-list"></div>
         <div class="pd-empty hidden" id="pd-services-empty">
           <div class="pd-empty-icon">📋</div>
-          <p class="pd-empty-title">لا توجد خدمات متاحة حالياً</p>
-          <p class="pd-empty-subtitle">لم يضف مقدم الخدمة خدمات في هذا القسم بعد.</p>
+          <p class="pd-empty-title" id="pd-services-empty-title">لا توجد خدمات متاحة حالياً</p>
+          <p class="pd-empty-subtitle" id="pd-services-empty-subtitle">لم يضف مقدم الخدمة خدمات في هذا القسم بعد.</p>
         </div>
       </div>
 
@@ -407,11 +407,11 @@
         <section class="pd-portfolio-hero">
           <div class="pd-portfolio-hero-badge">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="4" ry="4"/><path d="M10 8l6 4-6 4z"/></svg>
-            <span>معرض خدماتي</span>
+            <span id="pd-portfolio-badge">معرض خدماتي</span>
           </div>
           <div class="pd-portfolio-hero-copy">
-            <h3>استعراض عمودي سريع بنفس روح المشاهد القصيرة</h3>
-            <p>افتح أي بطاقة لمشاهدة الصور والفيديوهات بواجهة كاملة، مع بقاء الإعجاب والحفظ ظاهرين مباشرة على كل عنصر.</p>
+            <h3 id="pd-portfolio-hero-title">استعراض عمودي سريع بنفس روح المشاهد القصيرة</h3>
+            <p id="pd-portfolio-hero-subtitle">افتح أي بطاقة لمشاهدة الصور والفيديوهات بواجهة كاملة، مع بقاء الإعجاب والحفظ ظاهرين مباشرة على كل عنصر.</p>
           </div>
           <div class="pd-portfolio-hero-metrics">
             <span class="pd-portfolio-hero-metric" id="pd-portfolio-total">0 عنصر</span>
@@ -426,8 +426,8 @@
         <div id="pd-portfolio-sections"></div>
         <div class="pd-empty hidden" id="pd-portfolio-empty">
           <div class="pd-empty-icon">🖼️</div>
-          <p class="pd-empty-title">لا توجد عناصر في معرض الأعمال</p>
-          <p class="pd-empty-subtitle">المعرض فارغ حالياً. عند إضافة محتوى من حساب مقدم الخدمة سيظهر هنا.</p>
+          <p class="pd-empty-title" id="pd-portfolio-empty-title">لا توجد عناصر في معرض الأعمال</p>
+          <p class="pd-empty-subtitle" id="pd-portfolio-empty-subtitle">المعرض فارغ حالياً. عند إضافة محتوى من حساب مقدم الخدمة سيظهر هنا.</p>
         </div>
       </div>
 
@@ -445,7 +445,7 @@
         <div class="pd-reviews-list" id="pd-reviews-list"></div>
         <div class="pd-empty hidden" id="pd-reviews-empty">
           <div class="pd-empty-icon">⭐</div>
-          <p>لا توجد تقييمات بعد</p>
+          <p id="pd-reviews-empty-text">لا توجد تقييمات بعد</p>
         </div>
       </div>
     </div>
@@ -457,5 +457,5 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{% static 'mobile_web/js/spotlightViewer.js' %}?v=20260421-tiktok-viewer"></script>
-  <script src="{% static 'mobile_web/js/providerDetailPage.js' %}?v=20260426-pd-connections-scope-all"></script>
+  <script src="{% static 'mobile_web/js/providerDetailPage.js' %}?v=20260502-provider-detail-i18n-stage1"></script>
 {% endblock %}

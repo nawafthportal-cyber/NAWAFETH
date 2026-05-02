@@ -4,13 +4,16 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:flutter_sound/flutter_sound.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../services/marketplace_service.dart';
 import '../services/request_draft_service.dart';
+import '../services/api_client.dart';
 import '../constants/app_theme.dart';
 import '../constants/saudi_cities.dart';
+import '../models/provider_public_model.dart';
 import '../utils/debounced_save_runner.dart';
 import '../widgets/platform_top_bar.dart';
 
@@ -37,7 +40,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   with SingleTickerProviderStateMixin {
   static const String _draftKey = 'draft_service_request_form_v1';
   static const Color _mainColor = AppColors.primary;
-  static const Color _surfaceColor = AppColors.bgLight;
   static const Color _inkColor = AppTextStyles.textPrimary;
   bool _isDark = false;
 
@@ -51,9 +53,15 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   late final AnimationController _entranceController;
   String? _selectedRegion;
   String? _selectedCity;
+  String _urgentDispatchMode = 'all';
+  ProviderPublicModel? _selectedUrgentProvider;
+  bool _loadingNearestProviders = false;
+  String? _urgentDispatchError;
+  double? _requestLat;
+  double? _requestLng;
 
   // ─── نوع الطلب ───
-  String _requestType = 'normal'; // normal | competitive | urgent
+  String _requestType = 'competitive'; // normal | competitive | urgent
 
   // ─── الأقسام ───
   List<Map<String, dynamic>> _categories = [];
@@ -81,6 +89,20 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   String get _effectiveRequestType =>
       _isProviderRequest ? 'normal' : _requestType;
 
+    bool get _showUrgentDispatchControls =>
+      !_isProviderRequest && _effectiveRequestType == 'urgent';
+
+  String _sanitizeRequestType(String? requestType) {
+    if (_isProviderRequest) return 'normal';
+    switch (requestType) {
+      case 'competitive':
+      case 'urgent':
+        return requestType!;
+      default:
+        return 'competitive';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -88,8 +110,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
-    // إذا جاء من صفحة مزود → نوع عادي تلقائياً
-    if (widget.providerId != null) _requestType = 'normal';
+    _requestType = _sanitizeRequestType(_requestType);
     _titleController.addListener(_scheduleDraftSave);
     _detailsController.addListener(_scheduleDraftSave);
     _restoreDraft();
@@ -143,6 +164,15 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     return SaudiCities.normalizeScopedCity(_selectedCity, region: _selectedRegion);
   }
 
+  double? _readDraftDouble(Map<String, dynamic> draft, String key) {
+    final value = draft[key];
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value.trim());
+    return null;
+  }
+
   Future<void> _restoreDraft() async {
     final draft = await RequestDraftService.loadDraft(_draftKey);
     if (!mounted || draft == null) {
@@ -158,9 +188,16 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     final quoteDeadlineRaw = RequestDraftService.readString(draft, 'quote_deadline');
 
     setState(() {
-      _requestType = _isProviderRequest
-          ? 'normal'
-          : (requestType.isEmpty ? _requestType : requestType);
+      _requestType = _sanitizeRequestType(
+        requestType.isEmpty ? _requestType : requestType,
+      );
+      _urgentDispatchMode = _isProviderRequest
+          ? 'all'
+          : (() {
+              final savedDispatchMode =
+                  RequestDraftService.readString(draft, 'dispatch_mode');
+              return savedDispatchMode == 'nearest' ? 'nearest' : 'all';
+            })();
       _selectedCategoryId = RequestDraftService.readInt(draft, 'category_id');
       _selectedSubcategoryId = RequestDraftService.readInt(draft, 'subcategory_id');
       _selectedRegion = RequestDraftService.readString(draft, 'region').isEmpty
@@ -171,6 +208,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
           : RequestDraftService.readString(draft, 'city');
       _titleController.text = RequestDraftService.readString(draft, 'title');
       _detailsController.text = RequestDraftService.readString(draft, 'details');
+      _requestLat = _readDraftDouble(draft, 'request_lat');
+      _requestLng = _readDraftDouble(draft, 'request_lng');
       _quoteDeadline = quoteDeadlineRaw.isEmpty
           ? null
           : DateTime.tryParse(quoteDeadlineRaw);
@@ -186,12 +225,19 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     final payload = <String, dynamic>{
       'provider_id': (widget.providerId ?? '').trim(),
       'request_type': _effectiveRequestType,
+        'dispatch_mode': _showUrgentDispatchControls ? _urgentDispatchMode : 'all',
       'category_id': _selectedCategoryId,
       'subcategory_id': _selectedSubcategoryId,
       'region': _selectedRegion,
       'city': _selectedCity,
       'title': _titleController.text.trim(),
       'details': _detailsController.text.trim(),
+        'request_lat': _showUrgentDispatchControls && _urgentDispatchMode == 'nearest'
+          ? _requestLat
+          : null,
+        'request_lng': _showUrgentDispatchControls && _urgentDispatchMode == 'nearest'
+          ? _requestLng
+          : null,
       'quote_deadline': _quoteDeadline?.toIso8601String(),
     };
 
@@ -295,6 +341,566 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     if (picked == null || !mounted) return;
     HapticFeedback.selectionClick();
     setState(() => _quoteDeadline = picked);
+  }
+
+  void _resetUrgentDispatchState({bool clearCoordinates = false}) {
+    _urgentDispatchMode = 'all';
+    _selectedUrgentProvider = null;
+    _urgentDispatchError = null;
+    _loadingNearestProviders = false;
+    if (clearCoordinates) {
+      _requestLat = null;
+      _requestLng = null;
+    }
+  }
+
+  Future<Position?> _resolveUrgentPosition({required bool requestPermission}) async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied && requestPermission) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
+
+    return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
+    );
+  }
+
+  Future<List<ProviderPublicModel>> _fetchNearestUrgentProviders({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final uri = Uri(
+      path: '/api/providers/',
+      queryParameters: {
+        'has_location': 'true',
+        'accepts_urgent': 'true',
+        'page_size': '30',
+        if (_selectedSubcategoryId != null)
+          'subcategory_id': '$_selectedSubcategoryId',
+      },
+    );
+    final response = await ApiClient.get(uri.toString());
+    if (!response.isSuccess) {
+      throw Exception(response.error ?? 'تعذر تحميل قائمة المزودين');
+    }
+
+    final rawList = response.dataAsMap?['results'] is List
+        ? List<dynamic>.from(response.dataAsMap!['results'] as List<dynamic>)
+        : (response.dataAsList ?? const <dynamic>[]);
+
+    final providers = rawList
+        .whereType<Map>()
+        .map((item) => ProviderPublicModel.fromJson(
+              Map<String, dynamic>.from(item),
+            ))
+        .where(
+          (provider) =>
+              provider.lat != null &&
+              provider.lng != null &&
+              provider.acceptsUrgent,
+        )
+        .toList(growable: false);
+
+    providers.sort((left, right) {
+      final leftDistance = Geolocator.distanceBetween(
+        latitude,
+        longitude,
+        left.lat!,
+        left.lng!,
+      );
+      final rightDistance = Geolocator.distanceBetween(
+        latitude,
+        longitude,
+        right.lat!,
+        right.lng!,
+      );
+      return leftDistance.compareTo(rightDistance);
+    });
+
+    return providers;
+  }
+
+  Future<void> _selectNearestUrgentProvider() async {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _urgentDispatchMode = 'nearest';
+      _loadingNearestProviders = true;
+      _urgentDispatchError = null;
+    });
+
+    try {
+      final position = await _resolveUrgentPosition(requestPermission: true);
+      if (position == null) {
+        if (!mounted) return;
+        setState(() {
+          _loadingNearestProviders = false;
+          _urgentDispatchError =
+              'فعّل الموقع لاستخدام توجيه الطلب العاجل إلى الأقرب.';
+        });
+        return;
+      }
+
+      final providers = await _fetchNearestUrgentProviders(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _requestLat = position.latitude;
+        _requestLng = position.longitude;
+        _loadingNearestProviders = false;
+        _urgentDispatchError = providers.isEmpty
+            ? 'لم نعثر على مزودين قريبين يفعّلون الطلبات العاجلة حالياً.'
+            : null;
+      });
+      _scheduleDraftSave();
+
+      if (providers.isEmpty) {
+        return;
+      }
+
+      final selectedProvider = await showModalBottomSheet<ProviderPublicModel>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        barrierColor: Colors.black.withValues(alpha: 0.32),
+        builder: (sheetContext) {
+          final displayProviders = providers.take(12).toList(growable: false);
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: SafeArea(
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceLight,
+                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  boxShadow: AppShadows.elevated,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.grey200,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'اختر مزوداً قريباً',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: AppTextStyles.h2,
+                        fontWeight: FontWeight.w900,
+                        color: _inkColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'سيبقى التوجيه على الأقرب، ويمكنك أيضاً ترشيح مزود قريب لتوجيه الإشعار الأولي مباشرة.',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppTextStyles.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: displayProviders.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final provider = displayProviders[index];
+                          final distanceKm = Geolocator.distanceBetween(
+                                position.latitude,
+                                position.longitude,
+                                provider.lat!,
+                                provider.lng!,
+                              ) /
+                              1000;
+                          final avatarUrl =
+                              ApiClient.buildMediaUrl(provider.profileImage);
+                          return Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              onTap: () => Navigator.pop(sheetContext, provider),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.md),
+                                  border: Border.all(
+                                    color: AppColors.borderLight,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 22,
+                                      backgroundColor: AppColors.primarySurface,
+                                      backgroundImage: avatarUrl != null
+                                          ? NetworkImage(avatarUrl)
+                                          : null,
+                                      child: avatarUrl == null
+                                          ? Text(
+                                              provider.displayName.isNotEmpty
+                                                  ? provider.displayName[0]
+                                                  : '؟',
+                                              style: const TextStyle(
+                                                fontFamily: 'Cairo',
+                                                fontWeight: FontWeight.w900,
+                                                color: _mainColor,
+                                              ),
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            provider.displayName,
+                                            style: const TextStyle(
+                                              fontFamily: 'Cairo',
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: _inkColor,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '${provider.locationDisplay} · ${distanceKm.toStringAsFixed(distanceKm < 10 ? 1 : 0)} كم',
+                                            style: const TextStyle(
+                                              fontFamily: 'Cairo',
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.grey500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primarySurface,
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadius.pill,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        provider.ratingAvg > 0
+                                            ? '⭐ ${provider.ratingAvg.toStringAsFixed(1)}'
+                                            : '${provider.completedRequests} مكتمل',
+                                        style: const TextStyle(
+                                          fontFamily: 'Cairo',
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          color: _mainColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+
+      if (!mounted || selectedProvider == null) return;
+      setState(() {
+        _selectedUrgentProvider = selectedProvider;
+      });
+      _scheduleDraftSave();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingNearestProviders = false;
+        _urgentDispatchError = 'تعذر تحديد مزود قريب الآن. حاول مرة أخرى.';
+      });
+    }
+  }
+
+  Widget _buildUrgentDispatchControls() {
+    final isNearest = _urgentDispatchMode == 'nearest';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 14),
+        _fieldLabel('توجيه الطلب العاجل'),
+        Row(
+          children: [
+            Expanded(
+              child: _dispatchChip(
+                icon: Icons.public_rounded,
+                label: 'إرسال للجميع',
+                hint: 'مطابقة عاجلة حسب التخصص',
+                selected: !isNearest,
+                onTap: () {
+                  if (!isNearest) return;
+                  HapticFeedback.selectionClick();
+                  setState(() {
+                    _resetUrgentDispatchState();
+                  });
+                  _scheduleDraftSave();
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _dispatchChip(
+                icon: Icons.near_me_outlined,
+                label: 'إرسال للأقرب',
+                hint: 'يستخدم موقعك الحالي',
+                selected: isNearest,
+                onTap: () {
+                  if (isNearest && _selectedUrgentProvider != null) {
+                    return;
+                  }
+                  _selectNearestUrgentProvider();
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          isNearest
+              ? 'سيتم استخدام موقعك الحالي لتضييق الطلب العاجل على الأقرب، ويمكنك ترشيح مزود قريب بشكل اختياري.'
+              : 'سيصل الطلب العاجل إلى المزودين المطابقين دون تقييده بموقعك الحالي.',
+          style: const TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.grey500,
+            height: 1.7,
+          ),
+        ),
+        if (_loadingNearestProviders) ...[
+          const SizedBox(height: 12),
+          const LinearProgressIndicator(minHeight: 3),
+        ],
+        if (_urgentDispatchError != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _urgentDispatchError!,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.error,
+            ),
+          ),
+        ],
+        if (isNearest) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed:
+                _loadingNearestProviders ? null : _selectNearestUrgentProvider,
+            icon: const Icon(Icons.my_location_rounded, size: 18),
+            label: Text(
+              _selectedUrgentProvider == null
+                  ? 'اختيار مزود قريب'
+                  : 'تغيير المزود القريب',
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _mainColor,
+              side: BorderSide(color: _mainColor.withValues(alpha: 0.35)),
+              minimumSize: const Size(double.infinity, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+            ),
+          ),
+        ],
+        if (isNearest && _selectedUrgentProvider != null) ...[
+          const SizedBox(height: 10),
+          _buildSelectedUrgentProviderCard(),
+        ],
+      ],
+    );
+  }
+
+  Widget _dispatchChip({
+    required IconData icon,
+    required String label,
+    required String hint,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: AnimatedContainer(
+        duration: AppDurations.fast,
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primarySurface : AppColors.surfaceLight,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+            color: selected ? _mainColor : AppColors.borderLight,
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 19,
+              color: selected ? _mainColor : AppColors.grey500,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11.5,
+                fontWeight: FontWeight.w900,
+                color: selected ? _mainColor : _inkColor,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              hint,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+                color: selected
+                    ? _mainColor.withValues(alpha: 0.8)
+                    : AppColors.grey500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedUrgentProviderCard() {
+    final provider = _selectedUrgentProvider!;
+    final avatarUrl = ApiClient.buildMediaUrl(provider.profileImage);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: AppColors.primarySurface,
+            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+            child: avatarUrl == null
+                ? Text(
+                    provider.displayName.isNotEmpty
+                        ? provider.displayName[0]
+                        : '؟',
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w900,
+                      color: _mainColor,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  provider.displayName,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: _inkColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  provider.locationDisplay,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.grey500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _loadingNearestProviders ? null : _selectNearestUrgentProvider,
+            icon: const Icon(Icons.edit_location_alt_outlined, size: 18),
+            color: _mainColor,
+            tooltip: 'تغيير',
+          ),
+          IconButton(
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              setState(() {
+                _selectedUrgentProvider = null;
+              });
+              _scheduleDraftSave();
+            },
+            icon: const Icon(Icons.close_rounded, size: 18),
+            color: AppColors.grey500,
+            tooltip: 'إزالة',
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAttachmentOptions() {
@@ -465,7 +1071,18 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
         return;
       }
       providerId = int.tryParse(widget.providerId!);
+    } else if (_effectiveRequestType == 'urgent' && _urgentDispatchMode == 'nearest') {
+      if (_requestLat == null || _requestLng == null) {
+        HapticFeedback.lightImpact();
+        _snack('حدّد موقعك أولاً لاستخدام توجيه الطلب العاجل إلى الأقرب');
+        return;
+      }
+      providerId = _selectedUrgentProvider?.id;
     }
+
+    final dispatchMode = _effectiveRequestType == 'urgent'
+        ? _urgentDispatchMode
+        : null;
 
     // إخفاء لوحة المفاتيح وإعلام خفيف عند بدء الإرسال.
     FocusScope.of(context).unfocus();
@@ -479,9 +1096,12 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
       subcategory: _selectedSubcategoryId!,
       city: city.isNotEmpty ? city : null,
       provider: providerId,
+        dispatchMode: dispatchMode,
       quoteDeadline: _quoteDeadline != null
           ? DateFormat('yyyy-MM-dd').format(_quoteDeadline!)
           : null,
+        requestLat: dispatchMode == 'nearest' ? _requestLat : null,
+        requestLng: dispatchMode == 'nearest' ? _requestLng : null,
       images: _images,
       videos: _videos,
       files: _files,
@@ -527,17 +1147,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     }
   }
 
-  String get _requestTypeLabel {
-    switch (_effectiveRequestType) {
-      case 'competitive':
-        return 'تنافسي';
-      case 'urgent':
-        return 'عاجل';
-      default:
-        return 'عادي';
-    }
-  }
-
   String get _requestTypeDescription {
     switch (_effectiveRequestType) {
       case 'competitive':
@@ -562,24 +1171,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     if (_titleController.text.trim().isNotEmpty) done++;
     if (_detailsController.text.trim().isNotEmpty) done++;
     return done / 5;
-  }
-
-  String? get _selectedCategoryName {
-    if (_selectedCategoryId == null) return null;
-    final category = _categories.cast<Map<String, dynamic>>().where(
-          (entry) => entry['id'] == _selectedCategoryId,
-        );
-    if (category.isEmpty) return null;
-    return category.first['name'] as String?;
-  }
-
-  String? get _selectedSubcategoryName {
-    if (_selectedSubcategoryId == null) return null;
-    final sub = _subcategories.where(
-      (entry) => entry['id'] == _selectedSubcategoryId,
-    );
-    if (sub.isEmpty) return null;
-    return sub.first['name'] as String?;
   }
 
   // ─── Build ───
@@ -783,6 +1374,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                             ),
                           ),
                         ),
+                      if (_showUrgentDispatchControls)
+                        _buildUrgentDispatchControls(),
                     ],
                   ),
                 ),
@@ -956,12 +1549,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
 
     final types = <Map<String, dynamic>>[
       {
-        'key': 'normal',
-        'label': 'عادي',
-        'hint': 'موجه لمقدم خدمة محدد',
-        'icon': Icons.person_outline_rounded,
-      },
-      {
         'key': 'competitive',
         'label': 'تنافسي',
         'hint': 'استقبال عدة عروض',
@@ -990,6 +1577,9 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                 HapticFeedback.selectionClick();
                 setState(() {
                   _requestType = entry['key'] as String;
+                  if (_requestType != 'urgent') {
+                    _resetUrgentDispatchState();
+                  }
                   _scheduleDraftSave();
                 });
               },
@@ -1082,6 +1672,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
         setState(() {
           _selectedCategoryId = val;
           _selectedSubcategoryId = null; // reset sub
+          _selectedUrgentProvider = null;
+          _urgentDispatchError = null;
           _scheduleDraftSave();
         });
       },
@@ -1103,6 +1695,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
           .toList(),
       onChanged: (val) => setState(() {
         _selectedSubcategoryId = val;
+        _selectedUrgentProvider = null;
+        _urgentDispatchError = null;
         _scheduleDraftSave();
       }),
       validator: (v) => v == null ? 'اختر التصنيف الفرعي' : null,
@@ -1566,108 +2160,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     );
   }
 
-  Widget _buildHeroCard() {
-    final summaryChips = <Widget>[
-      _buildHeroChip(
-        icon: Icons.local_offer_outlined,
-        label: _requestTypeLabel,
-        emphasised: true,
-      ),
-      if (_selectedCategoryName != null)
-        _buildHeroChip(
-          icon: Icons.category_outlined,
-          label: _selectedCategoryName!,
-        ),
-      if (_selectedSubcategoryName != null)
-        _buildHeroChip(
-          icon: Icons.account_tree_outlined,
-          label: _selectedSubcategoryName!,
-        ),
-      if (_selectedScopedCity.isNotEmpty)
-        _buildHeroChip(
-          icon: Icons.location_on_outlined,
-          label: _selectedScopedCity,
-        ),
-      if (_attachmentsCount > 0)
-        _buildHeroChip(
-          icon: Icons.attach_file_rounded,
-          label: '$_attachmentsCount مرفق',
-        ),
-    ];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      decoration: BoxDecoration(
-        color: _isDark ? AppColors.cardDark : AppColors.surfaceLight,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: _isDark ? [] : AppShadows.card,
-        border: _isDark ? Border.all(color: AppColors.borderDark) : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.primarySurface,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: const Icon(
-                  Icons.assignment_outlined,
-                  color: _mainColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.providerName != null
-                          ? 'طلب خدمة من ${widget.providerName}'
-                          : 'طلب خدمة جديدة',
-                      style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: AppTextStyles.h2,
-                        fontWeight: FontWeight.w900,
-                        color: _inkColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _requestTypeDescription,
-                      style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 11.5,
-                        height: 1.7,
-                        fontWeight: FontWeight.w600,
-                        color: AppTextStyles.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          if (summaryChips.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: summaryChips,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildDraftNotice() {
     return Container(
       width: double.infinity,
@@ -1798,37 +2290,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
     );
   }
 
-  Widget _buildHeroChip({
-    required IconData icon,
-    required String label,
-    bool emphasised = false,
-  }) {
-    final bg = emphasised ? AppColors.primarySurface : AppColors.grey50;
-    final fg = emphasised ? _mainColor : AppTextStyles.textSecondary;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: fg),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              color: fg,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildAttachmentListItem({
     required IconData icon,

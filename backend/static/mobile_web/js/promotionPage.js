@@ -73,7 +73,7 @@ var PromotionPage = (function () {
   var SERVICE_LABELS = {
     "home_banner": "بنر الصفحة الرئيسية",
     "featured_specialists": "شريط أبرز المختصين",
-    "portfolio_showcase": "شريط البنرات والمشاريع",
+    "portfolio_showcase": "البنرات والمشاريع",
     "snapshots": "شريط اللمحات",
     "search_results": "الظهور في قوائم البحث",
     "promo_messages": "الرسائل الدعائية",
@@ -974,11 +974,11 @@ var PromotionPage = (function () {
     if (!selected) {
       return service === "snapshots"
         ? "المعاينة ستتحدث فور اختيار الريل، وهو نفسه الذي سيظهر داخل شريط اللمحات."
-        : "المعاينة ستتحدث فور اختيار الصورة، وهي نفسها التي ستظهر داخل شريط البنرات والمشاريع.";
+        : "المعاينة ستتحدث فور اختيار الصورة، وهي نفسها التي ستظهر داخل البنرات والمشاريع.";
     }
     return service === "snapshots"
       ? "هذا هو الريل الذي سيستخدم داخل شريط اللمحات عند تفعيل الحملة."
-      : "هذه هي الصورة التي ستستخدم داخل شريط البنرات والمشاريع عند تفعيل الحملة.";
+      : "هذه هي الصورة التي ستستخدم داخل البنرات والمشاريع عند تفعيل الحملة.";
   }
 
   function renderGalleryPickerPreview(service) {
@@ -2958,7 +2958,7 @@ var PromotionPage = (function () {
     }
     var fileType = String(selected.file_type || "image").toLowerCase();
     var caption = String(selected.caption || (fileType === "video" ? "فيديو من معرض الأعمال" : "صورة من معرض الأعمال")).trim() || "عنصر من معرض الأعمال";
-    var title = service === "snapshots" ? "الريل المختار لشريط اللمحات" : "الصورة المختارة لشريط البنرات والمشاريع";
+    var title = service === "snapshots" ? "الريل المختار لشريط اللمحات" : "الصورة المختارة لالبنرات والمشاريع";
     var mediaHtml = fileType === "video"
       ? '<video src="' + escapeHtml(resolveMediaUrl(selected.file_url || selected.thumbnail_url || "")) + '" controls playsinline preload="metadata"' + (selected.thumbnail_url ? ' poster="' + escapeHtml(resolveMediaUrl(selected.thumbnail_url)) + '"' : '') + '></video>'
       : '<img src="' + escapeHtml(mediaUrl) + '" alt="' + escapeHtml(caption) + '">';

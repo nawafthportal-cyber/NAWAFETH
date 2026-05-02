@@ -106,6 +106,21 @@ const Nav = (() => {
   const _topbarSponsorTtlMs = 5 * 60 * 1000;
   const _topbarBrandLogoTtlMs = 5 * 60 * 1000;
 
+  function _t(key, replacements, fallback) {
+    if (window.NawafethI18n && typeof window.NawafethI18n.t === 'function') {
+      const value = window.NawafethI18n.t(key, replacements);
+      if (value) return value;
+    }
+    return fallback || '';
+  }
+
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage();
+    }
+    return 'ar';
+  }
+
   function init() {
     _ensureSingleBottomNav();
     _initTopNavbar();
@@ -305,7 +320,7 @@ const Nav = (() => {
     if (!mediaUrl) return null;
     return {
       assetUrl: ApiClient.mediaUrl(mediaUrl),
-      title: String(block.title_ar || '').trim() || 'شعار المنصة',
+      title: String(block.title_ar || '').trim() || _t('platformLogoAlt', null, 'شعار المنصة'),
     };
   }
 
@@ -356,8 +371,8 @@ const Nav = (() => {
     if (!modal || !media || !title || !body || !link) return;
 
     const safePayload = payload && typeof payload === 'object' ? payload : {};
-    const sponsorName = String(safePayload.name || '').trim() || 'الراعي الرسمي';
-    const sponsorMessage = String(safePayload.message || '').trim() || 'لم يتم إضافة رسالة للرعاية بعد.';
+    const sponsorName = String(safePayload.name || '').trim() || _t('officialSponsor', null, 'الراعي الرسمي');
+    const sponsorMessage = String(safePayload.message || '').trim() || _t('sponsorMessageEmpty', null, 'تظهر تفاصيل الرعاية هنا عند توفر رسالة.');
     const sponsorHref = String(safePayload.href || '').trim();
     const sponsorAssetUrl = String(safePayload.assetUrl || '').trim();
 
@@ -498,15 +513,15 @@ const Nav = (() => {
 
     const safePayload = payload && typeof payload === 'object' ? payload : null;
     _topbarSponsorPayload = safePayload;
-    const name = (safePayload?.name || '').trim() || 'مساحة الرعاية';
+    const name = (safePayload?.name || '').trim() || _t('sponsorPlaceholder', null, 'مساحة الرعاية');
     const href = (safePayload?.href || '').trim();
     const assetUrl = (safePayload?.assetUrl || '').trim();
     const message = (safePayload?.message || '').trim();
 
     sponsorName.textContent = name;
-    sponsor.classList.toggle('is-placeholder', !safePayload || (!href && !assetUrl && name === 'مساحة الرعاية'));
+    sponsor.classList.toggle('is-placeholder', !safePayload || (!href && !assetUrl && name === _t('sponsorPlaceholder', null, 'مساحة الرعاية')));
     sponsor.classList.toggle('is-link', !!href);
-    sponsor.setAttribute('aria-label', `الراعي الحالي: ${name}`);
+    sponsor.setAttribute('aria-label', _t('currentSponsorAria', { name }, `الراعي الحالي: ${name}`));
     sponsor.setAttribute('title', name);
     sponsor.setAttribute('data-sponsor-name', name);
     sponsor.setAttribute('data-sponsor-message', message);
@@ -669,8 +684,8 @@ const Nav = (() => {
       if (desktopLoginLink) desktopLoginLink.classList.remove('hidden');
       if (logoutBtn) logoutBtn.classList.add('hidden');
       if (deleteAccountBtn) deleteAccountBtn.classList.add('hidden');
-      if (nameEl) nameEl.textContent = 'زائر';
-      if (roleEl) roleEl.textContent = 'تصفح كضيف';
+      if (nameEl) nameEl.textContent = _t('guestName', null, 'زائر');
+      if (roleEl) roleEl.textContent = _t('guestRole', null, 'تصفح كضيف');
       if (avatarEl) avatarEl.textContent = '';
       if (navAvatar) navAvatar.classList.add('hidden');
       return;
@@ -709,14 +724,22 @@ const Nav = (() => {
       return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
     }
     function _safeVal(v) { var s = String(v || '').trim(); return (s && !_looksLikePhone(s)) ? s : ''; }
-    const display = _safeVal(profile.display_name) || _safeVal(profile.provider_display_name) || _safeVal(profile.first_name) || _safeVal(profile.username) || 'مستخدم';
-    const role = String(profile.role_label || '').trim() || (
-      profile.role_state === 'provider'
-        ? 'مقدم خدمة'
-        : profile.role_state === 'client'
-          ? 'عميل'
-          : 'حساب مستخدم'
-    );
+    const display = _safeVal(profile.display_name) || _safeVal(profile.provider_display_name) || _safeVal(profile.first_name) || _safeVal(profile.username) || _t('genericUser', null, 'مستخدم');
+    const role = _currentLang() === 'en'
+      ? (
+        profile.role_state === 'provider'
+          ? _t('roleProvider', null, 'Provider')
+          : profile.role_state === 'client'
+            ? _t('roleClient', null, 'Client')
+            : _t('roleUser', null, 'User Account')
+      )
+      : String(profile.role_label || '').trim() || (
+        profile.role_state === 'provider'
+          ? _t('roleProvider', null, 'مقدم خدمة')
+          : profile.role_state === 'client'
+            ? _t('roleClient', null, 'عميل')
+            : _t('roleUser', null, 'حساب مستخدم')
+      );
     const initial = (display || 'م').charAt(0);
 
     if (nameEl) nameEl.textContent = display;
@@ -736,7 +759,7 @@ const Nav = (() => {
 
     if (navAvatar) {
       navAvatar.classList.remove('hidden');
-      navAvatar.title = 'الملف الشخصي';
+      navAvatar.title = _t('profileAria', null, 'الملف الشخصي');
       navAvatar.addEventListener('click', () => {
         const mode = sessionStorage.getItem('nw_account_mode');
         window.location.href = mode === 'provider' ? '/provider-dashboard/' : '/profile/';
@@ -774,14 +797,14 @@ const Nav = (() => {
     if (!btn) return;
     btn.addEventListener('click', async () => {
       const confirmed = window.confirm(
-        'سيتم حذف حسابك نهائيًا من قاعدة البيانات ولن يمكن استعادته. هل تريد المتابعة؟'
+        _t('deleteConfirm', null, 'سيتم حذف حسابك نهائيًا من قاعدة البيانات ولن يمكن استعادته. هل تريد المتابعة؟')
       );
       if (!confirmed) return;
 
       btn.disabled = true;
       const label = btn.querySelector('.sidebar-label');
       const previousLabel = label ? label.textContent : '';
-      if (label) label.textContent = 'جارٍ حذف الحساب...';
+      if (label) label.textContent = _t('deleteBusy', null, 'جارٍ حذف الحساب...');
 
       const res = await ApiClient.request('/api/accounts/delete/', {
         method: 'DELETE',
@@ -790,8 +813,8 @@ const Nav = (() => {
 
       if (res?.ok) {
         Toast.queue(
-          'نعتذر لك عن أي تقصير في تجربتك معنا. تم حذف حسابك وبياناته المرتبطة من قاعدة البيانات، ونسعد بخدمتك مرة أخرى متى رغبت بالعودة.',
-          { title: 'تم حذف الحساب نهائيًا', type: 'warning', duration: 7600 }
+          _t('deleteSuccessMessage', null, 'نعتذر لك عن أي تقصير في تجربتك معنا. تم حذف حسابك وبياناته المرتبطة من قاعدة البيانات، ونسعد بخدمتك مرة أخرى متى رغبت بالعودة.'),
+          { title: _t('deleteSuccessTitle', null, 'تم حذف الحساب نهائيًا'), type: 'warning', duration: 7600 }
         );
         Auth.logout();
         window.location.href = '/login/';
@@ -799,8 +822,8 @@ const Nav = (() => {
       }
 
       btn.disabled = false;
-      if (label) label.textContent = previousLabel || 'حذف الحساب نهائيًا';
-      window.alert((res && res.data && (res.data.detail || res.data.error)) || 'تعذر حذف الحساب، حاول مرة أخرى.');
+      if (label) label.textContent = previousLabel || _t('sidebarDelete', null, 'حذف الحساب نهائيًا');
+      window.alert((res && res.data && (res.data.detail || res.data.error)) || _t('deleteError', null, 'تعذر حذف الحساب، حاول مرة أخرى.'));
     });
   }
 

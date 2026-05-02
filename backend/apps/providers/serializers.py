@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.utils.text import slugify
 
 from apps.accounts.models import User
+from apps.accounts.role_context import get_active_role
 from apps.accounts.phone_validation import normalize_phone_local05, require_phone_local05
 from apps.reviews.services import provider_rating_values
 from apps.uploads.media_optimizer import optimize_upload_for_storage

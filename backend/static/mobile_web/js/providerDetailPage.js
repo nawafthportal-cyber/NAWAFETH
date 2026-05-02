@@ -5,6 +5,373 @@
 'use strict';
 
 const ProviderDetailPage = (() => {
+  const COPY = {
+    ar: {
+      providerNotFound: 'مقدم الخدمة غير موجود',
+      tabMetaProfile: 'أساسي',
+      back: 'رجوع',
+      save: 'حفظ',
+      share: 'مشاركة',
+      blueVerification: 'توثيق أزرق',
+      greenVerification: 'توثيق أخضر',
+      return: 'العودة',
+      returnToMap: 'العودة إلى الخريطة',
+      follow: 'متابعة',
+      unfollow: 'إلغاء المتابعة',
+      message: 'مراسلة',
+      call: 'اتصال',
+      whatsapp: 'واتساب',
+      providerFallback: 'مقدم خدمة',
+      unavailable: 'غير متوفر',
+      noDescription: 'لا يوجد وصف',
+      bioTitle: 'نبذة عن مقدم الخدمة',
+      overview: 'ملخص مقدم الخدمة',
+      city: 'المدينة',
+      experience: 'الخبرة',
+      serviceRange: 'نطاق الخدمة',
+      completedRequests: 'الطلبات المكتملة',
+      followers: 'متابعون',
+      likes: 'إعجاب',
+      rating: 'التقييم',
+      followLinks: 'روابط المتابعة',
+      showFollowers: 'عرض من يتابعون مقدم الخدمة',
+      showFollowing: 'عرض من يتابعهم مقدم الخدمة',
+      followersLabel: 'المتابعون',
+      followingLabel: 'المتابعين',
+      viewList: 'عرض القائمة',
+      highlightsTitle: 'لمحات مقدم الخدمة',
+      swipeHint: 'اسحب يمين/يسار',
+      tabsAria: 'تبويبات ملف مقدم الخدمة',
+      profileTab: 'الملف الشخصي',
+      servicesTab: 'خدماتي',
+      portfolioTab: 'معرض خدماتي',
+      reviewsTab: 'المراجعات',
+      accountType: 'صفة الحساب',
+      mainServiceCategory: 'التصنيف الرئيسي للخدمات المقدمة',
+      specialization: 'التخـصص',
+      yearsExperience: 'سنوات الخبرة',
+      whatsappNumber: 'رقم الواتساب',
+      website: 'الموقع الالكتروني',
+      openWebsite: 'فتح الموقع الإلكتروني',
+      mapTitle: 'نطاق الخدمة على الخريطة',
+      mapPending: 'سيظهر نطاق الخدمة بعد تحميل بيانات مقدم الخدمة.',
+      mapAria: 'خريطة نطاق خدمة مقدم الخدمة',
+      mapNoExactLocation: 'لم يحدد مقدم الخدمة موقعًا دقيقًا على الخريطة بعد.',
+      socialAccounts: 'حسابات التواصل الاجتماعي',
+      instagramAccount: 'حساب انستقرام',
+      xAccount: 'حساب X',
+      snapchatAccount: 'حساب سناب شات',
+      openInstagram: 'فتح حساب انستقرام',
+      openX: 'فتح حساب X',
+      openSnapchat: 'فتح حساب سناب شات',
+      servicesBadge: 'خدمات المزود',
+      servicesHeroTitle: 'خدمات مرتبة وواضحة قبل بدء التواصل',
+      servicesHeroSubtitle: 'راجع ما يقدمه المزوّد، نطاق التسعير، ووصف كل خدمة قبل الانتقال إلى الرسائل أو طلب التنفيذ.',
+      servicesEmptyTitle: 'لا توجد خدمات متاحة حالياً',
+      servicesEmptySubtitle: 'لم يضف مقدم الخدمة خدمات في هذا القسم بعد.',
+      portfolioBadge: 'معرض خدماتي',
+      portfolioHeroTitle: 'استعراض عمودي سريع بنفس روح المشاهد القصيرة',
+      portfolioHeroSubtitle: 'افتح أي بطاقة لمشاهدة الصور والفيديوهات بواجهة كاملة، مع بقاء الإعجاب والحفظ ظاهرين مباشرة على كل عنصر.',
+      portfolioEmptyTitle: 'لا توجد عناصر في معرض الأعمال',
+      portfolioEmptySubtitle: 'المعرض فارغ حالياً. عند إضافة محتوى من حساب مقدم الخدمة سيظهر هنا.',
+      portfolioItemsCount: '{count} عنصر',
+      portfolioSectionsCount: '{count} قسم',
+      reviewsEmpty: 'لا توجد تقييمات بعد',
+      close: 'إغلاق',
+      copyLink: 'نسخ الرابط',
+      linkCopied: 'تم نسخ الرابط',
+      linkCopyFailed: 'تعذر نسخ الرابط',
+      linkShared: 'تمت مشاركة الرابط',
+      shareLinkFailed: 'تعذر مشاركة الرابط',
+      shareProviderWindow: 'مشاركة نافذة مقدم الخدمة',
+      reportProvider: 'الإبلاغ عن مقدم الخدمة',
+      reportProviderDialog: 'إبلاغ عن مزود خدمة',
+      reportInfo: 'بيانات المبلغ عنه:',
+      reportTypeProvider: 'نوع البلاغ: مزود خدمة',
+      reportReason: 'سبب الإبلاغ:',
+      reportDetails: 'تفاصيل إضافية (اختياري):',
+      reportDetailsPlaceholder: 'اكتب التفاصيل هنا...',
+      cancel: 'إلغاء',
+      submitReport: 'إرسال البلاغ',
+      reportSent: 'تم إرسال البلاغ للإدارة. شكراً لك',
+      reportReasonInappropriate: 'محتوى غير لائق',
+      reportReasonHarassment: 'تحرش أو إزعاج',
+      reportReasonFraud: 'احتيال أو نصب',
+      reportReasonAbusive: 'محتوى مسيء',
+      reportReasonPrivacy: 'انتهاك الخصوصية',
+      reportReasonOther: 'أخرى',
+      qrAlt: 'رمز QR',
+      whatsappIntro: 'السلام عليكم\nأتواصل معك بخصوص خدماتك في منصة نوافذ @{name}',
+      cannotChatYourself: 'لا يمكنك محادثة نفسك',
+      invalidProviderId: 'تعذر فتح الرسائل: معرف المزود غير صالح',
+      openMessagesFailed: 'تعذر فتح الرسائل حالياً',
+      mapLoadFailedSummary: 'تعذر عرض نطاق الخدمة على الخريطة حالياً.',
+      mapLoadFailed: 'تعذر عرض الخريطة حالياً.',
+      loadListFailed: 'تعذر تحميل القائمة',
+      noFollowersYet: 'لا يوجد متابعون بعد',
+      noFollowingYet: 'لا يوجد متابَعون بعد',
+      searchByName: 'ابحث بالاسم أو المعرّف…',
+      searchList: 'ابحث في القائمة',
+      user: 'مستخدم',
+      openProfile: 'فتح ملف {name}',
+      notProviderShort: '{name} — ليس مزود خدمة',
+      blueBadgeVerified: 'موثق بالشارة الزرقاء',
+      greenBadgeVerified: 'موثق بالشارة الخضراء',
+      provider: 'مزود خدمة',
+      client: 'عميل',
+      noMatchingResults: 'لا توجد نتائج مطابقة',
+      notProviderTitle: 'هذا الحساب ليس مزود خدمة',
+      notProviderMessage: 'هذا الحساب مسجّل كعميل في منصة نوافذ ولا يملك ملفًا عامًا لمقدم خدمة، لذلك لا يمكن فتح صفحته.',
+      understood: 'حسناً، فهمت',
+      cover: 'غلاف',
+      experienceYearsValue: '{count} سنوات',
+      serviceRangeKm: '{count} كم',
+      followersSheetTitle: 'المتابعون',
+      followingSheetTitle: 'المتابعين',
+      followersSheetSubtitle: 'الذين يتابعون مقدم الخدمة',
+      followingSheetSubtitle: 'الذين يتابعهم مقدم الخدمة',
+      highlightSection: 'لمحات',
+      highlightFallback: 'لمحة',
+      reelFallback: 'ريل',
+      serviceWithoutName: 'خدمة بدون اسم',
+      publishedService: 'خدمة منشورة',
+      pricing: 'التسعير',
+      serviceCommunicationHint: 'للتفاهم حول هذه الخدمة استخدم أزرار المتابعة والتواصل أعلى الصفحة.',
+      servicePriceNegotiable: 'السعر: حسب الاتفاق',
+      servicePriceSingle: 'السعر: {value}{suffix}',
+      servicePriceRange: 'السعر: {from} - {to}{suffix}',
+      serviceUnitFixed: 'سعر ثابت',
+      serviceUnitStarting: 'يبدأ من',
+      serviceUnitHour: 'بالساعة',
+      serviceUnitDay: 'باليوم',
+      serviceUnitNegotiable: 'قابل للتفاوض',
+      servicesCountZero: '0 خدمة',
+      servicesCountOne: 'خدمة واحدة',
+      servicesCountTwo: 'خدمتان',
+      servicesCountFew: '{count} خدمات',
+      servicesCountMany: '{count} خدمة',
+      worksSection: 'أعمالي',
+      noDescriptionGeneric: 'بدون وصف',
+      portfolioItemFallback: 'عنصر من المعرض',
+      videoShort: 'فيديو قصير',
+      image: 'صورة',
+      watchVertical: 'شاهد العرض العمودي',
+      browseWork: 'استعرض العمل',
+      openFullscreen: 'فتح بملء الشاشة',
+      like: 'إعجاب',
+      saveToFavorites: 'حفظ في المفضلة',
+      scrollHorizontally: 'مرر أفقياً وافتح أي بطاقة',
+      noItemsInSection: 'لا توجد عناصر في هذا القسم حالياً',
+      noItemsInSectionSubtitle: 'سيظهر المحتوى هنا عند إضافته من ملف مقدم الخدمة.',
+      videoFromGallery: 'فيديو من المعرض',
+      likeSavedAs: 'تم تسجيل الإعجاب بصفتك {mode}',
+      unlikeSavedAs: 'تم إلغاء الإعجاب بصفتك {mode}',
+      savedAsFavorite: 'تم الحفظ في المفضلة بصفتك {mode}',
+      removedFromFavorites: 'تمت إزالة العنصر من المفضلة بصفتك {mode}',
+      likeUpdateFailed: 'تعذر تحديث الإعجاب',
+      saveUpdateFailed: 'تعذر تحديث الحفظ',
+      profileSavedAria: 'فتح مفضلتي',
+      profileUnsavedAria: 'الانتقال إلى المعرض للحفظ',
+      profileSavedTitle: 'فتح مفضلتي',
+      profileUnsavedTitle: 'احفظ من المعرض أو اللمحات',
+      saveFromGalleryHint: 'اضغط حفظ على أي صورة أو فيديو لإضافته إلى مفضلتك',
+      anonymousReviewer: 'مستخدم',
+      providerReply: 'رد مقدم الخدمة',
+      ratingsCount: '{count} تقييم',
+      providerMode: 'مزود',
+      clientMode: 'عميل',
+      serviceCoverageAroundCity: 'تغطية تصل إلى {range} كم حول {city}.',
+      serviceCoverageAroundProvider: 'تغطية تصل إلى {range} كم حول موقع مقدم الخدمة.',
+      serviceCoverageInCity: 'النطاق المحدد {range} كم داخل مدينة {city} دون نقطة خريطة دقيقة.',
+      noGeoPointAvailable: 'لا تتوفر إحداثيات دقيقة لعرض نطاق الخدمة على الخريطة حالياً.',
+      mapFailedNow: 'تعذر تحميل الخريطة حالياً.',
+      seoProviderDescription: 'تعرف على خدمات {name} عبر منصة نوافــذ.',
+      seoPlatformDescription: 'منصة نوافــذ للخدمات الرقمية والمهنية.',
+    },
+    en: {
+      providerNotFound: 'Provider not found',
+      tabMetaProfile: 'Basic',
+      back: 'Back',
+      save: 'Save',
+      share: 'Share',
+      blueVerification: 'Blue verification',
+      greenVerification: 'Green verification',
+      return: 'Return',
+      returnToMap: 'Back to map',
+      follow: 'Follow',
+      unfollow: 'Unfollow',
+      message: 'Message',
+      call: 'Call',
+      whatsapp: 'WhatsApp',
+      providerFallback: 'Provider',
+      unavailable: 'Unavailable',
+      noDescription: 'No description available',
+      bioTitle: 'About the provider',
+      overview: 'Provider overview',
+      city: 'City',
+      experience: 'Experience',
+      serviceRange: 'Service range',
+      completedRequests: 'Completed requests',
+      followers: 'Followers',
+      likes: 'Likes',
+      rating: 'Rating',
+      followLinks: 'Follow links',
+      showFollowers: 'Show who follows this provider',
+      showFollowing: 'Show who this provider follows',
+      followersLabel: 'Followers',
+      followingLabel: 'Following',
+      viewList: 'View list',
+      highlightsTitle: 'Provider highlights',
+      swipeHint: 'Swipe left or right',
+      tabsAria: 'Provider profile tabs',
+      profileTab: 'Profile',
+      servicesTab: 'Services',
+      portfolioTab: 'Portfolio',
+      reviewsTab: 'Reviews',
+      accountType: 'Account type',
+      mainServiceCategory: 'Main service category',
+      specialization: 'Specialization',
+      yearsExperience: 'Years of experience',
+      whatsappNumber: 'WhatsApp number',
+      website: 'Website',
+      openWebsite: 'Open website',
+      mapTitle: 'Service range on the map',
+      mapPending: 'The service range will appear after the provider data loads.',
+      mapAria: 'Provider service range map',
+      mapNoExactLocation: 'The provider has not set an exact location on the map yet.',
+      socialAccounts: 'Social accounts',
+      instagramAccount: 'Instagram account',
+      xAccount: 'X account',
+      snapchatAccount: 'Snapchat account',
+      openInstagram: 'Open Instagram account',
+      openX: 'Open X account',
+      openSnapchat: 'Open Snapchat account',
+      servicesBadge: 'Provider services',
+      servicesHeroTitle: 'Clear, organized services before you start the conversation',
+      servicesHeroSubtitle: 'Review what the provider offers, the pricing range, and each service description before moving to messages or placing a request.',
+      servicesEmptyTitle: 'No services are available right now',
+      servicesEmptySubtitle: 'The provider has not added services in this section yet.',
+      portfolioBadge: 'Portfolio',
+      portfolioHeroTitle: 'A fast vertical showcase with the feel of short-form viewing',
+      portfolioHeroSubtitle: 'Open any card to view photos and videos in a full-screen experience while likes and saves remain visible on every item.',
+      portfolioEmptyTitle: 'There are no portfolio items',
+      portfolioEmptySubtitle: 'The portfolio is empty right now. Content added from the provider account will appear here.',
+      portfolioItemsCount: '{count} items',
+      portfolioSectionsCount: '{count} sections',
+      reviewsEmpty: 'There are no reviews yet',
+      close: 'Close',
+      copyLink: 'Copy link',
+      linkCopied: 'Link copied',
+      linkCopyFailed: 'Unable to copy the link',
+      linkShared: 'The link was shared',
+      shareLinkFailed: 'Unable to share the link',
+      shareProviderWindow: 'Share the provider page',
+      reportProvider: 'Report the provider',
+      reportProviderDialog: 'Report a provider',
+      reportInfo: 'Reported account details:',
+      reportTypeProvider: 'Report type: provider',
+      reportReason: 'Reason for the report:',
+      reportDetails: 'Additional details (optional):',
+      reportDetailsPlaceholder: 'Write the details here...',
+      cancel: 'Cancel',
+      submitReport: 'Send report',
+      reportSent: 'The report was sent to the team. Thank you.',
+      reportReasonInappropriate: 'Inappropriate content',
+      reportReasonHarassment: 'Harassment or nuisance',
+      reportReasonFraud: 'Fraud or scam',
+      reportReasonAbusive: 'Abusive content',
+      reportReasonPrivacy: 'Privacy violation',
+      reportReasonOther: 'Other',
+      qrAlt: 'QR code',
+      whatsappIntro: 'Hello, I am contacting you about your services on Nawafeth @{name}',
+      cannotChatYourself: 'You cannot chat with yourself',
+      invalidProviderId: 'Unable to open messages: invalid provider ID',
+      openMessagesFailed: 'Unable to open messages right now',
+      mapLoadFailedSummary: 'Unable to show the service range on the map right now.',
+      mapLoadFailed: 'Unable to show the map right now.',
+      loadListFailed: 'Unable to load the list',
+      noFollowersYet: 'There are no followers yet',
+      noFollowingYet: 'There is no following list yet',
+      searchByName: 'Search by name or handle…',
+      searchList: 'Search the list',
+      user: 'User',
+      openProfile: 'Open profile {name}',
+      notProviderShort: '{name} — not a provider',
+      blueBadgeVerified: 'Verified with the blue badge',
+      greenBadgeVerified: 'Verified with the green badge',
+      provider: 'Provider',
+      client: 'Client',
+      noMatchingResults: 'No matching results',
+      notProviderTitle: 'This account is not a provider',
+      notProviderMessage: 'This account is registered as a client on Nawafeth and does not have a public provider profile, so its page cannot be opened.',
+      understood: 'OK, understood',
+      cover: 'Cover',
+      experienceYearsValue: '{count} years',
+      serviceRangeKm: '{count} km',
+      followersSheetTitle: 'Followers',
+      followingSheetTitle: 'Following',
+      followersSheetSubtitle: 'People following this provider',
+      followingSheetSubtitle: 'People this provider follows',
+      highlightSection: 'Highlights',
+      highlightFallback: 'Highlight',
+      reelFallback: 'Reel',
+      serviceWithoutName: 'Untitled service',
+      publishedService: 'Published service',
+      pricing: 'Pricing',
+      serviceCommunicationHint: 'To discuss this service, use the follow and contact actions at the top of the page.',
+      servicePriceNegotiable: 'Price: by agreement',
+      servicePriceSingle: 'Price: {value}{suffix}',
+      servicePriceRange: 'Price: {from} - {to}{suffix}',
+      serviceUnitFixed: 'Fixed price',
+      serviceUnitStarting: 'Starting from',
+      serviceUnitHour: 'Per hour',
+      serviceUnitDay: 'Per day',
+      serviceUnitNegotiable: 'Negotiable',
+      servicesCountZero: '0 services',
+      servicesCountOne: '1 service',
+      servicesCountTwo: '2 services',
+      servicesCountFew: '{count} services',
+      servicesCountMany: '{count} services',
+      worksSection: 'My work',
+      noDescriptionGeneric: 'No description',
+      portfolioItemFallback: 'Portfolio item',
+      videoShort: 'Short video',
+      image: 'Image',
+      watchVertical: 'Watch vertically',
+      browseWork: 'Browse the work',
+      openFullscreen: 'Open full screen',
+      like: 'Like',
+      saveToFavorites: 'Save to favorites',
+      scrollHorizontally: 'Scroll horizontally and open any card',
+      noItemsInSection: 'There are no items in this section right now',
+      noItemsInSectionSubtitle: 'Content will appear here when it is added from the provider profile.',
+      videoFromGallery: 'Gallery video',
+      likeSavedAs: 'Like recorded as {mode}',
+      unlikeSavedAs: 'Like removed as {mode}',
+      savedAsFavorite: 'Saved to favorites as {mode}',
+      removedFromFavorites: 'Removed from favorites as {mode}',
+      likeUpdateFailed: 'Unable to update the like',
+      saveUpdateFailed: 'Unable to update the save',
+      profileSavedAria: 'Open my favorites',
+      profileUnsavedAria: 'Go to the gallery to save',
+      profileSavedTitle: 'Open my favorites',
+      profileUnsavedTitle: 'Save something from the gallery or highlights',
+      saveFromGalleryHint: 'Tap save on any image or video to add it to your favorites',
+      anonymousReviewer: 'User',
+      providerReply: 'Provider reply',
+      ratingsCount: '{count} ratings',
+      providerMode: 'provider',
+      clientMode: 'client',
+      serviceCoverageAroundCity: 'Coverage reaches up to {range} km around {city}.',
+      serviceCoverageAroundProvider: 'Coverage reaches up to {range} km around the provider location.',
+      serviceCoverageInCity: 'The configured range is {range} km inside {city} without an exact map point.',
+      noGeoPointAvailable: 'Exact coordinates are not available to show the service range on the map right now.',
+      mapFailedNow: 'Unable to load the map right now.',
+      seoProviderDescription: 'Discover the services of {name} on Nawafeth.',
+      seoPlatformDescription: 'Nawafeth platform for digital and professional services.',
+    },
+  };
+
   let _providerId = null;
   let _mode = 'client';
   let _isFollowing = false;
@@ -40,12 +407,13 @@ const ProviderDetailPage = (() => {
   let _serviceRangeLayer = null;
 
   function init() {
+    document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
     const match = window.location.pathname.match(/\/provider\/(\d+)(?:\/[^/?#]+)?\/?/);
     if (!match) {
       document.querySelector('.pd-page').textContent = '';
       const msg = UI.el('div', { className: 'pd-empty', style: { padding: '80px 20px' } });
       msg.appendChild(UI.el('div', { className: 'pd-empty-icon', textContent: '🔍' }));
-      msg.appendChild(UI.el('p', { textContent: 'مقدم الخدمة غير موجود' }));
+      msg.appendChild(UI.el('p', { textContent: _copy('providerNotFound') }));
       document.querySelector('.pd-page').appendChild(msg);
       return;
     }
@@ -59,6 +427,7 @@ const ProviderDetailPage = (() => {
     _bindPortfolioSync();
     _renderModeBadge();
     _syncDirectChatAvailability();
+    _applyStaticCopy();
     _loadAll();
   }
 
@@ -125,7 +494,7 @@ const ProviderDetailPage = (() => {
     });
 
     _setActiveTab(_activeTab || 'profile');
-    _setTabMeta('profile', 'أساسي');
+    _setTabMeta('profile', _copy('tabMetaProfile'));
     _setTabMeta('services', '...');
     _setTabMeta('portfolio', '...');
     _setTabMeta('reviews', '...');
@@ -227,7 +596,7 @@ const ProviderDetailPage = (() => {
   }
 
   function _formatTabCount(count) {
-    return _safeInt(count).toLocaleString('ar-SA');
+    return _safeInt(count).toLocaleString(_locale());
   }
 
   function _setInitialShellLoading(loading) {
@@ -281,8 +650,8 @@ const ProviderDetailPage = (() => {
     if (returnToMapBtn) {
       if (_returnNav && _returnNav.href) {
         returnToMapBtn.href = _returnNav.href;
-        returnToMapBtn.textContent = _returnNav.label || 'العودة';
-        returnToMapBtn.setAttribute('aria-label', _returnNav.label || 'العودة');
+        returnToMapBtn.textContent = _returnNav.label || _copy('return');
+        returnToMapBtn.setAttribute('aria-label', _returnNav.label || _copy('return'));
         returnToMapBtn.classList.remove('hidden');
       } else {
         returnToMapBtn.classList.add('hidden');
@@ -308,7 +677,7 @@ const ProviderDetailPage = (() => {
         const waUrl = _buildWhatsappChatUrl(
           _providerWhatsappUrl,
           _providerPhone,
-          'السلام عليكم\nأتواصل معك بخصوص خدماتك في منصة نوافذ @' + name,
+          _copy('whatsappIntro', { name }),
         );
         if (!waUrl) return;
         window.open(waUrl, '_blank');
@@ -346,13 +715,13 @@ const ProviderDetailPage = (() => {
 
     await _syncDirectChatAvailability();
     if (_isOwnProviderProfile) {
-      _showToast('لا يمكنك محادثة نفسك');
+      _showToast(_copy('cannotChatYourself'));
       return;
     }
 
     const providerId = _safeInt(_providerId);
     if (!providerId) {
-      _showToast('تعذر فتح الرسائل: معرف المزود غير صالح');
+      _showToast(_copy('invalidProviderId'));
       return;
     }
 
@@ -366,7 +735,7 @@ const ProviderDetailPage = (() => {
       return;
     }
 
-    _showToast((res.data && (res.data.detail || res.data.error)) || 'تعذر فتح الرسائل حالياً');
+    _showToast((res.data && (res.data.detail || res.data.error)) || _copy('openMessagesFailed'));
   }
 
   async function _syncDirectChatAvailability() {
@@ -478,12 +847,12 @@ const ProviderDetailPage = (() => {
 
       return {
         href,
-        label: returnLabel || (fromMap ? 'العودة إلى الخريطة' : 'العودة'),
+        label: returnLabel || (fromMap ? _copy('returnToMap') : _copy('return')),
       };
     } catch (_) {
       return {
         href: '/providers-map/',
-        label: 'العودة إلى الخريطة',
+        label: _copy('returnToMap'),
       };
     }
   }
@@ -568,7 +937,7 @@ const ProviderDetailPage = (() => {
       bg.className = 'pd-cover-bg';
       bg.setAttribute('aria-hidden', 'true');
 
-      const img = UI.lazyImg(coverUrl, 'غلاف');
+      const img = UI.lazyImg(coverUrl, _copy('cover'));
       img.className = 'pd-cover-media';
 
       coverEl.insertBefore(bg, coverEl.firstChild);
@@ -658,18 +1027,19 @@ const ProviderDetailPage = (() => {
 
   /* ── Render profile tab details ── */
   function _renderProfileTab(p) {
-    const unavailable = 'غير متوفر';
+    const unavailable = _copy('unavailable');
     const bioText = _pickFirstText(p.bio, p.description);
     const providerTypeLabel = _pickFirstText(p.provider_type_label, p.providerTypeLabel);
     const whatsappRaw = _pickFirstText(p.whatsapp, p.phone, p.phone_number, p.phoneNumber);
     const websiteRaw = String(p.website || '').trim();
     const cityText = _displayOrUnavailable(_resolveProviderCityDisplay(p), unavailable);
-    const experienceText = p.years_experience ? p.years_experience + ' سنوات' : unavailable;
-    const serviceRangeText = _resolveServiceRangeKm(p) + ' كم';
+    const experienceText = p.years_experience ? _copy('experienceYearsValue', { count: p.years_experience }) : unavailable;
+    const serviceRangeText = _copy('serviceRangeKm', { count: _resolveServiceRangeKm(p) });
     const socialCard = document.getElementById('pd-social-card');
 
     // Bio
-    _setText('pd-bio', bioText || 'لا يوجد وصف');
+    _setText('pd-bio', bioText || _copy('noDescription'));
+    _setAutoDirection('pd-bio', bioText);
 
     // Registration data
     const mainCategory = _resolveMainCategory(p);
@@ -717,12 +1087,12 @@ const ProviderDetailPage = (() => {
     try {
       _renderServiceRangeMap(p);
     } catch (_) {
-      _setText('pd-service-range-summary', 'تعذر عرض نطاق الخدمة على الخريطة حالياً.');
+      _setText('pd-service-range-summary', _copy('mapLoadFailedSummary'));
       const mapEl = document.getElementById('pd-service-range-map');
       const emptyEl = document.getElementById('pd-service-range-map-empty');
       if (mapEl) mapEl.classList.add('hidden');
       if (emptyEl) {
-        emptyEl.textContent = 'تعذر عرض الخريطة حالياً.';
+        emptyEl.textContent = _copy('mapLoadFailed');
         emptyEl.classList.remove('hidden');
       }
     }
@@ -740,8 +1110,8 @@ const ProviderDetailPage = (() => {
     const endpoint = _withMode(isFollowers
       ? '/api/providers/' + _providerId + '/followers/?scope=all'
       : '/api/providers/' + _providerId + '/following/?scope=all');
-    const title = isFollowers ? 'المتابعون' : 'المتابعين';
-    const subtitle = isFollowers ? 'الذين يتابعون مقدم الخدمة' : 'الذين يتابعهم مقدم الخدمة';
+    const title = isFollowers ? _copy('followersSheetTitle') : _copy('followingSheetTitle');
+    const subtitle = isFollowers ? _copy('followersSheetSubtitle') : _copy('followingSheetSubtitle');
     const countEl = isFollowers ? document.getElementById('stat-followers') : document.getElementById('btn-show-following');
     const fallbackCount = countEl ? (parseInt(isFollowers ? countEl.textContent : countEl.dataset.count, 10) || 0) : 0;
 
@@ -782,7 +1152,7 @@ const ProviderDetailPage = (() => {
       type: 'button',
       textContent: '×',
     });
-    closeBtn.setAttribute('aria-label', 'إغلاق');
+    closeBtn.setAttribute('aria-label', _copy('close'));
     closeBtn.addEventListener('click', closeSheet);
 
     header.appendChild(headingWrap);
@@ -796,12 +1166,12 @@ const ProviderDetailPage = (() => {
     if (!res.ok && !items.length) {
       body.appendChild(UI.el('div', {
         className: 'pd-sheet-empty',
-        textContent: res.error || 'تعذر تحميل القائمة',
+        textContent: res.error || _copy('loadListFailed'),
       }));
     } else if (!items.length) {
       body.appendChild(UI.el('div', {
         className: 'pd-sheet-empty',
-        textContent: isFollowers ? 'لا يوجد متابعون بعد' : 'لا يوجد متابَعون بعد',
+        textContent: isFollowers ? _copy('noFollowersYet') : _copy('noFollowingYet'),
       }));
     } else {
       // Search input (premium UX) — filter rows by name/username
@@ -811,10 +1181,10 @@ const ProviderDetailPage = (() => {
       const searchInput = UI.el('input', {
         type: 'search',
         className: 'pd-connections-search-input',
-        placeholder: 'ابحث بالاسم أو المعرّف…',
+        placeholder: _copy('searchByName'),
       });
       searchInput.setAttribute('autocomplete', 'off');
-      searchInput.setAttribute('aria-label', 'ابحث في القائمة');
+      searchInput.setAttribute('aria-label', _copy('searchList'));
       searchWrap.appendChild(searchIcon);
       searchWrap.appendChild(searchInput);
       body.appendChild(searchWrap);
@@ -823,7 +1193,7 @@ const ProviderDetailPage = (() => {
       const rowRecords = [];
 
       items.forEach(item => {
-        const name = String(item.display_name || item.name || item.username || 'مستخدم').trim() || 'مستخدم';
+        const name = String(item.display_name || item.name || item.username || _copy('user')).trim() || _copy('user');
         const username = String(item.username || item.username_display || '').trim();
         const avatarUrl = ApiClient.mediaUrl(item.profile_image || item.provider_profile_image || item.avatar || '');
 
@@ -841,8 +1211,8 @@ const ProviderDetailPage = (() => {
           className: 'pd-sheet-item pd-connections-item' + (isProvider ? ' is-provider' : ' is-client'),
         });
         row.setAttribute('aria-label', isProvider
-          ? ('فتح ملف ' + name)
-          : (name + ' — ليس مزود خدمة'));
+          ? _copy('openProfile', { name })
+          : _copy('notProviderShort', { name }));
 
         const avatar = UI.el('div', { className: 'pd-sheet-avatar' });
         if (avatarUrl) avatar.appendChild(UI.lazyImg(avatarUrl, name));
@@ -851,11 +1221,13 @@ const ProviderDetailPage = (() => {
 
         const meta = UI.el('div', { className: 'pd-sheet-meta' });
         const nameRow = UI.el('div', { className: 'pd-connections-name-row' });
-        nameRow.appendChild(UI.el('span', { className: 'pd-sheet-name', textContent: name }));
+        const nameEl = UI.el('span', { className: 'pd-sheet-name', textContent: name });
+        _setAutoDirection(nameEl, name);
+        nameRow.appendChild(nameEl);
         if (isProvider && (isVerifiedBlue || isVerifiedGreen)) {
           const verifiedTick = UI.el('span', {
             className: 'pd-connections-verified ' + (isVerifiedBlue ? 'is-blue' : 'is-green'),
-            title: isVerifiedBlue ? 'موثق بالشارة الزرقاء' : 'موثق بالشارة الخضراء',
+            title: isVerifiedBlue ? _copy('blueBadgeVerified') : _copy('greenBadgeVerified'),
           });
           verifiedTick.setAttribute('aria-hidden', 'true');
           verifiedTick.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5 14.32 4l3.42-.18.7 3.36 3.06 1.55-1.32 3.18 1.32 3.18-3.06 1.55-.7 3.36L14.32 20 12 22.5 9.68 20l-3.42.18-.7-3.36-3.06-1.55 1.32-3.18L2.5 8.91l3.06-1.55.7-3.36L9.68 4 12 1.5Zm-1.06 13.06 5.3-5.3-1.42-1.42-3.88 3.89-1.76-1.77-1.42 1.42 3.18 3.18Z"/></svg>';
@@ -872,7 +1244,7 @@ const ProviderDetailPage = (() => {
 
         const badge = UI.el('span', {
           className: 'pd-connections-badge ' + (isProvider ? 'is-provider' : 'is-client'),
-          textContent: isProvider ? 'مزود خدمة' : 'عميل',
+          textContent: isProvider ? _copy('provider') : _copy('client'),
         });
         row.appendChild(badge);
 
@@ -900,7 +1272,7 @@ const ProviderDetailPage = (() => {
 
       const emptySearch = UI.el('div', {
         className: 'pd-sheet-empty pd-connections-empty-search hidden',
-        textContent: 'لا توجد نتائج مطابقة',
+        textContent: _copy('noMatchingResults'),
       });
       body.appendChild(emptySearch);
 
@@ -943,7 +1315,7 @@ const ProviderDetailPage = (() => {
 
       const avatarBubble = UI.el('div', { className: 'pd-not-provider-avatar' });
       if (avatarUrl) avatarBubble.appendChild(UI.lazyImg(avatarUrl, name));
-      else avatarBubble.appendChild(UI.el('span', { textContent: (name || 'م').charAt(0) }));
+      else avatarBubble.appendChild(UI.el('span', { textContent: (name || _copy('providerFallback')).charAt(0) }));
 
       const lockBadge = UI.el('span', { className: 'pd-not-provider-lock' });
       lockBadge.setAttribute('aria-hidden', 'true');
@@ -953,7 +1325,7 @@ const ProviderDetailPage = (() => {
 
       card.appendChild(UI.el('div', {
         className: 'pd-not-provider-title',
-        textContent: 'هذا الحساب ليس مزود خدمة',
+        textContent: _copy('notProviderTitle'),
       }));
       card.appendChild(UI.el('div', {
         className: 'pd-not-provider-name',
@@ -961,20 +1333,20 @@ const ProviderDetailPage = (() => {
       }));
       card.appendChild(UI.el('p', {
         className: 'pd-not-provider-message',
-        textContent: 'هذا الحساب مسجّل كعميل في منصة نوافذ ولا يملك ملفًا عامًا لمقدم خدمة، لذلك لا يمكن فتح صفحته.',
+        textContent: _copy('notProviderMessage'),
       }));
 
       const okBtn = UI.el('button', {
         type: 'button',
         className: 'pd-not-provider-ok',
-        textContent: 'حسناً، فهمت',
+        textContent: _copy('understood'),
       });
       const closeIcon = UI.el('button', {
         type: 'button',
         className: 'pd-not-provider-close',
         textContent: '×',
       });
-      closeIcon.setAttribute('aria-label', 'إغلاق');
+      closeIcon.setAttribute('aria-label', _copy('close'));
 
       card.appendChild(okBtn);
       card.appendChild(closeIcon);
@@ -1016,7 +1388,7 @@ const ProviderDetailPage = (() => {
   async function _openShareAndReportSheet() {
     const providerLink = _buildProviderLink();
     const qrImageUrl = _buildQrImageUrl(providerLink);
-    const providerName = _trimText(document.getElementById('pd-name')?.textContent) || 'مقدم خدمة';
+    const providerName = _trimText(document.getElementById('pd-name')?.textContent) || _copy('providerFallback');
 
     const existing = document.querySelector('.pd-share-sheet-backdrop');
     if (existing) existing.remove();
@@ -1027,14 +1399,14 @@ const ProviderDetailPage = (() => {
     const header = UI.el('div', { className: 'pd-sheet-header' });
     const heading = UI.el('div', {
       className: 'pd-sheet-title',
-      textContent: 'مشاركة نافذة مقدم الخدمة',
+      textContent: _copy('shareProviderWindow'),
     });
     const closeBtn = UI.el('button', {
       className: 'pd-sheet-close',
       type: 'button',
       textContent: '×',
     });
-    closeBtn.setAttribute('aria-label', 'إغلاق');
+    closeBtn.setAttribute('aria-label', _copy('close'));
     closeBtn.addEventListener('click', closeSheet);
 
     header.appendChild(heading);
@@ -1048,7 +1420,7 @@ const ProviderDetailPage = (() => {
     const qrImg = UI.el('img', {
       className: 'pd-share-qr',
       src: qrImageUrl,
-      alt: 'رمز QR',
+      alt: _copy('qrAlt'),
     });
     qrImg.addEventListener('error', () => {
       qrWrap.innerHTML = '';
@@ -1066,31 +1438,31 @@ const ProviderDetailPage = (() => {
     const copyBtn = UI.el('button', {
       type: 'button',
       className: 'pd-share-btn',
-      textContent: 'نسخ الرابط',
+      textContent: _copy('copyLink'),
     });
     copyBtn.addEventListener('click', async () => {
       const copied = await _copyToClipboard(providerLink);
       if (copied) await _trackProviderShare('copy_link');
       closeSheet();
-      _showToast(copied ? 'تم نسخ الرابط' : 'تعذر نسخ الرابط');
+      _showToast(copied ? _copy('linkCopied') : _copy('linkCopyFailed'));
     });
 
     const shareBtn = UI.el('button', {
       type: 'button',
       className: 'pd-share-btn',
-      textContent: 'مشاركة',
+      textContent: _copy('share'),
     });
     shareBtn.addEventListener('click', async () => {
       if (navigator.share) {
         try {
           await navigator.share({
-            title: 'مشاركة نافذة مقدم الخدمة',
+            title: _copy('shareProviderWindow'),
             text: providerName,
             url: providerLink,
           });
           await _trackProviderShare('other');
           closeSheet();
-          _showToast('تمت مشاركة الرابط');
+          _showToast(_copy('linkShared'));
           return;
         } catch (err) {
           if (err && err.name === 'AbortError') return;
@@ -1099,7 +1471,7 @@ const ProviderDetailPage = (() => {
       const copied = await _copyToClipboard(providerLink);
       if (copied) await _trackProviderShare('copy_link');
       closeSheet();
-      _showToast(copied ? 'تم نسخ الرابط' : 'تعذر مشاركة الرابط');
+      _showToast(copied ? _copy('linkCopied') : _copy('shareLinkFailed'));
     });
 
     actions.appendChild(copyBtn);
@@ -1118,7 +1490,7 @@ const ProviderDetailPage = (() => {
       '<line x1="4" y1="22" x2="4" y2="15"></line>',
       '</svg>',
       '</span>',
-      '<span>الإبلاغ عن مقدم الخدمة</span>',
+      '<span>' + _escapeHtml(_copy('reportProvider')) + '</span>',
     ].join('');
     reportBtn.addEventListener('click', () => {
       closeSheet();
@@ -1172,15 +1544,15 @@ const ProviderDetailPage = (() => {
 
   function _openProviderReportDialog() {
     const reasons = [
-      'محتوى غير لائق',
-      'تحرش أو إزعاج',
-      'احتيال أو نصب',
-      'محتوى مسيء',
-      'انتهاك الخصوصية',
-      'أخرى',
+      _copy('reportReasonInappropriate'),
+      _copy('reportReasonHarassment'),
+      _copy('reportReasonFraud'),
+      _copy('reportReasonAbusive'),
+      _copy('reportReasonPrivacy'),
+      _copy('reportReasonOther'),
     ];
 
-    const providerName = _trimText(document.getElementById('pd-name')?.textContent) || 'مقدم خدمة';
+    const providerName = _trimText(document.getElementById('pd-name')?.textContent) || _copy('providerFallback');
     const providerHandle = _trimText(document.getElementById('pd-handle')?.textContent);
     const entityText = providerHandle ? (providerName + ' (' + providerHandle + ')') : providerName;
 
@@ -1201,14 +1573,14 @@ const ProviderDetailPage = (() => {
     titleRow.appendChild(titleIcon);
     titleRow.appendChild(UI.el('h3', {
       className: 'pd-report-title',
-      textContent: 'إبلاغ عن مزود خدمة',
+      textContent: _copy('reportProviderDialog'),
     }));
     dialog.appendChild(titleRow);
 
     const infoBox = UI.el('div', { className: 'pd-report-info' });
     infoBox.appendChild(UI.el('p', {
       className: 'pd-report-info-label',
-      textContent: 'بيانات المبلغ عنه:',
+      textContent: _copy('reportInfo'),
     }));
     infoBox.appendChild(UI.el('p', {
       className: 'pd-report-info-value',
@@ -1216,13 +1588,13 @@ const ProviderDetailPage = (() => {
     }));
     infoBox.appendChild(UI.el('p', {
       className: 'pd-report-context',
-      textContent: 'نوع البلاغ: مزود خدمة',
+      textContent: _copy('reportTypeProvider'),
     }));
     dialog.appendChild(infoBox);
 
     const reasonLabel = UI.el('label', {
       className: 'pd-report-label',
-      textContent: 'سبب الإبلاغ:',
+      textContent: _copy('reportReason'),
     });
     reasonLabel.setAttribute('for', 'pd-report-reason');
     dialog.appendChild(reasonLabel);
@@ -1238,7 +1610,7 @@ const ProviderDetailPage = (() => {
 
     const detailsLabel = UI.el('label', {
       className: 'pd-report-label',
-      textContent: 'تفاصيل إضافية (اختياري):',
+      textContent: _copy('reportDetails'),
     });
     detailsLabel.setAttribute('for', 'pd-report-details');
     dialog.appendChild(detailsLabel);
@@ -1247,7 +1619,7 @@ const ProviderDetailPage = (() => {
       className: 'pd-report-textarea',
       id: 'pd-report-details',
       rows: 4,
-      placeholder: 'اكتب التفاصيل هنا...',
+      placeholder: _copy('reportDetailsPlaceholder'),
     });
     detailsInput.maxLength = 500;
     dialog.appendChild(detailsInput);
@@ -1256,18 +1628,18 @@ const ProviderDetailPage = (() => {
     const cancelBtn = UI.el('button', {
       type: 'button',
       className: 'pd-report-btn pd-report-btn-cancel',
-      textContent: 'إلغاء',
+      textContent: _copy('cancel'),
     });
     cancelBtn.addEventListener('click', closeDialog);
 
     const submitBtn = UI.el('button', {
       type: 'button',
       className: 'pd-report-btn pd-report-btn-submit',
-      textContent: 'إرسال البلاغ',
+      textContent: _copy('submitReport'),
     });
     submitBtn.addEventListener('click', () => {
       closeDialog();
-      _showToast('تم إرسال البلاغ للإدارة. شكراً لك');
+      _showToast(_copy('reportSent'));
     });
 
     actions.appendChild(cancelBtn);
@@ -1333,13 +1705,13 @@ const ProviderDetailPage = (() => {
       btn.textContent = '';
       const svg = _createSVG('<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/>', 16);
       btn.appendChild(svg);
-      btn.appendChild(document.createTextNode(' إلغاء المتابعة'));
+      btn.appendChild(document.createTextNode(' ' + _copy('unfollow')));
     } else {
       btn.classList.remove('following');
       btn.textContent = '';
       const svg = _createSVG('<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>', 16);
       btn.appendChild(svg);
-      btn.appendChild(document.createTextNode(' متابعة'));
+      btn.appendChild(document.createTextNode(' ' + _copy('follow')));
     }
   }
 
@@ -1372,7 +1744,7 @@ const ProviderDetailPage = (() => {
         file_url: item.file_url || item.media_url || '',
         thumbnail_url: item.thumbnail_url || item.file_url || item.media_url || '',
         mode_context: _mode || 'client',
-        section_title: 'لمحات',
+        section_title: _copy('highlightSection'),
         media_label: _deriveSpotlightMediaLabel(item, rawCaption),
         caption: rawCaption,
         likes_count: _safeInt(item.likes_count),
@@ -1423,13 +1795,15 @@ const ProviderDetailPage = (() => {
       el.appendChild(thumb);
 
       const caption = (item.caption || '').toString().trim();
-      el.appendChild(UI.el('div', { className: 'pd-highlight-label', textContent: caption || 'لمحة' }));
+      const labelEl = UI.el('div', { className: 'pd-highlight-label', textContent: caption || _copy('highlightFallback') });
+      _setAutoDirection(labelEl, caption);
+      el.appendChild(labelEl);
 
       el.addEventListener('click', () => {
         if (typeof SpotlightViewer !== 'undefined') {
           SpotlightViewer.open(_spotlights, idx, {
             source: 'spotlight',
-            label: 'لمحة',
+            label: _copy('highlightFallback'),
             eventName: 'nw:spotlight-engagement-update',
             immersive: true,
             tiktokMode: true,
@@ -1449,7 +1823,7 @@ const ProviderDetailPage = (() => {
     const isVideo = fileType.indexOf('video') === 0 || /\.(mp4|mov|webm|m4v)(\?|$)/i.test(fileUrl);
 
     if (thumbUrl && !/\.(mp4|mov|webm|m4v)(\?|$)/i.test(thumbUrl)) {
-      return UI.lazyImg(ApiClient.mediaUrl(thumbUrl), item.media_label || 'لمحة');
+      return UI.lazyImg(ApiClient.mediaUrl(thumbUrl), item.media_label || _copy('highlightFallback'));
     }
 
     if (isVideo && fileUrl) {
@@ -1471,10 +1845,10 @@ const ProviderDetailPage = (() => {
     }
 
     if (fileUrl) {
-      return UI.lazyImg(ApiClient.mediaUrl(fileUrl), item.media_label || 'لمحة');
+      return UI.lazyImg(ApiClient.mediaUrl(fileUrl), item.media_label || _copy('highlightFallback'));
     }
 
-    return UI.el('div', { className: 'pd-highlight-fallback', textContent: 'ريل' });
+    return UI.el('div', { className: 'pd-highlight-fallback', textContent: _copy('reelFallback') });
   }
 
   function _syncSpotlightEngagementTotals() {
@@ -1529,7 +1903,7 @@ const ProviderDetailPage = (() => {
     }
 
     list.forEach((svc, idx) => {
-      const title = String(svc.title || svc.name || '').trim() || 'خدمة بدون اسم';
+      const title = String(svc.title || svc.name || '').trim() || _copy('serviceWithoutName');
       const description = String(svc.description || '').trim();
       const subcategory = (svc.subcategory && typeof svc.subcategory === 'object') ? svc.subcategory : null;
       const categoryLabel = String(
@@ -1554,19 +1928,23 @@ const ProviderDetailPage = (() => {
       headMain.appendChild(UI.el('span', { className: 'pd-service-index', textContent: String(idx + 1) }));
 
       const titleWrap = UI.el('div', { className: 'pd-service-list-title-wrap' });
-      titleWrap.appendChild(UI.el('span', { className: 'pd-service-list-kicker', textContent: 'خدمة منشورة' }));
-      titleWrap.appendChild(UI.el('h4', { className: 'pd-service-list-title', textContent: title }));
+      titleWrap.appendChild(UI.el('span', { className: 'pd-service-list-kicker', textContent: _copy('publishedService') }));
+      const serviceTitle = UI.el('h4', { className: 'pd-service-list-title', textContent: title });
+      _setAutoDirection(serviceTitle, title);
+      titleWrap.appendChild(serviceTitle);
       headMain.appendChild(titleWrap);
       head.appendChild(headMain);
 
       const priceBadge = UI.el('div', { className: 'pd-service-price-badge' });
-      priceBadge.appendChild(UI.el('span', { className: 'pd-service-price-label', textContent: 'التسعير' }));
+      priceBadge.appendChild(UI.el('span', { className: 'pd-service-price-label', textContent: _copy('pricing') }));
       priceBadge.appendChild(UI.el('strong', { className: 'pd-service-price-value', textContent: _servicePriceLabel(svc) }));
       head.appendChild(priceBadge);
       card.appendChild(head);
 
       if (description) {
-        card.appendChild(UI.el('p', { className: 'pd-service-list-desc', textContent: description }));
+        const descEl = UI.el('p', { className: 'pd-service-list-desc', textContent: description });
+        _setAutoDirection(descEl, description);
+        card.appendChild(descEl);
       }
 
       const chips = UI.el('div', { className: 'pd-service-list-chips' });
@@ -1584,7 +1962,7 @@ const ProviderDetailPage = (() => {
       const footer = UI.el('div', { className: 'pd-service-list-footer' });
       footer.appendChild(UI.el('span', {
         className: 'pd-service-footnote',
-        textContent: 'للتفاهم حول هذه الخدمة استخدم أزرار المتابعة والتواصل أعلى الصفحة.',
+        textContent: _copy('serviceCommunicationHint'),
       }));
       card.appendChild(footer);
 
@@ -1598,16 +1976,16 @@ const ProviderDetailPage = (() => {
     const unit = _serviceUnitLabel(service);
     const suffix = unit ? (' / ' + unit) : '';
 
-    if (!Number.isFinite(from) && !Number.isFinite(to)) return 'السعر: حسب الاتفاق';
+    if (!Number.isFinite(from) && !Number.isFinite(to)) return _copy('servicePriceNegotiable');
     if (Number.isFinite(from) && Number.isFinite(to)) {
       if (Math.abs(from - to) < 0.0001) {
-        return 'السعر: ' + _formatCompactNumber(from) + suffix;
+        return _copy('servicePriceSingle', { value: _formatCompactNumber(from), suffix });
       }
-      return 'السعر: ' + _formatCompactNumber(from) + ' - ' + _formatCompactNumber(to) + suffix;
+      return _copy('servicePriceRange', { from: _formatCompactNumber(from), to: _formatCompactNumber(to), suffix });
     }
     const value = Number.isFinite(from) ? from : to;
-    if (Number.isFinite(value)) return 'السعر: ' + _formatCompactNumber(value) + suffix;
-    return 'السعر: حسب الاتفاق';
+    if (Number.isFinite(value)) return _copy('servicePriceSingle', { value: _formatCompactNumber(value), suffix });
+    return _copy('servicePriceNegotiable');
   }
 
   function _serviceUnitLabel(service) {
@@ -1616,21 +1994,21 @@ const ProviderDetailPage = (() => {
 
     const raw = String(service.price_unit || service.priceUnit || '').trim();
     const mapping = {
-      fixed: 'سعر ثابت',
-      starting_from: 'يبدأ من',
-      hour: 'بالساعة',
-      day: 'باليوم',
-      negotiable: 'قابل للتفاوض',
+      fixed: _copy('serviceUnitFixed'),
+      starting_from: _copy('serviceUnitStarting'),
+      hour: _copy('serviceUnitHour'),
+      day: _copy('serviceUnitDay'),
+      negotiable: _copy('serviceUnitNegotiable'),
     };
     return mapping[raw] || raw;
   }
 
   function _serviceCountLabel(count) {
-    if (count === 0) return '0 خدمة';
-    if (count === 1) return 'خدمة واحدة';
-    if (count === 2) return 'خدمتان';
-    if (count >= 3 && count <= 10) return count + ' خدمات';
-    return count + ' خدمة';
+    if (count === 0) return _copy('servicesCountZero');
+    if (count === 1) return _copy('servicesCountOne');
+    if (count === 2) return _copy('servicesCountTwo');
+    if (count >= 3 && count <= 10) return _copy('servicesCountFew', { count });
+    return _copy('servicesCountMany', { count });
   }
 
   function _asNumber(value) {
@@ -1726,7 +2104,7 @@ const ProviderDetailPage = (() => {
       header.appendChild(UI.el('h4', { className: 'pd-portfolio-section-title', textContent: sectionTitle }));
       const meta = UI.el('div', { className: 'pd-portfolio-section-meta' });
       meta.appendChild(UI.el('span', { className: 'pd-portfolio-section-count', textContent: String(items.length) }));
-      meta.appendChild(UI.el('span', { className: 'pd-portfolio-section-hint', textContent: 'مرر أفقياً وافتح أي بطاقة' }));
+      meta.appendChild(UI.el('span', { className: 'pd-portfolio-section-hint', textContent: _copy('scrollHorizontally') }));
       header.appendChild(meta);
       section.appendChild(header);
 
@@ -1736,8 +2114,8 @@ const ProviderDetailPage = (() => {
 
       if (!items.length) {
         const emptyCard = UI.el('div', { className: 'pd-empty-section-card' });
-        emptyCard.appendChild(UI.el('p', { className: 'pd-empty-title', textContent: 'لا توجد عناصر في هذا القسم حالياً' }));
-        emptyCard.appendChild(UI.el('p', { className: 'pd-empty-subtitle', textContent: 'سيظهر المحتوى هنا عند إضافته من ملف مقدم الخدمة.' }));
+        emptyCard.appendChild(UI.el('p', { className: 'pd-empty-title', textContent: _copy('noItemsInSection') }));
+        emptyCard.appendChild(UI.el('p', { className: 'pd-empty-subtitle', textContent: _copy('noItemsInSectionSubtitle') }));
         section.appendChild(emptyCard);
         container.appendChild(section);
         return;
@@ -1759,7 +2137,7 @@ const ProviderDetailPage = (() => {
 
         const topline = UI.el('div', { className: 'pd-portfolio-topline' });
         topline.appendChild(UI.el('span', { className: 'pd-portfolio-top-chip', textContent: sectionTitle }));
-        topline.appendChild(UI.el('span', { className: 'pd-portfolio-top-chip muted', textContent: item.type === 'video' ? 'فيديو قصير' : 'صورة' }));
+        topline.appendChild(UI.el('span', { className: 'pd-portfolio-top-chip muted', textContent: item.type === 'video' ? _copy('videoShort') : _copy('image') }));
         frame.appendChild(topline);
 
         if (item.type === 'video') {
@@ -1769,9 +2147,11 @@ const ProviderDetailPage = (() => {
         }
 
         const overlay = UI.el('div', { className: 'pd-portfolio-overlay' });
-        overlay.appendChild(UI.el('span', { className: 'pd-portfolio-overlay-kicker', textContent: item.type === 'video' ? 'شاهد العرض العمودي' : 'استعرض العمل' }));
-        overlay.appendChild(UI.el('strong', { className: 'pd-portfolio-overlay-title', textContent: (item.desc && item.desc !== 'بدون وصف') ? item.desc : item.media_label }));
-        overlay.appendChild(UI.el('span', { className: 'pd-portfolio-open-indicator', textContent: 'فتح بملء الشاشة' }));
+        overlay.appendChild(UI.el('span', { className: 'pd-portfolio-overlay-kicker', textContent: item.type === 'video' ? _copy('watchVertical') : _copy('browseWork') }));
+        const overlayTitle = UI.el('strong', { className: 'pd-portfolio-overlay-title', textContent: (item.desc && item.desc !== _copy('noDescriptionGeneric')) ? item.desc : item.media_label });
+        _setAutoDirection(overlayTitle, item.desc || item.media_label);
+        overlay.appendChild(overlayTitle);
+        overlay.appendChild(UI.el('span', { className: 'pd-portfolio-open-indicator', textContent: _copy('openFullscreen') }));
         frame.appendChild(overlay);
 
         const stats = UI.el('div', { className: 'pd-portfolio-item-stats' });
@@ -1780,7 +2160,7 @@ const ProviderDetailPage = (() => {
         likesStat.appendChild(_createSVG('<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>', 12));
         likesStat.appendChild(UI.el('span', { textContent: String(_safeInt(item.likes_count)) }));
         likesStat.dataset.stat = 'likes';
-        likesStat.setAttribute('aria-label', 'إعجاب');
+        likesStat.setAttribute('aria-label', _copy('like'));
         likesStat.addEventListener('click', (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -1793,7 +2173,7 @@ const ProviderDetailPage = (() => {
         savesStat.appendChild(_createSVG('<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>', 12));
         savesStat.appendChild(UI.el('span', { textContent: String(_safeInt(item.saves_count)) }));
         savesStat.dataset.stat = 'saves';
-        savesStat.setAttribute('aria-label', 'حفظ في المفضلة');
+        savesStat.setAttribute('aria-label', _copy('saveToFavorites'));
         savesStat.addEventListener('click', (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -1807,7 +2187,7 @@ const ProviderDetailPage = (() => {
           if (typeof SpotlightViewer !== 'undefined') {
             SpotlightViewer.open(items, index, {
               source: 'portfolio',
-              label: 'معرض',
+              label: _copy('portfolioTab'),
               eventName: 'nw:portfolio-engagement-update',
               immersive: true,
               modeContext: _mode || 'client',
@@ -1846,7 +2226,7 @@ const ProviderDetailPage = (() => {
     video.setAttribute('muted', 'muted');
     video.setAttribute('playsinline', 'playsinline');
     video.setAttribute('webkit-playsinline', 'webkit-playsinline');
-    video.setAttribute('aria-label', label || item.media_label || 'فيديو من المعرض');
+    video.setAttribute('aria-label', label || item.media_label || _copy('videoFromGallery'));
     video.dataset.previewVideo = 'true';
     video.dataset.inview = '0';
 
@@ -1920,8 +2300,8 @@ const ProviderDetailPage = (() => {
   function _updatePortfolioHeroMetrics(totalItems, totalSections) {
     const totalEl = document.getElementById('pd-portfolio-total');
     const sectionsEl = document.getElementById('pd-portfolio-sections-total');
-    if (totalEl) totalEl.textContent = String(_safeInt(totalItems)) + ' عنصر';
-    if (sectionsEl) sectionsEl.textContent = String(_safeInt(totalSections)) + ' قسم';
+    if (totalEl) totalEl.textContent = _copy('portfolioItemsCount', { count: _safeInt(totalItems) });
+    if (sectionsEl) sectionsEl.textContent = _copy('portfolioSectionsCount', { count: _safeInt(totalSections) });
     _setTabMeta('portfolio', _formatTabCount(totalItems));
   }
 
@@ -1992,8 +2372,8 @@ const ProviderDetailPage = (() => {
 
     if (res.ok) {
       return isLike
-        ? (nextFlag ? 'تم تسجيل الإعجاب بصفتك ' + _getModeLabel() : 'تم إلغاء الإعجاب بصفتك ' + _getModeLabel())
-        : (nextFlag ? 'تم الحفظ في المفضلة بصفتك ' + _getModeLabel() : 'تمت إزالة العنصر من المفضلة بصفتك ' + _getModeLabel());
+        ? (nextFlag ? _copy('likeSavedAs', { mode: _getModeLabel() }) : _copy('unlikeSavedAs', { mode: _getModeLabel() }))
+        : (nextFlag ? _copy('savedAsFavorite', { mode: _getModeLabel() }) : _copy('removedFromFavorites', { mode: _getModeLabel() }));
     }
 
     if (isLike) {
@@ -2012,7 +2392,7 @@ const ProviderDetailPage = (() => {
       window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search);
       return '';
     }
-    return isLike ? 'تعذر تحديث الإعجاب' : 'تعذر تحديث الحفظ';
+    return isLike ? _copy('likeUpdateFailed') : _copy('saveUpdateFailed');
   }
 
   function _emitPortfolioEngagementUpdate(item) {
@@ -2039,8 +2419,8 @@ const ProviderDetailPage = (() => {
     const bookmarkBtn = document.getElementById('btn-bookmark');
     if (!bookmarkBtn) return;
     bookmarkBtn.classList.toggle('bookmarked', _isBookmarked);
-    bookmarkBtn.setAttribute('aria-label', _isBookmarked ? 'فتح مفضلتي' : 'الانتقال إلى المعرض للحفظ');
-    bookmarkBtn.title = _isBookmarked ? 'فتح مفضلتي' : 'احفظ من المعرض أو اللمحات';
+    bookmarkBtn.setAttribute('aria-label', _isBookmarked ? _copy('profileSavedAria') : _copy('profileUnsavedAria'));
+    bookmarkBtn.title = _isBookmarked ? _copy('profileSavedTitle') : _copy('profileUnsavedTitle');
     const svg = bookmarkBtn.querySelector('svg');
     if (svg) svg.setAttribute('fill', _isBookmarked ? '#fff' : 'none');
   }
@@ -2061,7 +2441,7 @@ const ProviderDetailPage = (() => {
     if (portfolioPanel && typeof portfolioPanel.scrollIntoView === 'function') {
       portfolioPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    _showToast('اضغط حفظ على أي صورة أو فيديو لإضافته إلى مفضلتك');
+    _showToast(_copy('saveFromGalleryHint'));
   }
 
   function _switchToTab(nextTab) {
@@ -2085,7 +2465,7 @@ const ProviderDetailPage = (() => {
     const header = UI.el('div', { className: 'pd-review-header' });
     header.appendChild(UI.el('span', {
       className: 'pd-review-author',
-      textContent: review.reviewer_name || review.client_name || 'مستخدم',
+      textContent: review.reviewer_name || review.client_name || _copy('anonymousReviewer'),
     }));
     const stars = UI.el('span', { className: 'pd-review-stars' });
     const rating = Math.round(review.rating || 0);
@@ -2097,7 +2477,9 @@ const ProviderDetailPage = (() => {
 
     const reviewText = _pickFirstText(review.comment, review.text, review.review_text);
     if (reviewText) {
-      card.appendChild(UI.el('div', { className: 'pd-review-text', textContent: reviewText }));
+      const reviewEl = UI.el('div', { className: 'pd-review-text', textContent: reviewText });
+      _setAutoDirection(reviewEl, reviewText);
+      card.appendChild(reviewEl);
     }
 
     const providerReply = _extractProviderReply(review);
@@ -2105,12 +2487,14 @@ const ProviderDetailPage = (() => {
       const replyBox = UI.el('div', { className: 'pd-review-reply' });
       replyBox.appendChild(UI.el('div', {
         className: 'pd-review-reply-label',
-        textContent: 'رد مقدم الخدمة',
+        textContent: _copy('providerReply'),
       }));
-      replyBox.appendChild(UI.el('div', {
+      const replyEl = UI.el('div', {
         className: 'pd-review-reply-text',
         textContent: providerReply,
-      }));
+      });
+      _setAutoDirection(replyEl, providerReply);
+      replyBox.appendChild(replyEl);
       card.appendChild(replyBox);
     }
 
@@ -2118,7 +2502,7 @@ const ProviderDetailPage = (() => {
       const d = new Date(review.created_at || review.created);
       card.appendChild(UI.el('div', {
         className: 'pd-review-date',
-        textContent: d.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' }),
+        textContent: d.toLocaleDateString(_locale(), { year: 'numeric', month: 'short', day: 'numeric' }),
       }));
     }
 
@@ -2150,7 +2534,7 @@ const ProviderDetailPage = (() => {
       bigDiv.appendChild(UI.text(ratingCount > 0 && Number.isFinite(ratingAvg) ? ratingAvg.toFixed(1) : '-'));
       bigDiv.appendChild(UI.icon('star', 24, '#FFC107'));
       summaryEl.appendChild(bigDiv);
-      summaryEl.appendChild(UI.el('div', { className: 'pd-rating-count', textContent: ratingCount + ' تقييم' }));
+      summaryEl.appendChild(UI.el('div', { className: 'pd-rating-count', textContent: _copy('ratingsCount', { count: ratingCount }) }));
 
       // Rating bars
       if (distribution) {
@@ -2286,13 +2670,14 @@ const ProviderDetailPage = (() => {
   }
 
   function _applySeoMeta(provider, displayName) {
-    const seoTitle = _pickFirstText(provider && provider.seo_title, displayName, 'مقدم خدمة');
-    const pageTitle = seoTitle ? (seoTitle + ' | نوافــذ') : 'نوافــذ | مقدم خدمة';
+    const seoTitle = _pickFirstText(provider && provider.seo_title, displayName, _copy('providerFallback'));
+    const siteTitle = _siteTitle();
+    const pageTitle = seoTitle ? (seoTitle + ' | ' + siteTitle) : (siteTitle + ' | ' + _copy('providerFallback'));
     const description = _pickFirstText(
       provider && provider.seo_meta_description,
       provider && provider.bio,
       provider && provider.about_details,
-      displayName ? ('تعرف على خدمات ' + displayName + ' عبر منصة نوافــذ.') : 'منصة نوافــذ للخدمات الرقمية والمهنية.'
+      displayName ? _copy('seoProviderDescription', { name: displayName }) : _copy('seoPlatformDescription')
     );
     const canonicalPath = _providerCanonicalPath(provider);
     const canonicalUrl = canonicalPath ? (window.location.origin + canonicalPath) : window.location.href;
@@ -2469,8 +2854,8 @@ const ProviderDetailPage = (() => {
     const mainCategory = _resolveMainCategory(_providerData);
     const subCategory = _resolveSubCategory(_providerData);
     _updateIdentityCategoryLine(mainCategory, subCategory);
-    _setText('pd-main-category', _displayOrUnavailable(mainCategory, 'غير متوفر'));
-    _setText('pd-sub-category', _displayOrUnavailable(subCategory, 'غير متوفر'));
+    _setText('pd-main-category', _displayOrUnavailable(mainCategory, _copy('unavailable')));
+    _setText('pd-sub-category', _displayOrUnavailable(subCategory, _copy('unavailable')));
   }
 
   function _refreshDerivedCategories(services) {
@@ -2484,6 +2869,18 @@ const ProviderDetailPage = (() => {
   function _setText(id, val) {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
+  }
+
+  function _setAttr(id, name, value) {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute(name, value);
+  }
+
+  function _setAutoDirection(target, value) {
+    const el = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!el) return;
+    if (_trimText(value)) el.setAttribute('dir', 'auto');
+    else el.removeAttribute('dir');
   }
 
   function _addContactRow(container, iconHtml, text, href) {
@@ -2532,6 +2929,7 @@ const ProviderDetailPage = (() => {
     const valueEl = document.getElementById(valueId);
     if (valueEl) {
       valueEl.textContent = url ? (_extractHandle(url) || url) : unavailableText;
+      _setAutoDirection(valueEl, url ? (_extractHandle(url) || url) : '');
     }
     const button = document.getElementById(buttonId);
     if (!button) return;
@@ -2559,20 +2957,20 @@ const ProviderDetailPage = (() => {
 
   function _extractPortfolioSectionTitle(caption) {
     const text = String(caption || '').trim();
-    if (!text) return 'أعمالي';
+    if (!text) return _copy('worksSection');
     const separators = [' - ', ' — ', ' – ', ' | ', '|'];
     for (const separator of separators) {
       const idx = text.indexOf(separator);
-      if (idx > 0) return text.slice(0, idx).trim() || 'أعمالي';
+      if (idx > 0) return text.slice(0, idx).trim() || _copy('worksSection');
     }
-    return 'أعمالي';
+    return _copy('worksSection');
   }
 
   function _extractPortfolioItemDescription(caption, sectionTitle) {
     const text = String(caption || '').trim();
-    if (!text) return 'بدون وصف';
+    if (!text) return _copy('noDescriptionGeneric');
     const section = String(sectionTitle || '').trim();
-    if (!section || section === 'أعمالي') return text;
+    if (!section || section === _copy('worksSection')) return text;
 
     const separators = [' - ', ' — ', ' – ', ' | ', '|'];
     for (const separator of separators) {
@@ -2589,12 +2987,12 @@ const ProviderDetailPage = (() => {
     const explicit = String(item?.title || item?.name || '').trim();
     if (explicit) return explicit;
     const desc = String(description || '').trim();
-    if (desc && desc !== 'بدون وصف') return desc;
+    if (desc && desc !== _copy('noDescriptionGeneric')) return desc;
     const rawCaption = String(item?.caption || '').trim();
     if (rawCaption) return rawCaption;
     const fromPath = String(fileUrl || '').split('?')[0].split('/').pop() || '';
     if (fromPath) return decodeURIComponent(fromPath);
-    return 'عنصر من المعرض';
+    return _copy('portfolioItemFallback');
   }
 
   function _deriveSpotlightMediaLabel(item, rawCaption) {
@@ -2604,7 +3002,7 @@ const ProviderDetailPage = (() => {
     if (caption) return caption;
     const fromPath = String(item?.file_url || item?.media_url || '').split('?')[0].split('/').pop() || '';
     if (fromPath) return decodeURIComponent(fromPath);
-    return 'لمحة';
+    return _copy('highlightFallback');
   }
 
   function _renderModeBadge() {
@@ -2618,7 +3016,7 @@ const ProviderDetailPage = (() => {
   }
 
   function _getModeLabel() {
-    return String(_mode || 'client') === 'provider' ? 'مزود' : 'عميل';
+    return String(_mode || 'client') === 'provider' ? _copy('providerMode') : _copy('clientMode');
   }
 
   function _resolveServiceRangeKm(provider) {
@@ -2657,13 +3055,13 @@ const ProviderDetailPage = (() => {
   function _serviceRangeSummaryText(city, rangeKm, hasMapPoint) {
     const cityText = _trimText(city);
     if (hasMapPoint) {
-      if (cityText) return 'تغطية تصل إلى ' + rangeKm + ' كم حول ' + cityText + '.';
-      return 'تغطية تصل إلى ' + rangeKm + ' كم حول موقع مقدم الخدمة.';
+      if (cityText) return _copy('serviceCoverageAroundCity', { range: rangeKm, city: cityText });
+      return _copy('serviceCoverageAroundProvider', { range: rangeKm });
     }
     if (cityText) {
-      return 'النطاق المحدد ' + rangeKm + ' كم داخل مدينة ' + cityText + ' دون نقطة خريطة دقيقة.';
+      return _copy('serviceCoverageInCity', { range: rangeKm, city: cityText });
     }
-    return 'لا تتوفر إحداثيات دقيقة لعرض نطاق الخدمة على الخريطة حالياً.';
+    return _copy('noGeoPointAvailable');
   }
 
   function _syncServiceRangeMapSize() {
@@ -2701,7 +3099,7 @@ const ProviderDetailPage = (() => {
     if (typeof L === 'undefined') {
       mapEl.classList.add('hidden');
       if (emptyEl) {
-        emptyEl.textContent = 'تعذر تحميل الخريطة حالياً.';
+        emptyEl.textContent = _copy('mapFailedNow');
         emptyEl.classList.remove('hidden');
       }
       return;
@@ -2710,7 +3108,7 @@ const ProviderDetailPage = (() => {
     if (!hasPoint) {
       mapEl.classList.add('hidden');
       if (emptyEl) {
-        emptyEl.textContent = 'لم يحدد مقدم الخدمة موقعًا دقيقًا على الخريطة بعد.';
+        emptyEl.textContent = _copy('mapNoExactLocation');
         emptyEl.classList.remove('hidden');
       }
       if (_serviceRangeLayer) _serviceRangeLayer.clearLayers();
@@ -2806,14 +3204,14 @@ const ProviderDetailPage = (() => {
 
   function _detectPlatform(url) {
     const u = url.toLowerCase();
-    if (u.includes('instagram')) return { label: 'انستقرام', icon: _svgIcon('instagram') };
-    if (u.includes('x.com') || u.includes('twitter')) return { label: 'X (تويتر)', icon: _svgIcon('x') };
-    if (u.includes('snapchat')) return { label: 'سناب شات', icon: _svgIcon('snapchat') };
-    if (u.includes('tiktok')) return { label: 'تيك توك', icon: _svgIcon('web') };
-    if (u.includes('facebook')) return { label: 'فيسبوك', icon: _svgIcon('web') };
-    if (u.includes('youtube')) return { label: 'يوتيوب', icon: _svgIcon('web') };
-    if (u.includes('linkedin')) return { label: 'لينكد إن', icon: _svgIcon('web') };
-    return { label: 'رابط', icon: _svgIcon('web') };
+    if (u.includes('instagram')) return { label: _copy('instagramAccount'), icon: _svgIcon('instagram') };
+    if (u.includes('x.com') || u.includes('twitter')) return { label: _copy('xAccount'), icon: _svgIcon('x') };
+    if (u.includes('snapchat')) return { label: _copy('snapchatAccount'), icon: _svgIcon('snapchat') };
+    if (u.includes('tiktok')) return { label: 'TikTok', icon: _svgIcon('web') };
+    if (u.includes('facebook')) return { label: 'Facebook', icon: _svgIcon('web') };
+    if (u.includes('youtube')) return { label: 'YouTube', icon: _svgIcon('web') };
+    if (u.includes('linkedin')) return { label: 'LinkedIn', icon: _svgIcon('web') };
+    return { label: _copy('website'), icon: _svgIcon('web') };
   }
 
   function _svgIcon(name) {
@@ -2930,6 +3328,129 @@ const ProviderDetailPage = (() => {
     });
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 2500);
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    _updateFollowBtn();
+    _recomputeEngagementView();
+    if (_providerId) _loadAll();
+  }
+
+  function _applyStaticCopy() {
+    _setAttr('btn-back', 'aria-label', _copy('back'));
+    _setAttr('btn-bookmark', 'aria-label', _copy('save'));
+    _setAttr('btn-share', 'aria-label', _copy('share'));
+    _setAttr('pd-verified-badge-blue', 'aria-label', _copy('blueVerification'));
+    _setAttr('pd-verified-badge-green', 'aria-label', _copy('greenVerification'));
+    _setText('btn-back-to-map', _returnNav?.label || _copy('return'));
+    _setAttr('btn-back-to-map', 'aria-label', _returnNav?.label || _copy('return'));
+    _setAttr('pd-overview-strip', 'aria-label', _copy('overview'));
+    _setText('pd-overview-city-label', _copy('city'));
+    _setText('pd-overview-experience-label', _copy('experience'));
+    _setText('pd-overview-range-label', _copy('serviceRange'));
+    _setText('stat-completed-label', _copy('completedRequests'));
+    _setText('stat-followers-label', _copy('followers'));
+    _setText('stat-likes-label', _copy('likes'));
+    _setText('stat-rating-label', _copy('rating'));
+    _setAttr('pd-connections-row', 'aria-label', _copy('followLinks'));
+    _setAttr('btn-show-followers', 'aria-label', _copy('showFollowers'));
+    _setAttr('btn-show-following', 'aria-label', _copy('showFollowing'));
+    _setText('pd-followers-label', _copy('followersLabel'));
+    _setText('pd-followers-hint', _copy('viewList'));
+    _setText('pd-following-label', _copy('followingLabel'));
+    _setText('pd-following-hint', _copy('viewList'));
+    _setText('pd-highlights-title', _copy('highlightsTitle'));
+    _setText('pd-highlights-hint', _copy('swipeHint'));
+    _setText('pd-follow-action-text', _copy('follow'));
+    _setAttr('btn-message', 'aria-label', _copy('message'));
+    _setAttr('btn-message', 'title', _copy('message'));
+    _setAttr('btn-call', 'aria-label', _copy('call'));
+    _setAttr('btn-call', 'title', _copy('call'));
+    _setAttr('btn-whatsapp', 'aria-label', _copy('whatsapp'));
+    _setAttr('btn-whatsapp', 'title', _copy('whatsapp'));
+    _setAttr('pd-tabs', 'aria-label', _copy('tabsAria'));
+    _setText('pd-tab-text-profile', _copy('profileTab'));
+    _setText('pd-tab-text-services', _copy('servicesTab'));
+    _setText('pd-tab-text-portfolio', _copy('portfolioTab'));
+    _setText('pd-tab-text-reviews', _copy('reviewsTab'));
+    _setText('pd-bio-title', _copy('bioTitle'));
+    _setText('pd-provider-type-label', _copy('accountType'));
+    _setText('pd-main-category-label', _copy('mainServiceCategory'));
+    _setText('pd-sub-category-label', _copy('specialization'));
+    _setText('pd-experience-label', _copy('yearsExperience'));
+    _setText('pd-whatsapp-label', _copy('whatsappNumber'));
+    _setText('pd-website-label', _copy('website'));
+    _setAttr('pd-website-open', 'aria-label', _copy('openWebsite'));
+    _setText('pd-city-label', _copy('city'));
+    _setText('pd-service-range-title', _copy('mapTitle'));
+    _setAttr('pd-service-range-map', 'aria-label', _copy('mapAria'));
+    _setText('pd-social-title', _copy('socialAccounts'));
+    _setText('pd-social-instagram-label', _copy('instagramAccount'));
+    _setText('pd-social-x-label', _copy('xAccount'));
+    _setText('pd-social-snapchat-label', _copy('snapchatAccount'));
+    _setAttr('pd-social-open-instagram', 'aria-label', _copy('openInstagram'));
+    _setAttr('pd-social-open-x', 'aria-label', _copy('openX'));
+    _setAttr('pd-social-open-snapchat', 'aria-label', _copy('openSnapchat'));
+    _setText('pd-services-badge', _copy('servicesBadge'));
+    _setText('pd-services-hero-title', _copy('servicesHeroTitle'));
+    _setText('pd-services-hero-subtitle', _copy('servicesHeroSubtitle'));
+    _setText('pd-services-empty-title', _copy('servicesEmptyTitle'));
+    _setText('pd-services-empty-subtitle', _copy('servicesEmptySubtitle'));
+    _setText('pd-portfolio-badge', _copy('portfolioBadge'));
+    _setText('pd-portfolio-hero-title', _copy('portfolioHeroTitle'));
+    _setText('pd-portfolio-hero-subtitle', _copy('portfolioHeroSubtitle'));
+    _setText('pd-portfolio-empty-title', _copy('portfolioEmptyTitle'));
+    _setText('pd-portfolio-empty-subtitle', _copy('portfolioEmptySubtitle'));
+    _setText('pd-reviews-empty-text', _copy('reviewsEmpty'));
+  }
+
+  function _currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      }
+    } catch (_) {}
+    try {
+      return (localStorage.getItem('nw_lang') || 'ar').toLowerCase() === 'en' ? 'en' : 'ar';
+    } catch (_) {
+      return 'ar';
+    }
+  }
+
+  function _locale() {
+    return _currentLang() === 'en' ? 'en-US' : 'ar-SA';
+  }
+
+  function _siteTitle() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.t === 'function') {
+        return window.NawafethI18n.t('siteTitle');
+      }
+    } catch (_) {}
+    return _currentLang() === 'en' ? 'Nawafeth' : 'نوافــذ';
+  }
+
+  function _copy(key, replacements) {
+    const bundle = COPY[_currentLang()] || COPY.ar;
+    const template = Object.prototype.hasOwnProperty.call(bundle, key) ? bundle[key] : COPY.ar[key];
+    return _replaceTokens(template, replacements);
+  }
+
+  function _replaceTokens(text, replacements) {
+    if (typeof text !== 'string' || !replacements) return text;
+    return text.replace(/\{(\w+)\}/g, (_, token) => (
+      Object.prototype.hasOwnProperty.call(replacements, token) ? String(replacements[token]) : ''
+    ));
+  }
+
+  function _escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // Boot

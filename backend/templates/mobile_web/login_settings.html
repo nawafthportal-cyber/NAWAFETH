@@ -7,28 +7,28 @@
 
 {% block content %}
 <main class="page-shell ls-page">
-  <section class="detail-card ls-hero-card ux26-page-header" aria-label="ملخص إعدادات الدخول">
+  <section class="detail-card ls-hero-card ux26-page-header" id="ls-hero-card" aria-label="ملخص إعدادات الدخول">
     <div class="ls-hero-top">
-      <button type="button" class="btn-back ls-back-btn" onclick="history.back()" aria-label="رجوع">
+      <button type="button" class="btn-back ls-back-btn" id="ls-back-btn" onclick="history.back()" aria-label="رجوع">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
       <div class="ls-hero-copy">
-        <p class="ls-hero-kicker">الهوية والأمان</p>
-        <h1>إعدادات الدخول</h1>
-        <p class="ls-hero-subtitle">البيانات معروضة مسبقًا ويمكن تعديلها مباشرة من نفس الصفحة بسهولة.</p>
+        <p class="ls-hero-kicker" id="ls-hero-kicker">الهوية والأمان</p>
+        <h1 id="ls-hero-title">إعدادات الدخول</h1>
+        <p class="ls-hero-subtitle" id="ls-hero-subtitle">البيانات معروضة مسبقًا ويمكن تعديلها مباشرة من نفس الصفحة بسهولة.</p>
       </div>
     </div>
     <div class="ls-hero-meta">
       <div class="ls-hero-meta-item">
-        <span>اسم العضوية</span>
+        <span id="ls-meta-label-username">اسم العضوية</span>
         <strong id="ls-value-username">—</strong>
       </div>
       <div class="ls-hero-meta-item">
-        <span>البريد الإلكتروني</span>
+        <span id="ls-meta-label-email">البريد الإلكتروني</span>
         <strong id="ls-value-email">—</strong>
       </div>
       <div class="ls-hero-meta-item">
-        <span>رقم الجوال</span>
+        <span id="ls-meta-label-phone">رقم الجوال</span>
         <strong id="ls-value-phone">—</strong>
       </div>
     </div>
@@ -36,16 +36,16 @@
 
   <div id="ls-inline-alert" class="ls-inline-alert ux26-alert hidden" aria-live="polite"></div>
 
-  <section class="detail-card ls-settings-card ux26-form-section" aria-label="بيانات تسجيل الدخول">
+  <section class="detail-card ls-settings-card ux26-form-section" id="ls-settings-card" aria-label="بيانات تسجيل الدخول">
     <div class="ls-section-head">
-      <h2>بيانات تسجيل الدخول</h2>
-      <p>يمكنك تعديل كل حقل وحفظه فورًا، مع إشعارات واضحة عند النجاح أو وجود خطأ.</p>
+      <h2 id="ls-section-title-credentials">بيانات تسجيل الدخول</h2>
+      <p id="ls-section-desc-credentials">يمكنك تعديل كل حقل وحفظه فورًا، مع إشعارات واضحة عند النجاح أو وجود خطأ.</p>
     </div>
 
     <div class="ls-settings-grid">
       <article class="ls-setting-item">
         <div class="ls-setting-content">
-          <h3>اسم العضوية</h3>
+          <h3 id="ls-label-username">اسم العضوية</h3>
           <p id="ls-view-username">غير مضاف</p>
         </div>
         <button type="button" class="ls-edit-btn" id="ls-action-username">تعديل</button>
@@ -53,7 +53,7 @@
 
       <article class="ls-setting-item">
         <div class="ls-setting-content">
-          <h3>البريد الإلكتروني</h3>
+          <h3 id="ls-label-email">البريد الإلكتروني</h3>
           <p id="ls-view-email">غير مضاف</p>
         </div>
         <button type="button" class="ls-edit-btn" id="ls-action-email">تعديل</button>
@@ -61,7 +61,7 @@
 
       <article class="ls-setting-item">
         <div class="ls-setting-content">
-          <h3>رقم الجوال</h3>
+          <h3 id="ls-label-phone">رقم الجوال</h3>
           <p id="ls-view-phone">غير مضاف</p>
         </div>
         <button type="button" class="ls-edit-btn" id="ls-action-phone">تعديل</button>
@@ -69,24 +69,24 @@
 
       <article class="ls-setting-item ls-setting-item-password">
         <div class="ls-setting-content">
-          <h3>كلمة المرور</h3>
-          <p>محمية ولا يمكن عرضها. يمكنك تغييرها في أي وقت.</p>
+          <h3 id="ls-label-password">كلمة المرور</h3>
+          <p id="ls-desc-password">محمية ولا يمكن عرضها. يمكنك تغييرها في أي وقت.</p>
         </div>
         <button type="button" class="ls-edit-btn ls-edit-btn-strong" id="ls-action-password">تغيير</button>
       </article>
     </div>
   </section>
 
-  <section class="detail-card ls-security-card ux26-form-section" aria-label="خيارات الأمان الإضافية">
+  <section class="detail-card ls-security-card ux26-form-section" id="ls-security-card" aria-label="خيارات الأمان الإضافية">
     <div class="ls-section-head">
-      <h2>الأمان الإضافي</h2>
-      <p>فعّل وسائل حماية إضافية لحسابك على هذا الجهاز.</p>
+      <h2 id="ls-section-title-security">الأمان الإضافي</h2>
+      <p id="ls-section-desc-security">فعّل وسائل حماية إضافية لحسابك على هذا الجهاز.</p>
     </div>
 
     <div class="ls-security-grid">
       <article class="ls-security-item">
         <div class="ls-setting-content">
-          <h3>رمز دخول الأمان</h3>
+          <h3 id="ls-label-pin">رمز دخول الأمان</h3>
           <p id="ls-pin-hint">غير مفعل</p>
         </div>
         <button type="button" class="ls-edit-btn" id="ls-action-pin">إضافة أو تعديل</button>
@@ -94,7 +94,7 @@
 
       <article class="ls-security-item">
         <div class="ls-setting-content">
-          <h3>الدخول بمعرف الوجه</h3>
+          <h3 id="ls-label-faceid">الدخول بمعرف الوجه</h3>
           <p id="ls-faceid-hint">تحقق من توفر الميزة على جهازك.</p>
         </div>
         <button type="button" class="ls-edit-btn" id="ls-action-faceid">الدخول بمعرف الوجه</button>
@@ -125,5 +125,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/loginSettingsPage.js' %}?v=20260413-lspremium2"></script>
+<script src="{% static 'mobile_web/js/loginSettingsPage.js' %}?v=20260502-login-settings-i18n-stage1"></script>
 {% endblock %}

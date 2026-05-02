@@ -84,7 +84,7 @@
             </svg>
           </div>
           <div class="chat-member-meta">
-            <div class="chat-member-label">الهاتف</div>
+            <div class="chat-member-label" id="peer-card-phone-label">الهاتف</div>
             <div class="chat-member-value" id="peer-card-phone">غير متوفر</div>
           </div>
         </div>
@@ -95,7 +95,7 @@
             </svg>
           </div>
           <div class="chat-member-meta">
-            <div class="chat-member-label">المدينة</div>
+            <div class="chat-member-label" id="peer-card-city-label">المدينة</div>
             <div class="chat-member-value" id="peer-card-city">غير متوفر</div>
           </div>
         </div>
@@ -106,13 +106,14 @@
             </svg>
           </div>
           <div class="chat-member-meta">
-            <div class="chat-member-label">نوع الرسالة</div>
+            <div class="chat-member-label" id="peer-card-system-label">نوع الرسالة</div>
             <div class="chat-member-value" id="peer-card-system-value">رسائل آلية من المنصة</div>
           </div>
         </div>
       </section>
 
       <div class="chat-thread-banner hidden" id="chat-thread-banner"></div>
+      <div class="chat-thread-banner hidden" id="chat-original-language-note"></div>
     </aside>
 
     <section class="chat-desktop-main">
@@ -120,7 +121,7 @@
         <section class="chat-messages-shell">
           <div id="messages-loader" class="chat-state chat-state-loading">
             <div class="spinner-inline"></div>
-            <p>جاري تحميل الرسائل...</p>
+            <p id="messages-loader-text">جاري تحميل الرسائل...</p>
           </div>
           <div id="messages-error" class="chat-state chat-state-error hidden">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -131,8 +132,8 @@
           </div>
           <div id="messages-empty" class="chat-state chat-state-empty hidden">
             <div class="chat-empty-icon">💬</div>
-            <p>لا توجد رسائل بعد</p>
-            <small>ابدأ بإرسال رسالة.</small>
+            <p id="messages-empty-text">لا توجد رسائل بعد</p>
+            <small id="messages-empty-subtext">ابدأ بإرسال رسالة.</small>
           </div>
           <div class="chat-messages hidden" id="chat-messages" aria-live="polite"></div>
         </section>
@@ -164,42 +165,42 @@
   <div class="chat-sheet-backdrop hidden" id="chat-sheet-backdrop"></div>
   <div class="chat-sheet hidden" id="chat-options-sheet" role="dialog" aria-modal="true" aria-label="خيارات الرسائل">
     <div class="chat-sheet-handle" aria-hidden="true"></div>
-    <h3 class="chat-sheet-title">خيارات الرسائل</h3>
+    <h3 class="chat-sheet-title" id="chat-options-title">خيارات الرسائل</h3>
     <button class="chat-sheet-option" type="button" data-chat-action="read">
-      <span>اجعلها مقروءة</span>
+      <span id="chat-action-read-label">اجعلها مقروءة</span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2l-3.5-3.5L4 14.2l5 5 11-11-1.5-1.5z"/></svg>
     </button>
     <button class="chat-sheet-option" type="button" data-chat-action="favorite" id="chat-action-favorite">
-      <span>إضافة للمفضلة</span>
+      <span id="chat-action-favorite-label">إضافة للمفضلة</span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
     </button>
     <button class="chat-sheet-option" type="button" data-chat-action="block" id="chat-action-block">
-      <span>حظر العضو</span>
+      <span id="chat-action-block-label">حظر العضو</span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm7.05 6.95L8.95 19.05a8 8 0 0110.1-10.1zM4.95 15.05L15.05 4.95a8 8 0 01-10.1 10.1z"/></svg>
     </button>
     <button class="chat-sheet-option" type="button" data-chat-action="report">
-      <span>الإبلاغ عن الرسائل</span>
+      <span id="chat-action-report-label">الإبلاغ عن الرسائل</span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16l4-4h10a2 2 0 002-2V8l-6-6zm1 7V3.5L19.5 9H15z"/></svg>
     </button>
     <button class="chat-sheet-option" type="button" data-chat-action="archive" id="chat-action-archive">
-      <span>أرشفة الرسائل</span>
+      <span id="chat-action-archive-label">أرشفة الرسائل</span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.54 5.23L19.15 3.5A2 2 0 0017.59 3H6.41a2 2 0 00-1.56.5L3.46 5.23A2 2 0 003 6.5V8a2 2 0 002 2h14a2 2 0 002-2V6.5a2 2 0 00-.46-1.27zM12 17l-4-4h3v-3h2v3h3l-4 4z"/></svg>
     </button>
   </div>
 
   <div class="chat-report-backdrop hidden" id="chat-report-backdrop"></div>
   <div class="chat-report-dialog hidden" id="chat-report-dialog" role="dialog" aria-modal="true" aria-label="الإبلاغ عن الرسائل">
-    <h3>إبلاغ عن الرسائل</h3>
-    <label for="chat-report-reason">سبب الإبلاغ</label>
+    <h3 id="chat-report-title">إبلاغ عن الرسائل</h3>
+    <label for="chat-report-reason" id="chat-report-reason-label">سبب الإبلاغ</label>
     <select id="chat-report-reason">
-      <option value="">اختر السبب</option>
-      <option value="إساءة">إساءة</option>
-      <option value="احتيال">احتيال</option>
-      <option value="محتوى غير لائق">محتوى غير لائق</option>
-      <option value="سبام">سبام</option>
-      <option value="أخرى">أخرى</option>
+      <option value="" id="chat-report-reason-empty">اختر السبب</option>
+      <option value="إساءة" id="chat-report-reason-abuse">إساءة</option>
+      <option value="احتيال" id="chat-report-reason-fraud">احتيال</option>
+      <option value="محتوى غير لائق" id="chat-report-reason-inappropriate">محتوى غير لائق</option>
+      <option value="سبام" id="chat-report-reason-spam">سبام</option>
+      <option value="أخرى" id="chat-report-reason-other">أخرى</option>
     </select>
-    <label for="chat-report-details">تفاصيل إضافية (اختياري)</label>
+    <label for="chat-report-details" id="chat-report-details-label">تفاصيل إضافية (اختياري)</label>
     <textarea id="chat-report-details" rows="3" maxlength="400" placeholder="اكتب التفاصيل هنا..."></textarea>
     <div class="chat-report-actions">
       <button type="button" id="btn-report-cancel" class="chat-report-btn ghost">إلغاء</button>
@@ -220,5 +221,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/chatDetailPage.js' %}?v=20260418-direct-return1"></script>
+<script src="{% static 'mobile_web/js/chatDetailPage.js' %}?v=20260502-i18n-stage2"></script>
 {% endblock %}

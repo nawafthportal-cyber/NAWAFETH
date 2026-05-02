@@ -52,7 +52,7 @@ DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
     {
         "code": "portfolio_daily",
         "service_type": PromoServiceType.PORTFOLIO_SHOWCASE,
-        "title": "شريط البنرات والمشاريع - لكل 24 ساعة",
+        "title": "البنرات والمشاريع - لكل 24 ساعة",
         "unit": PromoPriceUnit.DAY,
         "amount": Decimal("1000.00"),
         "sort_order": 30,

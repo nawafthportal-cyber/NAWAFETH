@@ -5,6 +5,261 @@
 'use strict';
 
 const OrderDetailPage = (() => {
+  const COPY = {
+    ar: {
+      pageTitle: 'نوافــذ — تفاصيل الطلب',
+      invalidRequest: 'تعذر تحديد رقم الطلب',
+      gateTitle: 'سجّل دخولك',
+      gateDescription: 'يجب تسجيل الدخول لعرض تفاصيل الطلب',
+      gateButton: 'تسجيل الدخول',
+      kicker: 'متابعة الطلب',
+      title: 'تفاصيل الطلب',
+      subtitle: 'ملخص الحالة أولًا، ثم التفاصيل والإجراءات.',
+      backAria: 'العودة إلى قائمة الطلبات',
+      backText: 'رجوع للطلبات',
+      orderIdLabel: 'رقم الطلب',
+      orderTitleHeading: 'عنوان الطلب',
+      orderDescriptionHeading: 'تفاصيل الطلب',
+      attachmentsTitle: 'المرفقات',
+      clientAttachmentsTitle: 'مرفقات العميل',
+      clientAttachmentsDesc: 'الملفات المرفوعة مع الطلب.',
+      providerAttachmentsTitle: 'مرفقات مزود الخدمة',
+      providerAttachmentsDesc: 'الملفات المرفوعة عند إكمال الخدمة.',
+      financeTitle: 'تفاصيل التنفيذ',
+      completionTitle: 'بيانات الإكمال',
+      providerDecisionTitle: 'قرارك على تفاصيل التنفيذ',
+      providerRejectLabel: 'سبب الرفض عند الحاجة',
+      providerRejectPlaceholder: 'اكتب سبب رفض التفاصيل ليصل إلى مقدم الخدمة',
+      rejectDetails: 'رفض التفاصيل',
+      approveAndStart: 'اعتماد وبدء التنفيذ',
+      cancelledTitle: 'بيانات الإلغاء',
+      reviewTitle: 'تقييم الخدمة',
+      reviewResponseSpeed: 'سرعة الاستجابة',
+      reviewCostValue: 'القيمة مقابل السعر',
+      reviewQuality: 'جودة العمل',
+      reviewCredibility: 'المصداقية',
+      reviewOnTime: 'الالتزام بالموعد',
+      reviewPick: 'اختر',
+      reviewCommentLabel: 'تعليقك',
+      reviewCommentPlaceholder: 'اكتب تعليقًا مختصرًا عن التجربة',
+      reviewSubmit: 'إرسال التقييم',
+      reviewSubmitting: 'جاري إرسال التقييم...',
+      statusLogsTitle: 'سجل الحالة',
+      offersTitle: 'عروض الأسعار',
+      refresh: 'تحديث',
+      actionsTitle: 'إجراءات الطلب',
+      back: 'رجوع',
+      save: 'حفظ',
+      stopEdit: 'إيقاف',
+      edit: 'تعديل',
+      loadDetailsFailed: 'تعذر تحميل تفاصيل الطلب',
+      loadOffersFailed: 'تعذر تحميل عروض الأسعار',
+      providerAccepted: 'تم قبول الطلب',
+      awaitingClient: 'بانتظار اعتماد العميل للتفاصيل',
+      providerDecisionRejectedPrefix: 'تم رفض التفاصيل سابقًا: ',
+      cancelDate: 'تاريخ الإلغاء',
+      cancelReason: 'سبب الإلغاء',
+      reviewSentPrefix: 'تم إرسال تقييمك',
+      overallRatingPrefix: 'التقييم العام',
+      cancelReasonLabel: 'سبب الإلغاء',
+      cancelReasonPlaceholder: 'اكتب سبب إلغاء الطلب',
+      cancelOrder: 'إلغاء الطلب',
+      reopenNote: 'يمكنك إعادة فتح الطلب ليعود إلى حالة جديد بدون مقدم خدمة معيّن.',
+      reopenOrder: 'إعادة فتح الطلب',
+      noAttachments: 'لا يوجد مرفقات',
+      attachmentFile: 'ملف',
+      openAttachment: 'فتح المرفق',
+      attachmentUnavailable: 'رابط المرفق غير متاح',
+      noStatusLog: 'لا يوجد سجل حالة',
+      statusNew: 'جديد',
+      statusSubmitted: 'مرسل',
+      statusWaiting: 'بانتظار',
+      statusAccepted: 'تم قبول الطلب',
+      statusAwaitingClient: 'بانتظار اعتماد العميل للتفاصيل',
+      statusInProgress: 'تحت التنفيذ',
+      statusCompleted: 'مكتمل',
+      statusCancelled: 'ملغي',
+      statusRejected: 'مرفوض',
+      statusPendingDecision: 'بانتظار القرار',
+      statusUnknown: 'غير محدد',
+      loadingOffers: 'جاري تحميل عروض الأسعار...',
+      noOffers: 'لا توجد عروض أسعار حتى الآن.',
+      providerFallback: 'مقدم خدمة',
+      providerProfileTitle: 'عرض ملف مقدم الخدمة',
+      offerPrice: 'السعر',
+      offerDuration: 'مدة التنفيذ',
+      days: 'يوم',
+      offerNote: 'ملاحظة',
+      selectingOffer: 'جاري الاختيار...',
+      selectOffer: 'اختيار هذا العرض',
+      cannotSelectOffer: 'لا يمكن اختيار عرض في الحالة الحالية',
+      invalidOfferId: 'تعذر اختيار العرض: معرف غير صالح',
+      acceptOfferFailed: 'تعذّر اختيار العرض',
+      acceptOfferSuccess: 'تم اختيار العرض وإسناد الطلب بنجاح',
+      returnToOffers: 'العودة إلى عروض الأسعار',
+      requestTypeUrgent: 'عاجل',
+      requestTypeCompetitive: 'تنافسي',
+      requestTypeNormal: 'عادي',
+      currency: 'ر.س',
+      saveRequired: 'العنوان والتفاصيل مطلوبان',
+      saveFailed: 'فشل حفظ التعديلات',
+      writeCancelReason: 'يرجى كتابة سبب الإلغاء',
+      cancelFailed: 'تعذر إلغاء الطلب',
+      cancelSuccess: 'تم إلغاء الطلب بنجاح',
+      reopenFailed: 'تعذر إعادة فتح الطلب',
+      reopenSuccess: 'تمت إعادة فتح الطلب',
+      rejectReasonRequired: 'سبب الرفض مطلوب',
+      actionFailed: 'فشل تنفيذ العملية',
+      approveSuccess: 'تم اعتماد التفاصيل وبدأ التنفيذ',
+      rejectSuccess: 'تم رفض التفاصيل وإشعار مقدم الخدمة',
+      reviewFillAll: 'يرجى تعبئة جميع عناصر التقييم',
+      reviewTooLong: 'تعليق التقييم يجب ألا يتجاوز 300 حرف',
+      reviewSendInProgress: 'جاري إرسال التقييم...',
+      reviewSendFailed: 'تعذر إرسال التقييم',
+      reviewSendSuccess: 'تم إرسال التقييم بنجاح. تم تحديث حالة الطلب.',
+      createdAt: 'تاريخ الإنشاء',
+      requestType: 'نوع الطلب',
+      category: 'التصنيف',
+      provider: 'مقدم الخدمة',
+      providerPhone: 'رقم مقدم الخدمة',
+      city: 'المدينة',
+      expectedDelivery: 'موعد التسليم المتوقع',
+      estimatedAmount: 'قيمة الخدمة المقدرة',
+      receivedAmount: 'المبلغ المستلم',
+      remainingAmount: 'المبلغ المتبقي',
+      deliveredAt: 'موعد التسليم الفعلي',
+      actualAmount: 'قيمة الخدمة الفعلية',
+      attachmentsLabel: 'المرفقات',
+      originalLanguageNotice: 'بعض التفاصيل والأسماء والملاحظات تُعرض بلغتها الأصلية.',
+    },
+    en: {
+      pageTitle: 'Nawafeth — Order Details',
+      invalidRequest: 'Unable to determine the order number',
+      gateTitle: 'Sign in',
+      gateDescription: 'You need to sign in to view the order details',
+      gateButton: 'Sign in',
+      kicker: 'Track order',
+      title: 'Order details',
+      subtitle: 'Status summary first, then details and actions.',
+      backAria: 'Back to orders list',
+      backText: 'Back to orders',
+      orderIdLabel: 'Order number',
+      orderTitleHeading: 'Order title',
+      orderDescriptionHeading: 'Order details',
+      attachmentsTitle: 'Attachments',
+      clientAttachmentsTitle: 'Client attachments',
+      clientAttachmentsDesc: 'Files uploaded with the order.',
+      providerAttachmentsTitle: 'Provider attachments',
+      providerAttachmentsDesc: 'Files uploaded when the service was completed.',
+      financeTitle: 'Execution details',
+      completionTitle: 'Completion details',
+      providerDecisionTitle: 'Your decision on execution details',
+      providerRejectLabel: 'Reason for rejection if needed',
+      providerRejectPlaceholder: 'Write why you are rejecting the details so the provider receives it',
+      rejectDetails: 'Reject details',
+      approveAndStart: 'Approve and start execution',
+      cancelledTitle: 'Cancellation details',
+      reviewTitle: 'Service review',
+      reviewResponseSpeed: 'Response speed',
+      reviewCostValue: 'Value for price',
+      reviewQuality: 'Work quality',
+      reviewCredibility: 'Credibility',
+      reviewOnTime: 'On-time commitment',
+      reviewPick: 'Choose',
+      reviewCommentLabel: 'Your comment',
+      reviewCommentPlaceholder: 'Write a short comment about the experience',
+      reviewSubmit: 'Submit review',
+      reviewSubmitting: 'Submitting review...',
+      statusLogsTitle: 'Status log',
+      offersTitle: 'Price offers',
+      refresh: 'Refresh',
+      actionsTitle: 'Order actions',
+      back: 'Back',
+      save: 'Save',
+      stopEdit: 'Stop',
+      edit: 'Edit',
+      loadDetailsFailed: 'Unable to load order details',
+      loadOffersFailed: 'Unable to load price offers',
+      providerAccepted: 'Accepted by provider',
+      awaitingClient: 'Awaiting client approval',
+      providerDecisionRejectedPrefix: 'These details were rejected before: ',
+      cancelDate: 'Cancellation date',
+      cancelReason: 'Cancellation reason',
+      reviewSentPrefix: 'Your review was submitted',
+      overallRatingPrefix: 'Overall rating',
+      cancelReasonLabel: 'Cancellation reason',
+      cancelReasonPlaceholder: 'Write why you want to cancel the order',
+      cancelOrder: 'Cancel order',
+      reopenNote: 'You can reopen the order so it returns to New without an assigned provider.',
+      reopenOrder: 'Reopen order',
+      noAttachments: 'No attachments',
+      attachmentFile: 'File',
+      openAttachment: 'Open attachment',
+      attachmentUnavailable: 'Attachment link is unavailable',
+      noStatusLog: 'No status log available',
+      statusNew: 'New',
+      statusSubmitted: 'Submitted',
+      statusWaiting: 'Waiting',
+      statusAccepted: 'Accepted by provider',
+      statusAwaitingClient: 'Awaiting client approval',
+      statusInProgress: 'In progress',
+      statusCompleted: 'Completed',
+      statusCancelled: 'Cancelled',
+      statusRejected: 'Rejected',
+      statusPendingDecision: 'Awaiting decision',
+      statusUnknown: 'Unspecified',
+      loadingOffers: 'Loading price offers...',
+      noOffers: 'No price offers yet.',
+      providerFallback: 'Provider',
+      providerProfileTitle: 'Open provider profile',
+      offerPrice: 'Price',
+      offerDuration: 'Execution time',
+      days: 'days',
+      offerNote: 'Note',
+      selectingOffer: 'Selecting...',
+      selectOffer: 'Choose this offer',
+      cannotSelectOffer: 'You cannot choose an offer in the current state',
+      invalidOfferId: 'Unable to choose the offer: invalid identifier',
+      acceptOfferFailed: 'Unable to choose the offer',
+      acceptOfferSuccess: 'The offer was selected and the order was assigned successfully',
+      returnToOffers: 'Back to price offers',
+      requestTypeUrgent: 'Urgent',
+      requestTypeCompetitive: 'Competitive',
+      requestTypeNormal: 'Standard',
+      currency: 'SAR',
+      saveRequired: 'Title and details are required',
+      saveFailed: 'Failed to save changes',
+      writeCancelReason: 'Please write the cancellation reason',
+      cancelFailed: 'Unable to cancel the order',
+      cancelSuccess: 'The order was cancelled successfully',
+      reopenFailed: 'Unable to reopen the order',
+      reopenSuccess: 'The order was reopened',
+      rejectReasonRequired: 'A rejection reason is required',
+      actionFailed: 'Failed to complete the action',
+      approveSuccess: 'The details were approved and execution started',
+      rejectSuccess: 'The details were rejected and the provider was notified',
+      reviewFillAll: 'Please complete all review fields',
+      reviewTooLong: 'The review comment must not exceed 300 characters',
+      reviewSendInProgress: 'Submitting review...',
+      reviewSendFailed: 'Unable to submit the review',
+      reviewSendSuccess: 'The review was submitted successfully. The order status was updated.',
+      createdAt: 'Created at',
+      requestType: 'Request type',
+      category: 'Category',
+      provider: 'Provider',
+      providerPhone: 'Provider phone',
+      city: 'City',
+      expectedDelivery: 'Expected delivery date',
+      estimatedAmount: 'Estimated service amount',
+      receivedAmount: 'Received amount',
+      remainingAmount: 'Remaining amount',
+      deliveredAt: 'Actual delivery date',
+      actualAmount: 'Actual service amount',
+      attachmentsLabel: 'Attachments',
+      originalLanguageNotice: 'Some order details, names, and notes are shown in their original language.',
+    },
+  };
+
   let _requestId = null;
   let _order = null;
   let _offers = [];
@@ -15,9 +270,10 @@ const OrderDetailPage = (() => {
   let _actionLoading = false;
 
   function init() {
+    _applyStaticCopy();
     _requestId = _parseRequestId();
     if (!_requestId) {
-      _setError('تعذر تحديد رقم الطلب');
+      _setError(_copy('invalidRequest'));
       return;
     }
 
@@ -28,6 +284,7 @@ const OrderDetailPage = (() => {
 
     _hideGate();
     _bindActions();
+    document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
     _loadDetail();
   }
 
@@ -107,7 +364,7 @@ const OrderDetailPage = (() => {
     _setLoading(false);
 
     if (!res.ok || !res.data) {
-      _setError(_extractError(res, 'تعذر تحميل تفاصيل الطلب'));
+      _setError(_extractError(res, _copy('loadDetailsFailed')));
       return;
     }
 
@@ -139,7 +396,7 @@ const OrderDetailPage = (() => {
 
     if (!res.ok || !res.data) {
       _offers = [];
-      _setOffersFeedback(_extractError(res, 'تعذر تحميل عروض الأسعار'), true);
+      _setOffersFeedback(_extractError(res, _copy('loadOffersFailed')), true);
       _renderOffersSection();
       return;
     }
@@ -202,7 +459,7 @@ const OrderDetailPage = (() => {
   function _setReviewSubmitLoading(loading) {
     const text = document.getElementById('btn-submit-review-text');
     const spinner = document.getElementById('btn-submit-review-spinner');
-    if (text) text.textContent = loading ? 'جاري إرسال التقييم...' : 'إرسال التقييم';
+    if (text) text.textContent = loading ? _copy('reviewSubmitting') : _copy('reviewSubmit');
     if (spinner) spinner.classList.toggle('hidden', !loading);
   }
 
@@ -242,7 +499,7 @@ const OrderDetailPage = (() => {
     const statusBadge = document.getElementById('order-status-badge');
     if (statusBadge) {
       const color = _statusColor(_statusGroup(_order));
-      statusBadge.textContent = _order.status_label || _order.status_group || _order.status || 'غير محدد';
+      statusBadge.textContent = _statusLabel(_order);
       statusBadge.style.color = color;
       statusBadge.style.borderColor = color;
       statusBadge.style.backgroundColor = color + '1A';
@@ -252,23 +509,25 @@ const OrderDetailPage = (() => {
     if (meta) {
       meta.innerHTML = '';
       const lines = [];
-      if (_order.created_at) lines.push({ label: 'تاريخ الإنشاء', value: _formatDate(_order.created_at) });
-      if (_order.request_type) lines.push({ label: 'نوع الطلب', value: _requestTypeLabel(_order.request_type) });
+      if (_order.created_at) lines.push({ label: _copy('createdAt'), value: _formatDate(_order.created_at) });
+      if (_order.request_type) lines.push({ label: _copy('requestType'), value: _requestTypeLabel(_order.request_type) });
       if (_order.category_name || _order.subcategory_name) {
         lines.push({
-          label: 'التصنيف',
+          label: _copy('category'),
           value: (_order.category_name || '-') + (_order.subcategory_name ? (' / ' + _order.subcategory_name) : ''),
         });
       }
-      if (_order.provider_name) lines.push({ label: 'مقدم الخدمة', value: _order.provider_name });
-      if (_order.provider_phone) lines.push({ label: 'رقم مقدم الخدمة', value: _order.provider_phone });
+      if (_order.provider_name) lines.push({ label: _copy('provider'), value: _order.provider_name, autoDirection: true });
+      if (_order.provider_phone) lines.push({ label: _copy('providerPhone'), value: _order.provider_phone });
       const cityDisplay = UI.formatCityDisplay(_order.city_display || _order.city, _order.region || _order.region_name);
-      if (cityDisplay) lines.push({ label: 'المدينة', value: cityDisplay });
+      if (cityDisplay) lines.push({ label: _copy('city'), value: cityDisplay });
 
       lines.forEach((line) => {
         const item = UI.el('div', { className: 'order-meta-line' });
         item.appendChild(UI.el('span', { className: 'order-meta-label', textContent: line.label }));
-        item.appendChild(UI.el('strong', { className: 'order-meta-value', textContent: line.value || '-' }));
+        const valueEl = UI.el('strong', { className: 'order-meta-value', textContent: line.value || '-' });
+        if (line.autoDirection) _setAutoDirection(valueEl, line.value);
+        item.appendChild(valueEl);
         meta.appendChild(item);
       });
     }
@@ -277,6 +536,9 @@ const OrderDetailPage = (() => {
     const descInput = document.getElementById('order-description');
     if (titleInput) titleInput.value = _order.title || '';
     if (descInput) descInput.value = _order.description || '';
+    _setInputAutoDirection(titleInput, _order.title || '');
+    _setInputAutoDirection(descInput, _order.description || '');
+    _updateOriginalLanguageNotice();
 
     _renderAttachments(_order);
     _renderStatusLogs(_order.status_logs || []);
@@ -302,27 +564,27 @@ const OrderDetailPage = (() => {
     const cards = [];
 
     if (group === 'new' || group === 'in_progress') {
-      if (_order.expected_delivery_at) cards.push(_readonlyInfoCard('موعد التسليم المتوقع', _formatDateOnly(_order.expected_delivery_at)));
+      if (_order.expected_delivery_at) cards.push(_readonlyInfoCard(_copy('expectedDelivery'), _formatDateOnly(_order.expected_delivery_at)));
       if (_order.estimated_service_amount !== null && _order.estimated_service_amount !== undefined) {
-        cards.push(_readonlyInfoCard('قيمة الخدمة المقدرة', _formatMoney(_order.estimated_service_amount)));
+        cards.push(_readonlyInfoCard(_copy('estimatedAmount'), _formatMoney(_order.estimated_service_amount)));
       }
       if (_order.received_amount !== null && _order.received_amount !== undefined) {
-        cards.push(_readonlyInfoCard('المبلغ المستلم', _formatMoney(_order.received_amount)));
+        cards.push(_readonlyInfoCard(_copy('receivedAmount'), _formatMoney(_order.received_amount)));
       }
       if (_order.remaining_amount !== null && _order.remaining_amount !== undefined) {
-        cards.push(_readonlyInfoCard('المبلغ المتبقي', _formatMoney(_order.remaining_amount)));
+        cards.push(_readonlyInfoCard(_copy('remainingAmount'), _formatMoney(_order.remaining_amount)));
       }
-      title.textContent = 'تفاصيل التنفيذ';
+      title.textContent = _copy('financeTitle');
     }
 
     if (group === 'completed') {
-      if (_order.delivered_at) cards.push(_readonlyInfoCard('موعد التسليم الفعلي', _formatDateOnly(_order.delivered_at)));
+      if (_order.delivered_at) cards.push(_readonlyInfoCard(_copy('deliveredAt'), _formatDateOnly(_order.delivered_at)));
       if (_order.actual_service_amount !== null && _order.actual_service_amount !== undefined) {
-        cards.push(_readonlyInfoCard('قيمة الخدمة الفعلية', _formatMoney(_order.actual_service_amount)));
+        cards.push(_readonlyInfoCard(_copy('actualAmount'), _formatMoney(_order.actual_service_amount)));
       }
       const completionAttachments = _splitAttachments(_order).provider;
-      cards.push(_readonlyAttachmentsCard('المرفقات', completionAttachments));
-      title.textContent = 'بيانات الإكمال';
+      cards.push(_readonlyAttachmentsCard(_copy('attachmentsLabel'), completionAttachments));
+      title.textContent = _copy('completionTitle');
     }
 
     grid.innerHTML = '';
@@ -360,22 +622,24 @@ const OrderDetailPage = (() => {
       feedback.classList.add('hidden');
       feedback.classList.remove('is-error', 'is-success');
     }
-    if (_order.expected_delivery_at) grid.appendChild(_readonlyInfoCard('موعد التسليم المتوقع', _formatDateOnly(_order.expected_delivery_at)));
+    if (_order.expected_delivery_at) grid.appendChild(_readonlyInfoCard(_copy('expectedDelivery'), _formatDateOnly(_order.expected_delivery_at)));
     if (_order.estimated_service_amount !== null && _order.estimated_service_amount !== undefined) {
-      grid.appendChild(_readonlyInfoCard('قيمة الخدمة المقدرة', _formatMoney(_order.estimated_service_amount)));
+      grid.appendChild(_readonlyInfoCard(_copy('estimatedAmount'), _formatMoney(_order.estimated_service_amount)));
     }
     if (_order.received_amount !== null && _order.received_amount !== undefined) {
-      grid.appendChild(_readonlyInfoCard('المبلغ المستلم', _formatMoney(_order.received_amount)));
+      grid.appendChild(_readonlyInfoCard(_copy('receivedAmount'), _formatMoney(_order.received_amount)));
     }
     if (_order.remaining_amount !== null && _order.remaining_amount !== undefined) {
-      grid.appendChild(_readonlyInfoCard('المبلغ المتبقي', _formatMoney(_order.remaining_amount)));
+      grid.appendChild(_readonlyInfoCard(_copy('remainingAmount'), _formatMoney(_order.remaining_amount)));
     }
 
     if (_order.provider_inputs_approved === false && _order.provider_inputs_decision_note) {
-      note.textContent = 'تم رفض التفاصيل سابقًا: ' + _order.provider_inputs_decision_note;
+      note.textContent = _copy('providerDecisionRejectedPrefix') + _order.provider_inputs_decision_note;
+      _setAutoDirection(note, _order.provider_inputs_decision_note);
       note.classList.remove('hidden');
     } else {
       note.textContent = '';
+      note.removeAttribute('dir');
       note.classList.add('hidden');
     }
 
@@ -396,8 +660,8 @@ const OrderDetailPage = (() => {
     }
 
     grid.innerHTML = '';
-    grid.appendChild(_readonlyInfoCard('تاريخ الإلغاء', _order.canceled_at ? _formatDateOnly(_order.canceled_at) : '-'));
-    grid.appendChild(_readonlyInfoCard('سبب الإلغاء', _order.cancel_reason || '-'));
+    grid.appendChild(_readonlyInfoCard(_copy('cancelDate'), _order.canceled_at ? _formatDateOnly(_order.canceled_at) : '-'));
+    grid.appendChild(_readonlyInfoCard(_copy('cancelReason'), _order.cancel_reason || '-', { autoDirection: true }));
     section.classList.remove('hidden');
   }
 
@@ -415,11 +679,13 @@ const OrderDetailPage = (() => {
     const hasReview = _hasReview();
     summary.classList.toggle('hidden', !hasReview);
     if (hasReview) {
-      summary.textContent = 'تم إرسال تقييمك' +
-        (_order.review_rating !== null && _order.review_rating !== undefined ? (' - التقييم العام: ' + _order.review_rating + '/5') : '') +
+      summary.textContent = _copy('reviewSentPrefix') +
+        (_order.review_rating !== null && _order.review_rating !== undefined ? (' - ' + _copy('overallRatingPrefix') + ': ' + _order.review_rating + '/5') : '') +
         (_order.review_comment ? (' - ' + _order.review_comment) : '');
+      _setAutoDirection(summary, _order.review_comment || summary.textContent);
     } else {
       summary.textContent = '';
+      summary.removeAttribute('dir');
     }
 
     form.classList.toggle('hidden', hasReview);
@@ -440,18 +706,18 @@ const OrderDetailPage = (() => {
       const reasonLabel = UI.el('label', {
         className: 'order-form-label',
         for: 'order-cancel-reason',
-        textContent: 'سبب الإلغاء',
+        textContent: _copy('cancelReasonLabel'),
       });
       const reasonInput = UI.el('textarea', {
         id: 'order-cancel-reason',
         className: 'form-textarea order-inline-textarea',
         rows: 3,
-        placeholder: 'اكتب سبب إلغاء الطلب',
+        placeholder: _copy('cancelReasonPlaceholder'),
       });
       const btn = UI.el('button', {
         type: 'button',
         className: 'btn-secondary',
-        textContent: 'إلغاء الطلب',
+        textContent: _copy('cancelOrder'),
         onclick: _cancelOrder,
       });
       body.appendChild(reasonLabel);
@@ -465,12 +731,12 @@ const OrderDetailPage = (() => {
     if (group === 'cancelled') {
       const note = UI.el('div', {
         className: 'order-inline-note',
-        textContent: 'يمكنك إعادة فتح الطلب ليعود إلى حالة جديد بدون مقدم خدمة معيّن.',
+        textContent: _copy('reopenNote'),
       });
       const btn = UI.el('button', {
         type: 'button',
         className: 'btn-primary',
-        textContent: 'إعادة فتح الطلب',
+        textContent: _copy('reopenOrder'),
         onclick: _reopenOrder,
       });
       body.appendChild(note);
@@ -500,7 +766,7 @@ const OrderDetailPage = (() => {
 
     const groups = _splitAttachments(order);
     if (!groups.client.length && !groups.provider.length) {
-      emptyRoot.appendChild(UI.el('p', { className: 'ticket-muted', textContent: 'لا يوجد مرفقات' }));
+      emptyRoot.appendChild(UI.el('p', { className: 'ticket-muted', textContent: _copy('noAttachments') }));
       emptyRoot.classList.remove('hidden');
       return;
     }
@@ -520,11 +786,11 @@ const OrderDetailPage = (() => {
     const href = _resolveAttachmentHref(item);
     const rawPath = String(item?.file_url || item?.file || item?.url || '').trim();
     const pathBits = rawPath.split('?')[0].split('/');
-    const name = pathBits[pathBits.length - 1] || 'ملف';
+    const name = pathBits[pathBits.length - 1] || _copy('attachmentFile');
     const type = String(item?.file_type || '').toUpperCase() || 'FILE';
     const attrs = {
       className: 'order-line-link',
-      title: href ? 'فتح المرفق' : 'رابط المرفق غير متاح',
+      title: href ? _copy('openAttachment') : _copy('attachmentUnavailable'),
     };
     if (href) {
       attrs.href = href;
@@ -600,7 +866,7 @@ const OrderDetailPage = (() => {
     root.innerHTML = '';
 
     if (!Array.isArray(items) || !items.length) {
-      root.appendChild(UI.el('p', { className: 'ticket-muted', textContent: 'لا يوجد سجل حالة' }));
+      root.appendChild(UI.el('p', { className: 'ticket-muted', textContent: _copy('noStatusLog') }));
       return;
     }
 
@@ -612,16 +878,22 @@ const OrderDetailPage = (() => {
         className: 'order-log-title',
         textContent: fromLabel + ' → ' + toLabel,
       }));
-      if (log.note) row.appendChild(UI.el('div', { className: 'order-log-note', textContent: log.note }));
+      if (log.note) {
+        const noteEl = UI.el('div', { className: 'order-log-note', textContent: log.note });
+        _setAutoDirection(noteEl, log.note);
+        row.appendChild(noteEl);
+      }
       if (log.created_at) row.appendChild(UI.el('div', { className: 'order-log-time', textContent: _formatDate(log.created_at) }));
       root.appendChild(row);
     });
   }
 
-  function _readonlyInfoCard(label, value) {
+  function _readonlyInfoCard(label, value, options) {
     const item = UI.el('div', { className: 'order-info-item' });
     item.appendChild(UI.el('div', { className: 'order-info-label', textContent: label }));
-    item.appendChild(UI.el('div', { className: 'order-info-value', textContent: value || '-' }));
+    const valueEl = UI.el('div', { className: 'order-info-value', textContent: value || '-' });
+    if (options && options.autoDirection) _setAutoDirection(valueEl, value);
+    item.appendChild(valueEl);
     return item;
   }
 
@@ -633,7 +905,7 @@ const OrderDetailPage = (() => {
     body.className = 'order-info-attachments-list';
 
     if (!Array.isArray(attachments) || !attachments.length) {
-      body.appendChild(UI.el('div', { className: 'order-info-value', textContent: 'لا توجد مرفقات' }));
+      body.appendChild(UI.el('div', { className: 'order-info-value', textContent: _copy('noAttachments') }));
       item.appendChild(body);
       return item;
     }
@@ -645,12 +917,14 @@ const OrderDetailPage = (() => {
 
   function _statusLabelFromCode(raw) {
     const code = String(raw || '').trim().toLowerCase();
-    if (code === 'new') return 'جديد';
-    if (code === 'provider_accepted') return 'تم قبول الطلب';
-    if (code === 'awaiting_client') return 'بانتظار اعتماد العميل للتفاصيل';
-    if (code === 'in_progress') return 'تحت التنفيذ';
-    if (code === 'completed') return 'مكتمل';
-    if (code === 'cancelled' || code === 'canceled') return 'ملغي';
+    if (code === 'new') return _copy('statusNew');
+    if (code === 'submitted') return _copy('statusSubmitted');
+    if (code === 'waiting') return _copy('statusWaiting');
+    if (code === 'provider_accepted') return _copy('statusAccepted');
+    if (code === 'awaiting_client') return _copy('statusAwaitingClient');
+    if (code === 'in_progress') return _copy('statusInProgress');
+    if (code === 'completed') return _copy('statusCompleted');
+    if (code === 'cancelled' || code === 'canceled') return _copy('statusCancelled');
     return String(raw || '—') || '—';
   }
 
@@ -674,7 +948,7 @@ const OrderDetailPage = (() => {
     if (_offersLoading) {
       const loading = UI.el('div', { className: 'order-offers-state' });
       loading.appendChild(UI.el('span', { className: 'spinner-inline' }));
-      loading.appendChild(UI.el('span', { textContent: 'جاري تحميل عروض الأسعار...' }));
+      loading.appendChild(UI.el('span', { textContent: _copy('loadingOffers') }));
       root.appendChild(loading);
       return;
     }
@@ -682,7 +956,7 @@ const OrderDetailPage = (() => {
     if (!_offers.length) {
       root.appendChild(UI.el('p', {
         className: 'ticket-muted',
-        textContent: 'لا توجد عروض أسعار حتى الآن.',
+        textContent: _copy('noOffers'),
       }));
       return;
     }
@@ -692,14 +966,14 @@ const OrderDetailPage = (() => {
     _offers.forEach((offer) => {
       const card = UI.el('article', { className: 'order-offer-card' });
       const head = UI.el('div', { className: 'order-offer-head' });
-      const providerName = String(offer.provider_name || '').trim() || ('مقدم خدمة #' + String(offer.provider || ''));
+      const providerName = String(offer.provider_name || '').trim() || (_copy('providerFallback') + ' #' + String(offer.provider || ''));
       const providerHref = _providerProfileHref(offer);
 
       if (providerHref) {
         const providerLink = UI.el('a', {
           className: 'order-offer-provider',
           href: providerHref,
-          title: 'عرض ملف مقدم الخدمة',
+          title: _copy('providerProfileTitle'),
         });
         providerLink.appendChild(UI.el('span', { className: 'order-offer-provider-name', textContent: providerName }));
         providerLink.appendChild(UI.el('span', { className: 'order-offer-provider-open', textContent: '↗' }));
@@ -722,18 +996,18 @@ const OrderDetailPage = (() => {
 
       card.appendChild(UI.el('div', {
         className: 'order-offer-line',
-        textContent: 'السعر: ' + String(offer.price || '-') + ' (SR)',
+        textContent: _copy('offerPrice') + ': ' + String(offer.price || '-') + ' (' + _copy('currency') + ')',
       }));
       card.appendChild(UI.el('div', {
         className: 'order-offer-line',
-        textContent: 'مدة التنفيذ: ' + String(offer.duration_days || '-') + ' يوم',
+        textContent: _copy('offerDuration') + ': ' + String(offer.duration_days || '-') + ' ' + _copy('days'),
       }));
 
       const note = String(offer.note || '').trim();
       if (note) {
         card.appendChild(UI.el('div', {
           className: 'order-offer-note',
-          textContent: 'ملاحظة: ' + note,
+          textContent: _copy('offerNote') + ': ' + note,
         }));
       }
 
@@ -742,7 +1016,7 @@ const OrderDetailPage = (() => {
         const selectBtn = UI.el('button', {
           type: 'button',
           className: 'btn-primary order-offer-select-btn',
-          textContent: selecting ? 'جاري الاختيار...' : 'اختيار هذا العرض',
+          textContent: selecting ? _copy('selectingOffer') : _copy('selectOffer'),
           onclick: () => _acceptOffer(offer),
         });
         // UI.el sets attributes via setAttribute; passing disabled=false still disables
@@ -759,13 +1033,13 @@ const OrderDetailPage = (() => {
   async function _acceptOffer(offer) {
     if (!_order || !offer) return;
     if (!_canSelectOffers()) {
-      _setOffersFeedback('لا يمكن اختيار عرض في الحالة الحالية', true);
+      _setOffersFeedback(_copy('cannotSelectOffer'), true);
       return;
     }
 
     const offerId = Number(offer.id);
     if (!Number.isFinite(offerId) || offerId <= 0) {
-      _setOffersFeedback('تعذر اختيار العرض: معرف غير صالح', true);
+      _setOffersFeedback(_copy('invalidOfferId'), true);
       return;
     }
 
@@ -781,12 +1055,12 @@ const OrderDetailPage = (() => {
     _acceptingOfferId = null;
 
     if (!res.ok) {
-      _setOffersFeedback(_extractError(res, 'تعذّر اختيار العرض'), true);
+      _setOffersFeedback(_extractError(res, _copy('acceptOfferFailed')), true);
       _renderOffersSection();
       return;
     }
 
-    _setOffersFeedback('تم اختيار العرض وإسناد الطلب بنجاح', false);
+    _setOffersFeedback(_copy('acceptOfferSuccess'), false);
     _loadDetail();
   }
 
@@ -797,7 +1071,7 @@ const OrderDetailPage = (() => {
     const returnTo = window.location.pathname + window.location.search + '#order-offers-section';
     const params = new URLSearchParams();
     params.set('return_to', returnTo);
-    params.set('return_label', 'العودة إلى عروض الأسعار');
+    params.set('return_label', _copy('returnToOffers'));
 
     return '/provider/' + encodeURIComponent(String(providerId)) + '/?' + params.toString();
   }
@@ -835,11 +1109,11 @@ const OrderDetailPage = (() => {
   function _offerStatusLabel(status) {
     switch (String(status || '').toLowerCase()) {
       case 'selected':
-        return 'تم اختياره';
+        return _copy('statusAccepted');
       case 'rejected':
-        return 'مرفوض';
+        return _copy('statusRejected');
       default:
-        return 'بانتظار القرار';
+        return _copy('statusPendingDecision');
     }
   }
 
@@ -866,16 +1140,16 @@ const OrderDetailPage = (() => {
 
   function _requestTypeLabel(type) {
     const t = String(type || '').toLowerCase();
-    if (t === 'urgent') return 'عاجل';
-    if (t === 'competitive') return 'تنافسي';
-    if (t === 'normal') return 'عادي';
+    if (t === 'urgent') return _copy('requestTypeUrgent');
+    if (t === 'competitive') return _copy('requestTypeCompetitive');
+    if (t === 'normal') return _copy('requestTypeNormal');
     return type || '';
   }
 
   function _formatDate(value) {
     const dt = _asDate(value);
     if (!dt) return '';
-    return dt.toLocaleString('ar-SA', {
+    return dt.toLocaleString(_locale(), {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -887,7 +1161,7 @@ const OrderDetailPage = (() => {
   function _formatDateOnly(value) {
     const dt = _asDate(value);
     if (!dt) return '';
-    return dt.toLocaleDateString('ar-SA', {
+    return dt.toLocaleDateString(_locale(), {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -897,7 +1171,7 @@ const OrderDetailPage = (() => {
   function _formatMoney(value) {
     const num = Number(value);
     if (!Number.isFinite(num)) return String(value || '-');
-    return num.toLocaleString('ar-SA') + ' ر.س';
+    return num.toLocaleString(_numberLocale()) + ' ' + _copy('currency');
   }
 
   function _asDate(value) {
@@ -952,12 +1226,12 @@ const OrderDetailPage = (() => {
 
     if (tBtn) {
       tBtn.classList.toggle('hidden', !canEdit);
-      tBtn.textContent = _editTitle ? 'إيقاف' : 'تعديل';
+      tBtn.textContent = _editTitle ? _copy('stopEdit') : _copy('edit');
     }
 
     if (dBtn) {
       dBtn.classList.toggle('hidden', !canEdit);
-      dBtn.textContent = _editDesc ? 'إيقاف' : 'تعديل';
+      dBtn.textContent = _editDesc ? _copy('stopEdit') : _copy('edit');
     }
 
     if (saveBtn) saveBtn.classList.toggle('hidden', !canEdit);
@@ -988,7 +1262,7 @@ const OrderDetailPage = (() => {
     const newTitle = String(titleInput.value || '').trim();
     const newDesc = String(descInput.value || '').trim();
     if (!newTitle || !newDesc) {
-      _setError('العنوان والتفاصيل مطلوبان');
+      _setError(_copy('saveRequired'));
       return;
     }
 
@@ -1005,7 +1279,7 @@ const OrderDetailPage = (() => {
     _setSaveLoading(false);
 
     if (!res.ok || !res.data) {
-      _setError(_extractError(res, 'فشل حفظ التعديلات'));
+      _setError(_extractError(res, _copy('saveFailed')));
       return;
     }
 
@@ -1018,7 +1292,7 @@ const OrderDetailPage = (() => {
     if (!_order || _actionLoading || !_availableActions().includes('cancel')) return;
     const reason = String(document.getElementById('order-cancel-reason')?.value || '').trim();
     if (!reason) {
-      _setActionFeedback('يرجى كتابة سبب الإلغاء', true);
+      _setActionFeedback(_copy('writeCancelReason'), true);
       return;
     }
 
@@ -1030,11 +1304,11 @@ const OrderDetailPage = (() => {
     _setActionLoading(false);
 
     if (!res.ok) {
-      _setActionFeedback(_extractError(res, 'تعذر إلغاء الطلب'), true);
+      _setActionFeedback(_extractError(res, _copy('cancelFailed')), true);
       return;
     }
 
-    _setActionFeedback('تم إلغاء الطلب بنجاح', false);
+    _setActionFeedback(_copy('cancelSuccess'), false);
     _loadDetail();
   }
 
@@ -1049,11 +1323,11 @@ const OrderDetailPage = (() => {
     _setActionLoading(false);
 
     if (!res.ok) {
-      _setActionFeedback(_extractError(res, 'تعذر إعادة فتح الطلب'), true);
+      _setActionFeedback(_extractError(res, _copy('reopenFailed')), true);
       return;
     }
 
-    _setActionFeedback('تمت إعادة فتح الطلب', false);
+    _setActionFeedback(_copy('reopenSuccess'), false);
     _loadDetail();
   }
 
@@ -1061,7 +1335,7 @@ const OrderDetailPage = (() => {
     if (!_order || _actionLoading) return;
     const note = String(document.getElementById('order-provider-reject-note')?.value || '').trim();
     if (!approved && !note) {
-      _setProviderDecisionFeedback('سبب الرفض مطلوب', true);
+      _setProviderDecisionFeedback(_copy('rejectReasonRequired'), true);
       return;
     }
 
@@ -1073,13 +1347,13 @@ const OrderDetailPage = (() => {
     _setActionLoading(false);
 
     if (!res.ok) {
-      _setProviderDecisionFeedback(_extractError(res, 'فشل تنفيذ العملية'), true);
+      _setProviderDecisionFeedback(_extractError(res, _copy('actionFailed')), true);
       return;
     }
 
     await _loadDetail();
     _setPageFeedback(
-      String(res.data?.message || '') || (approved ? 'تم اعتماد التفاصيل وبدأ التنفيذ' : 'تم رفض التفاصيل وإشعار مقدم الخدمة'),
+      String(res.data?.message || '') || (approved ? _copy('approveSuccess') : _copy('rejectSuccess')),
       false,
     );
   }
@@ -1097,7 +1371,7 @@ const OrderDetailPage = (() => {
 
     for (const [key, value] of Object.entries(fields)) {
       if (!value) {
-        _setReviewFeedback('يرجى تعبئة جميع عناصر التقييم', true);
+        _setReviewFeedback(_copy('reviewFillAll'), true);
         const id = 'review-' + key.replace(/_/g, '-');
         const node = document.getElementById(id);
         if (node) node.focus();
@@ -1108,7 +1382,7 @@ const OrderDetailPage = (() => {
 
     const comment = String(document.getElementById('review-comment')?.value || '').trim();
     if (comment.length > 300) {
-      _setReviewFeedback('تعليق التقييم يجب ألا يتجاوز 300 حرف', true);
+      _setReviewFeedback(_copy('reviewTooLong'), true);
       _scrollToReviewSection();
       return;
     }
@@ -1121,7 +1395,7 @@ const OrderDetailPage = (() => {
     };
     if (comment) body.comment = comment;
 
-    _setReviewFeedback('جاري إرسال التقييم...', false);
+    _setReviewFeedback(_copy('reviewSendInProgress'), false);
     _setReviewSubmitLoading(true);
     _scrollToReviewSection();
     _setActionLoading(true);
@@ -1133,7 +1407,7 @@ const OrderDetailPage = (() => {
     _setReviewSubmitLoading(false);
 
     if (!res.ok) {
-      _setReviewFeedback(_extractError(res, 'تعذر إرسال التقييم'), true);
+      _setReviewFeedback(_extractError(res, _copy('reviewSendFailed')), true);
       _scrollToReviewSection();
       return;
     }
@@ -1149,7 +1423,7 @@ const OrderDetailPage = (() => {
     _order.review_comment = comment;
     _order.review_rating = Number.isFinite(overallRating) ? Number(overallRating.toFixed(1)) : null;
     _renderReviewSection();
-    _setReviewFeedback('تم إرسال التقييم بنجاح. تم تحديث حالة الطلب.', false);
+    _setReviewFeedback(_copy('reviewSendSuccess'), false);
     _scrollToReviewSection();
     _loadDetail();
   }
@@ -1217,6 +1491,127 @@ const OrderDetailPage = (() => {
     if (btn) btn.disabled = loading;
     if (txt) txt.classList.toggle('hidden', loading);
     if (spinner) spinner.classList.toggle('hidden', !loading);
+  }
+
+  function _statusLabel(order) {
+    const raw = String((order && (order.status_group || order.status || order.status_label)) || '').trim().toLowerCase();
+    return _statusLabelFromCode(raw) || _copy('statusUnknown');
+  }
+
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function _locale() {
+    return _currentLang() === 'en' ? 'en-GB' : 'ar-SA';
+  }
+
+  function _numberLocale() {
+    return _currentLang() === 'en' ? 'en-US' : 'ar-SA';
+  }
+
+  function _copy(key) {
+    const lang = _currentLang();
+    return (COPY[lang] && COPY[lang][key]) || COPY.ar[key] || '';
+  }
+
+  function _applyStaticCopy() {
+    document.title = _copy('pageTitle');
+    const backLink = document.getElementById('order-back-link');
+    const loginLink = document.getElementById('order-login-link');
+    const rejectNote = document.getElementById('order-provider-reject-note');
+    const reviewComment = document.getElementById('review-comment');
+    if (backLink) backLink.setAttribute('aria-label', _copy('backAria'));
+    if (loginLink) loginLink.textContent = _copy('gateButton');
+    if (rejectNote) rejectNote.placeholder = _copy('providerRejectPlaceholder');
+    if (reviewComment) reviewComment.placeholder = _copy('reviewCommentPlaceholder');
+    _setText('order-gate-title', _copy('gateTitle'));
+    _setText('order-gate-desc', _copy('gateDescription'));
+    _setText('order-page-kicker', _copy('kicker'));
+    _setText('order-page-title', _copy('title'));
+    _setText('order-page-subtitle', _copy('subtitle'));
+    _setText('order-back-link-text', _copy('backText'));
+    _setText('order-summary-id-label', _copy('orderIdLabel'));
+    _setText('order-title-heading', _copy('orderTitleHeading'));
+    _setText('order-description-heading', _copy('orderDescriptionHeading'));
+    _setText('order-attachments-title', _copy('attachmentsTitle'));
+    _setText('order-client-attachments-title', _copy('clientAttachmentsTitle'));
+    _setText('order-client-attachments-desc', _copy('clientAttachmentsDesc'));
+    _setText('order-provider-attachments-title', _copy('providerAttachmentsTitle'));
+    _setText('order-provider-attachments-desc', _copy('providerAttachmentsDesc'));
+    _setText('order-provider-decision-title', _copy('providerDecisionTitle'));
+    _setText('order-provider-reject-label', _copy('providerRejectLabel'));
+    _setText('btn-reject-provider-inputs', _copy('rejectDetails'));
+    _setText('btn-approve-provider-inputs', _copy('approveAndStart'));
+    _setText('order-cancelled-title', _copy('cancelledTitle'));
+    _setText('order-review-title', _copy('reviewTitle'));
+    _setText('review-response-speed-label', _copy('reviewResponseSpeed'));
+    _setText('review-cost-value-label', _copy('reviewCostValue'));
+    _setText('review-quality-label', _copy('reviewQuality'));
+    _setText('review-credibility-label', _copy('reviewCredibility'));
+    _setText('review-on-time-label', _copy('reviewOnTime'));
+    _setText('review-response-speed-placeholder', _copy('reviewPick'));
+    _setText('review-cost-value-placeholder', _copy('reviewPick'));
+    _setText('review-quality-placeholder', _copy('reviewPick'));
+    _setText('review-credibility-placeholder', _copy('reviewPick'));
+    _setText('review-on-time-placeholder', _copy('reviewPick'));
+    _setText('review-comment-label', _copy('reviewCommentLabel'));
+    _setText('btn-submit-review-text', _copy('reviewSubmit'));
+    _setText('order-status-logs-title', _copy('statusLogsTitle'));
+    _setText('order-offers-title', _copy('offersTitle'));
+    _setText('btn-refresh-offers', _copy('refresh'));
+    _setText('order-actions-title', _copy('actionsTitle'));
+    _setText('order-bottom-back', _copy('back'));
+    _setText('save-order-text', _copy('save'));
+    _setText('order-original-language-note', _copy('originalLanguageNotice'));
+  }
+
+  function _containsArabicScript(value) {
+    return /[\u0600-\u06FF]/.test(String(value || '').trim());
+  }
+
+  function _hasOriginalLanguageContent() {
+    if (!_order || _currentLang() !== 'en') return false;
+    const directFields = [
+      _order.title,
+      _order.description,
+      _order.provider_name,
+      _order.provider_inputs_decision_note,
+      _order.review_comment,
+      _order.cancel_reason,
+    ];
+    if (directFields.some(_containsArabicScript)) return true;
+    return Array.isArray(_order.status_logs) && _order.status_logs.some((log) => _containsArabicScript(log && log.note));
+  }
+
+  function _updateOriginalLanguageNotice() {
+    const notice = document.getElementById('order-original-language-note');
+    if (!notice) return;
+    notice.textContent = _copy('originalLanguageNotice');
+    notice.classList.toggle('hidden', !_hasOriginalLanguageContent());
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
+  function _setAutoDirection(el, value) {
+    if (!el) return;
+    if (String(value || '').trim()) el.setAttribute('dir', 'auto');
+    else el.removeAttribute('dir');
+  }
+
+  function _setInputAutoDirection(el, value) {
+    _setAutoDirection(el, value);
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    if (_order) _render();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

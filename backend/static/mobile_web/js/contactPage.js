@@ -10,15 +10,162 @@
 'use strict';
 
 const ContactPage = (() => {
-  const TICKET_TYPE_MAP = {
-    tech: 'دعم فني',
-    subs: 'اشتراكات',
-    verify: 'توثيق',
-    suggest: 'اقتراحات',
-    ads: 'إعلانات',
-    complaint: 'شكاوى وبلاغات',
-    extras: 'خدمات إضافية',
+  const COPY = {
+    ar: {
+      pageTitle: 'تواصل معنا',
+      gatePoint1: 'عرض سجل البلاغات السابقة',
+      gatePoint2: 'متابعة الحالة والتعليقات',
+      gatePoint3: 'رفع المرفقات من نفس الواجهة',
+      heroEyebrow: 'مركز الدعم والمساعدة',
+      heroSubtitle: 'قدّم بلاغًا جديدًا، تابع حالة تذاكرك، وأضف التعليقات والمرفقات من واجهة أوضح وأكثر ترتيبًا.',
+      heroTag1: 'متابعة منظمة',
+      heroTag2: 'سجل كامل للتعليقات',
+      heroTag3: 'رفع مرفقات بسهولة',
+      highlightLabel1: 'تجربة واضحة',
+      highlightBody1: 'تفاصيل البلاغ، حالته، ومرفقاته معروضة في لوحة واحدة مرتبة وسهلة التتبع.',
+      highlightLabel2: 'تواصل أسرع',
+      highlightBody2: 'أضف تعليقًا جديدًا أو افتح بلاغًا آخر بدون مغادرة نفس الواجهة.',
+      totalTicketsLabel: 'إجمالي البلاغات',
+      openTicketsLabel: 'قيد المتابعة',
+      closedTicketsLabel: 'مغلقة',
+      journeyEyebrow: 'رحلة الدعم باختصار',
+      step1Title: 'أنشئ البلاغ',
+      step1Body: 'اختر الفريق المناسب ثم اكتب وصفًا واضحًا وأضف ما يلزم من ملفات.',
+      step2Title: 'تابع التحديثات',
+      step2Body: 'راجع الحالة الحالية وسجل التعليقات بدون التنقل بين أكثر من شاشة.',
+      step3Title: 'أكمل الحوار',
+      step3Body: 'أضف تعليقًا جديدًا عند الحاجة ليبقى مسار المتابعة واضحًا ومكتملًا.',
+      toolbarTitle: 'لوحة دعم أنظف وأوضح',
+      toolbarSubtitle: 'بدّل بين تحديث القائمة وفتح بلاغ جديد من شريط أوامر سريع ومباشر.',
+      listKicker: 'مركز البلاغات',
+      listSubtitle: 'تابع جميع البلاغات التي أرسلتها وحالتها الحالية.',
+      listNote: 'تحديث حي للحالة',
+      createKicker: 'إنشاء بلاغ',
+      createSubtitle: 'اختر الجهة المناسبة ثم اكتب وصفًا واضحًا للمشكلة أو الطلب.',
+      createNote: 'نموذج سريع',
+      descriptionPlaceholder: 'اشرح المشكلة أو الطلب بشكل واضح ومختصر...',
+      attachmentsHint: 'يمكنك إرفاق صور أو ملفات تساعد الفريق على فهم البلاغ بسرعة.',
+      detailKicker: 'قراءة ومتابعة',
+      detailHelper: 'هنا ستجد الحالة، الوصف، المرفقات، والتعليقات المرتبطة بالبلاغ.',
+      detailNote: 'تفاصيل كاملة',
+      detailEmptyLabel: 'اختر بلاغًا من القائمة لعرض التفاصيل',
+      typeFallback: 'بلاغ',
+      viewDetails: 'عرض التفاصيل',
+      noDescription: 'بدون وصف',
+      statusNew: 'جديد',
+      statusInProgress: 'تحت المعالجة',
+      statusReturned: 'معاد',
+      statusClosed: 'مغلق',
+      createdAtLabel: 'تاريخ الإنشاء',
+      attachmentsCountLabel: 'المرفقات',
+      commentsCountLabel: 'التعليقات',
+      statusLabel: 'الحالة',
+      descriptionSectionTitle: 'وصف البلاغ',
+      noTicketDescription: 'لا يوجد وصف مرفق لهذا البلاغ.',
+      noTicketAttachments: 'لا توجد مرفقات مضافة لهذا البلاغ',
+      attachmentFallback: 'مرفق',
+      commentsSectionTitle: 'التعليقات',
+      noComments: 'لا توجد تعليقات بعد',
+      userFallback: 'مستخدم',
+      originalLanguageNotice: 'بعض تفاصيل البلاغ والأسماء والتعليقات تُعرض بلغتها الأصلية.',
+      replyTitle: 'أضف تعليقًا جديدًا',
+      replyHint: 'سيظهر تعليقك ضمن سجل البلاغ ليسهل متابعة الحالة.',
+      createValidation: 'الرجاء اختيار فريق الدعم وكتابة التفاصيل',
+      createFailed: 'فشل إنشاء البلاغ',
+      createSuccess: 'تم إنشاء البلاغ بنجاح',
+      commentFailed: 'فشل إرسال التعليق',
+      commentSuccess: 'تمت إضافة التعليق',
+      loadDetailsFailed: 'تعذر تحميل تفاصيل البلاغ',
+      listLoadFailed: 'فشل تحميل البلاغات',
+      ticketTypes: {
+        tech: 'دعم فني',
+        subs: 'اشتراكات',
+        verify: 'توثيق',
+        suggest: 'اقتراحات',
+        ads: 'إعلانات',
+        complaint: 'شكاوى وبلاغات',
+        extras: 'خدمات إضافية',
+      },
+    },
+    en: {
+      pageTitle: 'Contact Nawafeth',
+      gatePoint1: 'View your previous ticket history',
+      gatePoint2: 'Track status updates and comments',
+      gatePoint3: 'Upload attachments from the same interface',
+      heroEyebrow: 'Support center',
+      heroSubtitle: 'Create a new ticket, track your requests, and add comments and attachments from a clearer, better organized interface.',
+      heroTag1: 'Organized follow-up',
+      heroTag2: 'Complete comment history',
+      heroTag3: 'Easy attachments',
+      highlightLabel1: 'Clear experience',
+      highlightBody1: 'Ticket details, status, and attachments are shown in one organized view that is easy to follow.',
+      highlightLabel2: 'Faster communication',
+      highlightBody2: 'Add a new comment or open another ticket without leaving the same interface.',
+      totalTicketsLabel: 'Total tickets',
+      openTicketsLabel: 'In progress',
+      closedTicketsLabel: 'Closed',
+      journeyEyebrow: 'Support flow at a glance',
+      step1Title: 'Create the ticket',
+      step1Body: 'Choose the right team, write a clear description, and attach any needed files.',
+      step2Title: 'Track updates',
+      step2Body: 'Review the current status and comment history without moving across multiple screens.',
+      step3Title: 'Continue the thread',
+      step3Body: 'Add a new comment when needed so the follow-up path stays clear and complete.',
+      toolbarTitle: 'A cleaner support workspace',
+      toolbarSubtitle: 'Switch between refreshing the list and opening a new ticket from one fast, direct command bar.',
+      listKicker: 'Ticket center',
+      listSubtitle: 'Track every ticket you submitted and its current status.',
+      listNote: 'Live status updates',
+      createKicker: 'Create ticket',
+      createSubtitle: 'Choose the right destination and write a clear description of the issue or request.',
+      createNote: 'Quick form',
+      descriptionPlaceholder: 'Describe the issue or request clearly and briefly...',
+      attachmentsHint: 'You can attach images or files that help the team understand the ticket faster.',
+      detailKicker: 'Read and follow up',
+      detailHelper: 'Here you will find the status, description, attachments, and comments linked to the ticket.',
+      detailNote: 'Full details',
+      detailEmptyLabel: 'Choose a ticket from the list to view its details',
+      typeFallback: 'Ticket',
+      viewDetails: 'View details',
+      noDescription: 'No description',
+      statusNew: 'New',
+      statusInProgress: 'In progress',
+      statusReturned: 'Returned',
+      statusClosed: 'Closed',
+      createdAtLabel: 'Created at',
+      attachmentsCountLabel: 'Attachments',
+      commentsCountLabel: 'Comments',
+      statusLabel: 'Status',
+      descriptionSectionTitle: 'Ticket description',
+      noTicketDescription: 'No description is attached to this ticket.',
+      noTicketAttachments: 'No attachments were added to this ticket',
+      attachmentFallback: 'Attachment',
+      commentsSectionTitle: 'Comments',
+      noComments: 'No comments yet',
+      userFallback: 'User',
+      originalLanguageNotice: 'Some ticket details, names, and comments are shown in their original language.',
+      replyTitle: 'Add a new comment',
+      replyHint: 'Your comment will appear in the ticket timeline to keep follow-up clear.',
+      createValidation: 'Please choose a support team and enter the details.',
+      createFailed: 'Failed to create the ticket',
+      createSuccess: 'Ticket created successfully',
+      commentFailed: 'Failed to send the comment',
+      commentSuccess: 'Comment added successfully',
+      loadDetailsFailed: 'Unable to load ticket details',
+      listLoadFailed: 'Failed to load tickets',
+      ticketTypes: {
+        tech: 'Technical support',
+        subs: 'Subscriptions',
+        verify: 'Verification',
+        suggest: 'Suggestions',
+        ads: 'Advertising',
+        complaint: 'Complaints & reports',
+        extras: 'Additional services',
+      },
+    },
   };
+
+  const TICKET_TYPE_MAP = COPY.ar.ticketTypes;
 
   const TEAM_CODE_TO_TICKET_TYPE = {
     support: 'tech',
@@ -56,10 +203,13 @@ const ContactPage = (() => {
   let _tickets = [];
   let _selectedTicket = null;
   let _content = {};
+  let _contentBlocks = {};
   let _toastTimer = null;
   let _preferredTicketId = _ticketIdFromUrl();
 
   async function init() {
+    _applyStaticCopy();
+    document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
     await _loadContent();
     if (!Auth.isLoggedIn()) {
       _showGate();
@@ -73,46 +223,126 @@ const ContactPage = (() => {
   async function _loadContent() {
     const res = await ApiClient.get('/api/content/public/');
     const data = (res.ok && res.data && typeof res.data === 'object') ? res.data : {};
-    const blocks = data.blocks || {};
+    _contentBlocks = data.blocks || {};
+    _refreshContent();
+  }
+
+  function _refreshContent() {
+    const blocks = _contentBlocks || {};
+    const copy = _copy();
     _content = {
-      gateTitle: _resolve(blocks.contact_gate_title, 'سجّل دخولك'),
-      gateDescription: _resolve(blocks.contact_gate_description, 'يجب تسجيل الدخول لعرض تذاكر الدعم'),
-      gateLogin: _resolve(blocks.contact_gate_login_label, 'تسجيل الدخول'),
-      pageTitle: _resolve(blocks.contact_page_title, 'تواصل مع منصة نوافذ'),
-      refreshLabel: _resolve(blocks.contact_refresh_label, 'تحديث'),
-      newTicketLabel: _resolve(blocks.contact_new_ticket_label, 'بلاغ جديد'),
-      listTitle: _resolve(blocks.contact_list_title, 'قائمة البلاغات'),
-      createTitle: _resolve(blocks.contact_create_title, 'إنشاء بلاغ جديد'),
-      detailTitle: _resolve(blocks.contact_detail_title, 'تفاصيل البلاغ'),
-      emptyLabel: _resolve(blocks.contact_empty_label, 'لا توجد بلاغات حتى الآن'),
-      teamLabel: _resolve(blocks.contact_team_label, 'فريق الدعم'),
-      teamPlaceholder: _resolve(blocks.contact_team_placeholder, 'اختر فريق الدعم'),
-      descriptionLabel: _resolve(blocks.contact_description_label, 'التفاصيل'),
-      attachmentsLabel: _resolve(blocks.contact_attachments_label, 'مرفقات (اختياري)'),
-      cancelLabel: _resolve(blocks.contact_cancel_label, 'إلغاء'),
-      submitLabel: _resolve(blocks.contact_submit_label, 'إرسال البلاغ'),
-      replyPlaceholder: _resolve(blocks.contact_reply_placeholder, 'اكتب تعليقك...'),
-      replySubmitLabel: _resolve(blocks.contact_reply_submit_label, 'إرسال التعليق'),
+      gateTitle: _resolve(blocks.contact_gate_title, 'سجّل دخولك', 'Sign in first'),
+      gateDescription: _resolve(blocks.contact_gate_description, 'يجب تسجيل الدخول لعرض تذاكر الدعم وفتح بلاغ جديد.', 'Sign in to view support tickets and create a new request.'),
+      gateLogin: _resolve(blocks.contact_gate_login_label, 'تسجيل الدخول', 'Sign in'),
+      pageTitle: _resolve(blocks.contact_page_title, 'تواصل مع منصة نوافذ', 'Contact Nawafeth platform'),
+      refreshLabel: _resolve(blocks.contact_refresh_label, 'تحديث', 'Refresh'),
+      newTicketLabel: _resolve(blocks.contact_new_ticket_label, 'بلاغ جديد', 'New ticket'),
+      listTitle: _resolve(blocks.contact_list_title, 'قائمة البلاغات', 'Ticket list'),
+      createTitle: _resolve(blocks.contact_create_title, 'إنشاء بلاغ جديد', 'Create a new ticket'),
+      detailTitle: _resolve(blocks.contact_detail_title, 'تفاصيل البلاغ', 'Ticket details'),
+      emptyLabel: _resolve(blocks.contact_empty_label, 'لا توجد بلاغات حتى الآن', 'No tickets yet'),
+      teamLabel: _resolve(blocks.contact_team_label, 'فريق الدعم', 'Support team'),
+      teamPlaceholder: _resolve(blocks.contact_team_placeholder, 'اختر فريق الدعم', 'Choose a support team'),
+      descriptionLabel: _resolve(blocks.contact_description_label, 'التفاصيل', 'Details'),
+      attachmentsLabel: _resolve(blocks.contact_attachments_label, 'مرفقات (اختياري)', 'Attachments (optional)'),
+      cancelLabel: _resolve(blocks.contact_cancel_label, 'إلغاء', 'Cancel'),
+      submitLabel: _resolve(blocks.contact_submit_label, 'إرسال البلاغ', 'Submit ticket'),
+      replyPlaceholder: _resolve(blocks.contact_reply_placeholder, 'اكتب تعليقك...', 'Write your comment...'),
+      replySubmitLabel: _resolve(blocks.contact_reply_submit_label, 'إرسال التعليق', 'Send comment'),
+      gatePoint1: copy.gatePoint1,
+      gatePoint2: copy.gatePoint2,
+      gatePoint3: copy.gatePoint3,
+      heroEyebrow: copy.heroEyebrow,
+      heroSubtitle: copy.heroSubtitle,
+      heroTag1: copy.heroTag1,
+      heroTag2: copy.heroTag2,
+      heroTag3: copy.heroTag3,
+      highlightLabel1: copy.highlightLabel1,
+      highlightBody1: copy.highlightBody1,
+      highlightLabel2: copy.highlightLabel2,
+      highlightBody2: copy.highlightBody2,
+      totalTicketsLabel: copy.totalTicketsLabel,
+      openTicketsLabel: copy.openTicketsLabel,
+      closedTicketsLabel: copy.closedTicketsLabel,
+      journeyEyebrow: copy.journeyEyebrow,
+      step1Title: copy.step1Title,
+      step1Body: copy.step1Body,
+      step2Title: copy.step2Title,
+      step2Body: copy.step2Body,
+      step3Title: copy.step3Title,
+      step3Body: copy.step3Body,
+      toolbarTitle: copy.toolbarTitle,
+      toolbarSubtitle: copy.toolbarSubtitle,
+      listKicker: copy.listKicker,
+      listSubtitle: copy.listSubtitle,
+      listNote: copy.listNote,
+      createKicker: copy.createKicker,
+      createSubtitle: copy.createSubtitle,
+      createNote: copy.createNote,
+      descriptionPlaceholder: copy.descriptionPlaceholder,
+      attachmentsHint: copy.attachmentsHint,
+      detailKicker: copy.detailKicker,
+      detailHelper: copy.detailHelper,
+      detailNote: copy.detailNote,
+      detailEmptyLabel: copy.detailEmptyLabel,
     };
     _applyContent();
   }
 
   function _applyContent() {
+    _applyStaticCopy();
     _setText('contact-gate-title', _content.gateTitle);
     _setText('contact-gate-description', _content.gateDescription);
     _setText('contact-gate-login', _content.gateLogin);
+    _setText('contact-gate-point-1', _content.gatePoint1);
+    _setText('contact-gate-point-2', _content.gatePoint2);
+    _setText('contact-gate-point-3', _content.gatePoint3);
+    _setText('contact-hero-eyebrow', _content.heroEyebrow);
     _setText('contact-page-title', _content.pageTitle);
+    _setText('contact-hero-subtitle', _content.heroSubtitle);
+    _setText('contact-hero-tag-1', _content.heroTag1);
+    _setText('contact-hero-tag-2', _content.heroTag2);
+    _setText('contact-hero-tag-3', _content.heroTag3);
+    _setText('contact-highlight-label-1', _content.highlightLabel1);
+    _setText('contact-highlight-body-1', _content.highlightBody1);
+    _setText('contact-highlight-label-2', _content.highlightLabel2);
+    _setText('contact-highlight-body-2', _content.highlightBody2);
+    _setText('support-total-label', _content.totalTicketsLabel);
+    _setText('support-open-label', _content.openTicketsLabel);
+    _setText('support-closed-label', _content.closedTicketsLabel);
+    _setText('contact-brief-eyebrow', _content.journeyEyebrow);
+    _setText('contact-brief-title-1', _content.step1Title);
+    _setText('contact-brief-body-1', _content.step1Body);
+    _setText('contact-brief-title-2', _content.step2Title);
+    _setText('contact-brief-body-2', _content.step2Body);
+    _setText('contact-brief-title-3', _content.step3Title);
+    _setText('contact-brief-body-3', _content.step3Body);
+    _setText('contact-toolbar-title', _content.toolbarTitle);
+    _setText('contact-toolbar-subtitle', _content.toolbarSubtitle);
     _setText('contact-refresh-label', _content.refreshLabel);
     _setText('contact-new-ticket-label', _content.newTicketLabel);
+    _setText('contact-list-kicker', _content.listKicker);
     _setText('contact-list-title', _content.listTitle);
+    _setText('contact-list-subtitle', _content.listSubtitle);
+    _setText('contact-list-note', _content.listNote);
+    _setText('contact-create-kicker', _content.createKicker);
     _setText('contact-create-title', _content.createTitle);
+    _setText('contact-create-subtitle', _content.createSubtitle);
+    _setText('contact-create-note', _content.createNote);
     _setText('contact-detail-title', _content.detailTitle);
+    _setText('contact-detail-kicker', _content.detailKicker);
+    _setText('contact-detail-helper', _content.detailHelper);
+    _setText('contact-detail-note', _content.detailNote);
+    _setText('contact-detail-empty-label', _content.detailEmptyLabel);
     _setText('contact-empty-label', _content.emptyLabel);
     _setText('contact-team-label', _content.teamLabel);
     _setText('contact-description-label', _content.descriptionLabel);
     _setText('contact-attachments-label', _content.attachmentsLabel);
+    _setText('contact-attachments-hint', _content.attachmentsHint);
     _setText('btn-cancel-ticket', _content.cancelLabel);
     _setText('submit-ticket-text', _content.submitLabel);
+    _setPlaceholder('support-description', _content.descriptionPlaceholder);
+    _setPlaceholder('ticket-reply-input', _content.replyPlaceholder);
   }
 
   function _showGate() {
@@ -210,7 +440,7 @@ const ContactPage = (() => {
       return;
     }
 
-    Object.entries(TICKET_TYPE_MAP).forEach(([code, label]) => {
+    Object.entries(_copy().ticketTypes).forEach(([code, label]) => {
       const option = UI.el('option', { value: code, textContent: label });
       select.appendChild(option);
     });
@@ -220,7 +450,7 @@ const ContactPage = (() => {
     const res = await ApiClient.get('/api/support/tickets/my/');
     if (!res.ok) {
       _tickets = [];
-      _setListError((res.data && res.data.detail) || 'فشل تحميل البلاغات');
+      _setListError((res.data && res.data.detail) || _copy().listLoadFailed);
       return;
     }
 
@@ -291,7 +521,7 @@ const ContactPage = (() => {
   }
 
   function _ticketTypeLabel(value) {
-    return TICKET_TYPE_MAP[value] || value || 'بلاغ';
+    return _copy().ticketTypes[value] || value || _copy().typeFallback;
   }
 
   function _ticketCodeLabel(ticket) {
@@ -323,22 +553,22 @@ const ContactPage = (() => {
     meta.appendChild(UI.el('span', { className: 'support-ticket-time', textContent: _formatDate(ticket.created_at) }));
 
     const footer = UI.el('div', { className: 'support-ticket-footer' });
-    footer.appendChild(UI.el('span', { className: 'support-ticket-footer-label', textContent: 'عرض التفاصيل' }));
+    footer.appendChild(UI.el('span', { className: 'support-ticket-footer-label', textContent: _copy().viewDetails }));
     footer.appendChild(UI.el('span', { className: 'support-ticket-footer-arrow', textContent: '‹' }));
 
     button.appendChild(top);
     button.appendChild(meta);
-    button.appendChild(UI.el('div', { className: 'support-ticket-desc', textContent: text || 'بدون وصف' }));
+    button.appendChild(UI.el('div', { className: 'support-ticket-desc', textContent: text || _copy().noDescription }));
     button.appendChild(footer);
     return button;
   }
 
   function _statusLabel(status) {
     const map = {
-      new: 'جديد',
-      in_progress: 'تحت المعالجة',
-      returned: 'معاد',
-      closed: 'مغلق',
+      new: _copy().statusNew,
+      in_progress: _copy().statusInProgress,
+      returned: _copy().statusReturned,
+      closed: _copy().statusClosed,
     };
     return map[String(status || '').toLowerCase()] || String(status || '');
   }
@@ -356,7 +586,7 @@ const ContactPage = (() => {
     if (!value) return '';
     const dt = new Date(value);
     if (Number.isNaN(dt.getTime())) return '';
-    return dt.toLocaleString('ar-SA', {
+    return dt.toLocaleString(_currentLang() === 'en' ? 'en-US' : 'ar-SA', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -369,7 +599,7 @@ const ContactPage = (() => {
     const opts = options || {};
     const detailRes = await ApiClient.get('/api/support/tickets/' + ticketId + '/');
     if (!detailRes.ok || !detailRes.data) {
-      if (!opts.silent) _notify('تعذر تحميل تفاصيل البلاغ', 'error');
+      if (!opts.silent) _notify(_copy().loadDetailsFailed, 'error');
       return false;
     }
     _selectedTicket = detailRes.data;
@@ -390,6 +620,7 @@ const ContactPage = (() => {
       empty.classList.remove('hidden');
       body.classList.add('hidden');
       body.innerHTML = '';
+      _updateOriginalLanguageNotice();
       return;
     }
 
@@ -416,27 +647,28 @@ const ContactPage = (() => {
     hero.appendChild(head);
 
     const metaGrid = UI.el('div', { className: 'ticket-detail-meta-grid' });
-    metaGrid.appendChild(_buildDetailMetaCard('تاريخ الإنشاء', _formatDate(ticket.created_at) || '—'));
-    metaGrid.appendChild(_buildDetailMetaCard('المرفقات', String(attachments.length)));
-    metaGrid.appendChild(_buildDetailMetaCard('التعليقات', String(comments.length)));
-    metaGrid.appendChild(_buildDetailMetaCard('الحالة', _statusLabel(ticket.status)));
+    metaGrid.appendChild(_buildDetailMetaCard(_copy().createdAtLabel, _formatDate(ticket.created_at) || '—'));
+    metaGrid.appendChild(_buildDetailMetaCard(_copy().attachmentsCountLabel, String(attachments.length)));
+    metaGrid.appendChild(_buildDetailMetaCard(_copy().commentsCountLabel, String(comments.length)));
+    metaGrid.appendChild(_buildDetailMetaCard(_copy().statusLabel, _statusLabel(ticket.status)));
     hero.appendChild(metaGrid);
     body.appendChild(hero);
 
     const descriptionSection = UI.el('div', { className: 'ticket-detail-section' });
-    descriptionSection.appendChild(_buildSectionHead('وصف البلاغ'));
-    descriptionSection.appendChild(
-      UI.el('div', {
-        className: 'ticket-detail-description',
-        textContent: ticket.description || 'لا يوجد وصف مرفق لهذا البلاغ.',
-      }),
-    );
+    descriptionSection.appendChild(_buildSectionHead(_copy().descriptionSectionTitle));
+    const descriptionText = ticket.description || _copy().noTicketDescription;
+    const descriptionEl = UI.el('div', {
+      className: 'ticket-detail-description',
+      textContent: descriptionText,
+    });
+    _setAutoDirection(descriptionEl, ticket.description);
+    descriptionSection.appendChild(descriptionEl);
     body.appendChild(descriptionSection);
 
     const attachmentsSection = UI.el('div', { className: 'ticket-detail-section' });
     attachmentsSection.appendChild(_buildSectionHead(_content.attachmentsLabel || 'المرفقات', attachments.length));
     if (!attachments.length) {
-      attachmentsSection.appendChild(UI.el('p', { className: 'ticket-muted', textContent: 'لا توجد مرفقات مضافة لهذا البلاغ' }));
+      attachmentsSection.appendChild(UI.el('p', { className: 'ticket-muted', textContent: _copy().noTicketAttachments }));
     } else {
       const attachmentsList = UI.el('div', { className: 'ticket-attachments-list' });
       attachments.forEach((att) => {
@@ -451,7 +683,7 @@ const ContactPage = (() => {
         link.appendChild(
           UI.el('span', {
             className: 'ticket-attachment-name',
-            textContent: String(att.file || '').split('/').pop() || 'مرفق',
+            textContent: String(att.file || '').split('/').pop() || _copy().attachmentFallback,
           }),
         );
         attachmentsList.appendChild(link);
@@ -461,20 +693,23 @@ const ContactPage = (() => {
     body.appendChild(attachmentsSection);
 
     const commentsSection = UI.el('div', { className: 'ticket-detail-section' });
-    commentsSection.appendChild(_buildSectionHead('التعليقات', comments.length));
+    commentsSection.appendChild(_buildSectionHead(_copy().commentsSectionTitle, comments.length));
     if (!comments.length) {
-      commentsSection.appendChild(UI.el('p', { className: 'ticket-muted', textContent: 'لا توجد تعليقات بعد' }));
+      commentsSection.appendChild(UI.el('p', { className: 'ticket-muted', textContent: _copy().noComments }));
     } else {
       const commentsList = UI.el('div', { className: 'ticket-comments-list' });
       comments.forEach((comment) => {
         const row = UI.el('div', { className: 'ticket-comment' });
-        row.appendChild(
-          UI.el('div', {
-            className: 'ticket-comment-meta',
-            textContent: (comment.created_by_name || 'مستخدم') + ' • ' + _formatDate(comment.created_at),
-          }),
-        );
-        row.appendChild(UI.el('div', { className: 'ticket-comment-text', textContent: comment.text || '' }));
+        const metaText = (comment.created_by_name || _copy().userFallback) + ' • ' + _formatDate(comment.created_at);
+        const metaEl = UI.el('div', {
+          className: 'ticket-comment-meta',
+          textContent: metaText,
+        });
+        _setAutoDirection(metaEl, comment.created_by_name);
+        row.appendChild(metaEl);
+        const commentTextEl = UI.el('div', { className: 'ticket-comment-text', textContent: comment.text || '' });
+        _setAutoDirection(commentTextEl, comment.text);
+        row.appendChild(commentTextEl);
         commentsList.appendChild(row);
       });
       commentsSection.appendChild(commentsList);
@@ -483,8 +718,8 @@ const ContactPage = (() => {
 
     const reply = UI.el('div', { className: 'ticket-reply-box' });
     const replyHead = UI.el('div', { className: 'ticket-reply-head' });
-    replyHead.appendChild(UI.el('h4', { textContent: 'أضف تعليقًا جديدًا' }));
-    replyHead.appendChild(UI.el('p', { textContent: 'سيظهر تعليقك ضمن سجل البلاغ ليسهل متابعة الحالة.' }));
+    replyHead.appendChild(UI.el('h4', { textContent: _copy().replyTitle }));
+    replyHead.appendChild(UI.el('p', { textContent: _copy().replyHint }));
     reply.appendChild(replyHead);
 
     const input = UI.el('textarea', {
@@ -504,6 +739,8 @@ const ContactPage = (() => {
     replyActions.appendChild(sendBtn);
     reply.appendChild(replyActions);
     body.appendChild(reply);
+
+    _updateOriginalLanguageNotice();
   }
 
   function _buildDetailMetaCard(label, value) {
@@ -590,7 +827,7 @@ const ContactPage = (() => {
     const description = String(descEl.value || '').trim();
 
     if (!ticketType || !description) {
-      _setCreateError('الرجاء اختيار فريق الدعم وكتابة التفاصيل');
+        _setCreateError(_copy().createValidation);
       return;
     }
 
@@ -608,7 +845,7 @@ const ContactPage = (() => {
 
     if (!createRes.ok || !createRes.data) {
       _setCreateLoading(false);
-      _setCreateError(_extractApiErrorMessage(createRes.data, 'فشل إنشاء البلاغ'));
+      _setCreateError(_extractApiErrorMessage(createRes.data, _copy().createFailed));
       return;
     }
 
@@ -637,7 +874,7 @@ const ContactPage = (() => {
     if (ticketId) {
       await _selectTicket(ticketId);
     }
-    _notify('تم إنشاء البلاغ بنجاح', 'success');
+    _notify(_copy().createSuccess, 'success');
   }
 
   async function _sendComment(ticketId) {
@@ -651,13 +888,13 @@ const ContactPage = (() => {
       body: { text },
     });
     if (!res.ok) {
-      _notify((res.data && res.data.detail) || 'فشل إرسال التعليق', 'error');
+      _notify((res.data && res.data.detail) || _copy().commentFailed, 'error');
       return;
     }
 
     input.value = '';
     await _selectTicket(ticketId);
-    _notify('تمت إضافة التعليق', 'success');
+    _notify(_copy().commentSuccess, 'success');
   }
 
   function _setCreateLoading(loading) {
@@ -724,13 +961,81 @@ const ContactPage = (() => {
     } catch (_) {}
   }
 
-  function _resolve(block, fallback) {
-    return String(block && block.title_ar || '').trim() || fallback;
+  function _resolve(block, fallbackAr, fallbackEn) {
+    const arValue = String(block && block.title_ar || '').trim();
+    const enValue = String(block && block.title_en || '').trim();
+    if (_currentLang() === 'en') {
+      if (enValue) return enValue;
+      if (arValue && arValue !== String(fallbackAr || '').trim()) return arValue;
+      return String(fallbackEn || '').trim() || arValue || String(fallbackAr || '').trim();
+    }
+    return arValue || String(fallbackAr || '').trim();
   }
 
   function _setText(id, value) {
     const el = document.getElementById(id);
     if (el && value) el.textContent = value;
+  }
+
+  function _setAutoDirection(el, value) {
+    if (!el) return;
+    if (String(value || '').trim()) el.setAttribute('dir', 'auto');
+    else el.removeAttribute('dir');
+  }
+
+  function _setPlaceholder(id, value) {
+    const el = document.getElementById(id);
+    if (el && value) el.setAttribute('placeholder', value);
+  }
+
+  function _currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      }
+      return (localStorage.getItem('nw_lang') || 'ar').toLowerCase() === 'en' ? 'en' : 'ar';
+    } catch (_) {
+      return 'ar';
+    }
+  }
+
+  function _copy() {
+    return COPY[_currentLang()] || COPY.ar;
+  }
+
+  function _applyStaticCopy() {
+    const copy = _copy();
+    if (window.NawafethI18n && typeof window.NawafethI18n.t === 'function') {
+      document.title = window.NawafethI18n.t('siteTitle') + ' — ' + copy.pageTitle;
+    }
+    _setText('ticket-original-language-note', copy.originalLanguageNotice);
+  }
+
+  function _containsArabicScript(value) {
+    return /[\u0600-\u06FF]/.test(String(value || '').trim());
+  }
+
+  function _hasOriginalLanguageContent() {
+    if (!_selectedTicket || _currentLang() !== 'en') return false;
+    if (_containsArabicScript(_selectedTicket.description)) return true;
+    return Array.isArray(_selectedTicket.comments) && _selectedTicket.comments.some((comment) => {
+      return _containsArabicScript(comment && comment.text) || _containsArabicScript(comment && comment.created_by_name);
+    });
+  }
+
+  function _updateOriginalLanguageNotice() {
+    const note = document.getElementById('ticket-original-language-note');
+    if (!note) return;
+    note.textContent = _copy().originalLanguageNotice;
+    note.classList.toggle('hidden', !_hasOriginalLanguageContent());
+  }
+
+  function _handleLanguageChange() {
+    _refreshContent();
+    _renderSummary();
+    _renderTickets();
+    _renderTicketDetail();
+    _renderTeams();
   }
 
   if (document.readyState === 'loading') {

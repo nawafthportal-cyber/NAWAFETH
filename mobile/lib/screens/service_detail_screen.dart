@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'chat_detail_screen.dart'; // ✅ لفتح المحادثة
 import 'notifications_screen.dart';
+import 'provider_profile_screen.dart';
 import 'service_request_form_screen.dart'; // ✅ نموذج طلب الخدمة
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
@@ -165,9 +166,31 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     return handle.isNotEmpty ? handle : '';
   }
 
+  String get _providerAvatar {
+    final providerImage = widget.providerImage.trim();
+    if (providerImage.isNotEmpty) {
+      return providerImage;
+    }
+    return _safeImages.first;
+  }
+
   String get _serviceDescription {
     final value = widget.description.trim();
     return value.isNotEmpty ? value : 'لا يوجد وصف للخدمة.';
+  }
+
+  void _openProviderProfile() {
+    final providerId = widget.providerId;
+    if (providerId == null || providerId <= 0) {
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProviderProfileScreen(providerId: '$providerId'),
+      ),
+    );
   }
 
   void _openProviderChat() {
@@ -239,42 +262,77 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               // 🟪 معلومات المزود + زر الإبلاغ
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Colors.grey.shade200,
-                    backgroundImage: _safeImages.first.startsWith('http')
-                        ? CachedNetworkImageProvider(_safeImages.first)
-                        : AssetImage(_safeImages.first) as ImageProvider,
-                  ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            _providerDisplayName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+                  Expanded(
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap:
+                            widget.providerId != null && widget.providerId! > 0
+                                ? _openProviderProfile
+                                : null,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 26,
+                                backgroundColor: Colors.grey.shade200,
+                                backgroundImage: _providerAvatar.startsWith('http')
+                                    ? CachedNetworkImageProvider(_providerAvatar)
+                                    : AssetImage(_providerAvatar) as ImageProvider,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            _providerDisplayName,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        VerifiedBadgeView(
+                                          isVerifiedBlue: widget.providerVerifiedBlue,
+                                          isVerifiedGreen: widget.providerVerifiedGreen,
+                                          iconSize: 18,
+                                        ),
+                                      ],
+                                    ),
+                                    if (_providerDisplayHandle.isNotEmpty)
+                                      Text(
+                                        _providerDisplayHandle,
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              if (widget.providerId != null && widget.providerId! > 0)
+                                const Padding(
+                                  padding: EdgeInsetsDirectional.only(start: 8),
+                                  child: Icon(
+                                    Icons.arrow_forward_ios_rounded,
+                                    size: 16,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                            ],
                           ),
-                          const SizedBox(width: 4),
-                          VerifiedBadgeView(
-                            isVerifiedBlue: widget.providerVerifiedBlue,
-                            isVerifiedGreen: widget.providerVerifiedGreen,
-                            iconSize: 18,
-                          ),
-                        ],
-                      ),
-                      if (_providerDisplayHandle.isNotEmpty)
-                        Text(
-                          _providerDisplayHandle,
-                          style: const TextStyle(color: Colors.grey, fontSize: 13),
                         ),
-                    ],
+                      ),
+                    ),
                   ),
-                  const Spacer(),
                   TextButton.icon(
                     style: TextButton.styleFrom(foregroundColor: Colors.red),
                     onPressed: () {

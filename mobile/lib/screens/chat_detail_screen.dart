@@ -85,6 +85,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   bool _isReconnecting = false;
   bool _isProviderAccount = false;
   int? _myProviderProfileId;
+  bool _isFavorite = false;
+  bool _isArchived = false;
+  bool _isBlocked = false;
+  bool _isBlockedByOther = false;
+  String _favoriteLabel = '';
   bool _replyRestrictedToMe = false;
   bool _isSystemThread = false;
   String _replyRestrictionReason = '';
@@ -113,6 +118,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   bool get _isReplyRestricted =>
       _replyRestrictedToMe || _isAutomatedPlatformThread;
+
+    bool get _isComposerDisabled =>
+      _isReplyRestricted || _isBlocked || _isBlockedByOther;
 
   String get _replyRestrictionMessage {
     final reason = _replyRestrictionReason.trim();
@@ -168,7 +176,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
   }
 
   String get _composerSupportText {
+    if (_isBlockedByOther) {
+      return 'لا يمكنك إرسال رسائل لأن الطرف الآخر قام بحظرك.';
+    }
+    if (_isBlocked) {
+      return 'قمت بحظر هذا العضو. أزل الحظر من خيارات الرسائل للمتابعة.';
+    }
     if (_isReplyRestricted) return _replyRestrictionMessage;
+    if (_isArchived) {
+      return 'هذه الرسائل مؤرشفة وستعود تلقائياً عند إرسال رسالة جديدة.';
+    }
     if (_isRecording) {
       return 'جارٍ تسجيل رسالة صوتية لمدة ${_formatDuration(_recordSeconds)}';
     }
@@ -299,11 +316,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
       final threadState = await MessagingService.fetchThreadState(threadId);
       if (!mounted || threadState == null) return;
       setState(() {
+        _isFavorite = threadState.isFavorite;
+        _favoriteLabel = threadState.favoriteLabel.trim();
+        _isArchived = threadState.isArchived;
+        _isBlocked = threadState.isBlocked;
+        _isBlockedByOther = threadState.blockedByOther;
         _replyRestrictedToMe = threadState.replyRestrictedToMe;
         _replyRestrictionReason = threadState.replyRestrictionReason;
         _systemSenderLabel = threadState.systemSenderLabel;
         _isSystemThread = threadState.isSystemThread;
-        if (_isReplyRestricted) {
+        if (_isComposerDisabled) {
           _pendingType = null;
           _pendingFile = null;
           _pendingDuration = null;
@@ -1017,18 +1039,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
               ),
               _buildSheetActionItem(
                 icon: Icons.star_rounded,
-                label: 'تحديث المفضلة',
-                caption: 'إضافة أو إزالة المحادثة من المفضلة',
+                label: _isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
+                caption: _favoriteLabel.isNotEmpty
+                    ? _favoriteLabel
+                    : 'تحديث حالة المحادثة في المفضلة',
                 onTap: () async {
                   Navigator.pop(sheetContext);
-                  await MessagingService.toggleFavorite(_resolvedThreadId!);
+                  await MessagingService.toggleFavorite(
+                    _resolvedThreadId!,
+                    remove: _isFavorite,
+                  );
+                  await _loadThreadState();
                   if (!mounted) return;
                   _snack('تم تحديث المفضلة');
                 },
               ),
               _buildSheetActionItem(
                 icon: Icons.block_rounded,
-                label: 'حظر العضو',
+                label: _isBlocked ? 'إلغاء الحظر' : 'حظر العضو',
                 danger: true,
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -1046,13 +1074,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
               ),
               _buildSheetActionItem(
                 icon: Icons.archive_outlined,
-                label: 'أرشفة المحادثة',
+                label: _isArchived ? 'إلغاء الأرشفة' : 'أرشفة المحادثة',
                 onTap: () async {
                   Navigator.pop(sheetContext);
-                  await MessagingService.toggleArchive(_resolvedThreadId!);
+                  final wasArchived = _isArchived;
+                  await MessagingService.toggleArchive(
+                    _resolvedThreadId!,
+                    remove: wasArchived,
+                  );
+                  await _loadThreadState();
                   if (!mounted) return;
-                  _snack('تمت أرشفة المحادثة');
-                  Navigator.pop(context);
+                  _snack(
+                    wasArchived
+                        ? 'تم إلغاء أرشفة المحادثة'
+                        : 'تمت أرشفة المحادثة',
+                  );
                 },
               ),
             ],
@@ -1064,14 +1100,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   // ✅ تأكيد الحظر — يستدعي API
   void _showBlockConfirmation() {
-    final rootContext = context;
     showDialog(
-      context: rootContext,
+      context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text("حظر العضو",
-            style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+        title: Text(
+          _isBlocked ? "إلغاء الحظر" : "حظر العضو",
+          style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+        ),
         content: Text(
-          "هل أنت متأكد من حظر ${widget.peerName}؟ \n\nلن يتمكن من مراسلتك بعد ذلك.",
+          _isBlocked
+              ? "هل تريد إلغاء حظر ${widget.peerName}؟\n\nسيتمكن من مراسلتك مجددًا بعد ذلك."
+              : "هل أنت متأكد من حظر ${widget.peerName}؟ \n\nلن يتمكن من مراسلتك بعد ذلك.",
           style: const TextStyle(fontFamily: 'Cairo'),
         ),
         actions: [
@@ -1082,25 +1121,36 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
+              final wasBlocked = _isBlocked;
               final success =
-                  await MessagingService.toggleBlock(_resolvedThreadId!);
-              if (!rootContext.mounted) return;
-              ScaffoldMessenger.of(rootContext).showSnackBar(
+                  await MessagingService.toggleBlock(
+                    _resolvedThreadId!,
+                    remove: wasBlocked,
+                  );
+              if (!mounted) return;
+              if (success) {
+                await _loadThreadState();
+              }
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    success ? "تم حظر العضو بنجاح" : "فشل الحظر",
+                    success
+                        ? (wasBlocked
+                            ? "تم إلغاء الحظر بنجاح"
+                            : "تم حظر العضو بنجاح")
+                        : (wasBlocked ? "فشل إلغاء الحظر" : "فشل الحظر"),
                     style: const TextStyle(fontFamily: 'Cairo'),
                   ),
                   backgroundColor: success ? Colors.red : Colors.grey,
                 ),
               );
-              if (success && rootContext.mounted) {
-                Navigator.pop(rootContext); // العودة لقائمة المحادثات
-              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("حظر",
-                style: TextStyle(fontFamily: 'Cairo', color: Colors.white)),
+            child: Text(
+              _isBlocked ? "إلغاء الحظر" : "حظر",
+              style: const TextStyle(fontFamily: 'Cairo', color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -2504,6 +2554,25 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (_isFavorite && !_isAutomatedPlatformThread) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF4CC),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          _favoriteLabel.isNotEmpty ? _favoriteLabel : 'مفضلة',
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF9A6700),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(width: 6),
                     Container(
                       width: 7,
@@ -2574,7 +2643,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
 
   Widget _buildStatusBanner(bool isDark) {
     // Only show when there's something meaningful to communicate
-    if (!_isReplyRestricted && _isChatConnected && !_isRecording) {
+    if (!_isBlockedByOther &&
+        !_isBlocked &&
+        !_isArchived &&
+        !_isReplyRestricted &&
+        _isChatConnected &&
+        !_isRecording) {
       return const SizedBox.shrink();
     }
 
@@ -2584,12 +2658,30 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
     IconData icon;
     String text;
 
-    if (_isReplyRestricted) {
+    if (_isBlockedByOther) {
+      background = AppColors.errorSurface;
+      borderColor = AppColors.error;
+      fg = AppColors.error;
+      icon = Icons.block_rounded;
+      text = 'لا يمكنك إرسال رسائل لأن الطرف الآخر قام بحظرك.';
+    } else if (_isBlocked) {
+      background = AppColors.errorSurface;
+      borderColor = AppColors.error;
+      fg = AppColors.error;
+      icon = Icons.block_flipped;
+      text = 'قمت بحظر هذا العضو. أزل الحظر من خيارات الرسائل للمتابعة.';
+    } else if (_isReplyRestricted) {
       background = AppColors.warningSurface;
       borderColor = AppColors.warning;
       fg = AppColors.warning;
       icon = Icons.lock_outline_rounded;
       text = _replyRestrictionMessage;
+    } else if (_isArchived) {
+      background = AppColors.primarySurface;
+      borderColor = AppColors.primary;
+      fg = AppColors.primary;
+      icon = Icons.archive_outlined;
+      text = 'هذه الرسائل مؤرشفة وستعود تلقائياً عند إرسال رسالة جديدة.';
     } else if (_isRecording) {
       background = AppColors.errorSurface;
       borderColor = AppColors.error;
@@ -2803,7 +2895,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
               fontFamily: 'Cairo',
               fontSize: AppTextStyles.micro,
               fontWeight: FontWeight.w800,
-              color: _isReplyRestricted
+              color: _isComposerDisabled
                   ? AppColors.error
                   : (isDark
                       ? AppTextStyles.textSecondaryDark
@@ -2819,7 +2911,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 background: AppColors.primarySurface,
                 foreground: AppColors.primary,
                 onPressed:
-                    _isReplyRestricted ? null : _showAttachmentOptions,
+                  _isComposerDisabled ? null : _showAttachmentOptions,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -2872,7 +2964,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 foreground: Colors.white,
                 onPressed: _isRecording
                     ? _stopRecording
-                    : (_isReplyRestricted ? null : _startRecording),
+                  : (_isComposerDisabled ? null : _startRecording),
               ),
               const SizedBox(width: 8),
               _buildComposerRoundButton(
@@ -2880,7 +2972,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen>
                 background: AppColors.primary,
                 foreground: Colors.white,
                 isLoading: _isSending,
-                onPressed: (_isReplyRestricted ||
+                onPressed: (_isComposerDisabled ||
                         _isSending ||
                         (_controller.text.trim().isEmpty && !_hasPendingAttachment))
                     ? null

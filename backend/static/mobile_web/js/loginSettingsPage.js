@@ -6,6 +6,254 @@ const LoginSettingsPage = (() => {
   const FACE_ID_PHONE_KEY = "nw_faceid_phone";
   const FACE_ID_DEVICE_TOKEN_KEY = "nw_faceid_device_token";
   const FACE_ID_CRED_ID_KEY = "nw_faceid_cred_id";
+  const COPY = {
+    ar: {
+      pageTitle: "إعدادات الدخول — نوافــذ",
+      heroAria: "ملخص إعدادات الدخول",
+      settingsAria: "بيانات تسجيل الدخول",
+      securityAria: "خيارات الأمان الإضافية",
+      back: "رجوع",
+      close: "إغلاق",
+      heroKicker: "الهوية والأمان",
+      heroTitle: "إعدادات الدخول",
+      heroSubtitle: "البيانات معروضة مسبقًا ويمكن تعديلها مباشرة من نفس الصفحة بسهولة.",
+      username: "اسم العضوية",
+      email: "البريد الإلكتروني",
+      phone: "رقم الجوال",
+      credentialsTitle: "بيانات تسجيل الدخول",
+      credentialsDesc: "يمكنك تعديل كل حقل وحفظه فورًا، مع إشعارات واضحة عند النجاح أو وجود خطأ.",
+      edit: "تعديل",
+      change: "تغيير",
+      password: "كلمة المرور",
+      passwordDesc: "محمية ولا يمكن عرضها. يمكنك تغييرها في أي وقت.",
+      securityTitle: "الأمان الإضافي",
+      securityDesc: "فعّل وسائل حماية إضافية لحسابك على هذا الجهاز.",
+      pinTitle: "رمز دخول الأمان",
+      pinButton: "إضافة أو تعديل",
+      faceIdTitle: "الدخول بمعرف الوجه",
+      faceIdButton: "الدخول بمعرف الوجه",
+      cancel: "إلغاء",
+      saveChanges: "حفظ التغييرات",
+      save: "حفظ",
+      sendOtp: "إرسال رمز التحقق",
+      confirmPhone: "تأكيد الرمز وتغيير",
+      usernameUnset: "غير محدد",
+      fieldUnset: "غير مضاف",
+      pinEnabled: "مفعل على هذا الجهاز",
+      pinDisabled: "غير مفعل",
+      faceIdCheck: "تحقق من توفر الميزة على جهازك.",
+      faceIdUnsupported: "غير مدعوم على هذا الجهاز",
+      faceIdEnable: "تفعيل",
+      faceIdDisable: "إلغاء التفعيل",
+      unsupported: "غير مدعوم",
+      sessionError: "تعذر التحقق من بيانات الجلسة الآن. حاول مرة أخرى بعد لحظة.",
+      modeRecovered: "تمت مزامنة نوع الحساب الحالي تلقائيًا للحفاظ على جلستك.",
+      requiredUsername: "اسم العضوية مطلوب",
+      usernameChangeFailed: "تعذر تغيير اسم العضوية.",
+      usernameChanged: "تم تعديل اسم العضوية وحفظه بنجاح.",
+      usernameToast: "تم تغيير اسم العضوية بنجاح",
+      requiredFields: "يرجى تعبئة جميع الحقول.",
+      passwordChangeFailed: "تعذر تغيير كلمة المرور.",
+      passwordChanged: "تم تغيير كلمة المرور بنجاح.",
+      passwordToast: "تم تغيير كلمة المرور بنجاح",
+      requiredEmail: "يرجى إدخال البريد الإلكتروني.",
+      emailUpdateFailed: "تعذر تحديث البريد الإلكتروني.",
+      emailChanged: "تم تعديل البريد الإلكتروني وحفظه.",
+      emailToast: "تم تحديث البريد الإلكتروني بنجاح",
+      phoneFormat: "صيغة رقم الجوال يجب أن تكون 05XXXXXXXX",
+      sending: "جاري الإرسال...",
+      otpSendFailed: "تعذر إرسال رمز التحقق.",
+      phoneOtpDesc: "أدخل رمز التحقق المرسل إلى {phone} للتأكيد.",
+      phoneOtpSent: "تم إرسال رمز التحقق إلى الرقم الجديد. أدخله لتأكيد التغيير.",
+      phoneCodeRequired: "أدخل رمز التحقق المكون من 4 أرقام",
+      phoneRestart: "حدث خطأ، يرجى البدء من جديد",
+      phoneConfirmFailed: "رمز التحقق غير صحيح أو انتهت صلاحيته.",
+      phoneChanged: "تم تغيير رقم الجوال بنجاح. استخدم الرقم الجديد لتسجيل الدخول.",
+      phoneToast: "تم تغيير رقم الجوال بنجاح",
+      pinFormat: "رمز الأمان يجب أن يكون من 4 إلى 6 أرقام.",
+      pinMismatch: "تأكيد الرمز غير مطابق.",
+      pinSaved: "تم حفظ رمز الأمان لهذا الجهاز.",
+      pinToast: "تم حفظ رمز الأمان.",
+      deviceNoBiometric: "الجهاز لا يدعم البصمة/الوجه",
+      updatePhoneFirst: "يرجى تحديث رقم الجوال أولاً",
+      genericUser: "مستخدم",
+      brandName: "نوافذ",
+      faceIdEnableFailed: "فشل تفعيل معرف الوجه.",
+      faceIdEnabled: "تم تفعيل الدخول بمعرف الوجه على هذا الجهاز.",
+      faceIdEnabledToast: "تم تفعيل الدخول بمعرف الوجه بنجاح",
+      faceIdCancelled: "تم إلغاء عملية التحقق.",
+      faceIdDisableConfirm: "هل تريد إلغاء تفعيل الدخول بمعرف الوجه؟",
+      faceIdDisableFailed: "تعذر إلغاء التفعيل من الخادم.",
+      faceIdDisabled: "تم إلغاء تفعيل الدخول بمعرف الوجه.",
+      faceIdDisabledToast: "تم إلغاء تفعيل معرف الوجه",
+      modal: {
+        username: {
+          title: "تغيير اسم العضوية",
+          desc: "أدخل اسم العضوية الجديد. يسمح فقط بالأحرف الإنجليزية والأرقام و (_) و (.)",
+          hint: "قم بتعديل اسم العضوية ثم احفظ التغييرات.",
+          label: "اسم العضوية الجديد",
+          placeholder: "اسم العضوية الجديد",
+        },
+        password: {
+          title: "تغيير كلمة المرور",
+          desc: "أدخل كلمة المرور الحالية ثم الجديدة (8 أحرف على الأقل).",
+          hint: "يفضل استخدام كلمة مرور قوية يصعب توقعها.",
+          currentLabel: "كلمة المرور الحالية",
+          currentPlaceholder: "كلمة المرور الحالية",
+          newLabel: "كلمة المرور الجديدة",
+          newPlaceholder: "كلمة المرور الجديدة",
+          confirmLabel: "تأكيد كلمة المرور الجديدة",
+          confirmPlaceholder: "تأكيد كلمة المرور الجديدة",
+        },
+        email: {
+          title: "تغيير البريد الإلكتروني",
+          desc: "أدخل البريد الإلكتروني الجديد المرتبط بحسابك.",
+          hint: "تأكد من صحة البريد حتى تصلك الإشعارات بشكل صحيح.",
+          label: "البريد الإلكتروني",
+        },
+        phone: {
+          title: "تغيير رقم الجوال",
+          desc: "سيتم إرسال رمز تحقق إلى الرقم الجديد للتأكيد قبل تغيير رقم تسجيل الدخول.",
+          hint: "استخدم رقم جوال سعودي صحيح يبدأ بـ 05.",
+          label: "رقم الجوال الجديد",
+          otpLabel: "رمز التحقق",
+          otpPlaceholder: "XXXX",
+        },
+        pin: {
+          title: "إضافة رمز دخول أمان",
+          desc: "احفظ الرمز في مكان آمن. يستخدم هذا الرمز للدخول السريع داخل الجهاز.",
+          hint: "يمكنك إضافة رمز من 4 إلى 6 أرقام لحماية إضافية.",
+          label: "رمز الأمان",
+          placeholder: "رمز الأمان (4-6 أرقام)",
+          confirmLabel: "تأكيد الرمز",
+          confirmPlaceholder: "تأكيد الرمز",
+        },
+      },
+    },
+    en: {
+      pageTitle: "Nawafeth — Login Settings",
+      heroAria: "Login settings summary",
+      settingsAria: "Login details",
+      securityAria: "Additional security options",
+      back: "Back",
+      close: "Close",
+      heroKicker: "Identity and security",
+      heroTitle: "Login settings",
+      heroSubtitle: "Your current details are shown here and can be updated directly from the same page.",
+      username: "Username",
+      email: "Email",
+      phone: "Mobile number",
+      credentialsTitle: "Login details",
+      credentialsDesc: "Update any field and save it instantly, with clear feedback for success or failure.",
+      edit: "Edit",
+      change: "Change",
+      password: "Password",
+      passwordDesc: "Protected and never shown. You can change it at any time.",
+      securityTitle: "Additional security",
+      securityDesc: "Enable extra protection for your account on this device.",
+      pinTitle: "Security PIN",
+      pinButton: "Add or edit",
+      faceIdTitle: "Face ID sign-in",
+      faceIdButton: "Face ID sign-in",
+      cancel: "Cancel",
+      saveChanges: "Save changes",
+      save: "Save",
+      sendOtp: "Send verification code",
+      confirmPhone: "Confirm code and update",
+      usernameUnset: "Not set",
+      fieldUnset: "Not added",
+      pinEnabled: "Enabled on this device",
+      pinDisabled: "Not enabled",
+      faceIdCheck: "Check whether this feature is available on your device.",
+      faceIdUnsupported: "Not supported on this device",
+      faceIdEnable: "Enable",
+      faceIdDisable: "Disable",
+      unsupported: "Unsupported",
+      sessionError: "Unable to verify your session details right now. Please try again in a moment.",
+      modeRecovered: "The current account mode was synced automatically to preserve your session.",
+      requiredUsername: "Username is required.",
+      usernameChangeFailed: "Unable to change the username.",
+      usernameChanged: "The username was updated successfully.",
+      usernameToast: "Username updated successfully",
+      requiredFields: "Please complete all fields.",
+      passwordChangeFailed: "Unable to change the password.",
+      passwordChanged: "Password updated successfully.",
+      passwordToast: "Password updated successfully",
+      requiredEmail: "Please enter your email address.",
+      emailUpdateFailed: "Unable to update the email address.",
+      emailChanged: "The email address was updated successfully.",
+      emailToast: "Email updated successfully",
+      phoneFormat: "The mobile number must follow this format: 05XXXXXXXX",
+      sending: "Sending...",
+      otpSendFailed: "Unable to send the verification code.",
+      phoneOtpDesc: "Enter the verification code sent to {phone} to confirm the change.",
+      phoneOtpSent: "A verification code was sent to the new number. Enter it to confirm the change.",
+      phoneCodeRequired: "Enter the 4-digit verification code",
+      phoneRestart: "Something went wrong. Please start again.",
+      phoneConfirmFailed: "The verification code is invalid or has expired.",
+      phoneChanged: "The mobile number was changed successfully. Use the new number to sign in.",
+      phoneToast: "Mobile number updated successfully",
+      pinFormat: "The security PIN must be 4 to 6 digits.",
+      pinMismatch: "The confirmation PIN does not match.",
+      pinSaved: "The security PIN was saved for this device.",
+      pinToast: "Security PIN saved.",
+      deviceNoBiometric: "This device does not support biometric authentication.",
+      updatePhoneFirst: "Please update your mobile number first.",
+      genericUser: "User",
+      brandName: "Nawafeth",
+      faceIdEnableFailed: "Failed to enable Face ID sign-in.",
+      faceIdEnabled: "Face ID sign-in was enabled on this device.",
+      faceIdEnabledToast: "Face ID enabled successfully",
+      faceIdCancelled: "The verification flow was cancelled.",
+      faceIdDisableConfirm: "Do you want to disable Face ID sign-in?",
+      faceIdDisableFailed: "Unable to disable the feature on the server.",
+      faceIdDisabled: "Face ID sign-in was disabled.",
+      faceIdDisabledToast: "Face ID disabled",
+      modal: {
+        username: {
+          title: "Change username",
+          desc: "Enter the new username. Only English letters, numbers, (_) and (.) are allowed.",
+          hint: "Update the username and save your changes.",
+          label: "New username",
+          placeholder: "New username",
+        },
+        password: {
+          title: "Change password",
+          desc: "Enter the current password, then the new one (at least 8 characters).",
+          hint: "Use a strong password that is hard to guess.",
+          currentLabel: "Current password",
+          currentPlaceholder: "Current password",
+          newLabel: "New password",
+          newPlaceholder: "New password",
+          confirmLabel: "Confirm new password",
+          confirmPlaceholder: "Confirm new password",
+        },
+        email: {
+          title: "Change email",
+          desc: "Enter the new email address linked to your account.",
+          hint: "Make sure the email is valid so notifications reach you correctly.",
+          label: "Email address",
+        },
+        phone: {
+          title: "Change mobile number",
+          desc: "A verification code will be sent to the new number before changing your login number.",
+          hint: "Use a valid Saudi mobile number starting with 05.",
+          label: "New mobile number",
+          otpLabel: "Verification code",
+          otpPlaceholder: "XXXX",
+        },
+        pin: {
+          title: "Add a security PIN",
+          desc: "Store the PIN somewhere safe. It is used for faster sign-in on this device.",
+          hint: "You can add a 4 to 6 digit PIN for extra protection.",
+          label: "Security PIN",
+          placeholder: "Security PIN (4-6 digits)",
+          confirmLabel: "Confirm PIN",
+          confirmPlaceholder: "Confirm PIN",
+        },
+      },
+    },
+  };
 
   let _profile = null;
   let _phoneStep = 1; // 1 = enter new phone, 2 = enter OTP code
@@ -26,10 +274,12 @@ const LoginSettingsPage = (() => {
 
     _mode = _resolveMode();
     _bindEvents();
+    _applyStaticCopy();
     _renderProfile();
     _syncSecurityHints();
     _loadProfile();
     _initBiometric();
+    window.addEventListener("nawafeth:languagechange", _handleLanguageChange);
   }
 
   function _resolveMode(profile) {
@@ -115,7 +365,7 @@ const LoginSettingsPage = (() => {
         window.location.href = "/login/?next=" + encodeURIComponent(window.location.pathname);
         return;
       }
-      _notify("تعذر التحقق من بيانات الجلسة الآن. حاول مرة أخرى بعد لحظة.", "error");
+      _notify(_copy("sessionError"), "error");
       return;
     }
 
@@ -128,7 +378,7 @@ const LoginSettingsPage = (() => {
     _clearCachedProfile();
     _renderProfile();
     if (resolved.recovered) {
-      _showInlineAlert("تمت مزامنة نوع الحساب الحالي تلقائيًا للحفاظ على جلستك.", "info", 3600);
+      _showInlineAlert(_copy("modeRecovered"), "info", 3600);
     }
   }
 
@@ -154,7 +404,7 @@ const LoginSettingsPage = (() => {
       // For phone action: label the save button for step 1
       const saveBtn = document.getElementById("ls-modal-save");
       if (saveBtn) {
-        saveBtn.textContent = action === "phone" ? "إرسال رمز التحقق" : "حفظ";
+        saveBtn.textContent = action === "phone" ? _copy("sendOtp") : _copy("save");
       }
 
       window.setTimeout(() => {
@@ -175,73 +425,73 @@ const LoginSettingsPage = (() => {
   function _modalConfig(action) {
     if (action === "username") {
       return {
-        title: "تغيير اسم العضوية",
-        desc: "أدخل اسم العضوية الجديد. يسمح فقط بالأحرف الإنجليزية والأرقام و (_) و (.)",
-        hint: "قم بتعديل اسم العضوية ثم احفظ التغييرات.",
+        title: _copy("modal.username.title"),
+        desc: _copy("modal.username.desc"),
+        hint: _copy("modal.username.hint"),
         fields:
           '<div class="ls-modal-field">' +
-          '<label for="ls-input-username">اسم العضوية الجديد</label>' +
-          '<input id="ls-input-username" type="text" class="form-input" maxlength="50" placeholder="اسم العضوية الجديد" value="' + _escape(_norm(_profile && _profile.username)) + '" dir="ltr">' +
+          '<label for="ls-input-username">' + _escape(_copy("modal.username.label")) + '</label>' +
+          '<input id="ls-input-username" type="text" class="form-input" maxlength="50" placeholder="' + _escape(_copy("modal.username.placeholder")) + '" value="' + _escape(_norm(_profile && _profile.username)) + '" dir="ltr">' +
           "</div>",
       };
     }
     if (action === "password") {
       return {
-        title: "تغيير كلمة المرور",
-        desc: "أدخل كلمة المرور الحالية ثم الجديدة (8 أحرف على الأقل).",
-        hint: "يفضل استخدام كلمة مرور قوية يصعب توقعها.",
+        title: _copy("modal.password.title"),
+        desc: _copy("modal.password.desc"),
+        hint: _copy("modal.password.hint"),
         fields:
           '<div class="ls-modal-field">' +
-          '<label for="ls-input-current-password">كلمة المرور الحالية</label>' +
-          '<input id="ls-input-current-password" type="password" class="form-input" maxlength="128" placeholder="كلمة المرور الحالية" dir="ltr">' +
+          '<label for="ls-input-current-password">' + _escape(_copy("modal.password.currentLabel")) + '</label>' +
+          '<input id="ls-input-current-password" type="password" class="form-input" maxlength="128" placeholder="' + _escape(_copy("modal.password.currentPlaceholder")) + '" dir="ltr">' +
           "</div>" +
           '<div class="ls-modal-field">' +
-          '<label for="ls-input-new-password">كلمة المرور الجديدة</label>' +
-          '<input id="ls-input-new-password" type="password" class="form-input" maxlength="128" placeholder="كلمة المرور الجديدة" dir="ltr">' +
+          '<label for="ls-input-new-password">' + _escape(_copy("modal.password.newLabel")) + '</label>' +
+          '<input id="ls-input-new-password" type="password" class="form-input" maxlength="128" placeholder="' + _escape(_copy("modal.password.newPlaceholder")) + '" dir="ltr">' +
           "</div>" +
           '<div class="ls-modal-field">' +
-          '<label for="ls-input-new-password-confirm">تأكيد كلمة المرور الجديدة</label>' +
-          '<input id="ls-input-new-password-confirm" type="password" class="form-input" maxlength="128" placeholder="تأكيد كلمة المرور الجديدة" dir="ltr">' +
+          '<label for="ls-input-new-password-confirm">' + _escape(_copy("modal.password.confirmLabel")) + '</label>' +
+          '<input id="ls-input-new-password-confirm" type="password" class="form-input" maxlength="128" placeholder="' + _escape(_copy("modal.password.confirmPlaceholder")) + '" dir="ltr">' +
           "</div>",
       };
     }
     if (action === "email") {
       return {
-        title: "تغيير البريد الإلكتروني",
-        desc: "أدخل البريد الإلكتروني الجديد المرتبط بحسابك.",
-        hint: "تأكد من صحة البريد حتى تصلك الإشعارات بشكل صحيح.",
+        title: _copy("modal.email.title"),
+        desc: _copy("modal.email.desc"),
+        hint: _copy("modal.email.hint"),
         fields:
           '<div class="ls-modal-field">' +
-          '<label for="ls-input-email">البريد الإلكتروني</label>' +
+          '<label for="ls-input-email">' + _escape(_copy("modal.email.label")) + '</label>' +
           '<input id="ls-input-email" type="email" class="form-input" maxlength="255" placeholder="example@mail.com" value="' + _escape(_norm(_profile && _profile.email)) + '" dir="ltr">' +
           "</div>",
       };
     }
     if (action === "phone") {
       return {
-        title: "تغيير رقم الجوال",
-        desc: "سيتم إرسال رمز تحقق إلى الرقم الجديد للتأكيد قبل تغيير رقم تسجيل الدخول.",
-        hint: "استخدم رقم جوال سعودي صحيح يبدأ بـ 05.",
+        title: _copy("modal.phone.title"),
+        desc: _copy("modal.phone.desc"),
+        hint: _copy("modal.phone.hint"),
         fields:
           '<div class="ls-modal-field">' +
-          '<label for="ls-input-phone">رقم الجوال الجديد</label>' +
+          '<label for="ls-input-phone">' + _escape(_copy("modal.phone.label")) + '</label>' +
           '<input id="ls-input-phone" type="tel" class="form-input" maxlength="10" placeholder="05XXXXXXXX" dir="ltr">' +
           "</div>",
       };
     }
 
     return {
-      title: "إضافة رمز دخول أمان",
-      desc: "احفظ الرمز في مكان آمن. يستخدم هذا الرمز للدخول السريع داخل الجهاز.",
-      hint: "يمكنك إضافة رمز من 4 إلى 6 أرقام لحماية إضافية.",
+      title: _copy("modal.pin.title"),
+      desc: _copy("modal.pin.desc"),
+      hint: _copy("modal.pin.hint"),
       fields:
         '<div class="ls-modal-field">' +
-        '<label for="ls-input-pin">رمز الأمان</label>' +
-        '<input id="ls-input-pin" type="password" class="form-input" maxlength="6" placeholder="رمز الأمان (4-6 أرقام)" dir="ltr">' +
+        '<label for="ls-input-pin">' + _escape(_copy("modal.pin.label")) + '</label>' +
+        '<input id="ls-input-pin" type="password" class="form-input" maxlength="6" placeholder="' + _escape(_copy("modal.pin.placeholder")) + '" dir="ltr">' +
         "</div>" +
         '<div class="ls-modal-field">' +
-        '<label for="ls-input-pin-confirm">تأكيد الرمز</label>' +
-        '<input id="ls-input-pin-confirm" type="password" class="form-input" maxlength="6" placeholder="تأكيد الرمز" dir="ltr">' +
+        '<label for="ls-input-pin-confirm">' + _escape(_copy("modal.pin.confirmLabel")) + '</label>' +
+        '<input id="ls-input-pin-confirm" type="password" class="form-input" maxlength="6" placeholder="' + _escape(_copy("modal.pin.confirmPlaceholder")) + '" dir="ltr">' +
         "</div>",
     };
   }
@@ -278,7 +528,7 @@ const LoginSettingsPage = (() => {
   async function _saveUsername() {
     const username = _norm(_val("ls-input-username"));
     if (!username) {
-      _notify("اسم العضوية مطلوب", "error");
+      _notify(_copy("requiredUsername"), "error");
       return;
     }
 
@@ -288,7 +538,7 @@ const LoginSettingsPage = (() => {
     });
 
     if (!res.ok) {
-      _notify(_extractError(res, "تعذر تغيير اسم العضوية."), "error");
+      _notify(_extractError(res, _copy("usernameChangeFailed")), "error");
       return;
     }
 
@@ -296,9 +546,9 @@ const LoginSettingsPage = (() => {
     _profile.username = username;
     _clearCachedProfile();
     _renderProfile();
-    _showInlineAlert("تم تعديل اسم العضوية وحفظه بنجاح.", "success", 3200);
+    _showInlineAlert(_copy("usernameChanged"), "success", 3200);
     _closeModal();
-    _toast("تم تغيير اسم العضوية بنجاح");
+    _toast(_copy("usernameToast"));
   }
 
   async function _savePassword() {
@@ -307,7 +557,7 @@ const LoginSettingsPage = (() => {
     const newPasswordConfirm = _val("ls-input-new-password-confirm");
 
     if (!currentPassword || !newPassword || !newPasswordConfirm) {
-      _notify("يرجى تعبئة جميع الحقول.", "error");
+      _notify(_copy("requiredFields"), "error");
       return;
     }
 
@@ -321,19 +571,19 @@ const LoginSettingsPage = (() => {
     });
 
     if (!res.ok) {
-      _notify(_extractError(res, "تعذر تغيير كلمة المرور."), "error");
+      _notify(_extractError(res, _copy("passwordChangeFailed")), "error");
       return;
     }
 
-    _showInlineAlert("تم تغيير كلمة المرور بنجاح.", "success", 3400);
+    _showInlineAlert(_copy("passwordChanged"), "success", 3400);
     _closeModal();
-    _toast("تم تغيير كلمة المرور بنجاح");
+    _toast(_copy("passwordToast"));
   }
 
   async function _saveEmail() {
     const email = _norm(_val("ls-input-email"));
     if (!email) {
-      _notify("يرجى إدخال البريد الإلكتروني.", "error");
+      _notify(_copy("requiredEmail"), "error");
       return;
     }
 
@@ -343,7 +593,7 @@ const LoginSettingsPage = (() => {
     });
 
     if (!res.ok) {
-      _notify(_extractError(res, "تعذر تحديث البريد الإلكتروني."), "error");
+      _notify(_extractError(res, _copy("emailUpdateFailed")), "error");
       return;
     }
 
@@ -351,30 +601,30 @@ const LoginSettingsPage = (() => {
     _profile.email = email;
     _clearCachedProfile();
     _renderProfile();
-    _showInlineAlert("تم تعديل البريد الإلكتروني وحفظه.", "success", 3200);
+    _showInlineAlert(_copy("emailChanged"), "success", 3200);
     _closeModal();
-    _toast("تم تحديث البريد الإلكتروني بنجاح");
+    _toast(_copy("emailToast"));
   }
 
   async function _requestPhoneChange() {
     const phone = _normalizePhone05(_val("ls-input-phone"));
     if (!phone) {
-      _notify("صيغة رقم الجوال يجب أن تكون 05XXXXXXXX", "error");
+      _notify(_copy("phoneFormat"), "error");
       return;
     }
 
     const saveBtn = document.getElementById("ls-modal-save");
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "جاري الإرسال..."; }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = _copy("sending"); }
 
     const res = await ApiClient.request("/api/accounts/me/request-phone-change/", {
       method: "POST",
       body: { phone: phone },
     });
 
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "تأكيد الرمز وتغيير"; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = _copy("confirmPhone"); }
 
     if (!res.ok) {
-      _notify(_extractError(res, "تعذر إرسال رمز التحقق."), "error");
+      _notify(_extractError(res, _copy("otpSendFailed")), "error");
       return;
     }
 
@@ -384,28 +634,28 @@ const LoginSettingsPage = (() => {
     // Replace fields area with OTP input
     const fieldsEl = document.getElementById("ls-modal-fields");
     const descEl = document.getElementById("ls-modal-desc");
-    if (descEl) descEl.textContent = "أدخل رمز التحقق المرسل إلى " + phone + " للتأكيد.";
+    if (descEl) descEl.textContent = _copy("phoneOtpDesc").replace("{phone}", phone);
     if (fieldsEl) {
       fieldsEl.innerHTML =
         '<div class="ls-modal-field">' +
-        '<label for="ls-input-phone-otp">رمز التحقق</label>' +
-        '<input id="ls-input-phone-otp" type="tel" class="form-input" maxlength="4" placeholder="XXXX" dir="ltr" inputmode="numeric">' +
+        '<label for="ls-input-phone-otp">' + _escape(_copy("modal.phone.otpLabel")) + '</label>' +
+        '<input id="ls-input-phone-otp" type="tel" class="form-input" maxlength="4" placeholder="' + _escape(_copy("modal.phone.otpPlaceholder")) + '" dir="ltr" inputmode="numeric">' +
         "</div>";
       const otpInput = document.getElementById("ls-input-phone-otp");
       if (otpInput) otpInput.focus();
     }
 
-    _showInlineAlert("تم إرسال رمز التحقق إلى الرقم الجديد. أدخله لتأكيد التغيير.", "info", 4000);
+    _showInlineAlert(_copy("phoneOtpSent"), "info", 4000);
   }
 
   async function _confirmPhoneChange() {
     const code = (_val("ls-input-phone-otp") || "").trim();
     if (!code || code.length !== 4) {
-      _notify("أدخل رمز التحقق المكون من 4 أرقام", "error");
+      _notify(_copy("phoneCodeRequired"), "error");
       return;
     }
     if (!_pendingNewPhone) {
-      _notify("حدث خطأ، يرجى البدء من جديد", "error");
+      _notify(_copy("phoneRestart"), "error");
       _closeModal();
       return;
     }
@@ -416,7 +666,7 @@ const LoginSettingsPage = (() => {
     });
 
     if (!res.ok) {
-      _notify(_extractError(res, "رمز التحقق غير صحيح أو انتهت صلاحيته."), "error");
+      _notify(_extractError(res, _copy("phoneConfirmFailed")), "error");
       return;
     }
 
@@ -424,9 +674,9 @@ const LoginSettingsPage = (() => {
     _profile.phone = _pendingNewPhone;
     _clearCachedProfile();
     _renderProfile();
-    _showInlineAlert("تم تغيير رقم الجوال بنجاح. استخدم الرقم الجديد لتسجيل الدخول.", "success", 4000);
+    _showInlineAlert(_copy("phoneChanged"), "success", 4000);
     _closeModal();
-    _toast("تم تغيير رقم الجوال بنجاح");
+    _toast(_copy("phoneToast"));
   }
 
   function _savePin() {
@@ -434,19 +684,19 @@ const LoginSettingsPage = (() => {
     const pinConfirm = _norm(_val("ls-input-pin-confirm"));
 
     if (!/^\d{4,6}$/.test(pin)) {
-      _notify("رمز الأمان يجب أن يكون من 4 إلى 6 أرقام.", "error");
+      _notify(_copy("pinFormat"), "error");
       return;
     }
     if (pin !== pinConfirm) {
-      _notify("تأكيد الرمز غير مطابق.", "error");
+      _notify(_copy("pinMismatch"), "error");
       return;
     }
 
     _storageSet(SECURITY_PIN_KEY, pin);
     _syncSecurityHints();
-    _showInlineAlert("تم حفظ رمز الأمان لهذا الجهاز.", "success", 3400);
+    _showInlineAlert(_copy("pinSaved"), "success", 3400);
     _closeModal();
-    _toast("تم حفظ رمز الأمان.");
+    _toast(_copy("pinToast"));
   }
 
   function _initBiometric() {
@@ -457,7 +707,7 @@ const LoginSettingsPage = (() => {
       _biometricChecked = true;
       _biometricAvailable = false;
       btn.disabled = true;
-      btn.textContent = "غير مدعوم";
+      btn.textContent = _copy("unsupported");
       _syncSecurityHints();
       return;
     }
@@ -481,20 +731,20 @@ const LoginSettingsPage = (() => {
 
     if (!_biometricAvailable) {
       btn.disabled = true;
-      btn.textContent = "غير مدعوم";
+      btn.textContent = _copy("unsupported");
       _syncSecurityHints();
       return;
     }
 
     const enabled = !!_getStoredBiometricData();
     btn.disabled = false;
-    btn.textContent = enabled ? "إلغاء التفعيل" : "تفعيل";
+    btn.textContent = enabled ? _copy("faceIdDisable") : _copy("faceIdEnable");
     _syncSecurityHints();
   }
 
   async function _handleFaceIdAction() {
     if (!_biometricAvailable) {
-      _notify("الجهاز لا يدعم البصمة/الوجه", "error");
+      _notify(_copy("deviceNoBiometric"), "error");
       return;
     }
 
@@ -509,7 +759,7 @@ const LoginSettingsPage = (() => {
   async function _enrollFaceId() {
     const phone = _normalizePhone05(_norm(_profile && _profile.phone));
     if (!phone) {
-      _notify("يرجى تحديث رقم الجوال أولاً", "error");
+      _notify(_copy("updatePhoneFirst"), "error");
       return;
     }
 
@@ -518,7 +768,7 @@ const LoginSettingsPage = (() => {
       return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
     }
     var _rawUsername = _norm(_profile && _profile.username);
-    const displayName = (_rawUsername && !_looksLikePhone(_rawUsername)) ? _rawUsername : "مستخدم";
+    const displayName = (_rawUsername && !_looksLikePhone(_rawUsername)) ? _rawUsername : _copy("genericUser");
     const btn = document.getElementById("ls-action-faceid");
     if (btn) btn.disabled = true;
 
@@ -530,7 +780,7 @@ const LoginSettingsPage = (() => {
       const credential = await navigator.credentials.create({
         publicKey: {
           challenge: challenge,
-          rp: { name: "نوافذ" },
+          rp: { name: _copy("brandName") },
           user: {
             id: userId,
             name: phone,
@@ -556,7 +806,7 @@ const LoginSettingsPage = (() => {
 
       const token = _extractDeviceToken(enrollRes);
       if (!enrollRes.ok || !token) {
-        _notify(_extractError(enrollRes, "فشل تفعيل معرف الوجه."), "error");
+        _notify(_extractError(enrollRes, _copy("faceIdEnableFailed")), "error");
         return;
       }
 
@@ -567,13 +817,13 @@ const LoginSettingsPage = (() => {
       _storageSet(FACE_ID_ENABLED_KEY, "1");
 
       _updateFaceButton();
-      _showInlineAlert("تم تفعيل الدخول بمعرف الوجه على هذا الجهاز.", "success", 3600);
-      _toast("تم تفعيل الدخول بمعرف الوجه بنجاح");
+      _showInlineAlert(_copy("faceIdEnabled"), "success", 3600);
+      _toast(_copy("faceIdEnabledToast"));
     } catch (err) {
       if (err && err.name === "NotAllowedError") {
-        _notify("تم إلغاء عملية التحقق.", "error");
+        _notify(_copy("faceIdCancelled"), "error");
       } else {
-        _notify("فشل تفعيل معرف الوجه.", "error");
+        _notify(_copy("faceIdEnableFailed"), "error");
       }
     } finally {
       if (btn) btn.disabled = false;
@@ -582,7 +832,7 @@ const LoginSettingsPage = (() => {
   }
 
   async function _disableFaceId() {
-    const confirmed = window.confirm("هل تريد إلغاء تفعيل الدخول بمعرف الوجه؟");
+    const confirmed = window.confirm(_copy("faceIdDisableConfirm"));
     if (!confirmed) return;
 
     const res = await ApiClient.request("/api/accounts/biometric/revoke/", {
@@ -591,20 +841,20 @@ const LoginSettingsPage = (() => {
     });
 
     if (!res.ok) {
-      _notify(_extractError(res, "تعذر إلغاء التفعيل من الخادم."), "error");
+      _notify(_extractError(res, _copy("faceIdDisableFailed")), "error");
       return;
     }
 
     _clearStoredBiometricData();
     _updateFaceButton();
-    _showInlineAlert("تم إلغاء تفعيل الدخول بمعرف الوجه.", "success", 3400);
-    _toast("تم إلغاء تفعيل معرف الوجه");
+    _showInlineAlert(_copy("faceIdDisabled"), "success", 3400);
+    _toast(_copy("faceIdDisabledToast"));
   }
 
   function _renderProfile() {
-    const username = _norm(_profile && _profile.username) || "غير محدد";
-    const email = _norm(_profile && _profile.email) || "غير مضاف";
-    const phone = _norm(_profile && _profile.phone) || "غير مضاف";
+    const username = _norm(_profile && _profile.username) || _copy("usernameUnset");
+    const email = _norm(_profile && _profile.email) || _copy("fieldUnset");
+    const phone = _norm(_profile && _profile.phone) || _copy("fieldUnset");
 
     _setText("ls-value-username", username);
     _setText("ls-value-email", email);
@@ -616,19 +866,19 @@ const LoginSettingsPage = (() => {
   }
 
   function _syncSecurityHints() {
-    _setText("ls-pin-hint", _hasPinConfigured() ? "مفعل على هذا الجهاز" : "غير مفعل");
+    _setText("ls-pin-hint", _hasPinConfigured() ? _copy("pinEnabled") : _copy("pinDisabled"));
 
     if (!_biometricChecked) {
-      _setText("ls-faceid-hint", "تحقق من توفر الميزة على جهازك.");
+      _setText("ls-faceid-hint", _copy("faceIdCheck"));
       return;
     }
 
     if (!_biometricAvailable) {
-      _setText("ls-faceid-hint", "غير مدعوم على هذا الجهاز");
+      _setText("ls-faceid-hint", _copy("faceIdUnsupported"));
       return;
     }
 
-    _setText("ls-faceid-hint", _getStoredBiometricData() ? "مفعل على هذا الجهاز" : "غير مفعل");
+    _setText("ls-faceid-hint", _getStoredBiometricData() ? _copy("pinEnabled") : _copy("pinDisabled"));
   }
 
   function _hasPinConfigured() {
@@ -768,6 +1018,83 @@ const LoginSettingsPage = (() => {
       .replace(/>/g, "&gt;")
       .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#39;");
+  }
+
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === "function") {
+      return window.NawafethI18n.getLanguage() === "en" ? "en" : "ar";
+    }
+    return document.documentElement.lang === "en" ? "en" : "ar";
+  }
+
+  function _copy(key) {
+    const lang = _currentLang();
+    const segments = String(key || "").split(".");
+    let value = COPY[lang] || COPY.ar;
+    for (let i = 0; i < segments.length; i += 1) {
+      if (!value || typeof value !== "object") break;
+      value = value[segments[i]];
+    }
+    if (typeof value === "string") return value;
+
+    value = COPY.ar;
+    for (let i = 0; i < segments.length; i += 1) {
+      if (!value || typeof value !== "object") break;
+      value = value[segments[i]];
+    }
+    return typeof value === "string" ? value : "";
+  }
+
+  function _applyStaticCopy() {
+    document.title = _copy("pageTitle");
+    const heroCard = document.getElementById("ls-hero-card");
+    const settingsCard = document.getElementById("ls-settings-card");
+    const securityCard = document.getElementById("ls-security-card");
+    if (heroCard) heroCard.setAttribute("aria-label", _copy("heroAria"));
+    if (settingsCard) settingsCard.setAttribute("aria-label", _copy("settingsAria"));
+    if (securityCard) securityCard.setAttribute("aria-label", _copy("securityAria"));
+    _setText("ls-hero-kicker", _copy("heroKicker"));
+    _setText("ls-hero-title", _copy("heroTitle"));
+    _setText("ls-hero-subtitle", _copy("heroSubtitle"));
+    _setText("ls-meta-label-username", _copy("username"));
+    _setText("ls-meta-label-email", _copy("email"));
+    _setText("ls-meta-label-phone", _copy("phone"));
+    _setText("ls-section-title-credentials", _copy("credentialsTitle"));
+    _setText("ls-section-desc-credentials", _copy("credentialsDesc"));
+    _setText("ls-label-username", _copy("username"));
+    _setText("ls-label-email", _copy("email"));
+    _setText("ls-label-phone", _copy("phone"));
+    _setText("ls-label-password", _copy("password"));
+    _setText("ls-desc-password", _copy("passwordDesc"));
+    _setText("ls-section-title-security", _copy("securityTitle"));
+    _setText("ls-section-desc-security", _copy("securityDesc"));
+    _setText("ls-label-pin", _copy("pinTitle"));
+    _setText("ls-label-faceid", _copy("faceIdTitle"));
+    _setText("ls-modal-cancel", _copy("cancel"));
+    _setText("ls-modal-save", _currentAction === "phone" && _phoneStep === 2 ? _copy("confirmPhone") : (_currentAction === "phone" ? _copy("sendOtp") : _copy("saveChanges")));
+    const backBtn = document.getElementById("ls-back-btn");
+    const closeBtn = document.getElementById("ls-modal-close");
+    if (backBtn) backBtn.setAttribute("aria-label", _copy("back"));
+    if (closeBtn) closeBtn.setAttribute("aria-label", _copy("close"));
+    _setActionButtonLabels();
+  }
+
+  function _setActionButtonLabels() {
+    _setText("ls-action-username", _copy("edit"));
+    _setText("ls-action-email", _copy("edit"));
+    _setText("ls-action-phone", _copy("edit"));
+    _setText("ls-action-password", _copy("change"));
+    _setText("ls-action-pin", _copy("pinButton"));
+    const faceBtn = document.getElementById("ls-action-faceid");
+    if (faceBtn && !faceBtn.disabled && !_biometricChecked) {
+      faceBtn.textContent = _copy("faceIdButton");
+    }
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    _renderProfile();
+    _syncSecurityHints();
   }
 
   document.addEventListener("DOMContentLoaded", init);

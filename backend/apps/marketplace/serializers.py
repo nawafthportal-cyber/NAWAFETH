@@ -9,6 +9,11 @@ from apps.providers.location_formatter import (
     format_city_display,
     normalize_city_scope,
 )
+from apps.providers.localization import (
+    format_city_display_en,
+    translate_category_name,
+    translate_subcategory_name,
+)
 from .models import (
     Offer,
     RequestStatusLog,
@@ -382,11 +387,14 @@ class UrgentRequestAcceptSerializer(serializers.Serializer):
 class ServiceRequestListSerializer(serializers.ModelSerializer):
     client_id = serializers.IntegerField(source="client.id", read_only=True)
     subcategory_name = serializers.CharField(source="subcategory.name", read_only=True)
+    subcategory_name_en = serializers.SerializerMethodField()
     category_name = serializers.CharField(source="subcategory.category.name", read_only=True)
+    category_name_en = serializers.SerializerMethodField()
     client_phone = serializers.CharField(source="client.phone", read_only=True)
     client_city = serializers.CharField(source="client.city", read_only=True)
     client_name = serializers.SerializerMethodField()
     client_city_display = serializers.SerializerMethodField()
+    client_city_display_en = serializers.SerializerMethodField()
     provider_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_phone = serializers.CharField(source="provider.user.phone", read_only=True)
     subcategory_ids = serializers.SerializerMethodField()
@@ -401,6 +409,7 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
     review_on_time = serializers.SerializerMethodField()
     review_comment = serializers.SerializerMethodField()
     city_display = serializers.SerializerMethodField()
+    city_display_en = serializers.SerializerMethodField()
 
     def _status_group_value(self, raw: str) -> str:
         return request_status_group_value(raw)
@@ -419,6 +428,17 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
 
     def get_client_city_display(self, obj):
         return format_city_display(getattr(obj.client, "city", ""))
+
+    def get_client_city_display_en(self, obj):
+        return format_city_display_en(getattr(obj.client, "city", ""))
+
+    def get_subcategory_name_en(self, obj):
+        return translate_subcategory_name(getattr(getattr(obj, "subcategory", None), "name", ""))
+
+    def get_category_name_en(self, obj):
+        subcategory = getattr(obj, "subcategory", None)
+        category = getattr(subcategory, "category", None)
+        return translate_category_name(getattr(category, "name", ""))
 
     def get_subcategory_ids(self, obj):
         try:
@@ -464,6 +484,9 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
     def get_city_display(self, obj):
         return format_city_display(getattr(obj, "city", ""))
 
+    def get_city_display_en(self, obj):
+        return format_city_display_en(getattr(obj, "city", ""))
+
     class Meta:
         model = ServiceRequest
         fields = (
@@ -504,11 +527,15 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
             "subcategory",
             "subcategory_ids",
             "subcategory_name",
+            "subcategory_name_en",
             "category_name",
+            "category_name_en",
             "client_name",
             "client_phone",
             "client_city",
             "client_city_display",
+            "client_city_display_en",
+            "city_display_en",
         )
 
 

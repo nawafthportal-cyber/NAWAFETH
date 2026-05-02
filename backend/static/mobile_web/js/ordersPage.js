@@ -5,12 +5,121 @@
 'use strict';
 
 const OrdersPage = (() => {
+  const COPY = {
+    ar: {
+      pageTitle: 'نوافــذ — طلباتي',
+      gateKicker: 'طلباتك الشخصية',
+      gateTitle: 'سجّل دخولك لعرض طلباتك',
+      gateDescription: 'يمكنك متابعة حالة الطلبات والتفاصيل بعد تسجيل الدخول.',
+      gateNote: 'حسابك يفتح لك كل تفاصيل الطلب في مكان واحد.',
+      gateButton: 'تسجيل الدخول',
+      menu: 'القائمة',
+      heroAria: 'ملخص الطلبات',
+      listAria: 'قائمة الطلبات',
+      title: 'طلباتي',
+      subtitle: 'لوحة موحّدة لمتابعة الحالة والإجراءات',
+      heroTitle: 'ملخص الطلبات',
+      heroSubtitle: 'ابدأ بالأهم ثم افتح التفاصيل عند الحاجة.',
+      activeLabel: 'طلبات نشطة',
+      totalLabel: 'إجمالي الطلبات',
+      preExecutionLabel: 'قبل التنفيذ',
+      preExecutionNote: 'تم قبول الطلب: {accepted} • بانتظار اعتماد العميل: {awaiting}',
+      listTitle: 'قائمة الطلبات',
+      searchPlaceholder: 'بحث',
+      clearSearch: 'مسح البحث',
+      tabAll: 'الكل',
+      tabNew: 'جديد',
+      tabInProgress: 'تحت التنفيذ',
+      tabCompleted: 'مكتمل',
+      tabCancelled: 'ملغي',
+      syncingMode: 'جار مزامنة نوع الحساب الحالي. حاول مرة أخرى خلال لحظة.',
+      syncingSession: 'يتم تحديث الجلسة الآن. أعد المحاولة بعد لحظة.',
+      loadFailed: 'تعذر تحميل الطلبات حاليًا',
+      empty: 'لا توجد طلبات',
+      emptySearch: 'لا توجد نتائج مطابقة لبحثك',
+      emptyStatus: 'لا توجد طلبات في هذه الحالة',
+      statusNew: 'جديد',
+      statusSubmitted: 'مرسل',
+      statusWaiting: 'بانتظار',
+      statusAcceptedProvider: 'تم قبول الطلب',
+      statusAwaitingClient: 'بانتظار اعتماد العميل للتفاصيل',
+      statusInProgress: 'قيد التنفيذ',
+      statusCompleted: 'مكتمل',
+      statusCancelled: 'ملغى',
+      statusRejected: 'مرفوض',
+      statusExpired: 'منتهي',
+      statusUnknown: 'غير محدد',
+      providerFallback: 'مقدم خدمة',
+      requestTypeUrgent: 'عاجل',
+      requestTypeCompetitive: 'تنافسي',
+      requestTypeNormal: 'عادي',
+      requestTypeDefault: 'طلب',
+      requestFallback: 'طلب #{id}',
+      currency: 'ر.س',
+      openDetails: 'عرض التفاصيل',
+    },
+    en: {
+      pageTitle: 'Nawafeth — My Orders',
+      gateKicker: 'Your personal orders',
+      gateTitle: 'Sign in to view your orders',
+      gateDescription: 'You can track order status and details after signing in.',
+      gateNote: 'Your account opens all order details in one place.',
+      gateButton: 'Sign in',
+      menu: 'Menu',
+      heroAria: 'Orders summary',
+      listAria: 'Orders list',
+      title: 'My Orders',
+      subtitle: 'A unified board to track statuses and actions',
+      heroTitle: 'Orders summary',
+      heroSubtitle: 'Start with what matters most, then open details when needed.',
+      activeLabel: 'Active orders',
+      totalLabel: 'Total orders',
+      preExecutionLabel: 'Before execution',
+      preExecutionNote: 'Accepted by provider: {accepted} • Awaiting client approval: {awaiting}',
+      listTitle: 'Orders list',
+      searchPlaceholder: 'Search',
+      clearSearch: 'Clear search',
+      tabAll: 'All',
+      tabNew: 'New',
+      tabInProgress: 'In progress',
+      tabCompleted: 'Completed',
+      tabCancelled: 'Cancelled',
+      syncingMode: 'The current account mode is being synced. Please try again shortly.',
+      syncingSession: 'The session is being refreshed. Please try again in a moment.',
+      loadFailed: 'Unable to load orders right now',
+      empty: 'No orders found',
+      emptySearch: 'No results match your search',
+      emptyStatus: 'No orders in this status',
+      statusNew: 'New',
+      statusSubmitted: 'Submitted',
+      statusWaiting: 'Waiting',
+      statusAcceptedProvider: 'Accepted by provider',
+      statusAwaitingClient: 'Awaiting client approval',
+      statusInProgress: 'In progress',
+      statusCompleted: 'Completed',
+      statusCancelled: 'Cancelled',
+      statusRejected: 'Rejected',
+      statusExpired: 'Expired',
+      statusUnknown: 'Unspecified',
+      providerFallback: 'Provider',
+      requestTypeUrgent: 'Urgent',
+      requestTypeCompetitive: 'Competitive',
+      requestTypeNormal: 'Standard',
+      requestTypeDefault: 'Request',
+      requestFallback: 'Request #{id}',
+      currency: 'SAR',
+      openDetails: 'Open details',
+    },
+  };
+
   let _all = [];
   let _activeTab = 'all';
   let _searchQuery = '';
-  let _emptyMessage = 'لا توجد طلبات';
+  let _emptyMessage = '';
 
   function init() {
+    _emptyMessage = _copy('empty');
+    _applyStaticCopy();
     // Auth gate
     if (!Auth.isLoggedIn()) {
       _showGate(); return;
@@ -57,6 +166,7 @@ const OrdersPage = (() => {
     }
 
     _toggleSearchClear();
+    window.addEventListener('nawafeth:languagechange', _handleLanguageChange);
     _fetchOrders();
   }
 
@@ -118,7 +228,7 @@ const OrdersPage = (() => {
         return;
       }
       _all = [];
-      _emptyMessage = 'جار مزامنة نوع الحساب الحالي. حاول مرة أخرى خلال لحظة.';
+      _emptyMessage = _copy('syncingMode');
       _renderOrders();
       return;
     }
@@ -127,7 +237,7 @@ const OrdersPage = (() => {
 
     if (res.ok && res.data) {
       _all = Array.isArray(res.data) ? res.data : (res.data.results || []);
-      _emptyMessage = 'لا توجد طلبات';
+      _emptyMessage = _copy('empty');
       _renderOrders();
     } else if (res.status === 401) {
       const recovered = await Auth.resolveProfile(true, _activeMode());
@@ -136,11 +246,11 @@ const OrdersPage = (() => {
         return;
       }
       _all = [];
-      _emptyMessage = 'يتم تحديث الجلسة الآن. أعد المحاولة بعد لحظة.';
+      _emptyMessage = _copy('syncingSession');
       _renderOrders();
     } else {
       _all = [];
-      _emptyMessage = 'تعذر تحميل الطلبات حاليًا';
+      _emptyMessage = _copy('loadFailed');
       _renderOrders();
     }
   }
@@ -159,8 +269,8 @@ const OrdersPage = (() => {
     container.innerHTML = '';
     if (!list.length) {
       if (emptyText) {
-        if (_searchQuery) emptyText.textContent = 'لا توجد نتائج مطابقة لبحثك';
-        else if (_activeTab !== 'all') emptyText.textContent = 'لا توجد طلبات في هذه الحالة';
+        if (_searchQuery) emptyText.textContent = _copy('emptySearch');
+        else if (_activeTab !== 'all') emptyText.textContent = _copy('emptyStatus');
         else emptyText.textContent = _emptyMessage;
       }
       emptyEl.classList.remove('hidden');
@@ -203,7 +313,7 @@ const OrdersPage = (() => {
       completed: 'مكتمل', done: 'مكتمل',
       cancelled: 'ملغى', rejected: 'مرفوض', expired: 'منتهي'
     };
-    return labels[raw] || (statusOrOrder && statusOrOrder.status_label) || 'غير محدد';
+    return labels[raw] || (statusOrOrder && statusOrOrder.status_label) || _copy('statusUnknown');
   }
 
   function _statusColor(orderOrStatus) {
@@ -260,7 +370,7 @@ const OrdersPage = (() => {
     }
     card.appendChild(chips);
 
-    const title = order.title || order.service_name || order.description || 'طلب #' + (order.id || '');
+    const title = order.title || order.service_name || order.description || _copy('requestFallback').replace('{id}', String(order.id || ''));
     card.appendChild(UI.el('div', { className: 'order-title', textContent: title }));
 
     const description = String(order.description || '').trim();
@@ -276,19 +386,19 @@ const OrdersPage = (() => {
     if (order.provider_name || order.provider) {
       const provRow = UI.el('div', { className: 'order-provider' });
       provRow.appendChild(UI.icon('storefront', 14, '#757575'));
-      provRow.appendChild(UI.text(' ' + (order.provider_name || order.provider_display_name || 'مقدم خدمة')));
+      provRow.appendChild(UI.text(' ' + (order.provider_name || order.provider_display_name || _copy('providerFallback'))));
       footer.appendChild(provRow);
     }
 
     if (order.price || order.total_price || order.amount) {
       const price = order.price || order.total_price || order.amount;
       const numericPrice = Number(price);
-      const safePrice = Number.isFinite(numericPrice) ? numericPrice.toLocaleString('ar-SA') : String(price);
-      const priceEl = UI.el('div', { className: 'order-price', textContent: safePrice + ' ر.س' });
+      const safePrice = Number.isFinite(numericPrice) ? numericPrice.toLocaleString(_numberLocale()) : String(price);
+      const priceEl = UI.el('div', { className: 'order-price', textContent: safePrice + ' ' + _copy('currency') });
       footer.appendChild(priceEl);
     }
 
-    footer.appendChild(UI.el('span', { className: 'order-open-hint', textContent: 'عرض التفاصيل' }));
+    footer.appendChild(UI.el('span', { className: 'order-open-hint', textContent: _copy('openDetails') }));
     card.appendChild(footer);
 
     return card;
@@ -296,10 +406,10 @@ const OrdersPage = (() => {
 
   function _requestTypeLabel(type) {
     const key = String(type || '').toLowerCase();
-    if (key === 'urgent') return 'عاجل';
-    if (key === 'competitive') return 'تنافسي';
-    if (key === 'normal') return 'عادي';
-    return type || 'طلب';
+    if (key === 'urgent') return _copy('requestTypeUrgent');
+    if (key === 'competitive') return _copy('requestTypeCompetitive');
+    if (key === 'normal') return _copy('requestTypeNormal');
+    return type || _copy('requestTypeDefault');
   }
 
   function _buildStatusCounts(items) {
@@ -327,7 +437,9 @@ const OrdersPage = (() => {
     _setText('orders-active-count', String((counts.new || 0) + (counts.in_progress || 0)));
     _setText(
       'orders-pre-execution-note',
-      'تم قبول الطلب: ' + String(counts.provider_accepted || 0) + ' • بانتظار اعتماد العميل: ' + String(counts.awaiting_client || 0),
+      _copy('preExecutionNote')
+        .replace('{accepted}', String(counts.provider_accepted || 0))
+        .replace('{awaiting}', String(counts.awaiting_client || 0)),
     );
     _setText('orders-results-count', String(filteredCount || 0));
 
@@ -355,12 +467,22 @@ const OrdersPage = (() => {
   function _formatDateTime(value) {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '';
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return hh + ':' + mm + '  ' + dd + '/' + mo + '/' + yyyy;
+    try {
+      return new Intl.DateTimeFormat(_currentLang() === 'en' ? 'en-GB' : 'ar-SA', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(d);
+    } catch (_) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return hh + ':' + mm + '  ' + dd + '/' + mo + '/' + yyyy;
+    }
   }
 
   function _toggleSearchClear() {
@@ -372,6 +494,68 @@ const OrdersPage = (() => {
   function _setText(id, value) {
     const node = document.getElementById(id);
     if (node) node.textContent = value;
+  }
+
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function _numberLocale() {
+    return _currentLang() === 'en' ? 'en-US' : 'ar-SA';
+  }
+
+  function _copy(key) {
+    const lang = _currentLang();
+    return (COPY[lang] && COPY[lang][key]) || COPY.ar[key] || '';
+  }
+
+  function _applyStaticCopy() {
+    document.title = _copy('pageTitle');
+    const gate = document.getElementById('auth-gate');
+    if (gate) {
+      const kicker = gate.querySelector('.auth-gate-unified-kicker');
+      const title = gate.querySelector('.auth-gate-unified-title');
+      const desc = gate.querySelector('.auth-gate-unified-desc');
+      const note = gate.querySelector('.auth-gate-unified-note');
+      const cta = gate.querySelector('.auth-gate-unified-btn');
+      if (kicker) kicker.textContent = _copy('gateKicker');
+      if (title) title.textContent = _copy('gateTitle');
+      if (desc) desc.textContent = _copy('gateDescription');
+      if (note) note.textContent = _copy('gateNote');
+      if (cta) cta.textContent = _copy('gateButton');
+    }
+    const menuBtn = document.getElementById('hero-menu-btn');
+    const heroPanel = document.getElementById('orders-hero-panel');
+    const mobileSheet = document.getElementById('orders-mobile-sheet');
+    if (menuBtn) menuBtn.setAttribute('aria-label', _copy('menu'));
+    if (heroPanel) heroPanel.setAttribute('aria-label', _copy('heroAria'));
+    if (mobileSheet) mobileSheet.setAttribute('aria-label', _copy('listAria'));
+    _setText('orders-page-title', _copy('title'));
+    _setText('orders-page-subtitle', _copy('subtitle'));
+    _setText('orders-hero-title', _copy('heroTitle'));
+    _setText('orders-hero-subtitle', _copy('heroSubtitle'));
+    _setText('orders-active-label', _copy('activeLabel'));
+    _setText('orders-total-label', _copy('totalLabel'));
+    _setText('orders-pre-execution-label', _copy('preExecutionLabel'));
+    _setText('orders-list-title', _copy('listTitle'));
+    _setText('orders-tab-all', _copy('tabAll'));
+    _setText('orders-tab-new', _copy('tabNew'));
+    _setText('orders-tab-in-progress', _copy('tabInProgress'));
+    _setText('orders-tab-completed', _copy('tabCompleted'));
+    _setText('orders-tab-cancelled', _copy('tabCancelled'));
+    const searchInput = document.getElementById('orders-search');
+    const clearBtn = document.getElementById('orders-search-clear');
+    if (searchInput) searchInput.placeholder = _copy('searchPlaceholder');
+    if (clearBtn) clearBtn.setAttribute('aria-label', _copy('clearSearch'));
+  }
+
+  function _handleLanguageChange() {
+    _emptyMessage = _copy('empty');
+    _applyStaticCopy();
+    _renderOrders();
   }
 
   // Boot

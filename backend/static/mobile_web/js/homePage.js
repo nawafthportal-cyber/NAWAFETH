@@ -12,6 +12,55 @@
 'use strict';
 
 const HomePage = (() => {
+  const COPY = {
+    ar: {
+      pageTitle: 'نوافــذ — الرئيسية',
+      reelsKicker: 'لمحات حية',
+      reelsTitle: 'أحدث اللمحات',
+      promoKicker: 'رسالة مميزة',
+      promoTitle: 'مساحة ترويجية نشطة',
+      promoNote: 'إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون تشويش.',
+      categoriesKicker: 'اكتشف الخدمات',
+      categoriesTitle: 'التصنيفات',
+      viewAll: 'عرض الكل',
+      viewAllCategoriesAria: 'عرض كل التصنيفات',
+      previous: 'السابق',
+      next: 'التالي',
+      providersKicker: 'ترشيحات المنصة',
+      providersTitle: 'أبرز المختصين',
+      portfolioKicker: 'أعمال وبنرات',
+      portfolioTitle: 'البنرات والمشاريع',
+      bannersTitle: 'عروض ترويجية',
+      unmute: 'إلغاء كتم الصوت',
+      mute: 'كتم الصوت',
+      videoControls: 'التحكم بالفيديو',
+      bannerAlt: 'بنر الصفحة الرئيسية',
+    },
+    en: {
+      pageTitle: 'Nawafeth — Home',
+      reelsKicker: 'Live highlights',
+      reelsTitle: 'Latest spotlights',
+      promoKicker: 'Featured message',
+      promoTitle: 'Active promo placement',
+      promoNote: 'Professional promotional visibility inside the homepage without visual clutter.',
+      categoriesKicker: 'Discover services',
+      categoriesTitle: 'Categories',
+      viewAll: 'View all',
+      viewAllCategoriesAria: 'View all categories',
+      previous: 'Previous',
+      next: 'Next',
+      providersKicker: 'Platform picks',
+      providersTitle: 'Featured specialists',
+      portfolioKicker: 'Works and banners',
+      portfolioTitle: 'Banners and projects',
+      bannersTitle: 'Promotions',
+      unmute: 'Unmute',
+      mute: 'Mute',
+      videoControls: 'Video controls',
+      bannerAlt: 'Homepage banner',
+    },
+  };
+
   // Cache keys & TTL
   const CACHE_CATEGORIES = 'home_categories';
   const CACHE_PROVIDERS  = 'home_providers';
@@ -24,6 +73,7 @@ const HomePage = (() => {
   const BANNER_SYNC_INTERVAL_MS = 60000;
   const FEATURED_SPECIALISTS_LIMIT = 10;
   const FEATURED_SPECIALISTS_ROTATE_MS = 5000;
+  const FEATURED_SPECIALISTS_ANIMATE_MS = 380;
   const HOME_BANNERS_LIMIT = 16;
   const PORTFOLIO_SHOWCASE_LIMIT = 16;
   const PORTFOLIO_SHOWCASE_FETCH_LIMIT = 40;
@@ -60,10 +110,13 @@ const HomePage = (() => {
   let _providersResumeTimer = null;
   let _providersPaused = false;
   let _providersBound = false;
+  let _providersScrollAnimationFrame = null;
   let _categoriesWheelSnapTimer = null;
   let _categoriesAutoTimer = null;
   let _categoriesResumeTimer = null;
   let _categoriesPaused = false;
+  let _categoriesAutoFrame = null;
+  let _categoriesAutoLastTick = 0;
   let _sectionObserver = null;
   let _popupShown = false;       // only show popup once per session
   let _homeContent = {
@@ -96,9 +149,11 @@ const HomePage = (() => {
     $promoMessageCard = document.getElementById('home-promo-message-card');
     _bindReelsInteraction();
     _bindProvidersInteraction();
+    _applyStaticCopy();
     _applyHomeContent();
     _initSectionPresentation();
     window.addEventListener('resize', _syncDesktopHomeBehaviors);
+    window.addEventListener('nawafeth:languagechange', _handleLanguageChange);
 
     // Network listener
     window.addEventListener('online',  () => _setOffline(false));
@@ -533,8 +588,8 @@ const HomePage = (() => {
     const muted = frame.getAttribute('data-user-muted') !== 'false';
 
     if (muteBtn) {
-      muteBtn.setAttribute('aria-label', muted ? 'إلغاء كتم الصوت' : 'كتم الصوت');
-      muteBtn.setAttribute('title', muted ? 'إلغاء كتم الصوت' : 'كتم الصوت');
+      muteBtn.setAttribute('aria-label', muted ? _copy('unmute') : _copy('mute'));
+      muteBtn.setAttribute('title', muted ? _copy('unmute') : _copy('mute'));
       muteBtn.classList.toggle('is-active', !muted);
       muteBtn.innerHTML = muted
         ? '<span aria-hidden="true">🔇</span>'
@@ -545,15 +600,15 @@ const HomePage = (() => {
   function _buildCarouselVideoControls(frame, mainVideo, backdropVideo) {
     const controls = UI.el('div', {
       className: 'carousel-video-controls',
-      'aria-label': 'التحكم بالفيديو',
+      'aria-label': _copy('videoControls'),
     });
 
     const muteBtn = UI.el('button', {
       className: 'carousel-video-control',
       type: 'button',
       'data-video-control': 'mute',
-      'aria-label': 'إلغاء كتم الصوت',
-      title: 'إلغاء كتم الصوت',
+      'aria-label': _copy('unmute'),
+      title: _copy('unmute'),
     });
 
     const stopPropagation = (event) => {
@@ -643,7 +698,7 @@ const HomePage = (() => {
     const stage = UI.el('div', { className: 'carousel-media-stage' });
     frame.appendChild(stage);
 
-    const mediaAlt = banner.title || banner.provider_display_name || 'بنر الصفحة الرئيسية';
+    const mediaAlt = banner.title || banner.provider_display_name || _copy('bannerAlt');
 
     if (isVideo && url) {
       const vid = UI.el('video', {
@@ -744,9 +799,9 @@ const HomePage = (() => {
     if (contentRes.status === 'fulfilled' && contentRes.value.ok && contentRes.value.data) {
       const blocks = contentRes.value.data.blocks || {};
       _homeContent = {
-        categoriesTitle: _resolveBlockTitle(blocks.home_categories_title, 'التصنيفات'),
-        providersTitle: _resolveBlockTitle(blocks.home_providers_title, 'أبرز المختصين'),
-        bannersTitle: _resolveBlockTitle(blocks.home_banners_title, 'عروض ترويجية'),
+        categoriesTitle: _resolveBlockTitle(blocks.home_categories_title, 'categoriesTitle'),
+        providersTitle: _resolveBlockTitle(blocks.home_providers_title, 'providersTitle'),
+        bannersTitle: _resolveBlockTitle(blocks.home_banners_title, 'bannersTitle'),
         fallbackBanner: _buildFallbackBannerFromBlock(blocks.home_banners_fallback),
       };
       _applyHomeContent();
@@ -910,6 +965,7 @@ const HomePage = (() => {
     $categoriesList.textContent = '';
     $categoriesList.appendChild(frag);
     _initCategoriesCarousel();
+    _restartHomeAutoScrollsDeferred();
   }
 
   /* ----------------------------------------------------------
@@ -1071,36 +1127,196 @@ const HomePage = (() => {
   var CATEGORIES_AUTO_STEP = 1;
   var CATEGORIES_AUTO_INTERVAL = 30;
   var CATEGORIES_RESUME_DELAY = 2500;
+  var _rtlScrollType = null;
 
   function _hasHorizontalOverflow(container, tolerance = 2) {
     if (!container) return false;
     return (container.scrollWidth - container.clientWidth) > tolerance;
   }
 
+  function _isRtlDocument() {
+    var root = document && document.documentElement;
+    if (!root) return true;
+    return String(root.getAttribute('dir') || '').toLowerCase() !== 'ltr';
+  }
+
+  function _detectRtlScrollType() {
+    if (_rtlScrollType) return _rtlScrollType;
+    if (typeof document === 'undefined' || !document.body) return 'negative';
+
+    var dummy = document.createElement('div');
+    var child = document.createElement('div');
+    dummy.dir = 'rtl';
+    dummy.style.width = '4px';
+    dummy.style.height = '1px';
+    dummy.style.position = 'absolute';
+    dummy.style.top = '-1000px';
+    dummy.style.overflow = 'scroll';
+    child.style.width = '8px';
+    child.style.height = '1px';
+    dummy.appendChild(child);
+    document.body.appendChild(dummy);
+
+    if (dummy.scrollLeft > 0) {
+      _rtlScrollType = 'default';
+    } else {
+      dummy.scrollLeft = 1;
+      _rtlScrollType = dummy.scrollLeft === 0 ? 'negative' : 'reverse';
+    }
+
+    document.body.removeChild(dummy);
+    return _rtlScrollType;
+  }
+
+  function _getLogicalScrollLeft(container) {
+    if (!container) return 0;
+    var max = Math.max(0, container.scrollWidth - container.clientWidth);
+    if (!_isRtlDocument()) return container.scrollLeft;
+
+    var raw = container.scrollLeft;
+    var rtlType = _detectRtlScrollType();
+    if (rtlType === 'negative') return -raw;
+    if (rtlType === 'reverse') return max - raw;
+    return raw;
+  }
+
+  function _setLogicalScrollLeft(container, value) {
+    if (!container) return;
+    var max = Math.max(0, container.scrollWidth - container.clientWidth);
+    var target = Math.max(0, Math.min(max, Number(value) || 0));
+    if (!_isRtlDocument()) {
+      container.scrollLeft = target;
+      return;
+    }
+
+    var rtlType = _detectRtlScrollType();
+    if (rtlType === 'negative') {
+      container.scrollLeft = -target;
+      return;
+    }
+    if (rtlType === 'reverse') {
+      container.scrollLeft = max - target;
+      return;
+    }
+    container.scrollLeft = target;
+  }
+
+  function _cancelProvidersScrollAnimation() {
+    if (_providersScrollAnimationFrame) {
+      window.cancelAnimationFrame(_providersScrollAnimationFrame);
+      _providersScrollAnimationFrame = null;
+    }
+  }
+
+  function _animateLogicalScrollTo(container, target, duration, done) {
+    if (!container) {
+      if (typeof done === 'function') done();
+      return;
+    }
+
+    _cancelProvidersScrollAnimation();
+
+    var max = Math.max(0, container.scrollWidth - container.clientWidth);
+    var safeTarget = Math.max(0, Math.min(max, Number(target) || 0));
+    var start = _getLogicalScrollLeft(container);
+    var delta = safeTarget - start;
+
+    if (Math.abs(delta) < 1 || !duration) {
+      _setLogicalScrollLeft(container, safeTarget);
+      if (typeof done === 'function') done();
+      return;
+    }
+
+    var startedAt = 0;
+    function easeInOut(t) {
+      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+
+    function step(ts) {
+      if (!container) {
+        _providersScrollAnimationFrame = null;
+        return;
+      }
+      if (!startedAt) startedAt = ts;
+      var elapsed = ts - startedAt;
+      var progress = Math.max(0, Math.min(1, elapsed / duration));
+      var eased = easeInOut(progress);
+      _setLogicalScrollLeft(container, start + (delta * eased));
+      if (progress < 1) {
+        _providersScrollAnimationFrame = window.requestAnimationFrame(step);
+        return;
+      }
+      _providersScrollAnimationFrame = null;
+      _setLogicalScrollLeft(container, safeTarget);
+      if (typeof done === 'function') done();
+    }
+
+    _providersScrollAnimationFrame = window.requestAnimationFrame(step);
+  }
+
+  function _restartHomeAutoScrollsDeferred() {
+    window.requestAnimationFrame(function() {
+      window.requestAnimationFrame(function() {
+        _startCategoriesAutoScroll();
+        _startProvidersAutoRotate();
+      });
+    });
+    window.setTimeout(function() {
+      _startCategoriesAutoScroll();
+      _startProvidersAutoRotate();
+    }, 180);
+  }
+
   function _startCategoriesAutoScroll() {
     _stopCategoriesAutoScroll();
     if (!$categoriesList) return;
     var cards = $categoriesList.querySelectorAll('.cat-item');
-    if (cards.length <= 2) return;
+    if (cards.length <= 1) return;
+    if (!_hasHorizontalOverflow($categoriesList)) return;
 
     _categoriesPaused = false;
-    _categoriesAutoTimer = setInterval(function() {
-      if (_categoriesPaused || !$categoriesList) return;
-      var maxScroll = $categoriesList.scrollWidth - $categoriesList.clientWidth;
-      if (maxScroll <= 0) return;
+    _categoriesAutoLastTick = 0;
 
-      if ($categoriesList.scrollLeft >= maxScroll - 1) {
-        $categoriesList.scrollTo({ left: 0, behavior: 'smooth' });
-      } else {
-        $categoriesList.scrollLeft += CATEGORIES_AUTO_STEP;
+    function frame(ts) {
+      if (!_categoriesAutoTimer || !$categoriesList) return;
+      if (_categoriesPaused) {
+        _categoriesAutoFrame = window.requestAnimationFrame(frame);
+        return;
       }
-    }, CATEGORIES_AUTO_INTERVAL);
+
+      if (!_categoriesAutoLastTick) {
+        _categoriesAutoLastTick = ts;
+      }
+
+      var elapsed = ts - _categoriesAutoLastTick;
+      if (elapsed >= CATEGORIES_AUTO_INTERVAL) {
+        var steps = Math.max(1, Math.floor(elapsed / CATEGORIES_AUTO_INTERVAL));
+        var current = _getLogicalScrollLeft($categoriesList);
+        var max = Math.max(0, $categoriesList.scrollWidth - $categoriesList.clientWidth);
+        if (max > 0) {
+          var next = current + (CATEGORIES_AUTO_STEP * steps);
+          if (next >= max - 1) {
+            _setLogicalScrollLeft($categoriesList, 0);
+          } else {
+            _setLogicalScrollLeft($categoriesList, next);
+          }
+        }
+        _categoriesAutoLastTick = ts;
+      }
+
+      _categoriesAutoFrame = window.requestAnimationFrame(frame);
+    }
+
+    _categoriesAutoTimer = true;
+    _categoriesAutoFrame = window.requestAnimationFrame(frame);
   }
 
   function _stopCategoriesAutoScroll() {
-    if (_categoriesAutoTimer) {
-      clearInterval(_categoriesAutoTimer);
-      _categoriesAutoTimer = null;
+    _categoriesAutoTimer = null;
+    _categoriesAutoLastTick = 0;
+    if (_categoriesAutoFrame) {
+      window.cancelAnimationFrame(_categoriesAutoFrame);
+      _categoriesAutoFrame = null;
     }
     if (_categoriesResumeTimer) {
       clearTimeout(_categoriesResumeTimer);
@@ -1332,6 +1548,7 @@ const HomePage = (() => {
     $providersList.textContent = '';
     $providersList.appendChild(frag);
     _startProvidersAutoRotate();
+    _restartHomeAutoScrollsDeferred();
   }
 
 
@@ -1411,21 +1628,23 @@ const HomePage = (() => {
     _providersPaused = false;
     _providersAutoTimer = setInterval(() => {
       if (_providersPaused || !$providersList) return;
-      const maxScroll = $providersList.scrollWidth - $providersList.clientWidth;
-      if (maxScroll <= 0) return;
+      const current = _getLogicalScrollLeft($providersList);
+      const max = Math.max(0, $providersList.scrollWidth - $providersList.clientWidth);
+      if (max <= 0) return;
 
-      const firstCard = $providersList.querySelector('.featured-specialist-card');
-      const step = firstCard
-        ? Math.round(firstCard.getBoundingClientRect().width + 12)
-        : Math.max(96, Math.round($providersList.clientWidth * 0.42));
+      const viewport = $providersList.clientWidth || 0;
+      const step = viewport > 0
+        ? Math.max(96, Math.min(220, Math.round(viewport * 0.42)))
+        : 110;
+      const next = current + step;
+      const target = next >= max - 4 ? 0 : next;
 
-      const next = $providersList.scrollLeft + step;
-      const target = next >= maxScroll - 2 ? 0 : next;
-      $providersList.scrollTo({ left: target, behavior: 'smooth' });
+      _animateLogicalScrollTo($providersList, target, FEATURED_SPECIALISTS_ANIMATE_MS);
     }, FEATURED_SPECIALISTS_ROTATE_MS);
   }
 
   function _stopProvidersAutoRotate() {
+    _cancelProvidersScrollAnimation();
     if (_providersAutoTimer) {
       clearInterval(_providersAutoTimer);
       _providersAutoTimer = null;
@@ -2241,20 +2460,88 @@ const HomePage = (() => {
 
   function _applyHomeContent() {
     if ($categoriesTitle) {
-      $categoriesTitle.textContent = _homeContent.categoriesTitle || 'التصنيفات';
+      $categoriesTitle.textContent = _homeContent.categoriesTitle || _copy('categoriesTitle');
     }
     if ($providersTitle) {
-      $providersTitle.textContent = _homeContent.providersTitle || 'أبرز المختصين';
+      $providersTitle.textContent = _homeContent.providersTitle || _copy('providersTitle');
     }
     if ($bannersTitle) {
-      $bannersTitle.textContent = _homeContent.bannersTitle || 'عروض ترويجية';
+      $bannersTitle.textContent = _homeContent.bannersTitle || _copy('bannersTitle');
     }
   }
 
-  function _resolveBlockTitle(block, fallback) {
-    if (!block || typeof block !== 'object') return fallback;
-    const title = String(block.title_ar || '').trim();
-    return title || fallback;
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function _copy(key) {
+    const lang = _currentLang();
+    return (COPY[lang] && COPY[lang][key]) || COPY.ar[key] || '';
+  }
+
+  function _resolveBlockTitle(block, fallbackKey) {
+    if (!block || typeof block !== 'object') return _copy(fallbackKey);
+    const preferred = _currentLang() === 'en'
+      ? ['title_en', 'body_en', 'title_ar', 'body_ar']
+      : ['title_ar', 'body_ar', 'title_en', 'body_en'];
+    for (let i = 0; i < preferred.length; i += 1) {
+      const value = String(block[preferred[i]] || '').trim();
+      if (value) return value;
+    }
+    return _copy(fallbackKey);
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value;
+  }
+
+  function _applyStaticCopy() {
+    document.title = _copy('pageTitle');
+    _setText('home-reels-kicker', _copy('reelsKicker'));
+    _setText('home-reels-title', _copy('reelsTitle'));
+    _setText('home-promo-kicker', _copy('promoKicker'));
+    _setText('home-promo-title', _copy('promoTitle'));
+    _setText('home-promo-note', _copy('promoNote'));
+    _setText('home-categories-kicker', _copy('categoriesKicker'));
+    _setText('home-providers-kicker', _copy('providersKicker'));
+    _setText('home-portfolio-kicker', _copy('portfolioKicker'));
+    _setText('home-portfolio-title', _copy('portfolioTitle'));
+    const viewAll = document.getElementById('home-categories-view-all');
+    if (viewAll) {
+      viewAll.textContent = _copy('viewAll');
+      viewAll.setAttribute('aria-label', _copy('viewAllCategoriesAria'));
+    }
+    [
+      document.getElementById('carousel-prev'),
+      document.getElementById('home-categories-prev'),
+    ].forEach((button) => {
+      if (button) button.setAttribute('aria-label', _copy('previous'));
+    });
+    [
+      document.getElementById('carousel-next'),
+      document.getElementById('home-categories-next'),
+    ].forEach((button) => {
+      if (button) button.setAttribute('aria-label', _copy('next'));
+    });
+    document.querySelectorAll('.carousel-video-controls').forEach((controls) => {
+      controls.setAttribute('aria-label', _copy('videoControls'));
+    });
+    document.querySelectorAll('[data-video-control="mute"]').forEach((button) => {
+      const active = button.classList.contains('is-active');
+      button.setAttribute('aria-label', active ? _copy('mute') : _copy('unmute'));
+      button.setAttribute('title', active ? _copy('mute') : _copy('unmute'));
+    });
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    _applyHomeContent();
+    document.querySelectorAll('.carousel-frame').forEach((frame) => _syncCarouselVideoControlState(frame));
   }
 
   function _setOffline(offline) {

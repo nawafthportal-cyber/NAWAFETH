@@ -10,8 +10,8 @@
 <meta id="meta-description" name="description" content="{{ page_meta_description|default:'منصة نوافــذ للخدمات الرقمية والمهنية.' }}">
 <meta id="meta-keywords" name="keywords" content="{{ page_meta_keywords|default:'' }}">
 <meta id="meta-robots" name="robots" content="{{ page_meta_robots|default:'index,follow' }}">
-<meta property="og:locale" content="ar_SA">
-<meta property="og:site_name" content="نوافــذ">
+<meta id="meta-og-locale" data-shell-server-ar="ar_SA" data-shell-server-en="en_US" data-shell-server-attr="content" property="og:locale" content="ar_SA">
+<meta property="og:site_name" data-shell-server-ar="{{ site_public_content.brand.topbar_title }}" data-shell-server-en="{{ site_public_content.brand.topbar_title_en|default:site_public_content.brand.topbar_title }}" data-shell-server-attr="content" content="نوافــذ">
 <meta property="og:type" content="website">
 <meta id="meta-og-title" property="og:title" content="{{ page_meta_title|default:'نوافــذ' }}">
 <meta id="meta-og-description" property="og:description" content="{{ page_meta_description|default:'منصة نوافــذ للخدمات الرقمية والمهنية.' }}">
@@ -23,8 +23,8 @@
 <meta id="meta-twitter-image" name="twitter:image" content="{{ page_meta_image|default:'' }}">
 {% if page_meta_canonical %}<link id="page-canonical" rel="canonical" href="{{ page_meta_canonical }}">{% endif %}
 <link rel="icon" href="/favicon.ico">
-<!-- Anti-FOUC: apply saved theme before first paint -->
-<script>(function(){try{var t=localStorage.getItem('nw_theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}}());</script>
+<!-- Anti-FOUC: apply saved theme and shell language before first paint -->
+<script>(function(){try{var h=document.documentElement;var t=localStorage.getItem('nw_theme');if(t==='dark'){h.setAttribute('data-theme','dark');}var cookieLang=((document.cookie.match(/(?:^|; )nw_lang=([^;]+)/)||document.cookie.match(/(?:^|; )django_language=([^;]+)/)||[])[1]||'');var lang=(localStorage.getItem('nw_lang')||cookieLang||'ar').toLowerCase();lang=lang==='en'?'en':'ar';h.setAttribute('lang',lang);h.setAttribute('data-ui-lang',lang);h.setAttribute('data-shell-dir',lang==='en'?'ltr':'rtl');}catch(e){}}());</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -1151,16 +1151,16 @@
 
 <!-- ====== MOBILE SIDEBAR ====== -->
 <div id="sidebar-overlay" class="sidebar-overlay hidden" aria-hidden="true"></div>
-<aside id="sidebar" class="sidebar" aria-label="القائمة الجانبية" aria-hidden="true">
+<aside id="sidebar" class="sidebar" data-shell-i18n-aria-label="sidebarAria" aria-label="القائمة الجانبية" aria-hidden="true">
   <div class="sidebar-header">
     <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
-      <button class="sidebar-close" id="sidebar-close" aria-label="إغلاق القائمة">
+      <button class="sidebar-close" id="sidebar-close" data-shell-i18n-aria-label="closeMenuAria" aria-label="إغلاق القائمة">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
       </button>
-      <button type="button" class="sidebar-theme-toggle" id="sidebar-theme-toggle" aria-label="تبديل الوضع المظلم" title="تبديل الوضع المظلم / الفاتح">
+      <button type="button" class="sidebar-theme-toggle" id="sidebar-theme-toggle" data-shell-i18n-aria-label="themeToggleAria" data-shell-i18n-title="themeToggleTitle" aria-label="تبديل الوضع المظلم" title="تبديل الوضع المظلم / الفاتح">
         <span class="theme-toggle-icon theme-toggle-icon--light" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0a.996.996 0 000-1.41l-1.06-1.06zm1.06-12.37l-1.06 1.06a.996.996 0 000 1.41c.39.39 1.03.39 1.41 0l1.06-1.06a.996.996 0 000-1.41-.996.996 0 00-1.41 0zM7.05 18.36l-1.06 1.06a.996.996 0 000 1.41c.39.39 1.03.39 1.41 0l1.06-1.06a.996.996 0 000-1.41-.996.996 0 00-1.41 0z"/></svg>
         </span>
@@ -1171,51 +1171,51 @@
     </div>
     <div class="sidebar-user" id="sidebar-user">
       <div class="sidebar-user-info">
-        <div class="sidebar-name" id="sidebar-name">زائر</div>
-        <div class="sidebar-role" id="sidebar-role">تصفح كضيف</div>
+        <div class="sidebar-name" id="sidebar-name" data-shell-i18n="guestName">زائر</div>
+        <div class="sidebar-role" id="sidebar-role" data-shell-i18n="guestRole">تصفح كضيف</div>
       </div>
       <div class="sidebar-avatar" id="sidebar-avatar"></div>
     </div>
   </div>
   <nav class="sidebar-nav">
     <a href="/" class="sidebar-link {% block sidebar_home %}{% endblock %}">
-      <span class="sidebar-label">الرئيسية</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarHome">الرئيسية</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
       </span>
     </a>
     <a href="/login-settings/" class="sidebar-link {% block sidebar_settings %}{% endblock %}">
-      <span class="sidebar-label">إعدادات الدخول الى المنصة</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarLoginSettings">إعدادات الدخول الى المنصة</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
       </span>
     </a>
     <a href="/language/" class="sidebar-link {% block sidebar_language %}{% endblock %}">
-      <span class="sidebar-label">اللغة</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarLanguage">اللغة</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12.87 15.07c-.22-.06-.43-.12-.64-.19.47-1.04.78-2.17.89-3.38h1.94v-2H9V7.5h3V5.5h-3V4H7v1.5H4v2h3v2H3v2h8.07c-.1.87-.32 1.67-.63 2.39-.73-.41-1.39-.95-1.97-1.62l-1.42 1.42c.76.88 1.66 1.61 2.65 2.17l-.49.98-3.21 3.21L7.41 22l3.12-3.12 1.6-1.6.74-.74zm4.63-9.57h-2l-4.5 12h2l1-3h5l1 3h2l-4.5-12zm-2.5 7l1.5-4.5 1.5 4.5h-3z"/></svg>
       </span>
     </a>
     <a href="/my-qr/" class="sidebar-link {% block sidebar_my_qr %}{% endblock %}">
-      <span class="sidebar-label">QR نافذتي</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarMyQr">QR نافذتي</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm8 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2-2h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h4v2h-4v-2zm2-4h2v2h-2v-2z"/></svg>
       </span>
     </a>
     <a href="/terms/" class="sidebar-link {% block sidebar_terms %}{% endblock %}">
-      <span class="sidebar-label">الشروط والأحكام</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarTerms">الشروط والأحكام</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 18H8v-2h8v2zm0-4H8v-2h8v2zm-3-7V3.5L18.5 9H13z"/></svg>
       </span>
     </a>
     <a href="/contact/" class="sidebar-link {% block sidebar_support %}{% endblock %}">
-      <span class="sidebar-label">تواصل مع نوافذ</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarContact">تواصل مع نوافذ</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1C7.03 1 3 5.03 3 10v6a3 3 0 003 3h1v-8H5v-1a7 7 0 1114 0v1h-2v8h1a3 3 0 003-3v-6c0-4.97-4.03-9-9-9zm-1 19h2v2h-2z"/></svg>
       </span>
     </a>
     <a href="/about/" class="sidebar-link {% block sidebar_about %}{% endblock %}">
-      <span class="sidebar-label">حول منصة نوافذ</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarAbout">حول منصة نوافذ</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7h2V5h-2v2zm0 12h2v-8h-2v8zm1-18C6.48 1 2 5.48 2 11s4.48 10 10 10 10-4.48 10-10S17.52 1 12 1z"/></svg>
       </span>
@@ -1225,19 +1225,19 @@
   <div class="sidebar-separator" aria-hidden="true"></div>
   <div class="sidebar-footer">
     <a href="/login/" class="sidebar-link sidebar-auth-link" id="sidebar-login-link">
-      <span class="sidebar-label">تسجيل الدخول</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarLogin">تسجيل الدخول</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/></svg>
       </span>
     </a>
     <button class="sidebar-link sidebar-auth-link sidebar-logout hidden" id="sidebar-logout" type="button">
-      <span class="sidebar-label">تسجيل خروج</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarLogout">تسجيل خروج</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
       </span>
     </button>
     <button class="sidebar-link sidebar-auth-link sidebar-delete-account hidden" id="sidebar-delete-account" type="button">
-      <span class="sidebar-label">حذف الحساب نهائيًا</span>
+      <span class="sidebar-label" data-shell-i18n="sidebarDelete">حذف الحساب نهائيًا</span>
       <span class="sidebar-icon">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg>
       </span>
@@ -1245,10 +1245,10 @@
   </div>
 </aside>
 
-<header id="top-navbar" class="nw-global-topbar" aria-label="الشريط العلوي الرئيسي">
+<header id="top-navbar" class="nw-global-topbar" data-shell-i18n-aria-label="topbarAria" aria-label="الشريط العلوي الرئيسي">
   <div class="container navbar-inner navbar-inner-global">
     <div class="topbar-section topbar-section-right">
-      <button type="button" class="nav-icon-btn nav-menu-btn" id="btn-menu" aria-label="القائمة الجانبية">
+      <button type="button" class="nav-icon-btn nav-menu-btn" id="btn-menu" data-shell-i18n-aria-label="menuAria" aria-label="القائمة الجانبية">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <line x1="3" y1="7" x2="21" y2="7"></line>
           <line x1="3" y1="12" x2="21" y2="12"></line>
@@ -1258,7 +1258,7 @@
     </div>
 
     <div class="topbar-brand-wrap" id="topbar-brand-wrap">
-      <a href="/" class="topbar-brand-link topbar-brand-face is-active" id="topbar-brand-face" aria-label="العودة إلى الرئيسية">
+      <a href="/" class="topbar-brand-link topbar-brand-face is-active" id="topbar-brand-face" data-shell-i18n-aria-label="backHomeAria" aria-label="العودة إلى الرئيسية">
         <span class="topbar-brand-mark" id="topbar-brand-mark" data-default-mark="ن" aria-hidden="true">{% if site_public_content.brand.logo_url %}<img src="{{ site_public_content.brand.logo_url }}" alt="{{ site_public_content.brand.logo_alt }}">{% else %}ن{% endif %}</span>
       </a>
       <a class="topbar-sponsor topbar-brand-face" id="topbar-sponsor" aria-label="الرعاية الحالية">
@@ -1266,17 +1266,17 @@
           <span class="topbar-sponsor-placeholder">ر</span>
         </span>
         <span class="topbar-sponsor-copy">
-          <span class="topbar-sponsor-label">برعاية</span>
-          <span class="topbar-sponsor-name" id="topbar-sponsor-name">مساحة الرعاية</span>
+          <span class="topbar-sponsor-label" data-shell-i18n="sponsorLabel">برعاية</span>
+          <span class="topbar-sponsor-name" id="topbar-sponsor-name" data-shell-i18n="sponsorPlaceholder">مساحة الرعاية</span>
         </span>
       </a>
     </div>
 
     <div class="topbar-section topbar-section-left">
-      <a href="/notifications/" class="nav-icon-btn" id="btn-notifications" aria-label="الإشعارات">
+      <a href="/notifications/" class="nav-icon-btn" id="btn-notifications" data-shell-i18n-aria-label="notificationsAria" aria-label="الإشعارات">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
       </a>
-      <a href="/chats/" class="nav-icon-btn" id="btn-chat" aria-label="الرسائل">
+      <a href="/chats/" class="nav-icon-btn" id="btn-chat" data-shell-i18n-aria-label="messagesAria" aria-label="الرسائل">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
       </a>
     </div>
@@ -1284,9 +1284,9 @@
 </header>
 
 <div class="topbar-sponsor-modal ux26-modal hidden" id="topbar-sponsor-modal" role="dialog" aria-modal="true" aria-labelledby="topbar-sponsor-modal-title">
-  <button type="button" class="topbar-sponsor-modal-backdrop" id="topbar-sponsor-modal-backdrop" aria-label="إغلاق"></button>
+  <button type="button" class="topbar-sponsor-modal-backdrop" id="topbar-sponsor-modal-backdrop" data-shell-i18n-aria-label="close" aria-label="إغلاق"></button>
   <div class="topbar-sponsor-modal-card ux26-modal-card">
-    <button type="button" class="topbar-sponsor-modal-close" id="topbar-sponsor-modal-close" aria-label="إغلاق">
+    <button type="button" class="topbar-sponsor-modal-close" id="topbar-sponsor-modal-close" data-shell-i18n-aria-label="close" aria-label="إغلاق">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <path d="M18 6 6 18"></path>
         <path d="m6 6 12 12"></path>
@@ -1298,15 +1298,15 @@
       </div>
       <div class="topbar-sponsor-modal-copy">
         <div class="topbar-sponsor-modal-meta">
-          <span class="topbar-sponsor-modal-badge">برعاية</span>
-          <p class="topbar-sponsor-modal-kicker">الراعي الرسمي</p>
+          <span class="topbar-sponsor-modal-badge" data-shell-i18n="sponsorLabel">برعاية</span>
+          <p class="topbar-sponsor-modal-kicker" data-shell-i18n="officialSponsor">الراعي الرسمي</p>
         </div>
-        <h3 id="topbar-sponsor-modal-title">الراعي الرسمي</h3>
+        <h3 id="topbar-sponsor-modal-title" data-shell-i18n="officialSponsor">الراعي الرسمي</h3>
       </div>
     </div>
-    <p class="topbar-sponsor-modal-label">رسالة الراعي</p>
-    <div class="topbar-sponsor-modal-body" id="topbar-sponsor-modal-body">تظهر تفاصيل الرعاية هنا عند توفر رسالة.</div>
-    <a class="topbar-sponsor-modal-link hidden" id="topbar-sponsor-modal-link" target="_blank" rel="noopener">زيارة الرابط</a>
+    <p class="topbar-sponsor-modal-label" data-shell-i18n="sponsorMessageLabel">رسالة الراعي</p>
+    <div class="topbar-sponsor-modal-body" id="topbar-sponsor-modal-body" data-shell-i18n="sponsorMessageEmpty">تظهر تفاصيل الرعاية هنا عند توفر رسالة.</div>
+    <a class="topbar-sponsor-modal-link hidden" id="topbar-sponsor-modal-link" target="_blank" rel="noopener" data-shell-i18n="visitLink">زيارة الرابط</a>
   </div>
 </div>
 
@@ -1315,13 +1315,13 @@
 <footer id="site-footer">
   <div class="container footer-inner">
     <div class="footer-brand">
-      <a href="/" class="footer-logo-link" aria-label="{{ site_public_content.brand.footer_title }}">
+      <a href="/" class="footer-logo-link" data-shell-server-ar="{{ site_public_content.brand.footer_title }}" data-shell-server-en="{{ site_public_content.brand.footer_title_en|default:site_public_content.brand.footer_title }}" data-shell-server-attr="aria-label" aria-label="{{ site_public_content.brand.footer_title }}">
         {% if site_public_content.brand.logo_url %}
-          <img class="footer-logo-image" src="{{ site_public_content.brand.logo_url }}" alt="{{ site_public_content.brand.logo_alt }}">
+          <img class="footer-logo-image" src="{{ site_public_content.brand.logo_url }}" data-shell-server-ar="{{ site_public_content.brand.logo_alt }}" data-shell-server-en="{{ site_public_content.brand.logo_alt_en|default:site_public_content.brand.logo_alt }}" data-shell-server-attr="alt" alt="{{ site_public_content.brand.logo_alt }}">
         {% endif %}
-        <span class="footer-logo">{{ site_public_content.brand.footer_title }}</span>
+        <span class="footer-logo" data-shell-server-ar="{{ site_public_content.brand.footer_title }}" data-shell-server-en="{{ site_public_content.brand.footer_title_en|default:site_public_content.brand.footer_title }}">{{ site_public_content.brand.footer_title }}</span>
       </a>
-      <p class="footer-desc">{{ site_public_content.brand.footer_description }}</p>
+      <p class="footer-desc" data-shell-server-ar="{{ site_public_content.brand.footer_description }}" data-shell-server-en="{{ site_public_content.brand.footer_description_en|default:site_public_content.brand.footer_description }}">{{ site_public_content.brand.footer_description }}</p>
       {% if site_public_content.store_links %}
         <div class="footer-store-links">
           {% for item in site_public_content.store_links %}
@@ -1340,50 +1340,50 @@
       {% endif %}
     </div>
     <div class="footer-links">
-      <h4>المنصة</h4>
-      <a href="/">الرئيسية</a>
-      <a href="/search/">البحث</a>
-      <a href="/about/">من نحن</a>
+      <h4 data-shell-i18n="footerPlatformTitle">المنصة</h4>
+      <a href="/" data-shell-i18n="footerHome">الرئيسية</a>
+      <a href="/search/" data-shell-i18n="footerSearch">البحث</a>
+      <a href="/about/" data-shell-i18n="footerAbout">من نحن</a>
     </div>
     <div class="footer-links">
-      <h4>الدعم</h4>
-      <a href="/contact/">تواصل معنا</a>
-      <a href="/terms/">الشروط والأحكام</a>
+      <h4 data-shell-i18n="footerSupportTitle">الدعم</h4>
+      <a href="/contact/" data-shell-i18n="footerContact">تواصل معنا</a>
+      <a href="/terms/" data-shell-i18n="footerTerms">الشروط والأحكام</a>
       {% if site_public_content.links.website_url %}
-        <a href="{{ site_public_content.links.website_url }}" target="_blank" rel="noopener">الموقع الرسمي</a>
+        <a href="{{ site_public_content.links.website_url }}" target="_blank" rel="noopener" data-shell-i18n="footerWebsite">الموقع الرسمي</a>
       {% endif %}
     </div>
   </div>
-  <div class="footer-bottom">{{ site_public_content.brand.footer_copyright }}</div>
+  <div class="footer-bottom" data-shell-server-ar="{{ site_public_content.brand.footer_copyright }}" data-shell-server-en="{{ site_public_content.brand.footer_copyright_en|default:site_public_content.brand.footer_copyright }}">{{ site_public_content.brand.footer_copyright }}</div>
 </footer>
 
 <!-- ====== MOBILE BOTTOM NAV ====== -->
-<nav id="bottom-nav" aria-label="التنقل الرئيسي">
+<nav id="bottom-nav" data-shell-i18n-aria-label="bottomNavAria" aria-label="التنقل الرئيسي">
   <a href="/" class="bnav-item {% block bnav_home %}{% endblock %}" data-index="0">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-    <span>الرئيسية</span>
+    <span data-shell-i18n="bottomNavHome">الرئيسية</span>
   </a>
   <a href="/orders/" class="bnav-item {% block bnav_orders %}{% endblock %}" data-index="1">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
-    <span>طلباتي</span>
+    <span data-shell-i18n="bottomNavOrders">طلباتي</span>
   </a>
-  <a href="/add-service/" class="bnav-fab" id="nav-fab" aria-label="إضافة خدمة">
+  <a href="/add-service/" class="bnav-fab" id="nav-fab" data-shell-i18n-aria-label="bottomNavAddServiceAria" aria-label="إضافة خدمة">
     <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
   </a>
   <a href="/interactive/" class="bnav-item {% block bnav_interactive %}{% endblock %}" data-index="2">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-    <span>تفاعلي</span>
+    <span data-shell-i18n="bottomNavInteractive">تفاعلي</span>
   </a>
   <a href="/profile/" class="bnav-item {% block bnav_profile %}{% endblock %}" data-index="3">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-    <span>نافذتي</span>
+    <span data-shell-i18n="bottomNavProfile">نافذتي</span>
   </a>
 </nav>
 
 <!-- ====== OFFLINE BANNER ====== -->
 <div id="offline-banner" class="offline-banner" style="display:none">
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/><path d="M10.71 5.05A16 16 0 0122.56 9"/><path d="M1.42 9a15.91 15.91 0 014.7-2.88"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-  <span>أنت غير متصل — يتم عرض آخر نسخة محفوظة</span>
+  <span data-shell-i18n="offlineBanner">أنت غير متصل — يتم عرض آخر نسخة محفوظة</span>
 </div>
 
 <div id="global-toast" class="global-toast" role="status" aria-live="polite" aria-atomic="true">
@@ -1408,7 +1408,300 @@
 <script src="{% static 'mobile_web/js/analytics.js' %}?v=20260419-secops1"></script>
 <script src="{% static 'mobile_web/js/utils.js' %}"></script>
 <script src="{% static 'mobile_web/js/auth.js' %}?v=20260419-secops1"></script>
-<script src="{% static 'mobile_web/js/nav.js' %}?v=20260419-account-messages"></script>
+<script>
+(function () {
+  'use strict';
+  var LANG_KEY = 'nw_lang';
+  var SHELL_DIR_SELECTORS = ['#sidebar', '#top-navbar', '#site-footer', '#bottom-nav', '#offline-banner', '#topbar-sponsor-modal'];
+  var COPY = {
+    ar: {
+      sidebarAria: 'القائمة الجانبية',
+      themeToggleAria: 'تبديل الوضع المظلم',
+      themeToggleTitle: 'تبديل الوضع المظلم / الفاتح',
+      guestName: 'زائر',
+      guestRole: 'تصفح كضيف',
+      sidebarHome: 'الرئيسية',
+      sidebarLoginSettings: 'إعدادات الدخول الى المنصة',
+      sidebarLanguage: 'اللغة',
+      sidebarMyQr: 'QR نافذتي',
+      sidebarTerms: 'الشروط والأحكام',
+      sidebarContact: 'تواصل مع نوافذ',
+      sidebarAbout: 'حول منصة نوافذ',
+      sidebarLogin: 'تسجيل الدخول',
+      sidebarLogout: 'تسجيل خروج',
+      sidebarDelete: 'حذف الحساب نهائيًا',
+      topbarAria: 'الشريط العلوي الرئيسي',
+      menuAria: 'القائمة الجانبية',
+      backHomeAria: 'العودة إلى الرئيسية',
+      sponsorLabel: 'برعاية',
+      sponsorPlaceholder: 'مساحة الرعاية',
+      notificationsAria: 'الإشعارات',
+      messagesAria: 'الرسائل',
+      close: 'إغلاق',
+      closeMenuAria: 'إغلاق القائمة',
+      officialSponsor: 'الراعي الرسمي',
+      sponsorMessageLabel: 'رسالة الراعي',
+      sponsorMessageEmpty: 'تظهر تفاصيل الرعاية هنا عند توفر رسالة.',
+      visitLink: 'زيارة الرابط',
+      footerPlatformTitle: 'المنصة',
+      footerSupportTitle: 'الدعم',
+      footerHome: 'الرئيسية',
+      footerSearch: 'البحث',
+      footerAbout: 'من نحن',
+      footerContact: 'تواصل معنا',
+      footerTerms: 'الشروط والأحكام',
+      footerWebsite: 'الموقع الرسمي',
+      bottomNavAria: 'التنقل الرئيسي',
+      bottomNavHome: 'الرئيسية',
+      bottomNavOrders: 'طلباتي',
+      bottomNavAddServiceAria: 'إضافة خدمة',
+      bottomNavInteractive: 'تفاعلي',
+      bottomNavProfile: 'نافذتي',
+      siteTitle: 'نوافــذ',
+      siteMetaDescription: 'منصة نوافــذ للخدمات الرقمية والمهنية.',
+      offlineBanner: 'أنت غير متصل — يتم عرض آخر نسخة محفوظة',
+      genericUser: 'مستخدم',
+      roleProvider: 'مقدم خدمة',
+      roleClient: 'عميل',
+      roleUser: 'حساب مستخدم',
+      profileAria: 'الملف الشخصي',
+      deleteConfirm: 'سيتم حذف حسابك نهائيًا من قاعدة البيانات ولن يمكن استعادته. هل تريد المتابعة؟',
+      deleteBusy: 'جارٍ حذف الحساب...',
+      deleteSuccessTitle: 'تم حذف الحساب نهائيًا',
+      deleteSuccessMessage: 'نعتذر لك عن أي تقصير في تجربتك معنا. تم حذف حسابك وبياناته المرتبطة من قاعدة البيانات، ونسعد بخدمتك مرة أخرى متى رغبت بالعودة.',
+      deleteError: 'تعذر حذف الحساب، حاول مرة أخرى.',
+      currentSponsorAria: 'الراعي الحالي: {name}',
+      platformLogoAlt: 'شعار المنصة'
+    },
+    en: {
+      sidebarAria: 'Sidebar',
+      themeToggleAria: 'Toggle dark mode',
+      themeToggleTitle: 'Toggle dark / light mode',
+      guestName: 'Guest',
+      guestRole: 'Browse as guest',
+      sidebarHome: 'Home',
+      sidebarLoginSettings: 'Login Settings',
+      sidebarLanguage: 'Language',
+      sidebarMyQr: 'My QR',
+      sidebarTerms: 'Terms & Conditions',
+      sidebarContact: 'Contact Nawafeth',
+      sidebarAbout: 'About Nawafeth',
+      sidebarLogin: 'Sign In',
+      sidebarLogout: 'Sign Out',
+      sidebarDelete: 'Delete Account Permanently',
+      topbarAria: 'Primary top bar',
+      menuAria: 'Sidebar menu',
+      backHomeAria: 'Back to home',
+      sponsorLabel: 'Sponsored by',
+      sponsorPlaceholder: 'Sponsorship slot',
+      notificationsAria: 'Notifications',
+      messagesAria: 'Messages',
+      close: 'Close',
+      closeMenuAria: 'Close menu',
+      officialSponsor: 'Official sponsor',
+      sponsorMessageLabel: 'Sponsor message',
+      sponsorMessageEmpty: 'Sponsor details will appear here when a message is available.',
+      visitLink: 'Visit link',
+      footerPlatformTitle: 'Platform',
+      footerSupportTitle: 'Support',
+      footerHome: 'Home',
+      footerSearch: 'Search',
+      footerAbout: 'About Us',
+      footerContact: 'Contact Us',
+      footerTerms: 'Terms & Conditions',
+      footerWebsite: 'Official Website',
+      bottomNavAria: 'Primary navigation',
+      bottomNavHome: 'Home',
+      bottomNavOrders: 'My Orders',
+      bottomNavAddServiceAria: 'Add Service',
+      bottomNavInteractive: 'Interactive',
+      bottomNavProfile: 'My Profile',
+      siteTitle: 'Nawafeth',
+      siteMetaDescription: 'Nawafeth platform for digital and professional services.',
+      offlineBanner: 'You are offline - showing the last saved version',
+      genericUser: 'User',
+      roleProvider: 'Provider',
+      roleClient: 'Client',
+      roleUser: 'User Account',
+      profileAria: 'Profile',
+      deleteConfirm: 'Your account will be permanently deleted from the database and cannot be restored. Do you want to continue?',
+      deleteBusy: 'Deleting account...',
+      deleteSuccessTitle: 'Account deleted permanently',
+      deleteSuccessMessage: 'We are sorry if your experience fell short. Your account and related data have been permanently deleted, and we would be glad to serve you again anytime.',
+      deleteError: 'Unable to delete the account. Please try again.',
+      currentSponsorAria: 'Current sponsor: {name}',
+      platformLogoAlt: 'Platform logo'
+    }
+  };
+
+  function normalizeLang(raw) {
+    return String(raw || '').trim().toLowerCase() === 'en' ? 'en' : 'ar';
+  }
+
+  function readCookie(name) {
+    var pattern = new RegExp('(?:^|; )' + String(name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]+)');
+    var match = document.cookie.match(pattern);
+    return match && match[1] ? decodeURIComponent(match[1]) : '';
+  }
+
+  function writeCookie(name, value) {
+    document.cookie = name + '=' + encodeURIComponent(String(value || '')) + '; path=/; max-age=31536000; SameSite=Lax';
+  }
+
+  var activeLang = normalizeLang(
+    document.documentElement.getAttribute('data-ui-lang') ||
+    document.documentElement.getAttribute('lang') ||
+    'ar'
+  );
+
+  function readLang() {
+    if (activeLang) {
+      return activeLang;
+    }
+    try {
+      return normalizeLang(localStorage.getItem(LANG_KEY) || readCookie('nw_lang') || readCookie('django_language'));
+    } catch (_) {
+      return normalizeLang(readCookie('nw_lang') || readCookie('django_language') || 'ar');
+    }
+  }
+
+  function dictionary(lang) {
+    return COPY[normalizeLang(lang)] || COPY.ar;
+  }
+
+  function interpolate(template, replacements) {
+    var text = String(template || '');
+    if (!replacements || typeof replacements !== 'object') return text;
+    return text.replace(/\{(\w+)\}/g, function (_, key) {
+      return Object.prototype.hasOwnProperty.call(replacements, key) ? String(replacements[key]) : '';
+    });
+  }
+
+  function t(key, replacements, lang) {
+    var dict = dictionary(lang || readLang());
+    return interpolate(dict[key] || COPY.ar[key] || '', replacements);
+  }
+
+  function applyShellDir(lang) {
+    var dir = normalizeLang(lang) === 'en' ? 'ltr' : 'rtl';
+    document.documentElement.setAttribute('lang', normalizeLang(lang));
+    document.documentElement.setAttribute('dir', dir);
+    document.documentElement.setAttribute('data-ui-lang', normalizeLang(lang));
+    document.documentElement.setAttribute('data-shell-dir', dir);
+    if (document.body) {
+      document.body.setAttribute('dir', dir);
+      document.body.setAttribute('data-ui-lang', normalizeLang(lang));
+    }
+    SHELL_DIR_SELECTORS.forEach(function (selector) {
+      document.querySelectorAll(selector).forEach(function (node) {
+        node.setAttribute('dir', dir);
+      });
+    });
+  }
+
+  function applyShellTranslations(lang) {
+    var nextLang = normalizeLang(lang);
+    activeLang = nextLang;
+    applyShellDir(nextLang);
+
+    document.querySelectorAll('[data-shell-i18n]').forEach(function (node) {
+      var key = node.getAttribute('data-shell-i18n');
+      if (!key) return;
+      node.textContent = t(key, null, nextLang);
+    });
+
+    document.querySelectorAll('[data-shell-i18n-aria-label]').forEach(function (node) {
+      var key = node.getAttribute('data-shell-i18n-aria-label');
+      if (!key) return;
+      node.setAttribute('aria-label', t(key, null, nextLang));
+    });
+
+    document.querySelectorAll('[data-shell-i18n-title]').forEach(function (node) {
+      var key = node.getAttribute('data-shell-i18n-title');
+      if (!key) return;
+      node.setAttribute('title', t(key, null, nextLang));
+    });
+
+    document.querySelectorAll('[data-shell-server-ar]').forEach(function (node) {
+      var arValue = node.getAttribute('data-shell-server-ar') || '';
+      var enValue = node.getAttribute('data-shell-server-en') || arValue;
+      var attr = node.getAttribute('data-shell-server-attr') || '';
+      var value = nextLang === 'en' ? enValue : arValue;
+      if (!attr) {
+        node.textContent = value;
+        return;
+      }
+      node.setAttribute(attr, value);
+    });
+
+    var defaultTitleAr = COPY.ar.siteTitle;
+    var defaultTitleEn = COPY.en.siteTitle;
+    var defaultDescriptionAr = COPY.ar.siteMetaDescription;
+    var defaultDescriptionEn = COPY.en.siteMetaDescription;
+    var translatedTitle = t('siteTitle', null, nextLang);
+    var translatedDescription = t('siteMetaDescription', null, nextLang);
+
+    if (document.title === defaultTitleAr || document.title === defaultTitleEn) {
+      document.title = translatedTitle;
+    }
+
+    ['meta-og-title', 'meta-twitter-title'].forEach(function (id) {
+      var node = document.getElementById(id);
+      if (!node) return;
+      var current = node.getAttribute('content') || '';
+      if (current === defaultTitleAr || current === defaultTitleEn) {
+        node.setAttribute('content', translatedTitle);
+      }
+    });
+
+    ['meta-description', 'meta-og-description', 'meta-twitter-description'].forEach(function (id) {
+      var node = document.getElementById(id);
+      if (!node) return;
+      var current = node.getAttribute('content') || '';
+      if (current === defaultDescriptionAr || current === defaultDescriptionEn) {
+        node.setAttribute('content', translatedDescription);
+      }
+    });
+
+    try {
+      document.dispatchEvent(new CustomEvent('nawafeth:languagechange', { detail: { lang: nextLang } }));
+    } catch (_) {}
+    return nextLang;
+  }
+
+  function setLanguage(lang) {
+    var nextLang = normalizeLang(lang);
+    try {
+      localStorage.setItem(LANG_KEY, nextLang);
+    } catch (_) {}
+    writeCookie('nw_lang', nextLang);
+    writeCookie('django_language', nextLang);
+    return applyShellTranslations(nextLang);
+  }
+
+  window.NawafethI18n = {
+    getLanguage: readLang,
+    setLanguage: setLanguage,
+    applyLanguage: applyShellTranslations,
+    t: t,
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      applyShellTranslations(readLang());
+    }, { once: true });
+  } else {
+    applyShellTranslations(readLang());
+  }
+
+  window.addEventListener('storage', function (event) {
+    if (event.key === LANG_KEY) {
+      applyShellTranslations(normalizeLang(event.newValue));
+    }
+  });
+}());
+</script>
+<script src="{% static 'mobile_web/js/nav.js' %}?v=20260501-shell-i18n-phase1"></script>
 <script>
 (function () {
   'use strict';

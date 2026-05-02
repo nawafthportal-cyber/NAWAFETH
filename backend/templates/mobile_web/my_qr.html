@@ -17,9 +17,9 @@
           <circle cx="14.5" cy="10" r="1" fill="#FFFFFF"></circle>
         </svg>
       </div>
-      <h2 class="auth-gate-unified-title">سجّل دخولك</h2>
-      <p class="auth-gate-unified-desc">لعرض كود نافذتي، سجّل دخولك أولاً</p>
-      <a href="/login/?next=/my-qr/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
+      <h2 class="auth-gate-unified-title" id="qr-auth-title">سجّل دخولك</h2>
+      <p class="auth-gate-unified-desc" id="qr-auth-desc">لعرض كود نافذتي، سجّل دخولك أولاً</p>
+      <a href="/login/?next=/my-qr/" class="btn btn-primary auth-gate-unified-btn" id="qr-auth-cta">تسجيل الدخول</a>
     </div>
 
     <div id="qr-app" class="my-qr-app hidden">
@@ -62,5 +62,5 @@
 
 {% block extra_js %}
 <script src="{% static 'mobile_web/js/profileQr.js' %}"></script>
-<script src="{% static 'mobile_web/js/myQrPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/myQrPage.js' %}?v=20260502-myqr-i18n-stage1"></script>
 {% endblock %}

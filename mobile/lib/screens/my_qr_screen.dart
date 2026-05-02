@@ -9,9 +9,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/provider_profile_model.dart';
 import '../models/user_profile.dart';
 import '../services/api_client.dart';
+import '../services/auth_service.dart';
 import '../services/provider_share_tracking_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/platform_top_bar.dart';
+import 'login_screen.dart';
 
 class MyQrScreen extends StatefulWidget {
   const MyQrScreen({super.key});
@@ -22,6 +24,7 @@ class MyQrScreen extends StatefulWidget {
 
 class _MyQrScreenState extends State<MyQrScreen> {
   bool _isLoading = true;
+  bool _isLoggedIn = true;
   String? _errorMessage;
   _QrPayload? _payload;
 
@@ -34,14 +37,27 @@ class _MyQrScreenState extends State<MyQrScreen> {
   Future<void> _loadQr() async {
     setState(() {
       _isLoading = true;
+      _isLoggedIn = true;
       _errorMessage = null;
     });
+
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!mounted) return;
+    if (!loggedIn) {
+      setState(() {
+        _isLoading = false;
+        _isLoggedIn = false;
+        _payload = null;
+      });
+      return;
+    }
 
     final meResult = await ProfileService.fetchMyProfile();
     if (!meResult.isSuccess || meResult.data == null) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
+        _isLoggedIn = true;
         _errorMessage = meResult.error ?? 'تعذر تحميل بيانات الحساب';
       });
       return;
@@ -76,11 +92,44 @@ class _MyQrScreenState extends State<MyQrScreen> {
     return _QrPayload(
       providerId: providerProfile?.id,
       title: providerProfile != null ? 'QR ملف مقدم الخدمة' : 'رابط نافذتي',
-      subtitle: providerProfile?.displayName.isNotEmpty == true
-          ? providerProfile!.displayName
-          : me.displayName,
+      subtitle: _resolveSubtitle(me, providerProfile),
       targetUrl: targetUrl,
     );
+  }
+
+  String _resolveSubtitle(
+    UserProfile me,
+    ProviderProfileModel? providerProfile,
+  ) {
+    final candidates = <String?>[
+      providerProfile?.displayName,
+      me.displayName,
+      me.username,
+    ];
+    for (final candidate in candidates) {
+      final text = (candidate ?? '').trim();
+      if (text.isNotEmpty && !_looksLikePhone(text)) {
+        return text;
+      }
+    }
+    return 'حسابك في نوافذ';
+  }
+
+  bool _looksLikePhone(String value) {
+    final normalized = value.replaceAll(RegExp(r'[\s\-\+\(\)@]'), '');
+    return RegExp(r'^0\d{8,12}$').hasMatch(normalized) ||
+        RegExp(r'^9665\d{8}$').hasMatch(normalized) ||
+        RegExp(r'^5\d{8}$').hasMatch(normalized);
+  }
+
+  Future<void> _openLogin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const LoginScreen(redirectTo: MyQrScreen()),
+      ),
+    );
+    if (!mounted) return;
+    await _loadQr();
   }
 
   Future<void> _copyLink() async {
@@ -155,7 +204,9 @@ class _MyQrScreenState extends State<MyQrScreen> {
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const _QrLoadingState()
+          : !_isLoggedIn
+            ? _QrAuthGate(onLogin: _openLogin)
             : _errorMessage != null
                 ? _QrErrorState(
                     message: _errorMessage!,
@@ -170,124 +221,184 @@ class _MyQrScreenState extends State<MyQrScreen> {
                         padding: const EdgeInsets.all(20),
                         child: Center(
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 420),
-                            child: Card(
-                              color: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                side: BorderSide(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      payload.title,
+                            constraints: const BoxConstraints(maxWidth: 460),
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final narrow = constraints.maxWidth <= 360;
+                                final qrSize = narrow ? constraints.maxWidth * 0.74 : 240.0;
+
+                                Widget actionButton({
+                                  required VoidCallback onPressed,
+                                  required IconData icon,
+                                  required String label,
+                                }) {
+                                  return OutlinedButton.icon(
+                                    onPressed: onPressed,
+                                    style: OutlinedButton.styleFrom(
+                                      minimumSize: Size(narrow ? double.infinity : 0, 38),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 0,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      side: BorderSide(
+                                        color: const Color(0xFF2F2853).withValues(alpha: 0.12),
+                                      ),
+                                      foregroundColor: const Color(0xFF2F2853),
+                                    ),
+                                    icon: Icon(icon, size: 18),
+                                    label: Text(
+                                      label,
                                       style: const TextStyle(
                                         fontFamily: 'Cairo',
-                                        fontSize: 18,
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      payload.subtitle,
-                                      style: TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 13,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                      textAlign: TextAlign.center,
+                                  );
+                                }
+
+                                return Container(
+                                  width: double.infinity,
+                                  padding: EdgeInsets.fromLTRB(
+                                    narrow ? 14 : 20,
+                                    narrow ? 16 : 20,
+                                    narrow ? 14 : 20,
+                                    narrow ? 16 : 20,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.95),
+                                    borderRadius: BorderRadius.circular(narrow ? 20 : 24),
+                                    border: Border.all(
+                                      color: const Color(0xFF1A1A2E).withValues(alpha: 0.10),
                                     ),
-                                    const SizedBox(height: 16),
-                                    Container(
-                                      width: 240,
-                                      height: 240,
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(22),
-                                        border: Border.all(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.08,
-                                          ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x14161229),
+                                        blurRadius: 30,
+                                        offset: Offset(0, 14),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        payload.title,
+                                        style: const TextStyle(
+                                          fontFamily: 'Cairo',
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFF2F2853),
+                                          height: 1.3,
                                         ),
                                       ),
-                                      child: CachedNetworkImage(
-                                        imageUrl: payload.qrImageUrl,
-                                        fit: BoxFit.contain,
-                                        errorWidget: (_, __, ___) {
-                                          return const Center(
-                                            child: Text(
-                                              'تعذر تحميل صورة QR',
-                                              style: TextStyle(
-                                                fontFamily: 'Cairo',
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        payload.subtitle,
+                                        style: const TextStyle(
+                                          fontFamily: 'Cairo',
+                                          fontSize: 13,
+                                          color: Color(0xFF6A6488),
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.7,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Container(
+                                        width: qrSize,
+                                        height: qrSize,
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(22),
+                                          border: Border.all(
+                                            color: const Color(0xFF1A1A2E).withValues(alpha: 0.09),
+                                          ),
+                                        ),
+                                        child: CachedNetworkImage(
+                                          imageUrl: payload.qrImageUrl,
+                                          fit: BoxFit.contain,
+                                          errorWidget: (_, __, ___) {
+                                            return const Center(
+                                              child: Text(
+                                                'تعذر تحميل صورة QR',
+                                                style: TextStyle(
+                                                  fontFamily: 'Cairo',
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF726A95),
+                                                  height: 1.6,
+                                                ),
+                                                textAlign: TextAlign.center,
                                               ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          );
-                                        },
+                                            );
+                                          },
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    SelectableText(
-                                      payload.targetUrl,
-                                      style: const TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 12,
-                                        color: Colors.black87,
+                                      const SizedBox(height: 16),
+                                      SelectableText(
+                                        payload.targetUrl,
+                                        style: const TextStyle(
+                                          fontFamily: 'Cairo',
+                                          fontSize: 12,
+                                          color: Color(0xFF2F2853),
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.6,
+                                        ),
+                                        textAlign: TextAlign.center,
                                       ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 18),
-                                    Wrap(
-                                      spacing: 10,
-                                      runSpacing: 10,
-                                      alignment: WrapAlignment.center,
-                                      children: [
-                                        OutlinedButton.icon(
-                                          onPressed: _copyLink,
-                                          icon:
-                                              const Icon(Icons.copy, size: 18),
-                                          label: const Text(
-                                            'نسخ الرابط',
-                                            style: TextStyle(
-                                              fontFamily: 'Cairo',
+                                      const SizedBox(height: 18),
+                                      if (narrow)
+                                        Column(
+                                          children: [
+                                            actionButton(
+                                              onPressed: _copyLink,
+                                              icon: Icons.copy,
+                                              label: 'نسخ الرابط',
                                             ),
-                                          ),
-                                        ),
-                                        OutlinedButton.icon(
-                                          onPressed: _shareLink,
-                                          icon:
-                                              const Icon(Icons.share, size: 18),
-                                          label: const Text(
-                                            'مشاركة',
-                                            style: TextStyle(
-                                              fontFamily: 'Cairo',
+                                            const SizedBox(height: 10),
+                                            actionButton(
+                                              onPressed: _shareLink,
+                                              icon: Icons.share,
+                                              label: 'مشاركة',
                                             ),
-                                          ),
-                                        ),
-                                        OutlinedButton.icon(
-                                          onPressed: _openLink,
-                                          icon: const Icon(
-                                            Icons.open_in_new,
-                                            size: 18,
-                                          ),
-                                          label: const Text(
-                                            'فتح الرابط',
-                                            style: TextStyle(
-                                              fontFamily: 'Cairo',
+                                            const SizedBox(height: 10),
+                                            actionButton(
+                                              onPressed: _openLink,
+                                              icon: Icons.open_in_new,
+                                              label: 'فتح الرابط',
                                             ),
-                                          ),
+                                          ],
+                                        )
+                                      else
+                                        Wrap(
+                                          spacing: 10,
+                                          runSpacing: 10,
+                                          alignment: WrapAlignment.center,
+                                          children: [
+                                            actionButton(
+                                              onPressed: _copyLink,
+                                              icon: Icons.copy,
+                                              label: 'نسخ الرابط',
+                                            ),
+                                            actionButton(
+                                              onPressed: _shareLink,
+                                              icon: Icons.share,
+                                              label: 'مشاركة',
+                                            ),
+                                            actionButton(
+                                              onPressed: _openLink,
+                                              icon: Icons.open_in_new,
+                                              label: 'فتح الرابط',
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
+                                    ],
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ),
@@ -328,31 +439,181 @@ class _QrErrorState extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.qr_code_rounded, size: 54, color: Colors.black54),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              style: const TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420, minHeight: 280),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFF673AB7).withValues(alpha: 0.16)),
+                  color: const Color(0xFF673AB7).withValues(alpha: 0.08),
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 28,
+                  color: Color(0xFF5B4D87),
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 14),
-            ElevatedButton(
-              onPressed: () {
-                onRetry();
-              },
-              child: const Text(
-                'إعادة المحاولة',
-                style: TextStyle(fontFamily: 'Cairo'),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF5E577A),
+                  height: 1.8,
+                ),
+                textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 14),
+              ElevatedButton(
+                onPressed: () {
+                  onRetry();
+                },
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'إعادة المحاولة',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QrLoadingState extends StatelessWidget {
+  const _QrLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420, minHeight: 280),
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QrAuthGate extends StatelessWidget {
+  final Future<void> Function() onLogin;
+
+  const _QrAuthGate({
+    required this.onLogin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(28, 30, 28, 30),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFFFFFF), Color(0xFFF5F3FF)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE9D5FF)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x147C4FD4),
+                  blurRadius: 28,
+                  offset: Offset(0, 14),
+                ),
+              ],
             ),
-          ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: const Color(0x147C4FD4),
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child: const Icon(
+                    Icons.qr_code_2_rounded,
+                    color: Color(0xFF7C4FD4),
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'سجّل دخولك',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF5B21B6),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'لعرض كود نافذتي، سجّل دخولك أولاً',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF6B7280),
+                    height: 1.8,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onLogin,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C4FD4),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'تسجيل الدخول',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

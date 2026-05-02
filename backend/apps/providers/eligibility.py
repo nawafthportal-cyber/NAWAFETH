@@ -73,3 +73,25 @@ def ensure_provider_access(user) -> ProviderAccessState:
     if not state.allowed:
         raise ProviderAccessError(state.detail, code=state.code)
     return state
+
+
+class HasProviderProfile:
+    """Permission class that allows any authenticated user with a ProviderProfile.
+
+    This is the correct gate for provider-owned resource endpoints (listing,
+    retrieving, or modifying content the provider themselves created).
+
+    Unlike ``IsAtLeastProvider``, this also accepts legacy / admin-created
+    providers whose ``role_state`` may have drifted to ``client`` without a
+    matching profile upgrade – consistent with ``provider_access_state()``.
+    """
+
+    message = "هذه الخدمة متاحة فقط لمقدمي الخدمات المسجلين."
+
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        state = provider_access_state(user)
+        if not state.allowed:
+            self.message = state.detail or self.message
+            return False
+        return True

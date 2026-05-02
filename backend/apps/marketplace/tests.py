@@ -488,6 +488,10 @@ class ServiceRequestStateTransitionTests(TestCase):
 
         self.assertEqual(payload["client_city"], "جدة")
         self.assertIn("جدة", payload["client_city_display"])
+        self.assertEqual(payload["client_city_display_en"], "Makkah - Jeddah")
+        self.assertEqual(payload["city_display_en"], "")
+        self.assertEqual(payload["category_name_en"], "Maintenance")
+        self.assertEqual(payload["subcategory_name_en"], "Electrical")
 
     def test_provider_progress_update_during_execution_returns_to_awaiting_client_and_notifies_client(self):
         service_request = ServiceRequest.objects.create(

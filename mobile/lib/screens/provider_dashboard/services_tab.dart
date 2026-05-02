@@ -136,6 +136,7 @@ class _ServicesTabState extends State<ServicesTab> {
     String priceTo = (item['price_to'] ?? '').toString();
     String priceUnit = item['price_unit'] as String? ?? 'fixed';
     bool isActive = item['is_active'] as bool? ?? true;
+    bool acceptsUrgent = item['accepts_urgent'] as bool? ?? false;
 
     showModalBottomSheet(
       context: context,
@@ -278,6 +279,41 @@ class _ServicesTabState extends State<ServicesTab> {
                     ],
 
                     const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.deepPurple.withValues(alpha: 0.10),
+                        ),
+                      ),
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'تفعيل استقبال الطلبات العاجلة لهذا التصنيف',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'يطبّق هذا الإعداد على التصنيف الفرعي المحدد فقط، ويمكنك تغييره لاحقًا من نفس الشاشة.',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11,
+                            height: 1.45,
+                          ),
+                        ),
+                        value: acceptsUrgent,
+                        activeThumbColor: Colors.deepPurple,
+                        onChanged: (val) =>
+                            setModalState(() => acceptsUrgent = val),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
                     SwitchListTile(
                       title: const Text('الخدمة مفعلة',
                           style: TextStyle(fontFamily: 'Cairo')),
@@ -308,6 +344,7 @@ class _ServicesTabState extends State<ServicesTab> {
                                   'subcategory_id': selectedSubId,
                                   'price_unit': priceUnit,
                                   'is_active': isActive,
+                                  'accepts_urgent': acceptsUrgent,
                                 };
 
                                 if (priceUnit != 'negotiable') {
@@ -371,9 +408,19 @@ class _ServicesTabState extends State<ServicesTab> {
   }
 
   void _addNewService() {
-    // تمرير خدمة فارغة لنموذج الإضافة
-    _editService(services.length);
-    // أضف عنصراً مؤقتاً للتعامل مع الإندكس
+    final emptyService = <String, dynamic>{
+      'title': '',
+      'description': '',
+      'price_from': null,
+      'price_to': null,
+      'price_unit': 'fixed',
+      'is_active': true,
+      'accepts_urgent': false,
+      'subcategory': null,
+    };
+    services.add(emptyService);
+    _editService(services.length - 1);
+    services.removeLast();
   }
 
   void _showSnack(String msg, {bool isError = false}) {
@@ -439,6 +486,117 @@ class _ServicesTabState extends State<ServicesTab> {
     );
   }
 
+  Widget _buildIntroCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.deepPurple.withValues(alpha: 0.10),
+            const Color(0xFF0EA5A4).withValues(alpha: 0.08),
+          ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.12)),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'التصنيفات والخدمات',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: Colors.deepPurple,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'أضف تخصصك وفَعِّل الطلبات العاجلة للتصنيفات المناسبة فقط',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'عند إنشاء خدمة جديدة يمكنك تحديد التصنيف الرئيسي والفرعي، ثم تفعيل استقبال الطلبات العاجلة لهذا التصنيف وحده حتى يبقى التوزيع أدق.',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12.5,
+              height: 1.6,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF475569),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.home_repair_service_outlined,
+            size: 56,
+            color: Colors.grey,
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'لا توجد خدمات بعد',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF334155),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'ابدأ الآن بإضافة خدمتك الأولى ليظهر تخصصك للعملاء مع إعدادات التسعير والعاجل.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12.5,
+              height: 1.55,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _addNewService,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'أضف خدمتك الأولى',
+              style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -451,21 +609,7 @@ class _ServicesTabState extends State<ServicesTab> {
         floatingActionButton: (!_isLoading && _errorMessage == null)
             ? FloatingActionButton(
                 backgroundColor: Colors.deepPurple,
-                onPressed: () {
-                  // فتح نموذج إضافة خدمة جديدة فارغة
-                  final emptyService = <String, dynamic>{
-                    'title': '',
-                    'description': '',
-                    'price_from': null,
-                    'price_to': null,
-                    'price_unit': 'fixed',
-                    'is_active': true,
-                    'subcategory': null,
-                  };
-                  services.add(emptyService);
-                  _editService(services.length - 1);
-                  services.removeLast(); // سيُضاف من API عند الحفظ
-                },
+                onPressed: _addNewService,
                 child: const Icon(Icons.add, color: Colors.white),
               )
             : null,
@@ -478,72 +622,47 @@ class _ServicesTabState extends State<ServicesTab> {
                 : RefreshIndicator(
                     onRefresh: () => _loadData(silent: true),
                     color: Colors.deepPurple,
-                    child: services.isEmpty
-                        ? ListView(
-                            children: const [
-                              SizedBox(height: 120),
-                              Center(
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.home_repair_service_outlined,
-                                        size: 64, color: Colors.grey),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      "لا توجد خدمات مضافة بعد",
-                                      style: TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 16,
-                                        color: Colors.black54,
-                                      ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      "اضغط + لإضافة خدمة جديدة",
-                                      style: TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 13,
-                                        color: Colors.black38,
-                                      ),
-                                    ),
-                                  ],
+                    child: ListView(
+                      padding: const EdgeInsets.all(16),
+                      children: [
+                        _buildIntroCard(),
+                        const SizedBox(height: 16),
+                        if (services.isEmpty)
+                          _buildEmptyState()
+                        else
+                          ...List.generate(services.length, (index) {
+                            final service = services[index];
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: index == services.length - 1 ? 0 : 16,
+                              ),
+                              child: Dismissible(
+                                key: ValueKey(service['id'] ?? index),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerLeft,
+                                  padding: const EdgeInsets.only(left: 20),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(Icons.delete,
+                                      color: Colors.white),
+                                ),
+                                confirmDismiss: (_) async {
+                                  await _deleteService(index);
+                                  return false;
+                                },
+                                child: InkWell(
+                                  onTap: () => _editService(index),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: _buildServiceCard(service),
                                 ),
                               ),
-                            ],
-                          )
-                        : Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: ListView.separated(
-                              itemCount: services.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 16),
-                              itemBuilder: (context, index) {
-                                final service = services[index];
-                                return Dismissible(
-                                  key: ValueKey(service['id'] ?? index),
-                                  direction: DismissDirection.endToStart,
-                                  background: Container(
-                                    alignment: Alignment.centerLeft,
-                                    padding: const EdgeInsets.only(left: 20),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: const Icon(Icons.delete,
-                                        color: Colors.white),
-                                  ),
-                                  confirmDismiss: (_) async {
-                                    await _deleteService(index);
-                                    return false;
-                                  },
-                                  child: InkWell(
-                                    onTap: () => _editService(index),
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: _buildServiceCard(service),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
+                            );
+                          }),
+                      ],
+                    ),
                   ),
       ),
     );
@@ -556,6 +675,7 @@ class _ServicesTabState extends State<ServicesTab> {
     final mainCatName = categoryInSub?['name'] as String? ?? '';
     final subCatName = subcategory?['name'] as String? ?? '';
     final bool isActive = service['is_active'] as bool? ?? true;
+    final bool acceptsUrgent = service['accepts_urgent'] as bool? ?? false;
 
     // تنسيق السعر
     String priceText;
@@ -622,25 +742,32 @@ class _ServicesTabState extends State<ServicesTab> {
                   ),
                 ),
               ),
-              if (!isActive)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    border: Border.all(color: Colors.red),
-                    borderRadius: BorderRadius.circular(20),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? const Color(0xFFECFDF5)
+                      : Colors.red.shade50,
+                  border: Border.all(
+                    color: isActive
+                        ? const Color(0xFF10B981).withValues(alpha: 0.35)
+                        : Colors.red,
                   ),
-                  child: const Text(
-                    'معطلة',
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      fontFamily: 'Cairo',
-                    ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  isActive ? 'مفعلة' : 'معطلة',
+                  style: TextStyle(
+                    color: isActive
+                        ? const Color(0xFF047857)
+                        : Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    fontFamily: 'Cairo',
                   ),
                 ),
+              ),
             ],
           ),
           if ((service['description'] as String? ?? '').isNotEmpty) ...[
@@ -666,6 +793,41 @@ class _ServicesTabState extends State<ServicesTab> {
               ],
             ),
           const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: acceptsUrgent
+                      ? const Color(0xFFECFDF5)
+                      : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: acceptsUrgent
+                        ? const Color(0xFF10B981).withValues(alpha: 0.25)
+                        : const Color(0xFFCBD5E1),
+                  ),
+                ),
+                child: Text(
+                  acceptsUrgent
+                      ? 'يستقبل الطلبات العاجلة'
+                      : 'العاجل غير مفعل',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: acceptsUrgent
+                        ? const Color(0xFF047857)
+                        : const Color(0xFF64748B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
               const Icon(Icons.price_check, size: 16, color: Colors.grey),
@@ -679,28 +841,61 @@ class _ServicesTabState extends State<ServicesTab> {
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                final idx = services.indexOf(service);
-                if (idx >= 0) _editService(idx);
-              },
-              icon: const Icon(Icons.edit, color: Colors.white, size: 16),
-              label: const Text(
-                "تعديل",
-                style: TextStyle(
-                    color: Colors.white, fontSize: 13, fontFamily: 'Cairo'),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    final idx = services.indexOf(service);
+                    if (idx >= 0) _editService(idx);
+                  },
+                  icon: const Icon(Icons.edit, color: Colors.white, size: 16),
+                  label: const Text(
+                    'تعديل',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontFamily: 'Cairo',
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final idx = services.indexOf(service);
+                    if (idx >= 0) {
+                      _deleteService(idx);
+                    }
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: const Text(
+                    'حذف',
+                    style: TextStyle(fontFamily: 'Cairo', fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],

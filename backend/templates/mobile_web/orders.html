@@ -31,36 +31,36 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
         </button>
         <div class="orders-topbar-copy">
-          <h1 class="mw-page-title">طلباتي</h1>
-          <p>لوحة موحّدة لمتابعة الحالة والإجراءات</p>
+          <h1 class="mw-page-title" id="orders-page-title">طلباتي</h1>
+          <p id="orders-page-subtitle">لوحة موحّدة لمتابعة الحالة والإجراءات</p>
         </div>
         <span class="mw-page-topbar-spacer" aria-hidden="true"></span>
       </div>
 
-      <section class="orders-hero-panel" aria-label="ملخص الطلبات">
+      <section class="orders-hero-panel" id="orders-hero-panel" aria-label="ملخص الطلبات">
         <div class="orders-hero-copy">
-          <h2>ملخص الطلبات</h2>
-          <p>ابدأ بالأهم ثم افتح التفاصيل عند الحاجة.</p>
+          <h2 id="orders-hero-title">ملخص الطلبات</h2>
+          <p id="orders-hero-subtitle">ابدأ بالأهم ثم افتح التفاصيل عند الحاجة.</p>
         </div>
         <div class="orders-hero-stats">
           <article class="orders-hero-stat">
             <span class="orders-hero-value" id="orders-active-count">0</span>
-            <span class="orders-hero-label">طلبات نشطة</span>
+            <span class="orders-hero-label" id="orders-active-label">طلبات نشطة</span>
           </article>
           <article class="orders-hero-stat">
             <span class="orders-hero-value" id="orders-total-count">0</span>
-            <span class="orders-hero-label">إجمالي الطلبات</span>
+            <span class="orders-hero-label" id="orders-total-label">إجمالي الطلبات</span>
           </article>
           <article class="orders-hero-stat">
-            <span class="orders-hero-label">قبل التنفيذ</span>
+            <span class="orders-hero-label" id="orders-pre-execution-label">قبل التنفيذ</span>
             <small class="orders-hero-note" id="orders-pre-execution-note">تم قبول الطلب: 0 • بانتظار اعتماد العميل: 0</small>
           </article>
         </div>
       </section>
 
-      <div class="orders-mobile-sheet" aria-label="قائمة الطلبات">
+      <div class="orders-mobile-sheet" id="orders-mobile-sheet" aria-label="قائمة الطلبات">
         <div class="orders-filter-head">
-          <h3>قائمة الطلبات</h3>
+          <h3 id="orders-list-title">قائمة الطلبات</h3>
           <span class="orders-results-count" id="orders-results-count">0</span>
         </div>
 
@@ -74,23 +74,23 @@
         <!-- Status filter tabs -->
         <div class="tabs-row ux26-status-tabs" id="status-tabs">
           <button class="tab-btn active" data-status="">
-            <span>الكل</span>
+            <span id="orders-tab-all">الكل</span>
             <span class="orders-tab-count" data-count-for="all">0</span>
           </button>
           <button class="tab-btn" data-status="new">
-            <span>جديد</span>
+            <span id="orders-tab-new">جديد</span>
             <span class="orders-tab-count" data-count-for="new">0</span>
           </button>
           <button class="tab-btn" data-status="in_progress">
-            <span>تحت التنفيذ</span>
+            <span id="orders-tab-in-progress">تحت التنفيذ</span>
             <span class="orders-tab-count" data-count-for="in_progress">0</span>
           </button>
           <button class="tab-btn" data-status="completed">
-            <span>مكتمل</span>
+            <span id="orders-tab-completed">مكتمل</span>
             <span class="orders-tab-count" data-count-for="completed">0</span>
           </button>
           <button class="tab-btn" data-status="cancelled">
-            <span>ملغي</span>
+            <span id="orders-tab-cancelled">ملغي</span>
             <span class="orders-tab-count" data-count-for="cancelled">0</span>
           </button>
         </div>
@@ -115,5 +115,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/ordersPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/ordersPage.js' %}?v=20260502-orders-i18n-stage1"></script>
 {% endblock %}

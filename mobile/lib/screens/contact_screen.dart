@@ -4,8 +4,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../models/ticket_model.dart';
+import '../services/auth_service.dart';
 import '../services/support_service.dart';
 import '../widgets/platform_top_bar.dart';
+import 'login_screen.dart';
 
 class ContactScreen extends StatefulWidget {
   final bool startNewTicketForm;
@@ -25,7 +27,236 @@ class ContactScreen extends StatefulWidget {
   State<ContactScreen> createState() => _ContactScreenState();
 }
 
+class _AuthGatePoint extends StatelessWidget {
+  final String label;
+
+  const _AuthGatePoint({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: Color(0xFF4ADE80),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Color(0xEAF8FAFC),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroTag extends StatelessWidget {
+  final String label;
+
+  const _HeroTag({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Text(
+        '✓ $label',
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
+          color: Color(0xEAF8FAFC),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroHighlight extends StatelessWidget {
+  final String label;
+  final String body;
+
+  const _HeroHighlight({required this.label, required this.body});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFFC7F7EE),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            body,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12.5,
+              height: 1.6,
+              fontWeight: FontWeight.w700,
+              color: Color(0xD9FFFFFF),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroMetric extends StatelessWidget {
+  final String value;
+  final String label;
+
+  const _HeroMetric({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: Color(0xC7FFFFFF),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroJourneyStep extends StatelessWidget {
+  final String index;
+  final String title;
+  final String body;
+
+  const _HeroJourneyStep({
+    required this.index,
+    required this.title,
+    required this.body,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF673AB7), Color(0xFF9C6BE6)],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+          ),
+          child: Text(
+            index,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                body,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  height: 1.6,
+                  color: Color(0xC7FFFFFF),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ContactScreenState extends State<ContactScreen> {
+  bool _checkingAccess = true;
+  bool _isLoggedIn = true;
+
   // البيانات من الـ API
   List<Ticket> tickets = [];
   bool _isLoadingTickets = true;
@@ -114,13 +345,57 @@ class _ContactScreenState extends State<ContactScreen> {
       selectedTicket = null;
     }
 
-    _loadTeams();
-    _loadTickets();
+    _initializeScreen();
 
     final desc = widget.initialDescription;
     if (desc != null && desc.trim().isNotEmpty) {
       _descriptionController.text = desc;
     }
+  }
+
+  Future<void> _initializeScreen() async {
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!mounted) return;
+
+    if (!loggedIn) {
+      setState(() {
+        _checkingAccess = false;
+        _isLoggedIn = false;
+        _isLoadingTickets = false;
+        _ticketsError = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _checkingAccess = false;
+      _isLoggedIn = true;
+    });
+
+    await Future.wait([
+      _loadTeams(),
+      _loadTickets(),
+    ]);
+  }
+
+  Future<void> _openLogin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(
+          redirectTo: ContactScreen(
+            startNewTicketForm: widget.startNewTicketForm,
+            initialSupportTeam: widget.initialSupportTeam,
+            initialDescription: widget.initialDescription,
+            initialTicketId: widget.initialTicketId,
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _checkingAccess = true;
+    });
+    await _initializeScreen();
   }
 
   /// تحميل فرق الدعم من الـ API
@@ -580,27 +855,141 @@ class _ContactScreenState extends State<ContactScreen> {
         showNotificationAction: false,
         showChatAction: false,
       ),
-      body: RefreshIndicator.adaptive(
-        color: _brandPrimary,
-        onRefresh: _loadTickets,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+      body: _checkingAccess
+          ? const Center(child: CircularProgressIndicator())
+          : !_isLoggedIn
+              ? _buildAuthGate()
+              : RefreshIndicator.adaptive(
+                  color: _brandPrimary,
+                  onRefresh: _loadTickets,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHero(theme, isDark),
+                        const SizedBox(height: 16),
+                        _buildStatsRow(theme, isDark),
+                        const SizedBox(height: 16),
+                        _buildToolbar(theme, isDark),
+                        const SizedBox(height: 16),
+                        _buildTicketsSection(theme, isDark),
+                        const SizedBox(height: 16),
+                        if (showNewTicketForm)
+                          _buildNewTicketForm(theme, isDark)
+                        else if (_isLoadingDetail || selectedTicket != null || _detailError != null)
+                          _buildTicketDetails(theme, isDark)
+                        else
+                          _buildDetailPlaceholder(theme, isDark),
+                      ],
+                    ),
+                  ),
+                ),
+    );
+  }
+
+  Widget _buildAuthGate() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxWidth: 420),
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 30),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF0B1320),
+                Color(0xFF0F1D2E),
+                Color(0xFF0C1A2C),
+              ],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x734A2D8F),
+                blurRadius: 36,
+                offset: Offset(0, 18),
+              ),
+            ],
+            border: Border.all(color: const Color(0x14FFFFFF)),
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildHero(theme, isDark),
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                ),
+                child: const Icon(
+                  Icons.support_agent_rounded,
+                  color: Color(0xFFC7F7EE),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'سجّل دخولك',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'يجب تسجيل الدخول لعرض تذاكر الدعم وفتح بلاغ جديد.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xD1F8FAFC),
+                  height: 1.8,
+                ),
+              ),
               const SizedBox(height: 16),
-              _buildStatsRow(theme, isDark),
-              const SizedBox(height: 16),
-              _buildTicketsSection(theme, isDark),
-              const SizedBox(height: 16),
-              if (showNewTicketForm)
-                _buildNewTicketForm(theme, isDark)
-              else if (_isLoadingDetail || selectedTicket != null || _detailError != null)
-                _buildTicketDetails(theme, isDark)
-              else
-                _buildDetailPlaceholder(theme, isDark),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: const [
+                  _AuthGatePoint(label: 'عرض سجل البلاغات السابقة'),
+                  _AuthGatePoint(label: 'متابعة الحالة والتعليقات'),
+                  _AuthGatePoint(label: 'رفع المرفقات من نفس الواجهة'),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: 180,
+                child: FilledButton(
+                  onPressed: _openLogin,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _brandPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'تسجيل الدخول',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -609,124 +998,231 @@ class _ContactScreenState extends State<ContactScreen> {
   }
 
   Widget _buildHero(ThemeData theme, bool isDark) {
+    final openCount = tickets
+        .where((ticket) => ticket.status != 'closed' && ticket.status != 'مغلق')
+        .length;
+    final closedCount = tickets.length - openCount;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
-            Color(0xFF4331B8),
-            Color(0xFF6C54E5),
-            Color(0xFF9E82FF),
+            Color(0xFF0B1320),
+            Color(0xFF0F1D2E),
+            Color(0xFF0C1A2C),
           ],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
         borderRadius: BorderRadius.circular(28),
-        boxShadow: [
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: const [
           BoxShadow(
-            color: _brandPrimary.withValues(alpha: 0.28),
-            blurRadius: 30,
-            offset: const Offset(0, 18),
+            color: Color(0x734A2D8F),
+            blurRadius: 36,
+            offset: Offset(0, 18),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
+          Positioned(
+            top: -80,
+            right: -40,
+            child: IgnorePointer(
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Color(0x669C6BE6),
+                      Color(0x009C6BE6),
+                    ],
                   ),
                 ),
-                child: const Icon(
-                  Icons.support_agent_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'تواصل معنا',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'تابع البلاغات، أرسل استفسارك، وراجع الردود من نفس المكان.',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 13,
-                        height: 1.6,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              FilledButton.icon(
-                onPressed: _openNewTicketForm,
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: _brandPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked = constraints.maxWidth < 760;
+
+              final copyColumn = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF4ADE80),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'مركز الدعم والمساعدة',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                icon: const Icon(Icons.add_circle_outline_rounded),
-                label: const Text(
-                  'بلاغ جديد',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 14),
+                  const Text(
+                    'تواصل مع منصة نوافذ',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 26,
+                      height: 1.25,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _isLoadingTickets ? null : () => _loadTickets(),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.42),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'قدّم بلاغًا جديدًا، تابع حالة تذاكرك، وأضف التعليقات والمرفقات من واجهة أوضح وأكثر ترتيبًا.',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 13.5,
+                      height: 1.75,
+                      color: Color(0xD1F8FAFC),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: const [
+                      _HeroTag(label: 'متابعة منظمة'),
+                      _HeroTag(label: 'سجل كامل للتعليقات'),
+                      _HeroTag(label: 'رفع مرفقات بسهولة'),
+                    ],
                   ),
-                ),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text(
-                  'تحديث البلاغات',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 14),
+                  const _HeroHighlight(
+                    label: 'تجربة واضحة',
+                    body: 'تفاصيل البلاغ، حالته، ومرفقاته معروضة في لوحة واحدة مرتبة وسهلة التتبع.',
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(height: 8),
+                  const _HeroHighlight(
+                    label: 'تواصل أسرع',
+                    body: 'أضف تعليقًا جديدًا أو افتح بلاغًا آخر بدون مغادرة نفس الواجهة.',
+                  ),
+                ],
+              );
+
+              final sideColumn = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _HeroMetric(
+                          value: '${tickets.length}',
+                          label: 'إجمالي البلاغات',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _HeroMetric(
+                          value: '$openCount',
+                          label: 'قيد المتابعة',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _HeroMetric(
+                          value: '$closedCount',
+                          label: 'مغلقة',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        style: BorderStyle.solid,
+                      ),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'رحلة الدعم باختصار',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFC7F7EE),
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        _HeroJourneyStep(
+                          index: '1',
+                          title: 'أنشئ البلاغ',
+                          body: 'اختر الفريق المناسب ثم اكتب وصفًا واضحًا وأضف ما يلزم من ملفات.',
+                        ),
+                        SizedBox(height: 8),
+                        _HeroJourneyStep(
+                          index: '2',
+                          title: 'تابع التحديثات',
+                          body: 'راجع الحالة الحالية وسجل التعليقات بدون التنقل بين أكثر من شاشة.',
+                        ),
+                        SizedBox(height: 8),
+                        _HeroJourneyStep(
+                          index: '3',
+                          title: 'أكمل الحوار',
+                          body: 'أضف تعليقًا جديدًا عند الحاجة ليبقى مسار المتابعة واضحًا ومكتملًا.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              if (stacked) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    copyColumn,
+                    const SizedBox(height: 18),
+                    sideColumn,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 14, child: copyColumn),
+                  const SizedBox(width: 22),
+                  Expanded(flex: 10, child: sideColumn),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -765,6 +1261,144 @@ class _ContactScreenState extends State<ContactScreen> {
           isDark: isDark,
         ),
       ],
+    );
+  }
+
+  Widget _buildToolbar(ThemeData theme, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF171B2A) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0x140F172A),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stacked = constraints.maxWidth < 560;
+          final actions = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _isLoadingTickets ? null : _loadTickets,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isDark ? Colors.white : _brandText,
+                  backgroundColor:
+                      isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0x0D0F172A),
+                  side: BorderSide.none,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text(
+                  'تحديث',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _openNewTicketForm,
+                style: FilledButton.styleFrom(
+                  backgroundColor: showNewTicketForm
+                      ? const Color(0xFF4A2D8F)
+                      : _brandPrimary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text(
+                  'بلاغ جديد',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          );
+
+          if (stacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'لوحة دعم أنظف وأوضح',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : _brandText,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'بدّل بين تحديث القائمة وفتح بلاغ جديد من شريط أوامر سريع ومباشر.',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12,
+                    height: 1.6,
+                    color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                actions,
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'لوحة دعم أنظف وأوضح',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? Colors.white : _brandText,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'بدّل بين تحديث القائمة وفتح بلاغ جديد من شريط أوامر سريع ومباشر.',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        height: 1.6,
+                        color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              actions,
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -831,6 +1465,79 @@ class _ContactScreenState extends State<ContactScreen> {
     );
   }
 
+  Widget _buildPanelNote(String label, {required bool isDark}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : _brandSurface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: isDark ? Colors.white : _brandPrimary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPanelHeader({
+    required String kicker,
+    required String title,
+    required String subtitle,
+    required String note,
+    required bool isDark,
+    Widget? trailing,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                kicker,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? const Color(0xFFC7F7EE) : _brandPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : _brandText,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  height: 1.6,
+                  color: isDark ? Colors.white60 : const Color(0xFF6A6480),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        trailing ?? _buildPanelNote(note, isDark: isDark),
+      ],
+    );
+  }
+
   Widget _buildTicketsSection(ThemeData theme, bool isDark) {
     return Container(
       width: double.infinity,
@@ -854,50 +1561,34 @@ class _ContactScreenState extends State<ContactScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'قائمة البلاغات',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : _brandText,
-                      ),
+          _buildPanelHeader(
+            kicker: 'مركز البلاغات',
+            title: 'قائمة البلاغات',
+            subtitle: 'تابع جميع البلاغات التي أرسلتها وحالتها الحالية.',
+            note: 'تحديث حي للحالة',
+            isDark: isDark,
+            trailing: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _buildPanelNote('تحديث حي للحالة', isDark: isDark),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : _brandSurface,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '${tickets.length} بلاغ',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : _brandPrimary,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'اختر البلاغ لعرض التفاصيل الكاملة والردود المرتبطة به.',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 12,
-                        color: isDark ? Colors.white60 : const Color(0xFF6A6480),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withValues(alpha: 0.05) : _brandSurface,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  '${tickets.length} بلاغ',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : _brandPrimary,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           if (_isLoadingTickets)
@@ -984,7 +1675,7 @@ class _ContactScreenState extends State<ContactScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'ابدأ بإنشاء بلاغ جديد وسنرتب توجيهه إلى الفريق المناسب.',
+                    'ابدأ بإنشاء بلاغ جديد وسنرتب توجيهه إلى الفريق المناسب مع متابعة حالته من نفس الواجهة.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: 'Cairo',
@@ -1194,49 +1885,12 @@ class _ContactScreenState extends State<ContactScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: _brandPrimary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.edit_note_rounded,
-                  color: _brandPrimary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'بلاغ جديد',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : _brandText,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'اختر الفريق المناسب واكتب وصفًا واضحًا حتى يصل البلاغ بسرعة للجهة الصحيحة.',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 12,
-                        height: 1.6,
-                        color: isDark ? Colors.white70 : const Color(0xFF6A6480),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          _buildPanelHeader(
+            kicker: 'إنشاء بلاغ',
+            title: 'إنشاء بلاغ جديد',
+            subtitle: 'اختر الجهة المناسبة ثم اكتب وصفًا واضحًا للمشكلة أو الطلب.',
+            note: 'نموذج سريع',
+            isDark: isDark,
           ),
           const SizedBox(height: 18),
           Container(
@@ -1272,7 +1926,7 @@ class _ContactScreenState extends State<ContactScreen> {
                   icon: const Icon(Icons.keyboard_arrow_down_rounded),
                   decoration: _fieldDecoration(
                     isDark: isDark,
-                    labelText: 'الفريق المختص',
+                    labelText: 'فريق الدعم',
                     hintText: 'اختر فريق الدعم',
                     prefixIcon: Icons.groups_rounded,
                   ),
@@ -1289,8 +1943,7 @@ class _ContactScreenState extends State<ContactScreen> {
                   decoration: _fieldDecoration(
                     isDark: isDark,
                     labelText: 'تفاصيل البلاغ',
-                    hintText:
-                        'اشرح المشكلة أو الطلب بشكل مختصر وواضح، مع أي تفاصيل تساعد فريق الدعم.',
+                    hintText: 'اشرح المشكلة أو الطلب بشكل واضح ومختصر...',
                     prefixIcon: Icons.subject_rounded,
                   ),
                 ),
@@ -1573,6 +2226,64 @@ class _ContactScreenState extends State<ContactScreen> {
     );
   }
 
+  Widget _buildDetailSectionHead({
+    required String title,
+    required bool isDark,
+    int? count,
+    String? subtitle,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : _brandText,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12,
+                    height: 1.6,
+                    color: isDark ? Colors.white60 : const Color(0xFF6A6480),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (count != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : _brandSurface,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : _brandPrimary,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildReplyCard({
     required TicketReply reply,
     required bool isDark,
@@ -1652,7 +2363,16 @@ class _ContactScreenState extends State<ContactScreen> {
         ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildPanelHeader(
+            kicker: 'قراءة ومتابعة',
+            title: 'تفاصيل البلاغ',
+            subtitle: 'هنا ستجد الحالة، الوصف، المرفقات، والتعليقات المرتبطة بالبلاغ.',
+            note: 'تفاصيل كاملة',
+            isDark: isDark,
+          ),
+          const SizedBox(height: 24),
           Container(
             width: 58,
             height: 58,
@@ -1668,7 +2388,7 @@ class _ContactScreenState extends State<ContactScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            'اختر بلاغًا لعرض التفاصيل',
+            'اختر بلاغًا من القائمة لعرض التفاصيل',
             style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: 16,
@@ -1678,7 +2398,7 @@ class _ContactScreenState extends State<ContactScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'ستظهر هنا حالة البلاغ، المرفقات، والتعليقات بينك وبين فريق الدعم.',
+            'ستظهر هنا حالة البلاغ، المرفقات، وسجل التعليقات المرتبط به بمجرد اختيار البلاغ.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'Cairo',
@@ -1789,6 +2509,10 @@ class _ContactScreenState extends State<ContactScreen> {
       return _buildDetailPlaceholder(theme, isDark);
     }
 
+    final attachmentsCount = ticket.attachments.length;
+    final commentsCount = ticket.replies.length;
+    final descriptionText = ticket.description.trim();
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -1811,6 +2535,14 @@ class _ContactScreenState extends State<ContactScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildPanelHeader(
+            kicker: 'قراءة ومتابعة',
+            title: 'تفاصيل البلاغ',
+            subtitle: 'هنا ستجد الحالة، الوصف، المرفقات، والتعليقات المرتبطة بالبلاغ.',
+            note: 'تفاصيل كاملة',
+            isDark: isDark,
+          ),
+          const SizedBox(height: 16),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
@@ -1907,21 +2639,27 @@ class _ContactScreenState extends State<ContactScreen> {
                   runSpacing: 10,
                   children: [
                     _buildInfoCard(
-                      label: 'الفريق',
-                      value: _ticketTeamLabel(ticket),
-                      icon: Icons.groups_rounded,
-                      isDark: isDark,
-                    ),
-                    _buildInfoCard(
                       label: 'تاريخ الإنشاء',
                       value: _formatDateTime(ticket.createdAt),
                       icon: Icons.event_rounded,
                       isDark: isDark,
                     ),
                     _buildInfoCard(
-                      label: 'آخر تحديث',
-                      value: _formatDateTime(ticket.lastUpdate ?? ticket.createdAt),
-                      icon: Icons.update_rounded,
+                      label: 'المرفقات',
+                      value: '$attachmentsCount',
+                      icon: Icons.attach_file_rounded,
+                      isDark: isDark,
+                    ),
+                    _buildInfoCard(
+                      label: 'التعليقات',
+                      value: '$commentsCount',
+                      icon: Icons.mode_comment_outlined,
+                      isDark: isDark,
+                    ),
+                    _buildInfoCard(
+                      label: 'الحالة',
+                      value: ticket.displayStatus,
+                      icon: Icons.flag_outlined,
                       isDark: isDark,
                     ),
                   ],
@@ -1930,14 +2668,9 @@ class _ContactScreenState extends State<ContactScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            'وصف البلاغ',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: isDark ? Colors.white : _brandText,
-            ),
+          _buildDetailSectionHead(
+            title: 'وصف البلاغ',
+            isDark: isDark,
           ),
           const SizedBox(height: 8),
           Container(
@@ -1948,7 +2681,9 @@ class _ContactScreenState extends State<ContactScreen> {
               borderRadius: BorderRadius.circular(22),
             ),
             child: Text(
-              ticket.description,
+              descriptionText.isEmpty
+                  ? 'لا يوجد وصف مرفق لهذا البلاغ.'
+                  : descriptionText,
               style: TextStyle(
                 fontFamily: 'Cairo',
                 fontSize: 14,
@@ -1957,22 +2692,36 @@ class _ContactScreenState extends State<ContactScreen> {
               ),
             ),
           ),
-          if (ticket.attachments.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text(
-              'المرفقات',
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : _brandText,
+          const SizedBox(height: 16),
+          _buildDetailSectionHead(
+            title: 'المرفقات',
+            count: attachmentsCount,
+            isDark: isDark,
+          ),
+          const SizedBox(height: 8),
+          if (ticket.attachments.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.04) : _brandSurface,
+                borderRadius: BorderRadius.circular(22),
               ),
-            ),
-            const SizedBox(height: 8),
+              child: Text(
+                'لا توجد مرفقات مضافة لهذا البلاغ',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 13,
+                  color: isDark ? Colors.white70 : const Color(0xFF6A6480),
+                ),
+              ),
+            )
+          else
             Wrap(
               spacing: 10,
               runSpacing: 10,
               children: ticket.attachments.map((attachment) {
+                final fileName = _fileNameFromPath(attachment).trim();
                 return Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -2001,7 +2750,7 @@ class _ContactScreenState extends State<ContactScreen> {
                       ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 190),
                         child: Text(
-                          _fileNameFromPath(attachment),
+                          fileName.isEmpty ? 'مرفق' : fileName,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'Cairo',
@@ -2015,28 +2764,11 @@ class _ContactScreenState extends State<ContactScreen> {
                 );
               }).toList(),
             ),
-          ],
           const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'سجل التعليقات',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : _brandText,
-                  ),
-                ),
-              ),
-              if (_isLoadingDetail)
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2.2),
-                ),
-            ],
+          _buildDetailSectionHead(
+            title: 'التعليقات',
+            count: commentsCount,
+            isDark: isDark,
           ),
           const SizedBox(height: 8),
           if (ticket.replies.isEmpty)
@@ -2048,7 +2780,7 @@ class _ContactScreenState extends State<ContactScreen> {
                 borderRadius: BorderRadius.circular(22),
               ),
               child: Text(
-                'لا توجد تعليقات حتى الآن على هذا البلاغ.',
+                'لا توجد تعليقات بعد',
                 style: TextStyle(
                   fontFamily: 'Cairo',
                   fontSize: 13,
@@ -2070,14 +2802,10 @@ class _ContactScreenState extends State<ContactScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'أضف ردًا',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : _brandText,
-                  ),
+                _buildDetailSectionHead(
+                  title: 'أضف تعليقًا جديدًا',
+                  subtitle: 'سيظهر تعليقك ضمن سجل البلاغ ليسهل متابعة الحالة.',
+                  isDark: isDark,
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -2090,7 +2818,7 @@ class _ContactScreenState extends State<ContactScreen> {
                   ),
                   decoration: _fieldDecoration(
                     isDark: isDark,
-                    hintText: 'اكتب ردك أو استفسارك الإضافي هنا.',
+                    hintText: 'اكتب تعليقك...',
                     prefixIcon: Icons.mode_comment_outlined,
                   ),
                 ),
@@ -2121,7 +2849,7 @@ class _ContactScreenState extends State<ContactScreen> {
                           )
                         : const Icon(Icons.send_rounded),
                     label: Text(
-                      _isSendingReply ? 'جارٍ الإرسال...' : 'إرسال الرد',
+                      _isSendingReply ? 'جارٍ الإرسال...' : 'إرسال التعليق',
                       style: const TextStyle(
                         fontFamily: 'Cairo',
                         fontWeight: FontWeight.w700,

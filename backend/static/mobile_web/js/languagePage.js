@@ -6,10 +6,59 @@
 
 const LanguagePage = (() => {
   const KEY = 'nw_lang';
+  const COPY = {
+    ar: {
+      title: 'نوافــذ — اللغة',
+      heroBadge: 'هوية المنصة',
+      pageTitle: 'اختيار اللغة',
+      heroSubtitle: 'اختر اللغة التي تناسبك لتجربة أوضح وأكثر انسجامًا مع واجهة نوافذ.',
+      heroCardTitle: 'واجهة ثنائية اللغة',
+      heroCardBody: 'العربية والإنجليزية بحالة اختيار واضحة',
+      authKicker: 'مزامنة الحساب',
+      authTitle: 'سجّل دخولك أولًا',
+      authBody: 'تسجيل الدخول يضمن حفظ اللغة المختارة وربطها بتجربتك داخل المنصة.',
+      loginCta: 'تسجيل الدخول',
+      currentSettingKicker: 'الإعداد الحالي',
+      currentLanguageTitle: 'اللغة الحالية',
+      optionsGroupLabel: 'خيارات اللغة',
+      arabicLabel: 'العربية',
+      arabicCaption: 'الواجهة الافتراضية للمنصة',
+      englishLabel: 'English',
+      englishCaption: 'واجهة مناسبة للتصفح الدولي',
+      currentLanguageValue: 'العربية',
+      success: 'تم اختيار العربية',
+      saveError: 'تعذر حفظ اللغة على هذا المتصفح',
+    },
+    en: {
+      title: 'Nawafeth — Language',
+      heroBadge: 'Platform Identity',
+      pageTitle: 'Language Selection',
+      heroSubtitle: 'Choose the language that gives you a clearer and more consistent Nawafeth experience.',
+      heroCardTitle: 'Bilingual Interface',
+      heroCardBody: 'Arabic and English with a clear active state.',
+      authKicker: 'Account Sync',
+      authTitle: 'Sign In First',
+      authBody: 'Signing in helps keep your selected language synced with your experience across the platform.',
+      loginCta: 'Sign In',
+      currentSettingKicker: 'Current Setting',
+      currentLanguageTitle: 'Current Language',
+      optionsGroupLabel: 'Language options',
+      arabicLabel: 'Arabic',
+      arabicCaption: 'The platform default interface',
+      englishLabel: 'English',
+      englishCaption: 'A better fit for international browsing',
+      currentLanguageValue: 'English',
+      success: 'English selected',
+      saveError: 'Unable to save the language on this browser',
+    },
+  };
 
   function init() {
     const authGate = document.getElementById('language-auth-gate');
     const content = document.getElementById('language-content');
+    const lang = _getLanguage();
+
+    _applyPageLanguage(lang);
 
     if (!Auth.isLoggedIn()) {
       if (authGate) authGate.classList.remove('hidden');
@@ -41,14 +90,17 @@ const LanguagePage = (() => {
     try {
       localStorage.setItem(KEY, lang);
     } catch (_) {
-      _showError('تعذر حفظ اللغة على هذا المتصفح');
+      _showError(_copy(_getLanguage()).saveError);
       return;
     }
 
-    document.documentElement.lang = lang;
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    if (window.NawafethI18n && typeof window.NawafethI18n.applyLanguage === 'function') {
+      window.NawafethI18n.applyLanguage(lang);
+    }
+
+    _applyPageLanguage(lang);
     _renderCurrent();
-    _showSuccess(lang === 'ar' ? 'تم اختيار العربية' : 'English selected');
+    _showSuccess(_copy(lang).success);
   }
 
   function _getLanguage() {
@@ -62,8 +114,43 @@ const LanguagePage = (() => {
   function _renderCurrent() {
     const lang = _getLanguage();
     const label = document.getElementById('language-current-label');
-    if (!label) return;
-    label.textContent = lang === 'en' ? 'English' : 'العربية';
+    if (label) {
+      label.textContent = _copy(lang).currentLanguageValue;
+    }
+
+    _renderSelectionState(lang);
+  }
+
+  function _applyPageLanguage(lang) {
+    const dict = _copy(lang);
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    document.title = dict.title;
+
+    document.querySelectorAll('[data-i18n]').forEach((node) => {
+      const key = node.getAttribute('data-i18n');
+      if (!key || !(key in dict)) return;
+      node.textContent = dict[key];
+    });
+
+    document.querySelectorAll('[data-i18n-aria-label]').forEach((node) => {
+      const key = node.getAttribute('data-i18n-aria-label');
+      if (!key || !(key in dict)) return;
+      node.setAttribute('aria-label', dict[key]);
+    });
+  }
+
+  function _copy(lang) {
+    return COPY[lang] || COPY.ar;
+  }
+
+  function _renderSelectionState(lang) {
+    const options = document.querySelectorAll('.language-option');
+    options.forEach((option) => {
+      const isActive = option.dataset.lang === lang;
+      option.classList.toggle('is-active', isActive);
+      option.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
   }
 
   function _showSuccess(msg) {

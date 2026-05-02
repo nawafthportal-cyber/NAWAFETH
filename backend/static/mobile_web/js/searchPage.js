@@ -6,6 +6,151 @@
 'use strict';
 
 const SearchPage = (() => {
+  const COPY = {
+    ar: {
+      pageTitle: 'بحث مقدمي الخدمات',
+      back: 'رجوع',
+      liveResults: 'نتائج محدثة لحظيًا',
+      kicker: 'اكتشاف احترافي',
+      heading: 'البحث عن مزود خدمة',
+      subtitle: 'ابحث بسرعة، قارن بثقة، وابدأ الطلب مباشرة من نفس النتيجة بدون خطوات مشتتة.',
+      searchPlaceholder: 'ابحث باسم المزود، التخصص أو القسم...',
+      clear: 'مسح',
+      signalVerified: 'مزودون موثقون',
+      signalRequest: 'طلب فوري',
+      signalMap: 'خريطة حية',
+      totalResults: 'إجمالي النتائج',
+      resultsCount: '{count} نتيجة',
+      map: 'الخريطة',
+      sortResults: 'فرز النتائج',
+      activeCategory: 'التصنيف الحالي: {name}',
+      allCategories: 'كل التصنيفات',
+      changeCategory: 'تغيير التصنيف - {name}',
+      chooseCategory: 'اختيار التصنيف',
+      readyProviders: 'مزودون جاهزون للعمل',
+      resultsNote: 'البطاقات تعرض الثقة، النشاط، والإجراء الأسرع من أول نظرة.',
+      noSearchResults: 'لا توجد نتائج تطابق البحث الحالي.',
+      chooseCategoryTitle: 'اختر التصنيف',
+      close: 'إغلاق',
+      searchCategoryPlaceholder: 'ابحث عن تصنيف...',
+      categoriesCount: '{count} تصنيف',
+      categoriesCountOfTotal: '{count} من {total} تصنيف',
+      chooseAll: 'اختيار الكل',
+      sortBy: 'فرز حسب',
+      sortDefault: 'الافتراضي',
+      sortNearest: 'الأقرب',
+      sortRating: 'أعلى تقييم',
+      sortCompleted: 'الأكثر طلبات مكتملة',
+      sortFollowers: 'الأكثر متابعة',
+      providersMap: 'خريطة المزوّدين',
+      providersMapInCity: 'خريطة المزوّدين - {city}',
+      locationUnavailableDistance: 'تعذر تحديد الموقع حالياً. سيتم عرض النتائج بدون مسافة.',
+      clearCategoryAria: 'إلغاء تصنيف {name}',
+      all: 'الكل',
+      categoryFallback: 'تصنيف',
+      noCategoryMatch: 'لا توجد تصنيفات تطابق كلمة البحث.',
+      recentlyUsed: 'المستخدمة مؤخراً',
+      loadResultsFailed: 'تعذر تحميل النتائج',
+      specializeIn: 'متخصص في {service}',
+      noResults: 'لا توجد نتائج',
+      currentLocation: 'موقعك الحالي',
+      currentLocationFailed: 'تعذر تحديد موقعك الحالي.',
+      providerFallback: 'مزود خدمة',
+      viewProfile: 'عرض ملف {name}',
+      featured: 'مميز',
+      kilometersShort: '{distance} كم',
+      verified: 'موثّق',
+      excellenceBadge: 'شارة تميز',
+      distanceFromYou: 'يبعد عنك {distance} كم',
+      ratingsCount: '{count} تقييم',
+      noRatings: 'بدون تقييمات',
+      completedRequests: 'طلبات مكتملة',
+      followers: 'متابعون',
+      directRequestFrom: 'طلب خدمة مباشرة من {name}',
+      requestService: 'طلب خدمة',
+      startRequestWithProvider: 'ابدأ الطلب مع هذا المزود',
+      greetingWhatsapp: 'السلام عليكم، أتواصل معك عبر منصة نوافذ بخصوص طلب خدمة.',
+      completedRequestsWithCount: 'طلبات مكتملة: {count}',
+      startNow: 'ابدأ الآن',
+      profile: 'الملف',
+      call: 'اتصال',
+      whatsapp: 'واتس اب',
+      messages: 'رسائل',
+      promoOffer: 'عرض ترويجي',
+    },
+    en: {
+      pageTitle: 'Search Providers',
+      back: 'Back',
+      liveResults: 'Live results updates',
+      kicker: 'Professional discovery',
+      heading: 'Find a service provider',
+      subtitle: 'Search quickly, compare confidently, and start the request directly from the same result without distracting extra steps.',
+      searchPlaceholder: 'Search by provider name, specialty, or category...',
+      clear: 'Clear',
+      signalVerified: 'Verified providers',
+      signalRequest: 'Instant request',
+      signalMap: 'Live map',
+      totalResults: 'Total results',
+      resultsCount: '{count} results',
+      map: 'Map',
+      sortResults: 'Sort results',
+      activeCategory: 'Current category: {name}',
+      allCategories: 'All categories',
+      changeCategory: 'Change category - {name}',
+      chooseCategory: 'Choose category',
+      readyProviders: 'Providers ready for work',
+      resultsNote: 'Cards show trust, activity, and the fastest action at a glance.',
+      noSearchResults: 'No results match the current search.',
+      chooseCategoryTitle: 'Choose a category',
+      close: 'Close',
+      searchCategoryPlaceholder: 'Search for a category...',
+      categoriesCount: '{count} categories',
+      categoriesCountOfTotal: '{count} of {total} categories',
+      chooseAll: 'Select all',
+      sortBy: 'Sort by',
+      sortDefault: 'Default',
+      sortNearest: 'Nearest',
+      sortRating: 'Highest rated',
+      sortCompleted: 'Most completed requests',
+      sortFollowers: 'Most followed',
+      providersMap: 'Providers map',
+      providersMapInCity: 'Providers map - {city}',
+      locationUnavailableDistance: 'Unable to determine your location right now. Results will be shown without distance.',
+      clearCategoryAria: 'Clear category {name}',
+      all: 'All',
+      categoryFallback: 'Category',
+      noCategoryMatch: 'No categories match the search term.',
+      recentlyUsed: 'Recently used',
+      loadResultsFailed: 'Unable to load results',
+      specializeIn: 'Specialized in {service}',
+      noResults: 'No results',
+      currentLocation: 'Your current location',
+      currentLocationFailed: 'Unable to determine your current location.',
+      providerFallback: 'Service provider',
+      viewProfile: 'View profile {name}',
+      featured: 'Featured',
+      kilometersShort: '{distance} km',
+      verified: 'Verified',
+      excellenceBadge: 'Excellence badge',
+      distanceFromYou: '{distance} km away from you',
+      ratingsCount: '{count} ratings',
+      noRatings: 'No ratings',
+      completedRequests: 'Completed requests',
+      followers: 'Followers',
+      directRequestFrom: 'Direct request from {name}',
+      requestService: 'Request service',
+      startRequestWithProvider: 'Start the request with this provider',
+      greetingWhatsapp: 'Hello, I am contacting you via Nawafeth regarding a service request.',
+      completedRequestsWithCount: 'Completed requests: {count}',
+      startNow: 'Start now',
+      profile: 'Profile',
+      call: 'Call',
+      whatsapp: 'WhatsApp',
+      messages: 'Messages',
+      promoOffer: 'Promotional offer',
+    },
+  };
+
   let _providers = [];
   let _activeCat = '';
   let _activeSubcategory = '';
@@ -82,6 +227,10 @@ const SearchPage = (() => {
     _categoryPickerCount = document.getElementById('category-picker-count');
     _categoryPickerQuick = document.getElementById('category-picker-quick');
     _categoryPickerList = document.getElementById('category-picker-list');
+
+    _applyStaticCopy();
+    _renderCategoryChips(_categories);
+    document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
 
     if (!_input || !_providersList) return;
 
@@ -319,7 +468,7 @@ const SearchPage = (() => {
     if (_selectedSort === 'nearest') {
       await _ensureDistanceMap(!!requestLocationPermission);
       if (!Object.keys(_distanceKmByProviderId).length) {
-        _showToast('تعذر تحديد الموقع حالياً. سيتم عرض النتائج بدون مسافة.');
+        _showToast(_copy('locationUnavailableDistance'));
       }
     }
     _renderProviders();
@@ -364,7 +513,7 @@ const SearchPage = (() => {
         x.setAttribute('aria-hidden', 'true');
         x.textContent = '×';
         activeChip.appendChild(x);
-        activeChip.setAttribute('aria-label', 'إلغاء تصنيف ' + (activeCatObj.name || ''));
+        activeChip.setAttribute('aria-label', _copy('clearCategoryAria', { name: activeCatObj.name || '' }));
         // Clicking the active chip clears (handled by existing handler that toggles to '' when same id)
         activeChip.dataset.catId = '';
         row.appendChild(activeChip);
@@ -372,7 +521,7 @@ const SearchPage = (() => {
     }
 
     // 2) "All" chip
-    row.appendChild(_createFilterChip('الكل', '', !_activeCat, ''));
+    row.appendChild(_createFilterChip(_copy('all'), '', !_activeCat, ''));
 
     // 3) Quick category chips
     const quickCategories = _buildQuickCategories(_categories);
@@ -404,7 +553,7 @@ const SearchPage = (() => {
     btn.className = 'filter-chip' + (active ? ' active' : '');
     btn.dataset.catId = String(catId || '');
     if (action) btn.dataset.categoryAction = action;
-    btn.textContent = String(label || '').trim() || 'تصنيف';
+    btn.textContent = String(label || '').trim() || _copy('categoryFallback');
     return btn;
   }
 
@@ -488,11 +637,11 @@ const SearchPage = (() => {
     if (!_categoryPickerQuick) return;
     _categoryPickerQuick.textContent = '';
     const frag = document.createDocumentFragment();
-    frag.appendChild(_createQuickPickerItem('الكل', '', !_activeCat));
+    frag.appendChild(_createQuickPickerItem(_copy('all'), '', !_activeCat));
     _buildQuickCategories(_categories).forEach(cat => {
       frag.appendChild(
         _createQuickPickerItem(
-          String(cat.name || '').trim() || 'تصنيف',
+          String(cat.name || '').trim() || _copy('categoryFallback'),
           String(cat.id || ''),
           String(_activeCat) === String(cat.id)
         )
@@ -522,14 +671,17 @@ const SearchPage = (() => {
     _categoryPickerVisibleIds = filtered.map(cat => String(cat.id || ''));
 
     if (_categoryPickerCount) {
-      _categoryPickerCount.textContent = filtered.length + ' من ' + _categories.length + ' تصنيف';
+      _categoryPickerCount.textContent = _copy('categoriesCountOfTotal', {
+        count: filtered.length,
+        total: _categories.length,
+      });
     }
 
     _categoryPickerList.textContent = '';
     if (!filtered.length) {
       const empty = document.createElement('div');
       empty.className = 'category-picker-empty';
-      empty.textContent = 'لا توجد تصنيفات تطابق كلمة البحث.';
+      empty.textContent = _copy('noCategoryMatch');
       _categoryPickerList.appendChild(empty);
       _categoryPickerHighlightIndex = -1;
       return;
@@ -545,7 +697,7 @@ const SearchPage = (() => {
       const byId = new Map(_categories.map(c => [String(c.id), c]));
       const recents = recentIds.map(id => byId.get(String(id))).filter(Boolean);
       if (recents.length) {
-        frag.appendChild(_makePickerSectionHeader('المستخدمة مؤخراً', recents.length, 'recent'));
+        frag.appendChild(_makePickerSectionHeader(_copy('recentlyUsed'), recents.length, 'recent'));
         recents.forEach(cat => {
           recentSet.add(String(cat.id));
           frag.appendChild(_makePickerItem(cat));
@@ -605,7 +757,7 @@ const SearchPage = (() => {
     btn.className = 'category-picker-item' + (isActive ? ' is-active' : '');
     btn.dataset.catId = id;
     btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    btn.appendChild(document.createTextNode(String(cat.name || '').trim() || ('تصنيف ' + id)));
+    btn.appendChild(document.createTextNode(String(cat.name || '').trim() || (_copy('categoryFallback') + ' ' + id)));
     const check = document.createElement('span');
     check.className = 'category-picker-item-check';
     check.textContent = isActive ? '✓' : '';
@@ -648,10 +800,10 @@ const SearchPage = (() => {
     const selectedName = _selectedCategoryName();
     const total = _categories.length;
     if (_categorySummary) {
-      _categorySummary.textContent = 'التصنيف الحالي: ' + (selectedName || 'الكل');
+      _categorySummary.textContent = _copy('activeCategory', { name: selectedName || _copy('all') });
     }
     if (_categoryOpenBtn) {
-      _categoryOpenBtn.setAttribute('title', selectedName ? ('تغيير التصنيف - ' + selectedName) : 'اختيار التصنيف');
+      _categoryOpenBtn.setAttribute('title', selectedName ? _copy('changeCategory', { name: selectedName }) : _copy('chooseCategory'));
       // Maintain a count badge inside the button (created on demand)
       let badge = _categoryOpenBtn.querySelector('.search-open-categories-count');
       if (total > 0) {
@@ -709,7 +861,7 @@ const SearchPage = (() => {
     if (!res.ok || !res.data) {
       _providers = [];
       _distanceKmByProviderId = {};
-      _showEmpty(res.error || 'تعذر تحميل النتائج');
+      _showEmpty(res.error || _copy('loadResultsFailed'));
       return;
     }
 
@@ -957,7 +1109,7 @@ const SearchPage = (() => {
       provider?.about_me,
     ].map(value => String(value || '').trim()).find(Boolean);
     if (raw) return _truncateText(raw, 120);
-    if (serviceLabel) return 'متخصص في ' + serviceLabel;
+    if (serviceLabel) return _copy('specializeIn', { service: serviceLabel });
     return '';
   }
 
@@ -965,12 +1117,12 @@ const SearchPage = (() => {
     if (!_providersList) return;
     let sorted = _applyPromoOrdering(_sortProviders(_providers));
 
-    if (_resultsCount) _resultsCount.textContent = sorted.length + ' نتيجة';
+    if (_resultsCount) _resultsCount.textContent = _copy('resultsCount', { count: sorted.length });
     if (_mapBtn) _mapBtn.classList.toggle('hidden', sorted.length === 0);
 
     _providersList.textContent = '';
     if (!sorted.length) {
-      _showEmpty('لا توجد نتائج');
+      _showEmpty(_copy('noResults'));
       if (_isProvidersMapPage) _renderMap();
       return;
     }
@@ -1047,8 +1199,8 @@ const SearchPage = (() => {
 
     if (title) {
       title.textContent = _activeCity
-        ? ('خريطة المزوّدين - ' + _activeCity)
-        : 'خريطة المزوّدين';
+        ? _copy('providersMapInCity', { city: _activeCity })
+        : _copy('providersMap');
     }
 
     if (!_mapInstance) {
@@ -1099,7 +1251,7 @@ const SearchPage = (() => {
         fillOpacity: 0.85,
         weight: 2,
       });
-      currentMarker.bindPopup('موقعك الحالي');
+      currentMarker.bindPopup(_copy('currentLocation'));
       _mapMarkersLayer.addLayer(currentMarker);
     }
 
@@ -1118,7 +1270,7 @@ const SearchPage = (() => {
   async function _focusClientLocation() {
     const pos = await _resolveClientPosition(true);
     if (!pos) {
-      _showToast('تعذر تحديد موقعك الحالي.');
+      _showToast(_copy('currentLocationFailed'));
       return;
     }
     if (_mapInstance) {
@@ -1274,7 +1426,7 @@ const SearchPage = (() => {
   }
 
   function _buildProviderCard(provider) {
-    const displayName = (provider.display_name || '').trim() || 'مزود خدمة';
+    const displayName = (provider.display_name || '').trim() || _copy('providerFallback');
     const city = UI.formatCityDisplay(provider.city_display || provider.city, provider.region || provider.region_name);
     const profileUrl = ApiClient.mediaUrl(provider.profile_image);
     const coverUrl = ApiClient.mediaUrl(provider.cover_image);
@@ -1295,7 +1447,7 @@ const SearchPage = (() => {
       className: 'provider-search-card',
       tabindex: '0',
       role: 'link',
-      'aria-label': 'عرض ملف ' + displayName,
+      'aria-label': _copy('viewProfile', { name: displayName }),
     });
     if (isFeatured) card.classList.add('promo-featured');
 
@@ -1341,13 +1493,13 @@ const SearchPage = (() => {
     if (isFeatured) {
       mediaTags.appendChild(UI.el('span', {
         className: 'provider-search-featured',
-        textContent: 'مميز',
+        textContent: _copy('featured'),
       }));
     }
     if (Number.isFinite(distanceKm)) {
       mediaTags.appendChild(UI.el('span', {
         className: 'provider-search-distance-tag',
-        textContent: distanceKm.toFixed(1) + ' كم',
+        textContent: _copy('kilometersShort', { distance: distanceKm.toFixed(1) }),
       }));
     }
     if (mediaTags.childNodes.length) {
@@ -1377,14 +1529,14 @@ const SearchPage = (() => {
           provider.is_verified_blue ? '#2196F3' : '#2E7D32'
         )
       );
-      verifiedChip.appendChild(UI.el('span', { textContent: 'موثّق' }));
+      verifiedChip.appendChild(UI.el('span', { textContent: _copy('verified') }));
       badgesRow.appendChild(verifiedChip);
     }
 
     const excellenceItems = UI.normalizeExcellenceBadges(provider.excellence_badges);
     if (excellenceItems.length) {
       excellenceItems.forEach((item) => {
-        const label = (item && (item.name || item.code)) || 'شارة تميز';
+        const label = (item && (item.name || item.code)) || _copy('excellenceBadge');
         const chip = UI.el('span', {
           className: 'provider-search-badge is-excellence',
           textContent: label,
@@ -1425,7 +1577,7 @@ const SearchPage = (() => {
     if (Number.isFinite(distanceKm)) {
       const distanceRow = UI.el('div', { className: 'provider-search-meta-row' });
       distanceRow.appendChild(_tinyIcon('near', '#3F51B5', 14));
-      distanceRow.appendChild(UI.el('span', { textContent: 'يبعد عنك ' + distanceKm.toFixed(1) + ' كم' }));
+      distanceRow.appendChild(UI.el('span', { textContent: _copy('distanceFromYou', { distance: distanceKm.toFixed(1) }) }));
       meta.appendChild(distanceRow);
     }
 
@@ -1439,10 +1591,10 @@ const SearchPage = (() => {
     }
 
     const stats = UI.el('div', { className: 'provider-search-stats' });
-    stats.appendChild(_statChip('star', ratingLabel, '#F9A825', ratingCount ? (ratingCount + ' تقييم') : 'بدون تقييمات'));
-    stats.appendChild(_statChip('done', String(completed), '#2E7D32', 'طلبات مكتملة'));
+    stats.appendChild(_statChip('star', ratingLabel, '#F9A825', ratingCount ? _copy('ratingsCount', { count: ratingCount }) : _copy('noRatings')));
+    stats.appendChild(_statChip('done', String(completed), '#2E7D32', _copy('completedRequests')));
     if (followers > 0) {
-      stats.appendChild(_statChip('people', String(followers), '#2563EB', 'متابعون'));
+      stats.appendChild(_statChip('people', String(followers), '#2563EB', _copy('followers')));
     }
     body.appendChild(stats);
 
@@ -1450,8 +1602,8 @@ const SearchPage = (() => {
     const requestAction = UI.el('a', {
       className: 'provider-search-primary',
       href: directRequestHref,
-      title: 'طلب خدمة مباشرة من ' + displayName,
-      'aria-label': 'طلب خدمة مباشرة من ' + displayName,
+      title: _copy('directRequestFrom', { name: displayName }),
+      'aria-label': _copy('directRequestFrom', { name: displayName }),
     });
     requestAction.addEventListener('click', event => {
       event.stopPropagation();
@@ -1471,8 +1623,8 @@ const SearchPage = (() => {
     requestActionIcon.appendChild(_tinyIcon('request', '#ffffff', 17));
     requestAction.appendChild(requestActionIcon);
     const requestActionCopy = UI.el('span', { className: 'provider-search-primary-copy' });
-    requestActionCopy.appendChild(UI.el('strong', { textContent: 'طلب خدمة' }));
-    requestActionCopy.appendChild(UI.el('small', { textContent: 'ابدأ الطلب مع هذا المزود' }));
+    requestActionCopy.appendChild(UI.el('strong', { textContent: _copy('requestService') }));
+    requestActionCopy.appendChild(UI.el('small', { textContent: _copy('startRequestWithProvider') }));
     requestAction.appendChild(requestActionCopy);
     const requestActionTail = UI.el('span', { className: 'provider-search-primary-tail' });
     requestActionTail.appendChild(_tinyIcon('launch', '#ffffff', 14));
@@ -1539,9 +1691,9 @@ const SearchPage = (() => {
     if (_emptyState) {
       _emptyState.classList.remove('hidden');
       const text = _emptyState.querySelector('p');
-      if (text) text.textContent = message || 'لا توجد نتائج';
+      if (text) text.textContent = message || _copy('noResults');
     }
-    if (_resultsCount) _resultsCount.textContent = '0 نتيجة';
+    if (_resultsCount) _resultsCount.textContent = _copy('resultsCount', { count: 0 });
   }
 
   function _completedCount(provider) {
@@ -1608,7 +1760,7 @@ const SearchPage = (() => {
   }
 
   function _resolveProviderWhatsappHref(provider) {
-    const text = 'السلام عليكم، أتواصل معك عبر منصة نوافذ بخصوص طلب خدمة.';
+    const text = _copy('greetingWhatsapp');
     const whatsappRaw = String(provider?.whatsapp_url || '').trim();
     if (whatsappRaw) {
       const normalized = whatsappRaw.startsWith('http') ? whatsappRaw : ('https://' + whatsappRaw);
@@ -1629,7 +1781,7 @@ const SearchPage = (() => {
 
   function _buildProviderMapPopupHtml(provider) {
     const providerId = String(provider?.id || '').trim();
-    const name = _escapeHtml((provider?.display_name || 'مزود خدمة').trim());
+    const name = _escapeHtml((provider?.display_name || _copy('providerFallback')).trim());
     const returnUrl = (() => {
       try {
         const url = new URL(window.location.href);
@@ -1667,25 +1819,25 @@ const SearchPage = (() => {
       '<div class="search-map-provider-meta">',
       '<span>⭐ ' + ratingLabel + '</span>',
       '<span>•</span>',
-      '<span>طلبات مكتملة: ' + completed + '</span>',
+      '<span>' + _escapeHtml(_copy('completedRequestsWithCount', { count: completed })) + '</span>',
       '</div>',
       '<div class="search-map-provider-actions">',
       providerId
         ? (
           '<a class="map-provider-action is-primary" href="' + directRequestHref + '">' +
           '<span class="map-provider-action-icon">' + _tinyIconMarkup('request', '#ffffff', 14) + '</span>' +
-          '<span class="map-provider-action-copy"><strong>طلب خدمة</strong><small>ابدأ الآن</small></span>' +
+          '<span class="map-provider-action-copy"><strong>' + _escapeHtml(_copy('requestService')) + '</strong><small>' + _escapeHtml(_copy('startNow')) + '</small></span>' +
           '</a>'
         )
         : '',
-      '<a class="map-provider-action" href="' + profileUrl + '">الملف</a>',
+      '<a class="map-provider-action" href="' + profileUrl + '">' + _escapeHtml(_copy('profile')) + '</a>',
       telHref
-        ? ('<a class="map-provider-action" href="' + telHref + '">اتصال</a>')
-        : '<span class="map-provider-action is-disabled">اتصال</span>',
+        ? ('<a class="map-provider-action" href="' + telHref + '">' + _escapeHtml(_copy('call')) + '</a>')
+        : '<span class="map-provider-action is-disabled">' + _escapeHtml(_copy('call')) + '</span>',
       waHref
-        ? ('<a class="map-provider-action" href="' + waHref + '" target="_blank" rel="noopener">واتس اب</a>')
-        : '<span class="map-provider-action is-disabled">واتس اب</span>',
-      '<a class="map-provider-action" href="' + chatHref + '">رسائل</a>',
+        ? ('<a class="map-provider-action" href="' + waHref + '" target="_blank" rel="noopener">' + _escapeHtml(_copy('whatsapp')) + '</a>')
+        : '<span class="map-provider-action is-disabled">' + _escapeHtml(_copy('whatsapp')) + '</span>',
+      '<a class="map-provider-action" href="' + chatHref + '">' + _escapeHtml(_copy('messages')) + '</a>',
       '</div>',
       '</div>',
     ].join('');
@@ -1725,12 +1877,11 @@ const SearchPage = (() => {
         ? ApiClient.get('/api/promo/active/?' + categoryPopupQuery.toString())
         : Promise.resolve({ ok: false, data: [] });
 
-      const [categoryBannerRes, bannerRes, categoryPopupRes, searchRes, featuredRes] = await Promise.allSettled([
+      const [categoryBannerRes, bannerRes, categoryPopupRes, searchRes] = await Promise.allSettled([
         categoryBannerPromise,
         ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=5'),
         categoryPopupPromise,
         ApiClient.get('/api/promo/active/?' + searchQuery.toString()),
-        ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
       ]);
       if (_promoBannerEl) {
         _promoBannerEl.textContent = '';
@@ -1833,9 +1984,6 @@ const SearchPage = (() => {
       const searchItems = searchRes.status === 'fulfilled' && searchRes.value.ok
         ? (searchRes.value.data?.results || searchRes.value.data || [])
         : [];
-      const featuredItems = featuredRes.status === 'fulfilled' && featuredRes.value.ok
-        ? (featuredRes.value.data?.results || featuredRes.value.data || [])
-        : [];
       _searchPromoPlacements = [];
       _featuredProviderIds = new Set();
       searchItems.forEach(item => {
@@ -1843,16 +1991,6 @@ const SearchPage = (() => {
           if (!_matchesSearchPromoScope(item) || !_matchesSearchPromoTargeting(item)) return;
           _featuredProviderIds.add(String(item.target_provider_id));
           _searchPromoPlacements.push(item);
-        }
-      });
-      featuredItems.forEach(item => {
-        if (item && item.target_provider_id) {
-          if (!_matchesSearchPromoScope(item) || !_matchesSearchPromoTargeting(item)) return;
-          _featuredProviderIds.add(String(item.target_provider_id));
-          _searchPromoPlacements.push({
-            ...item,
-            search_position: item.search_position || 'top5',
-          });
         }
       });
       if (_providers.length) _renderProviders();
@@ -1919,7 +2057,7 @@ const SearchPage = (() => {
           muted: true,
           playsinline: true,
         })
-      : UI.el('img', { className: 'promo-popup-media promo-popup-img', alt: title || 'عرض ترويجي' });
+      : UI.el('img', { className: 'promo-popup-media promo-popup-img', alt: title || _copy('promoOffer') });
     if (fileType !== 'video') media.src = mediaUrl;
 
     const body = UI.el('div', { className: 'promo-popup-body' });
@@ -1974,6 +2112,93 @@ const SearchPage = (() => {
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 180);
     }, 2200);
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    _renderCategoryChips(_categories);
+    _renderProviders();
+    if (_mapModalOpen || _isProvidersMapPage) _renderMap();
+  }
+
+  function _applyStaticCopy() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.t === 'function') {
+      document.title = window.NawafethI18n.t('siteTitle') + ' — ' + _copy('pageTitle');
+    }
+    _setAttr('search-back-btn', 'aria-label', _copy('back'));
+    _setText('search-status-text', _copy('liveResults'));
+    _setText('search-kicker', _copy('kicker'));
+    _setText('search-page-title', _copy('heading'));
+    _setText('search-page-subtitle', _copy('subtitle'));
+    _setAttr('search-input', 'placeholder', _copy('searchPlaceholder'));
+    _setAttr('search-clear', 'aria-label', _copy('clear'));
+    _setText('search-signal-verified', _copy('signalVerified'));
+    _setText('search-signal-request', _copy('signalRequest'));
+    _setText('search-signal-map', _copy('signalMap'));
+    _setText('search-results-eyebrow', _copy('totalResults'));
+    _setText('search-map-btn-label', _copy('map'));
+    _setText('search-sort-btn-label', _copy('sortResults'));
+    _setText('search-open-categories-label', _copy('allCategories'));
+    _setText('search-results-title', _copy('readyProviders'));
+    _setText('search-results-note', _copy('resultsNote'));
+    _setText('search-empty-text', _copy('noSearchResults'));
+    _setText('category-picker-title', _copy('chooseCategoryTitle'));
+    _setAttr('category-picker-close', 'aria-label', _copy('close'));
+    _setAttr('category-picker-search', 'placeholder', _copy('searchCategoryPlaceholder'));
+    _setText('category-picker-reset', _copy('chooseAll'));
+    _setAttr('sort-sheet', 'aria-label', _copy('sortBy'));
+    _setText('sort-sheet-title', _copy('sortBy'));
+    _setText('sort-option-default', _copy('sortDefault'));
+    _setText('sort-option-nearest', _copy('sortNearest'));
+    _setText('sort-option-rating', _copy('sortRating'));
+    _setText('sort-option-completed', _copy('sortCompleted'));
+    _setText('sort-option-followers', _copy('sortFollowers'));
+    _setAttr('search-map-modal', 'aria-label', _copy('providersMap'));
+    _setText('search-map-title', _activeCity ? _copy('providersMapInCity', { city: _activeCity }) : _copy('providersMap'));
+    _setAttr('search-map-close', 'aria-label', _copy('close'));
+    if (_resultsCount) {
+      const match = String(_resultsCount.textContent || '').match(/\d+/);
+      const count = match ? Number(match[0]) : 0;
+      _resultsCount.textContent = _copy('resultsCount', { count });
+    }
+    if (_categoryPickerCount) {
+      _categoryPickerCount.textContent = _copy('categoriesCount', { count: _categories.length });
+    }
+    _syncCategorySummary();
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
+  function _setAttr(id, name, value) {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute(name, value);
+  }
+
+  function _currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      }
+      return (localStorage.getItem('nw_lang') || 'ar').toLowerCase() === 'en' ? 'en' : 'ar';
+    } catch (_) {
+      return 'ar';
+    }
+  }
+
+  function _copy(key, replacements) {
+    const bundle = COPY[_currentLang()] || COPY.ar;
+    const value = Object.prototype.hasOwnProperty.call(bundle, key) ? bundle[key] : COPY.ar[key];
+    return _replaceTokens(value, replacements);
+  }
+
+  function _replaceTokens(text, replacements) {
+    if (typeof text !== 'string' || !replacements) return text;
+    return text.replace(/\{(\w+)\}/g, (_, token) => (
+      Object.prototype.hasOwnProperty.call(replacements, token) ? String(replacements[token]) : ''
+    ));
   }
 
   if (document.readyState === 'loading') {

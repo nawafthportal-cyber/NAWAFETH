@@ -601,23 +601,23 @@ body.page-service-request {
     <!-- Auth Gate -->
     <div id="auth-gate" class="sr-auth-gate{% if request.user.is_authenticated and provider_mode_blocked %}{% elif request.user.is_authenticated %} hidden{% endif %}">
       {% if request.user.is_authenticated and provider_mode_blocked %}
-      <p class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
+      <p id="sr-provider-kicker" class="auth-gate-unified-kicker">وضع الحساب الحالي</p>
       <div class="sr-auth-icon" aria-hidden="true">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-2 .9-2 2v11c0 1.1.89 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
       </div>
-      <h2>{{ provider_mode_block.title }}</h2>
-      <p>{{ provider_mode_block.description }}</p>
+      <h2 id="sr-provider-title">{{ provider_mode_block.title }}</h2>
+      <p id="sr-provider-description">{{ provider_mode_block.description }}</p>
       <div class="auth-gate-unified-actions">
-        <button type="button" class="sr-auth-btn" data-provider-request-switch="client" data-provider-request-target="{{ provider_mode_block.target }}">{{ provider_mode_block.switch_label }}</button>
-        <a href="/profile/" class="btn btn-secondary">{{ provider_mode_block.profile_label }}</a>
+        <button id="sr-provider-switch" type="button" class="sr-auth-btn" data-provider-request-switch="client" data-provider-request-target="{{ provider_mode_block.target }}">{{ provider_mode_block.switch_label }}</button>
+        <a id="sr-provider-profile" href="/profile/" class="btn btn-secondary">{{ provider_mode_block.profile_label }}</a>
       </div>
-      <p class="auth-gate-unified-note">{{ provider_mode_block.note }}</p>
+      <p id="sr-provider-note" class="auth-gate-unified-note">{{ provider_mode_block.note }}</p>
       {% else %}
       <div class="sr-auth-icon" aria-hidden="true">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       </div>
-      <h2>سجّل دخولك لإرسال الطلب</h2>
-      <p>سيتم حفظ الطلب وربطه بحسابك حتى تتابع حالته وتستقبل العروض والردود.</p>
+      <h2 id="sr-login-title">سجّل دخولك لإرسال الطلب</h2>
+      <p id="sr-login-description">سيتم حفظ الطلب وربطه بحسابك حتى تتابع حالته وتستقبل العروض والردود.</p>
       <a href="/login/" id="sr-login-link" class="sr-auth-btn">تسجيل الدخول</a>
       {% endif %}
     </div>
@@ -653,26 +653,26 @@ body.page-service-request {
           </section>
 
           <div class="sr-header">
-            <h1>بيانات الطلب</h1>
-            <p>ابدأ بالمطلوب، واترك الحقول الاختيارية عند الحاجة.</p>
+            <h1 id="sr-header-title">بيانات الطلب</h1>
+            <p id="sr-header-subtitle">ابدأ بالمطلوب، واترك الحقول الاختيارية عند الحاجة.</p>
           </div>
 
           <!-- Section 1: Request Type -->
           <div id="sr-type-section" class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">1</span>
-              <span class="sr-section-label">نوع الخدمة</span>
+              <span id="sr-section-type-title" class="sr-section-label">نوع الخدمة</span>
             </div>
             <div id="sr-type-chips" class="sr-chips">
               <div class="sr-chip active" data-val="competitive">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-                تنافسي
+                <span id="sr-type-competitive-text">تنافسي</span>
               </div>
               <div class="sr-chip" data-val="urgent">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                عاجل
+                <span id="sr-type-urgent-text">عاجل</span>
               </div>
-              <div class="sr-chip hidden" data-val="normal">مباشر</div>
+              <div class="sr-chip hidden" data-val="normal"><span id="sr-type-direct-text">مباشر</span></div>
             </div>
           </div>
 
@@ -680,17 +680,17 @@ body.page-service-request {
           <div id="sr-scope-section" class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">2</span>
-              <span class="sr-section-label">التصنيف المناسب</span>
+              <span id="sr-section-scope-title" class="sr-section-label">التصنيف المناسب</span>
             </div>
             <div id="sr-scope-fields">
               <div class="sr-two-col">
                 <div class="sr-field-group">
-                  <label for="sr-category">القسم الرئيسي</label>
+                  <label id="sr-category-label" for="sr-category">القسم الرئيسي</label>
                   <select id="sr-category" class="sr-select"><option value="">اختر القسم</option></select>
                   <div id="sr-category-error" class="sr-field-error"></div>
                 </div>
                 <div class="sr-field-group">
-                  <label for="sr-subcategory">التصنيف الفرعي</label>
+                  <label id="sr-subcategory-label" for="sr-subcategory">التصنيف الفرعي</label>
                   <select id="sr-subcategory" class="sr-select"><option value="">اختر التصنيف</option></select>
                   <div id="sr-subcategory-error" class="sr-field-error"></div>
                 </div>
@@ -699,11 +699,11 @@ body.page-service-request {
             <div id="sr-fixed-target" class="sr-fixed-target hidden">
               <div id="sr-scope-title" class="sr-section-label"></div>
               <div id="sr-scope-text" class="text-muted"></div>
-              <div class="sr-fixed-target-row"><span class="sr-ft-label">المزود</span><span class="sr-ft-value" id="sr-fixed-provider-name"></span></div>
-              <div class="sr-fixed-target-row" id="sr-fixed-service-row"><span class="sr-ft-label">الخدمة</span><span class="sr-ft-value" id="sr-fixed-service"></span></div>
-              <div class="sr-fixed-target-row"><span class="sr-ft-label">القسم</span><span class="sr-ft-value" id="sr-fixed-category"></span></div>
-              <div class="sr-fixed-target-row"><span class="sr-ft-label">التصنيف</span><span class="sr-ft-value" id="sr-fixed-subcategory"></span></div>
-              <div class="sr-fixed-target-row"><span class="sr-ft-label">المدينة</span><span class="sr-ft-value" id="sr-fixed-city"></span></div>
+              <div class="sr-fixed-target-row"><span id="sr-fixed-provider-label" class="sr-ft-label">المزود</span><span class="sr-ft-value" id="sr-fixed-provider-name"></span></div>
+              <div class="sr-fixed-target-row" id="sr-fixed-service-row"><span id="sr-fixed-service-label" class="sr-ft-label">الخدمة</span><span class="sr-ft-value" id="sr-fixed-service"></span></div>
+              <div class="sr-fixed-target-row"><span id="sr-fixed-category-label" class="sr-ft-label">القسم</span><span class="sr-ft-value" id="sr-fixed-category"></span></div>
+              <div class="sr-fixed-target-row"><span id="sr-fixed-subcategory-label" class="sr-ft-label">التصنيف</span><span class="sr-ft-value" id="sr-fixed-subcategory"></span></div>
+              <div class="sr-fixed-target-row"><span id="sr-fixed-city-label" class="sr-ft-label">المدينة</span><span class="sr-ft-value" id="sr-fixed-city"></span></div>
             </div>
           </div>
 
@@ -711,11 +711,11 @@ body.page-service-request {
           <div id="sr-dispatch-section" class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">3</span>
-              <span class="sr-section-label">طريقة الوصول للمزودين</span>
+              <span id="sr-section-dispatch-title" class="sr-section-label">طريقة الوصول للمزودين</span>
             </div>
 
             <div id="sr-city-group" class="sr-field-group">
-              <label>المنطقة والمدينة <span class="sr-optional">(اختياري)</span></label>
+              <label><span id="sr-city-group-label">المنطقة والمدينة</span> <span id="sr-city-group-optional" class="sr-optional">(اختياري)</span></label>
               <div class="sr-two-col">
                 <select id="sr-region" class="sr-select"><option value="">اختر المنطقة</option></select>
                 <select id="sr-city" class="sr-select"><option value="">اختر المدينة</option></select>
@@ -727,15 +727,15 @@ body.page-service-request {
             </div>
 
             <div class="sr-dispatch-box" id="sr-dispatch-mode-wrap">
-              <div class="sr-section-label">طريقة التوجيه</div>
+              <div id="sr-dispatch-mode-title" class="sr-section-label">طريقة التوجيه</div>
               <div id="sr-dispatch-chips" class="sr-chips">
                 <div class="sr-chip active" data-dispatch="all">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                  إرسال للجميع
+                  <span id="sr-dispatch-all-text">إرسال للجميع</span>
                 </div>
                 <div class="sr-chip" data-dispatch="nearest">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  إرسال للأقرب
+                  <span id="sr-dispatch-nearest-text">إرسال للأقرب</span>
                 </div>
               </div>
 
@@ -759,23 +759,23 @@ body.page-service-request {
           <div class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">4</span>
-              <span class="sr-section-label">وصف الطلب</span>
+              <span id="sr-section-details-title" class="sr-section-label">وصف الطلب</span>
             </div>
             <div class="sr-field-group">
-              <label for="sr-req-title">عنوان الطلب</label>
+              <label id="sr-req-title-label" for="sr-req-title">عنوان الطلب</label>
               <input type="text" id="sr-req-title" class="sr-input" maxlength="50" placeholder="مثال: تصميم موقع إلكتروني" />
               <div class="sr-char-count" id="sr-title-count-wrap"><span id="sr-title-count">0</span> / 50</div>
               <div id="sr-req-title-error" class="sr-field-error"></div>
             </div>
             <div class="sr-field-group">
-              <label for="sr-desc">وصف الطلب</label>
+              <label id="sr-desc-label" for="sr-desc">وصف الطلب</label>
               <textarea id="sr-desc" class="sr-textarea" maxlength="300" rows="4" placeholder="اشرح المطلوب بدقة ..."></textarea>
               <div class="sr-char-count" id="sr-desc-count-wrap"><span id="sr-desc-count">0</span> / 300</div>
               <div id="sr-desc-error" class="sr-field-error"></div>
             </div>
             <div id="sr-deadline-group" class="sr-deadline-group hidden">
               <div class="sr-field-group">
-                <label for="sr-deadline">آخر موعد لاستلام العروض <span class="sr-optional">(اختياري)</span></label>
+                <label for="sr-deadline"><span id="sr-deadline-label">آخر موعد لاستلام العروض</span> <span id="sr-deadline-optional" class="sr-optional">(اختياري)</span></label>
                 <input type="date" id="sr-deadline" class="sr-input" />
                 <div id="sr-deadline-error" class="sr-field-error"></div>
               </div>
@@ -786,27 +786,27 @@ body.page-service-request {
           <div class="sr-section ux26-form-section">
             <div class="sr-section-title">
               <span class="sr-section-num sr-step">5</span>
-              <span class="sr-section-label">المرفقات <span class="sr-optional">(اختياري)</span></span>
+              <span class="sr-section-label"><span id="sr-section-attachments-title">المرفقات</span> <span id="sr-section-attachments-optional" class="sr-optional">(اختياري)</span></span>
             </div>
             <div class="sr-attach-buttons">
               <label class="sr-attach-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                صور
+                <span id="sr-images-text">صور</span>
                 <input type="file" id="sr-images" accept="image/*" multiple />
               </label>
               <label class="sr-attach-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-                فيديو
+                <span id="sr-videos-text">فيديو</span>
                 <input type="file" id="sr-videos" accept="video/*" multiple />
               </label>
               <label class="sr-attach-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                ملفات
+                <span id="sr-files-text">ملفات</span>
                 <input type="file" id="sr-files" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" multiple />
               </label>
               <button type="button" id="sr-audio-btn" class="sr-attach-btn sr-audio-record-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-                تسجيل صوتي
+                <span id="sr-audio-btn-text">تسجيل صوتي</span>
               </button>
             </div>
             <div id="sr-audio-preview" class="sr-audio-preview">
@@ -836,7 +836,7 @@ body.page-service-request {
         <div class="sr-map-modal-backdrop" id="sr-map-modal-backdrop"></div>
         <div class="sr-map-modal-panel ux26-modal-card">
           <div class="sr-map-modal-header">
-            <h3>اختيار مزود قريب</h3>
+            <h3 id="sr-map-title">اختيار مزود قريب</h3>
             <button type="button" class="sr-map-modal-close" id="sr-map-modal-close" aria-label="إغلاق">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
@@ -858,8 +858,8 @@ body.page-service-request {
         <div class="sr-success-icon">✅</div>
         <h2 id="sr-success-title">تم إرسال الطلب</h2>
         <p id="sr-success-message">تم حفظ طلبك بنجاح. ستتمكن من متابعة حالته من صفحة الطلبات.</p>
-        <a href="/orders/" class="sr-success-btn">عرض طلباتي</a>
-        <a href="/" class="sr-success-link">العودة للرئيسية</a>
+        <a id="sr-success-orders-link" href="/orders/" class="sr-success-btn">عرض طلباتي</a>
+        <a id="sr-success-home-link" href="/" class="sr-success-link">العودة للرئيسية</a>
       </div>
     </div>
 
@@ -881,5 +881,5 @@ body.page-service-request {
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/serviceRequestFormPage.js' %}?v=20260418-direct-success1"></script>
+<script src="{% static 'mobile_web/js/serviceRequestFormPage.js' %}?v=20260502-service-request-form-i18n-stage1"></script>
 {% endblock %}

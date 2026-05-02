@@ -7,7 +7,7 @@
   <div class="page-header">
     <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
     <h1 id="sd-page-title">تفاصيل الخدمة</h1>
-    <button class="btn-icon" id="btn-report" type="button" title="إبلاغ">
+    <button class="btn-icon" id="btn-report" type="button" title="إبلاغ" aria-label="إبلاغ عن الخدمة">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
     </button>
   </div>
@@ -39,6 +39,7 @@
         <span class="sd-stat"><svg width="16" height="16" viewBox="0 0 24 24" fill="#F44336"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span id="sd-likes">0</span></span>
         <span class="sd-stat" id="sd-media-count"></span>
       </div>
+      <p id="sd-original-language-note" class="text-muted" style="display:none"></p>
       <div class="sd-description" id="sd-description"></div>
       <div class="sd-price" id="sd-price" style="display:none"></div>
     </section>
@@ -51,7 +52,7 @@
 
     <!-- Comments Section -->
     <section class="detail-card sd-comments-section" id="sd-comments-section" style="display:none">
-      <h3>التعليقات</h3>
+      <h3 id="sd-comments-title">التعليقات</h3>
       <div id="sd-comments"></div>
     </section>
   </div>
@@ -59,5 +60,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/serviceDetailPage.js' %}?v=20260418-direct-return1"></script>
+<script src="{% static 'mobile_web/js/serviceDetailPage.js' %}?v=20260502-i18n-stage2"></script>
 {% endblock %}

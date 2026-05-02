@@ -54,16 +54,17 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isBannersLoading = true;
   bool _isSpotlightsLoading = true;
   bool _isFeaturedLoading = true;
+  bool _isPortfolioShowcaseLoading = true;
   int _notificationUnread = 0;
   int _chatUnread = 0;
   bool _promoPopupShown = false;
   List<MediaItemModel> _portfolioShowcase = [];
   List<Map<String, dynamic>> _portfolioShowcasePlacements = [];
   Map<String, dynamic>? _promoMessagePlacement;
-  bool _promoMessageDismissed = false;
   final Set<int> _seenBannerImpressions = <int>{};
   String? _syncMessage;
   _HomeSyncTone _syncTone = _HomeSyncTone.info;
+  int _activeReelIndex = 0;
 
   // -- Banner carousel --
   final PageController _bannerPageController = PageController();
@@ -77,27 +78,35 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _categoriesScroll = ScrollController();
   final ScrollController _reelsScroll = ScrollController();
   final ScrollController _featuredSpecialistsScroll = ScrollController();
+  final ScrollController _portfolioShowcaseScroll = ScrollController();
   Timer? _categoriesAutoTimer;
   Timer? _categoriesResumeTimer;
   Timer? _reelsTimer;
   Timer? _reelsResumeTimer;
   Timer? _featuredSpecialistsTimer;
   Timer? _featuredSpecialistsResumeTimer;
+  Timer? _portfolioShowcaseTimer;
+  Timer? _portfolioShowcaseResumeTimer;
   ValueListenable<UnreadBadges>? _badgeListenable;
   double _categoriesPos = 0;
   double _reelsPos = 0;
   double _featuredSpecialistsPos = 0;
+  double _portfolioShowcasePos = 0;
   bool _categoriesAutoPaused = false;
   bool _reelsAutoPaused = false;
   bool _featuredSpecialistsAutoPaused = false;
+  bool _portfolioShowcaseAutoPaused = false;
   static const Duration _categoriesTickInterval = Duration(milliseconds: 30);
   static const Duration _categoriesResumeDelay = Duration(milliseconds: 2500);
   static const Duration _reelsResumeDelay = Duration(seconds: 3);
   static const Duration _featuredSpecialistsResumeDelay = Duration(seconds: 3);
   static const Duration _featuredSpecialistsRotateDelay = Duration(seconds: 5);
+  static const Duration _portfolioShowcaseResumeDelay = Duration(seconds: 3);
+  static const Duration _portfolioShowcaseRotateDelay = Duration(seconds: 5);
   static const int _homeBannersLimit = 16;
   static const int _portfolioShowcaseLimit = 16;
   static const int _portfolioShowcaseFetchLimit = 40;
+  static const double _reelItemExtent = 76;
 
   static const _reelFallbackLogos = [
     'assets/images/32.jpeg',
@@ -153,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _badgeListenable = UnreadBadgeService.acquire();
     _badgeListenable!.addListener(_handleBadgeChange);
     _handleBadgeChange();
+    _reelsScroll.addListener(_handleReelsScroll);
     UnreadBadgeService.refresh(force: true);
   }
 
@@ -457,6 +467,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadPromoPortfolioShowcase() async {
+    if (mounted && _portfolioShowcase.isEmpty) {
+      setState(() => _isPortfolioShowcaseLoading = true);
+    }
     try {
       final promoItems = await HomeService.fetchPromoActiveRows(
         serviceType: 'portfolio_showcase',
@@ -504,13 +517,17 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _portfolioShowcasePlacements = merged.placements;
         _portfolioShowcase = merged.media;
+        _isPortfolioShowcaseLoading = false;
       });
+      _startPortfolioShowcaseAutoRotate();
     } catch (error, stackTrace) {
       AppLogger.warn(
         'HomeScreen failed to load portfolio showcase',
         error: error,
         stackTrace: stackTrace,
       );
+      if (!mounted) return;
+      setState(() => _isPortfolioShowcaseLoading = false);
     }
   }
 
@@ -685,6 +702,66 @@ class _HomeScreenState extends State<HomeScreen> {
       _syncFeaturedSpecialistsPositionFromController();
       _featuredSpecialistsAutoPaused = false;
     });
+  }
+
+  void _startPortfolioShowcaseAutoRotate() {
+    _portfolioShowcaseTimer?.cancel();
+    if (_portfolioShowcase.length <= 1) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_portfolioShowcaseScroll.hasClients) return;
+      _portfolioShowcaseTimer?.cancel();
+      _portfolioShowcaseTimer = Timer.periodic(
+        _portfolioShowcaseRotateDelay,
+        (_) {
+          if (!mounted ||
+              !_portfolioShowcaseScroll.hasClients ||
+              _portfolioShowcaseAutoPaused) {
+            return;
+          }
+          _syncPortfolioShowcasePositionFromController();
+          final position = _portfolioShowcaseScroll.position;
+          final max = position.maxScrollExtent;
+          if (max <= 0) {
+            _portfolioShowcasePos = 0;
+            return;
+          }
+          final viewport = position.viewportDimension;
+          final step = viewport > 0
+              ? (viewport * 0.48).clamp(148.0, 220.0).toDouble()
+              : 168.0;
+          final next = _portfolioShowcasePos + step;
+          final target = next >= max - 4 ? 0.0 : next;
+          _portfolioShowcaseScroll.animateTo(
+            target,
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeInOut,
+          );
+        },
+      );
+    });
+  }
+
+  void _syncPortfolioShowcasePositionFromController() {
+    if (!_portfolioShowcaseScroll.hasClients) return;
+    final max = _portfolioShowcaseScroll.position.maxScrollExtent;
+    final current = _portfolioShowcaseScroll.offset;
+    _portfolioShowcasePos = current.clamp(0.0, max).toDouble();
+  }
+
+  void _pausePortfolioShowcaseAutoRotate({bool resumeLater = false}) {
+    _portfolioShowcaseAutoPaused = true;
+    _portfolioShowcaseResumeTimer?.cancel();
+    if (!resumeLater) {
+      return;
+    }
+    _portfolioShowcaseResumeTimer = Timer(
+      _portfolioShowcaseResumeDelay,
+      () {
+        if (!mounted) return;
+        _syncPortfolioShowcasePositionFromController();
+        _portfolioShowcaseAutoPaused = false;
+      },
+    );
   }
 
   MediaItemModel? _portfolioItemFromPromoPlacement(
@@ -1005,11 +1082,52 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _scrollCategoriesByStep(bool forward) {
+    if (!_categoriesScroll.hasClients) return;
+    _pauseCategoriesAutoScroll(resumeLater: true);
+    final position = _categoriesScroll.position;
+    final step = position.viewportDimension > 0
+        ? (position.viewportDimension * 0.72).clamp(140.0, 260.0).toDouble()
+        : 180.0;
+    final delta = forward ? step : -step;
+    final target = (position.pixels + delta).clamp(
+      0.0,
+      position.maxScrollExtent,
+    );
+    _categoriesScroll.animateTo(
+      target,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeInOut,
+    );
+  }
+
   void _syncReelsPositionFromController() {
     if (!_reelsScroll.hasClients) return;
     final max = _reelsScroll.position.maxScrollExtent;
     final current = _reelsScroll.offset;
     _reelsPos = current.clamp(0.0, max).toDouble();
+    _syncActiveReelIndex();
+  }
+
+  void _handleReelsScroll() {
+    if (!_reelsScroll.hasClients) return;
+    _syncReelsPositionFromController();
+  }
+
+  void _syncActiveReelIndex() {
+    if (_spotlights.isEmpty || !_reelsScroll.hasClients) {
+      if (_activeReelIndex == 0) return;
+      setState(() => _activeReelIndex = 0);
+      return;
+    }
+
+    final position = _reelsScroll.position;
+    final centerOffset = position.pixels + (position.viewportDimension / 2);
+    final nextIndex = ((centerOffset - (_reelItemExtent / 2)) / _reelItemExtent)
+        .round()
+        .clamp(0, _spotlights.length - 1);
+    if (nextIndex == _activeReelIndex) return;
+    setState(() => _activeReelIndex = nextIndex);
   }
 
   void _pauseReelsAutoScroll({bool resumeLater = false}) {
@@ -1033,14 +1151,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _reelsResumeTimer?.cancel();
     _featuredSpecialistsTimer?.cancel();
     _featuredSpecialistsResumeTimer?.cancel();
+    _portfolioShowcaseTimer?.cancel();
+    _portfolioShowcaseResumeTimer?.cancel();
     _bannersSyncTimer?.cancel();
     _badgeListenable?.removeListener(_handleBadgeChange);
     UnreadBadgeService.release();
     _bannerAutoTimer?.cancel();
     _bannerPageController.dispose();
     _categoriesScroll.dispose();
+    _reelsScroll.removeListener(_handleReelsScroll);
     _reelsScroll.dispose();
     _featuredSpecialistsScroll.dispose();
+    _portfolioShowcaseScroll.dispose();
     super.dispose();
   }
 
@@ -1088,11 +1210,11 @@ class _HomeScreenState extends State<HomeScreen> {
             if ((_syncMessage ?? '').trim().isNotEmpty)
               SliverToBoxAdapter(child: _buildSyncNotice(isDark)),
             SliverToBoxAdapter(child: _buildReels(isDark)),
-            if (_promoMessagePlacement != null && !_promoMessageDismissed)
+            if (_promoMessagePlacement != null)
               SliverToBoxAdapter(child: _buildPromoMessageCard(isDark, purple)),
             SliverToBoxAdapter(child: _buildCategories(isDark, purple)),
             SliverToBoxAdapter(child: _buildProviders(isDark, purple)),
-            if (_portfolioShowcase.isNotEmpty)
+            if (_portfolioShowcase.isNotEmpty || !_isPortfolioShowcaseLoading)
               SliverToBoxAdapter(
                 child: _buildPortfolioShowcase(isDark, purple),
               ),
@@ -1262,8 +1384,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final safeIndex = hasBanners
         ? _bannerCurrentPage.clamp(0, heroBanners.length - 1).toInt()
         : 0;
-    final activeBanner = hasBanners ? heroBanners[safeIndex] : null;
-    // activeBanner reserved for future overlay use
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
@@ -1656,6 +1776,7 @@ class _HomeScreenState extends State<HomeScreen> {
       kicker: 'لمحات حية',
       title: 'أحدث اللمحات',
       isDark: isDark,
+      compactHeader: true,
       child: _buildSectionAnimatedContent(
         stateKey: _isSpotlightsLoading && !hasData
             ? 'reels-loading'
@@ -1686,6 +1807,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemBuilder: (context, index) {
                           final item = _spotlights[index];
                           final thumb = _spotlightThumbUrl(item);
+                          final mediaUrl = ApiClient.buildMediaUrl(item.fileUrl);
                           final caption = item.sponsoredBadgeOnly
                               ? ((item.sectionTitle ?? '').trim().isNotEmpty
                                   ? (item.sectionTitle ?? '').trim()
@@ -1700,6 +1822,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   _reelMediaRing(
                                     imageUrl: thumb,
+                                    mediaUrl: mediaUrl,
+                                    isVideo: item.isVideo,
+                                    isActive: index == _activeReelIndex,
                                     isDark: isDark,
                                     fallbackIcon: item.isVideo
                                         ? Icons.play_arrow_rounded
@@ -1739,6 +1864,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool isDark,
     EdgeInsets margin = const EdgeInsets.fromLTRB(14, 8, 14, 4),
     Widget? trailing,
+    bool compactHeader = false,
   }) {
     // 2026 minimal-UI section: rely on spacing instead of borders/shadows.
     return Padding(
@@ -1759,6 +1885,7 @@ class _HomeScreenState extends State<HomeScreen> {
               note: note,
               isDark: isDark,
               trailing: trailing,
+              compact: compactHeader,
             ),
             const SizedBox(height: 12),
             child,
@@ -1769,34 +1896,51 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSectionHeader({
-    required String kicker, // kept for API compat; rendered as subtle eyebrow
+    required String kicker,
     required String title,
     String? note,
     required bool isDark,
     Widget? trailing,
+    bool compact = false,
   }) {
+    final hasKicker = kicker.trim().isNotEmpty;
     final hasNote = note != null && note.trim().isNotEmpty;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment:
+          compact ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
-        Container(
-          width: 3,
-          height: hasNote ? 32 : 18,
-          margin: const EdgeInsetsDirectional.only(end: 10),
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(2),
+        if (!compact)
+          Container(
+            width: 3,
+            height: hasNote ? 32 : 18,
+            margin: const EdgeInsetsDirectional.only(end: 10),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-        ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (hasKicker) ...[
+                Text(
+                  kicker,
+                  style: TextStyle(
+                    fontSize: AppTextStyles.micro,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Cairo',
+                    letterSpacing: 0.1,
+                    color: isDark ? const Color(0xFFC7F7EE) : AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+              ],
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: AppTextStyles.h2,
+                  fontSize: compact ? AppTextStyles.h3 : AppTextStyles.h2,
                   fontWeight: FontWeight.w800,
                   fontFamily: 'Cairo',
                   height: 1.2,
@@ -2026,7 +2170,7 @@ class _HomeScreenState extends State<HomeScreen> {
         (placement['message_title'] as String?)?.trim().isNotEmpty == true
             ? (placement['message_title'] as String)
             : ((placement['title'] as String?) ?? 'رسالة دعائية');
-    final body = (placement['message_body'] as String?) ?? '';
+    final body = ((placement['message_body'] as String?) ?? '').trim();
     final providerIdRaw = placement['target_provider_id'];
     final providerId =
         providerIdRaw is int ? providerIdRaw : int.tryParse('$providerIdRaw');
@@ -2035,39 +2179,62 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return _buildSectionShell(
       kicker: 'رسالة مميزة',
-      title: title,
+      title: 'مساحة ترويجية نشطة',
+      note: 'إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون تشويش.',
       isDark: isDark,
-      trailing: IconButton(
-        tooltip: 'إخفاء',
-        onPressed: () {
-          if (!mounted) return;
-          setState(() => _promoMessageDismissed = true);
-        },
-        icon: const Icon(Icons.close_rounded, size: 18),
-      ),
+      compactHeader: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (body.trim().isNotEmpty)
-            Text(
-              body,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.primary.withValues(alpha: 0.16)
+                  : AppColors.primarySurface,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'رسالة دعائية',
               style: TextStyle(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.84)
-                    : AppColors.grey700,
-                fontSize: AppTextStyles.bodyMd,
-                height: 1.7,
+                color: isDark ? const Color(0xFFE9D9FF) : AppColors.primary,
+                fontSize: AppTextStyles.micro,
                 fontFamily: 'Cairo',
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w800,
               ),
             ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: TextStyle(
+              color: isDark ? Colors.white : AppColors.grey900,
+              fontSize: AppTextStyles.bodyLg,
+              height: 1.35,
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            body.isNotEmpty ? body : 'عرض جديد مخصص لك.',
+            style: TextStyle(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.84)
+                  : AppColors.grey700,
+              fontSize: AppTextStyles.bodyMd,
+              height: 1.7,
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 12),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              foregroundColor: Colors.white,
-              backgroundColor: AppColors.primary,
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               minimumSize: const Size(0, 44),
+              side: const BorderSide(color: AppColors.primary, width: 1.1),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadius.md),
               ),
@@ -2101,6 +2268,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _reelMediaRing({
     required bool isDark,
     String? imageUrl,
+    String? mediaUrl,
+    required bool isVideo,
+    required bool isActive,
     String? assetPath,
     required IconData fallbackIcon,
   }) {
@@ -2114,9 +2284,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             width: 70,
             height: 70,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: SweepGradient(
+              gradient: const SweepGradient(
                 colors: [
                   Color(0xFF9F57DB),
                   Color(0xFFF1A559),
@@ -2124,6 +2294,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   Color(0xFF9F57DB)
                 ],
               ),
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.22),
+                        blurRadius: 0,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
             ),
           ),
           Container(
@@ -2134,20 +2313,31 @@ class _HomeScreenState extends State<HomeScreen> {
               color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             ),
             child: ClipOval(
-              child: imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
+              child: isVideo && mediaUrl != null
+                  ? PromoMediaTile(
+                      mediaUrl: mediaUrl,
+                      mediaType: 'video',
+                      borderRadius: 999,
+                      autoplay: true,
+                      isActive: isActive,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => _reelFallback(fallbackIcon),
+                      fallback: _reelFallback(fallbackIcon),
                     )
-                  : (assetPath != null
-                      ? Image.asset(
-                          assetPath,
+                  : imageUrl != null
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
+                          errorWidget: (_, __, ___) =>
                               _reelFallback(fallbackIcon),
                         )
-                      : _reelFallback(fallbackIcon)),
+                      : (assetPath != null
+                          ? Image.asset(
+                              assetPath,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  _reelFallback(fallbackIcon),
+                            )
+                          : _reelFallback(fallbackIcon)),
             ),
           ),
         ],
@@ -2232,96 +2422,210 @@ class _HomeScreenState extends State<HomeScreen> {
                   )
                 : Column(
                     children: [
-                      SizedBox(
-                        height: 96,
-                        child: Listener(
-                          onPointerDown: (_) => _pauseCategoriesAutoScroll(),
-                          onPointerUp: (_) =>
-                              _pauseCategoriesAutoScroll(resumeLater: true),
-                          onPointerCancel: (_) =>
-                              _pauseCategoriesAutoScroll(resumeLater: true),
-                          child: ListView.builder(
-                            controller: _categoriesScroll,
-                            scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
-                            itemCount: _categories.length,
-                            itemBuilder: (context, index) {
-                              final cat = _categories[index];
-                              final icon = _categoryIcon(cat.name);
-                              return Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.md),
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => SearchProviderScreen(
-                                          initialCategoryId:
-                                              cat.id > 0 ? cat.id : null,
+                      Row(
+                        children: [
+                          if (_categories.length > 1) ...[
+                            _buildSectionScrollButton(
+                              isDark: isDark,
+                              icon: Icons.chevron_left_rounded,
+                              onTap: () => _scrollCategoriesByStep(false),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(
+                            child: SizedBox(
+                              height: 96,
+                              child: Listener(
+                                onPointerDown: (_) => _pauseCategoriesAutoScroll(),
+                                onPointerUp: (_) =>
+                                    _pauseCategoriesAutoScroll(resumeLater: true),
+                                onPointerCancel: (_) =>
+                                    _pauseCategoriesAutoScroll(resumeLater: true),
+                                child: ListView.builder(
+                                  controller: _categoriesScroll,
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount: _categories.length,
+                                  itemBuilder: (context, index) {
+                                    final cat = _categories[index];
+                                    final icon = _categoryIcon(cat.name);
+                                    return Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        borderRadius:
+                                            BorderRadius.circular(AppRadius.md),
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => SearchProviderScreen(
+                                                initialCategoryId:
+                                                    cat.id > 0 ? cat.id : null,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child: Container(
+                                          width: 78,
+                                          margin: const EdgeInsetsDirectional.only(
+                                              end: 6),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 6,
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                width: 50,
+                                                height: 50,
+                                                decoration: BoxDecoration(
+                                                  color: isDark
+                                                      ? Colors.white
+                                                          .withValues(alpha: 0.06)
+                                                      : AppColors.primarySurface,
+                                                  borderRadius: BorderRadius.circular(
+                                                      AppRadius.md),
+                                                ),
+                                                child: Icon(
+                                                  icon,
+                                                  size: 22,
+                                                  color: AppColors.primary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  cat.name,
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  textAlign: TextAlign.center,
+                                                  style: TextStyle(
+                                                    fontSize: AppTextStyles.micro,
+                                                    fontWeight: FontWeight.w600,
+                                                    height: 1.3,
+                                                    fontFamily: 'Cairo',
+                                                    color: isDark
+                                                        ? Colors.white70
+                                                        : AppColors.grey700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       ),
                                     );
                                   },
-                                  child: Container(
-                                    width: 78,
-                                    margin: const EdgeInsetsDirectional.only(
-                                        end: 6),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 6,
-                                    ),
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          width: 50,
-                                          height: 50,
-                                          decoration: BoxDecoration(
-                                            color: isDark
-                                                ? Colors.white
-                                                    .withValues(alpha: 0.06)
-                                                : AppColors.primarySurface,
-                                            borderRadius: BorderRadius.circular(
-                                                AppRadius.md),
-                                          ),
-                                          child: Icon(
-                                            icon,
-                                            size: 22,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Expanded(
-                                          child: Text(
-                                            cat.name,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontSize: AppTextStyles.micro,
-                                              fontWeight: FontWeight.w600,
-                                              height: 1.3,
-                                              fontFamily: 'Cairo',
-                                              color: isDark
-                                                  ? Colors.white70
-                                                  : AppColors.grey700,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
                                 ),
-                              );
-                            },
+                              ),
+                            ),
+                          ),
+                          if (_categories.length > 1) ...[
+                            const SizedBox(width: 8),
+                            _buildSectionScrollButton(
+                              isDark: isDark,
+                              icon: Icons.chevron_right_rounded,
+                              onTap: () => _scrollCategoriesByStep(true),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (_categories.length > 1) ...[
+                        const SizedBox(height: 10),
+                        _buildCategoriesScrollProgress(isDark: isDark),
+                      ],
+                    ],
+                  ),
+      ),
+    );
+  }
+
+  Widget _buildSectionScrollButton({
+    required bool isDark,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+              : AppColors.borderLight,
+            ),
+            boxShadow: isDark ? null : AppShadows.card,
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: isDark ? Colors.white70 : AppColors.grey700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoriesScrollProgress({required bool isDark}) {
+    return SizedBox(
+      height: 4,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : AppColors.grey200,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return AnimatedBuilder(
+                animation: _categoriesScroll,
+                builder: (context, _) {
+                  final hasClients = _categoriesScroll.hasClients;
+                  final max = hasClients
+                      ? _categoriesScroll.position.maxScrollExtent
+                      : 0.0;
+                  final current = hasClients ? _categoriesScroll.offset : 0.0;
+                  final progress = max <= 0
+                      ? 0.0
+                      : (current / max).clamp(0.0, 1.0);
+                  final thumbWidth =
+                      (constraints.maxWidth * 0.26).clamp(28.0, 88.0);
+                  final travel = (constraints.maxWidth - thumbWidth)
+                      .clamp(0.0, constraints.maxWidth);
+                  return Stack(
+                    children: [
+                      PositionedDirectional(
+                        start: travel * progress,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: thumbWidth,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFFC7F7EE)
+                                : AppColors.primary,
+                            borderRadius: BorderRadius.circular(999),
                           ),
                         ),
                       ),
                     ],
-                  ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -2341,10 +2645,6 @@ class _HomeScreenState extends State<HomeScreen> {
       kicker: 'ترشيحات المنصة',
       title: title,
       isDark: isDark,
-      trailing: _buildSectionMiniAction(
-        label: 'عرض الكل',
-        onTap: _openSearchHome,
-      ),
       child: _buildSectionAnimatedContent(
         stateKey: _isFeaturedLoading && visibleFeaturedSpecialists.isEmpty
             ? 'providers-loading'
@@ -2362,13 +2662,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 : SizedBox(
                     height: 208,
                     child: Listener(
-                      onPointerDown: (_) =>
-                          _pauseFeaturedSpecialistsAutoRotate(),
+                      onPointerDown: (_) => _pauseFeaturedSpecialistsAutoRotate(),
                       onPointerUp: (_) => _pauseFeaturedSpecialistsAutoRotate(
-                          resumeLater: true),
+                        resumeLater: true,
+                      ),
                       onPointerCancel: (_) =>
                           _pauseFeaturedSpecialistsAutoRotate(
-                              resumeLater: true),
+                        resumeLater: true,
+                      ),
                       child: ListView.builder(
                         controller: _featuredSpecialistsScroll,
                         scrollDirection: Axis.horizontal,
@@ -2389,21 +2690,40 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildPortfolioShowcase(bool isDark, Color purple) {
     return _buildSectionShell(
       kicker: 'أعمال وبنرات',
-      title: 'شريط البنرات والمشاريع',
+      title: 'البنرات والمشاريع',
       isDark: isDark,
-      child: SizedBox(
-        height: 214,
-        child: ListView.builder(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          itemCount: _portfolioShowcase.length,
-          itemBuilder: (context, index) => _portfolioShowcaseCard(
-            _portfolioShowcase[index],
-            index,
-            isDark,
-            purple,
-          ),
-        ),
+      child: _buildSectionAnimatedContent(
+        stateKey: _portfolioShowcase.isEmpty
+            ? 'portfolio-empty'
+            : 'portfolio-ready',
+        child: _portfolioShowcase.isEmpty
+            ? _buildEmptyState(
+                isDark: isDark,
+                icon: Icons.photo_library_outlined,
+                label: 'لا توجد مشاريع أو بنرات حالياً',
+              )
+            : SizedBox(
+                height: 214,
+                child: Listener(
+                  onPointerDown: (_) => _pausePortfolioShowcaseAutoRotate(),
+                  onPointerUp: (_) =>
+                      _pausePortfolioShowcaseAutoRotate(resumeLater: true),
+                  onPointerCancel: (_) =>
+                      _pausePortfolioShowcaseAutoRotate(resumeLater: true),
+                  child: ListView.builder(
+                    controller: _portfolioShowcaseScroll,
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _portfolioShowcase.length,
+                    itemBuilder: (context, index) => _portfolioShowcaseCard(
+                      _portfolioShowcase[index],
+                      index,
+                      isDark,
+                      purple,
+                    ),
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -2415,145 +2735,93 @@ class _HomeScreenState extends State<HomeScreen> {
     Color purple,
   ) {
     final thumbUrl = _portfolioThumbUrl(item);
-    final profileUrl = ApiClient.buildMediaUrl(item.providerProfileImage);
 
     return _PressableScale(
       onTap: () => _openPortfolioShowcasePlacement(index),
       child: Container(
-        width: 168,
+        width: 188,
         margin: const EdgeInsetsDirectional.only(end: 10),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(AppRadius.md),
+          color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
             color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
+                ? Colors.white.withValues(alpha: 0.08)
                 : AppColors.borderLight,
           ),
           boxShadow: isDark ? null : AppShadows.card,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(AppRadius.md),
-                    ),
-                    child: thumbUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: thumbUrl,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => _gradientPlaceholder(),
-                          )
-                        : _gradientPlaceholder(),
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text(
-                        'مختار',
-                        style: TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'Cairo',
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (item.isVideo)
-                    Positioned(
-                      left: 10,
-                      bottom: 10,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          size: 18,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                ],
+        child: AspectRatio(
+          aspectRatio: 4 / 5,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                child: thumbUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: thumbUrl,
+                        fit: BoxFit.cover,
+                        errorWidget: (_, __, ___) => _gradientPlaceholder(),
+                      )
+                    : _gradientPlaceholder(),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: purple.withValues(alpha: 0.12),
-                    backgroundImage: profileUrl != null
-                        ? CachedNetworkImageProvider(profileUrl)
-                        : null,
-                    child: profileUrl == null
-                        ? Text(
-                            item.providerDisplayName.isNotEmpty
-                                ? item.providerDisplayName[0]
-                                : '؟',
-                            style: TextStyle(
-                              fontSize: AppTextStyles.micro,
-                              fontWeight: FontWeight.w700,
-                              color: purple,
-                            ),
-                          )
-                        : null,
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.08),
+                      Colors.black.withValues(alpha: 0.18),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.caption?.trim().isNotEmpty == true
-                              ? item.caption!.trim()
-                              : 'مشروع ممول',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: AppTextStyles.bodySm,
-                            fontWeight: FontWeight.w700,
-                            fontFamily: 'Cairo',
-                            color: isDark ? Colors.white : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          item.providerDisplayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontFamily: 'Cairo',
-                            color:
-                                isDark ? Colors.white70 : Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
+                ),
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'مختار',
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Cairo',
+                      color: Colors.white,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+              if (item.isVideo)
+                Positioned(
+                  left: 10,
+                  bottom: 10,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -2588,9 +2856,15 @@ class _HomeScreenState extends State<HomeScreen> {
       final opened = await _openStrictExternalPromoUrl(redirectUrl);
       if (opened) return;
     }
+    final resolvedProviderId = providerId ?? item.providerId;
+    if (resolvedProviderId <= 0) {
+      if (!mounted) return;
+      _openSearchHome();
+      return;
+    }
     await _openPromoPlacement(
       redirectUrl: null,
-      providerId: providerId ?? item.providerId,
+      providerId: resolvedProviderId,
       providerName: (placement['target_provider_display_name'] as String?) ??
           item.providerDisplayName,
     );
@@ -2625,6 +2899,10 @@ class _HomeScreenState extends State<HomeScreen> {
           if (opened) return;
         }
         if (!mounted) return;
+        if (specialist.providerId <= 0) {
+          _openSearchHome();
+          return;
+        }
         await Navigator.push(
           context,
           MaterialPageRoute(
@@ -2712,16 +2990,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     top: -4,
                     start: -6,
                     child: Container(
-                      padding: const EdgeInsets.all(4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.cardDark : Colors.white,
-                        shape: BoxShape.circle,
+                        color: isDark
+                            ? AppColors.cardDark
+                            : AppColors.accentSurface,
+                        borderRadius: BorderRadius.circular(999),
                         boxShadow: AppShadows.card,
                       ),
-                      child: const Icon(
-                        Icons.workspace_premium_rounded,
-                        size: 14,
-                        color: AppColors.accent,
+                      child: const Text(
+                        'تميز',
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'Cairo',
+                          color: AppColors.accent,
+                        ),
                       ),
                     ),
                   ),
@@ -2748,31 +3035,39 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.star_rounded,
-                  size: 14,
-                  color: AppColors.accent,
-                ),
-                const SizedBox(width: 3),
-                Text(
-                  specialist.ratingLabel,
-                  style: TextStyle(
-                    fontSize: AppTextStyles.bodySm,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'Cairo',
-                    color: isDark ? Colors.white : AppColors.grey900,
-                  ),
-                ),
                 if (specialist.ratingCount > 0) ...[
-                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.star_rounded,
+                    size: 14,
+                    color: AppColors.accent,
+                  ),
+                  const SizedBox(width: 3),
                   Text(
-                    '(${specialist.ratingCount})',
+                    specialist.ratingLabel,
                     style: TextStyle(
-                      fontSize: AppTextStyles.micro,
-                      fontWeight: FontWeight.w600,
+                      fontSize: AppTextStyles.bodySm,
+                      fontWeight: FontWeight.w800,
                       fontFamily: 'Cairo',
-                      color: isDark ? Colors.white54 : AppColors.grey500,
+                      color: isDark ? Colors.white : AppColors.grey900,
                     ),
+                  ),
+                ] else
+                  Text(
+                    '0 تقييم',
+                    style: TextStyle(
+                      fontSize: AppTextStyles.bodySm,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Cairo',
+                      color: isDark ? Colors.white60 : AppColors.grey500,
+                    ),
+                  ),
+                if (specialist.isVerified) ...[
+                  const SizedBox(width: 5),
+                  VerifiedBadgeView(
+                    isVerifiedBlue: specialist.isVerifiedBlue,
+                    isVerifiedGreen: specialist.isVerifiedGreen,
+                    iconSize: 12,
+                    enableTap: false,
                   ),
                 ],
               ],

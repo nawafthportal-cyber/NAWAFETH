@@ -134,6 +134,7 @@ class ThreadState {
   final String clientLabel;
   final bool isArchived;
   final bool isBlocked;
+  final bool blockedByOther;
   final bool replyRestrictedToMe;
   final String replyRestrictionReason;
   final String systemSenderLabel;
@@ -146,6 +147,7 @@ class ThreadState {
     required this.clientLabel,
     required this.isArchived,
     required this.isBlocked,
+    required this.blockedByOther,
     required this.replyRestrictedToMe,
     required this.replyRestrictionReason,
     required this.systemSenderLabel,
@@ -160,6 +162,7 @@ class ThreadState {
       clientLabel: (json['client_label'] ?? '') as String,
       isArchived: json['is_archived'] == true,
       isBlocked: json['is_blocked'] == true,
+      blockedByOther: json['blocked_by_other'] == true,
       replyRestrictedToMe: json['reply_restricted_to_me'] == true,
       replyRestrictionReason: (json['reply_restriction_reason'] ?? '') as String,
       systemSenderLabel: (json['system_sender_label'] ?? '') as String,
@@ -175,6 +178,7 @@ class ThreadState {
       'client_label': clientLabel,
       'is_archived': isArchived,
       'is_blocked': isBlocked,
+      'blocked_by_other': blockedByOther,
       'reply_restricted_to_me': replyRestrictedToMe,
       'reply_restriction_reason': replyRestrictionReason,
       'system_sender_label': systemSenderLabel,

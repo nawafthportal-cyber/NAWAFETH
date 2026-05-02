@@ -5,6 +5,58 @@
 
 const OnboardingPage = (() => {
   const PREVIEW_KEY = 'app_intro_preview';
+  const COPY = {
+    ar: {
+      pageTitle: 'نوافــذ — البداية',
+      loadingTitle: 'جاري تحميل شاشة البداية',
+      loadingMessage: 'يتم جلب المحتوى مباشرة من لوحة التحكم.',
+      loadFailed: 'تعذر تحميل شاشة البداية من الخادم.',
+      unconfigured: 'محتوى شاشة البداية غير مُعد في لوحة التحكم.',
+      skip: 'تخطي',
+      next: 'التالي',
+      login: 'دخول',
+      home: 'الرئيسية',
+      retry: 'إعادة المحاولة',
+      startNow: 'ابدأ الآن',
+      signIn: 'تسجيل الدخول',
+      previewChip: 'بروفة التطبيق',
+      previewNote: 'آخر خطوة قبل تسجيل الدخول',
+      previewTitle: 'تعرف على نوافذ',
+      previewDesc: 'واجهة سريعة وواضحة تساعدك تبدأ مباشرة من الويب.',
+      stepLabel: 'الشاشة {index}',
+      readyNote: 'جاهز للانطلاق',
+      quickTour: 'جولة تعريفية سريعة',
+      statusTitle: 'شاشة البداية',
+      imageBadge: 'صورة',
+      videoBadge: 'فيديو',
+      mediaAlt: 'وسائط شاشة البداية',
+    },
+    en: {
+      pageTitle: 'Nawafeth — Getting Started',
+      loadingTitle: 'Loading onboarding',
+      loadingMessage: 'Content is being loaded directly from the dashboard.',
+      loadFailed: 'Failed to load onboarding from the server.',
+      unconfigured: 'Onboarding content is not configured in the dashboard yet.',
+      skip: 'Skip',
+      next: 'Next',
+      login: 'Sign in',
+      home: 'Home',
+      retry: 'Try again',
+      startNow: 'Start now',
+      signIn: 'Sign in',
+      previewChip: 'App preview',
+      previewNote: 'Final step before sign-in',
+      previewTitle: 'Get to know Nawafeth',
+      previewDesc: 'A fast, clear interface that helps you start directly from the web.',
+      stepLabel: 'Screen {index}',
+      readyNote: 'Ready to begin',
+      quickTour: 'Quick guided tour',
+      statusTitle: 'Onboarding',
+      imageBadge: 'Image',
+      videoBadge: 'Video',
+      mediaAlt: 'Onboarding media',
+    },
+  };
   const SLIDE_DEFINITIONS = [
     {
       key: 'onboarding_first_time',
@@ -24,9 +76,13 @@ const OnboardingPage = (() => {
   let _slidesData = [];
   let _introBlock = null;
   let _phase = 'slides';
+  let _statusKey = 'loadingMessage';
+  let _statusRetryable = false;
+  let _statusLoading = true;
 
   function init() {
     _bind();
+    window.addEventListener('nawafeth:languagechange', _handleLanguageChange);
     _renderLoading();
     _loadSlidesFromApi();
   }
@@ -38,6 +94,7 @@ const OnboardingPage = (() => {
 
     if (nextBtn) nextBtn.addEventListener('click', _next);
     if (skipBtn) skipBtn.addEventListener('click', _finish);
+    _applyStaticTemplateCopy();
     if (dotsWrap) {
       dotsWrap.addEventListener('click', (event) => {
         const dot = event.target.closest('.onboard-dot');
@@ -51,7 +108,7 @@ const OnboardingPage = (() => {
   async function _loadSlidesFromApi() {
     const res = await ApiClient.get('/api/content/public/');
     if (!res.ok || !res.data || typeof res.data !== 'object') {
-      _renderStatus('تعذر تحميل شاشة البداية من الخادم.', true);
+      _renderStatus('loadFailed', true);
       return;
     }
 
@@ -59,10 +116,10 @@ const OnboardingPage = (() => {
     _introBlock = _mergePreviewBlock(blocks[PREVIEW_KEY]);
     _slidesData = SLIDE_DEFINITIONS
       .map((slide) => _mergeSlideWithBlock(slide, blocks[slide.key]))
-      .filter((slide) => slide && slide.title && slide.desc);
+      .filter((slide) => slide && (_resolveSlideTitle(slide) || _resolveSlideDesc(slide)));
 
     if (!_slidesData.length) {
-      _renderStatus('محتوى شاشة البداية غير مُعد في لوحة التحكم.', false);
+      _renderStatus('unconfigured', false);
       return;
     }
 
@@ -72,16 +129,20 @@ const OnboardingPage = (() => {
   function _mergeSlideWithBlock(fallback, block) {
     if (!block || typeof block !== 'object') return null;
 
-    const title = String(block.title_ar || '').trim();
-    const desc = String(block.body_ar || '').trim();
-    if (!title && !desc) return null;
+    const titleAr = String(block.title_ar || '').trim();
+    const titleEn = String(block.title_en || '').trim();
+    const descAr = String(block.body_ar || '').trim();
+    const descEn = String(block.body_en || '').trim();
+    if (!titleAr && !titleEn && !descAr && !descEn) return null;
     const mediaUrl = ApiClient.mediaUrl(block.media_url || '');
     const mediaType = String(block.media_type || '').trim().toLowerCase();
 
     return {
       ...fallback,
-      title,
-      desc,
+      title_ar: titleAr,
+      title_en: titleEn,
+      desc_ar: descAr,
+      desc_en: descEn,
       media_url: mediaUrl || '',
       media_type: mediaType || '',
     };
@@ -90,18 +151,22 @@ const OnboardingPage = (() => {
   function _mergePreviewBlock(block) {
     if (!block || typeof block !== 'object') return null;
 
-    const title = String(block.title_ar || '').trim();
-    const desc = String(block.body_ar || '').trim();
+    const titleAr = String(block.title_ar || '').trim();
+    const titleEn = String(block.title_en || '').trim();
+    const descAr = String(block.body_ar || '').trim();
+    const descEn = String(block.body_en || '').trim();
     const mediaUrl = ApiClient.mediaUrl(block.media_url || '');
     const mediaType = String(block.media_type || '').trim().toLowerCase();
 
-    if (!title && !desc && !mediaUrl) return null;
+    if (!titleAr && !titleEn && !descAr && !descEn && !mediaUrl) return null;
 
     return {
       key: PREVIEW_KEY,
       icon: '📱',
-      title,
-      desc,
+      title_ar: titleAr,
+      title_en: titleEn,
+      desc_ar: descAr,
+      desc_en: descEn,
       media_url: mediaUrl || '',
       media_type: mediaType || '',
     };
@@ -148,8 +213,8 @@ const OnboardingPage = (() => {
     stage.innerHTML = '';
     dots.innerHTML = '';
 
-    if (skipBtn) skipBtn.textContent = 'تخطي';
-    if (nextBtn) nextBtn.textContent = 'التالي';
+    if (skipBtn) skipBtn.textContent = _copy('skip');
+    if (nextBtn) nextBtn.textContent = _copy('next');
 
     _slidesData.forEach((slide, idx) => {
       stage.appendChild(_buildSlide(slide, idx));
@@ -186,39 +251,43 @@ const OnboardingPage = (() => {
         UI.el('div', { className: 'onboard-slide-meta' }, [
           UI.el('span', {
             className: 'onboard-step-chip',
-            textContent: 'بروفة التطبيق',
+            textContent: _copy('previewChip'),
           }),
           UI.el('span', {
             className: 'onboard-step-note',
-            textContent: 'آخر خطوة قبل تسجيل الدخول',
+            textContent: _copy('previewNote'),
           }),
         ]),
         _buildMedia(_introBlock),
         UI.el('div', { className: 'onboard-copy-card' }, [
-          UI.el('h1', { textContent: _introBlock.title || 'تعرف على نوافذ' }),
+          UI.el('h1', { textContent: _resolveSlideTitle(_introBlock, 'previewTitle') }),
           UI.el('p', {
-            textContent: _introBlock.desc || 'واجهة سريعة وواضحة تساعدك تبدأ مباشرة من الويب.',
+            textContent: _resolveSlideDesc(_introBlock, 'previewDesc'),
             style: { whiteSpace: 'pre-line' },
           }),
         ]),
       ]),
     );
 
-    if (nextBtn) nextBtn.textContent = 'تسجيل الدخول';
-    if (skipBtn) skipBtn.textContent = 'تخطي';
+    if (nextBtn) nextBtn.textContent = _copy('signIn');
+    if (skipBtn) skipBtn.textContent = _copy('skip');
   }
 
   function _renderLoading() {
     _phase = 'slides';
-    _renderStatus('يتم جلب المحتوى مباشرة من لوحة التحكم.', false, true);
+    _renderStatus('loadingMessage', false, true);
   }
 
-  function _renderStatus(message, retryable, loading) {
+  function _renderStatus(messageKey, retryable, loading) {
     const stage = document.getElementById('onboarding-stage');
     const dots = document.getElementById('onboard-dots');
     const nextBtn = document.getElementById('btn-onboard-next');
     const skipBtn = document.getElementById('btn-onboard-skip');
     if (!stage || !dots) return;
+
+    _statusKey = messageKey;
+    _statusRetryable = !!retryable;
+    _statusLoading = !!loading;
 
     stage.innerHTML = '';
     dots.innerHTML = '';
@@ -229,12 +298,12 @@ const OnboardingPage = (() => {
           className: 'onboard-status-icon',
           textContent: loading ? '⟳' : '✦',
         }),
-        UI.el('h1', { textContent: loading ? 'جاري تحميل شاشة البداية' : 'شاشة البداية' }),
-        UI.el('p', { textContent: message }),
+        UI.el('h1', { textContent: loading ? _copy('loadingTitle') : _copy('statusTitle') }),
+        UI.el('p', { textContent: _copy(messageKey) }),
         retryable
           ? UI.el('button', {
               className: 'onboard-status-action',
-              textContent: 'إعادة المحاولة',
+              textContent: _copy('retry'),
               onclick: () => {
                 _renderLoading();
                 _loadSlidesFromApi();
@@ -244,8 +313,8 @@ const OnboardingPage = (() => {
       ].filter(Boolean)),
     );
 
-    if (nextBtn) nextBtn.textContent = 'دخول';
-    if (skipBtn) skipBtn.textContent = retryable ? 'الرئيسية' : 'تخطي';
+    if (nextBtn) nextBtn.textContent = _copy('login');
+    if (skipBtn) skipBtn.textContent = retryable ? _copy('home') : _copy('skip');
   }
 
   function _buildSlide(slide, idx) {
@@ -257,18 +326,18 @@ const OnboardingPage = (() => {
     article.appendChild(UI.el('div', { className: 'onboard-slide-meta' }, [
       UI.el('span', {
         className: 'onboard-step-chip',
-        textContent: `الشاشة ${idx + 1}`,
+        textContent: _copy('stepLabel').replace('{index}', String(idx + 1)),
       }),
       UI.el('span', {
         className: 'onboard-step-note',
-        textContent: idx >= _slidesData.length - 1 ? 'جاهز للانطلاق' : 'جولة تعريفية سريعة',
+        textContent: idx >= _slidesData.length - 1 ? _copy('readyNote') : _copy('quickTour'),
       }),
     ]));
     article.appendChild(_buildMedia(slide));
 
     article.appendChild(UI.el('div', { className: 'onboard-copy-card' }, [
-      UI.el('h1', { textContent: slide.title || '' }),
-      UI.el('p', { textContent: slide.desc || '', style: { whiteSpace: 'pre-line' } }),
+      UI.el('h1', { textContent: _resolveSlideTitle(slide) }),
+      UI.el('p', { textContent: _resolveSlideDesc(slide), style: { whiteSpace: 'pre-line' } }),
     ]));
     return article;
   }
@@ -298,17 +367,17 @@ const OnboardingPage = (() => {
       video.loop = true;
       video.playsInline = true;
       wrap.appendChild(video);
-      wrap.appendChild(UI.el('span', { className: 'onboard-media-badge', textContent: 'فيديو' }));
+      wrap.appendChild(UI.el('span', { className: 'onboard-media-badge', textContent: _copy('videoBadge') }));
       return wrap;
     }
 
     wrap.appendChild(UI.el('img', {
       className: 'onboard-media-image',
       src: mediaUrl,
-      alt: slide.title || 'onboarding media',
+      alt: _resolveSlideTitle(slide, 'mediaAlt'),
       loading: 'lazy',
     }));
-    wrap.appendChild(UI.el('span', { className: 'onboard-media-badge', textContent: 'صورة' }));
+    wrap.appendChild(UI.el('span', { className: 'onboard-media-badge', textContent: _copy('imageBadge') }));
     return wrap;
   }
 
@@ -337,8 +406,73 @@ const OnboardingPage = (() => {
 
     const btn = document.getElementById('btn-onboard-next');
     if (btn) {
-      btn.textContent = _index >= _slidesData.length - 1 ? 'ابدأ الآن' : 'التالي';
+      btn.textContent = _index >= _slidesData.length - 1 ? _copy('startNow') : _copy('next');
+      btn.setAttribute('aria-label', btn.textContent);
     }
+  }
+
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function _copy(key) {
+    const lang = _currentLang();
+    return (COPY[lang] && COPY[lang][key]) || COPY.ar[key] || '';
+  }
+
+  function _resolveField(primary, secondary, fallbackKey) {
+    const first = String(primary || '').trim();
+    if (first) return first;
+    const second = String(secondary || '').trim();
+    if (second) return second;
+    return fallbackKey ? _copy(fallbackKey) : '';
+  }
+
+  function _resolveSlideTitle(slide, fallbackKey) {
+    if (!slide) return fallbackKey ? _copy(fallbackKey) : '';
+    if (_currentLang() === 'en') {
+      return _resolveField(slide.title_en, slide.title_ar, fallbackKey);
+    }
+    return _resolveField(slide.title_ar, slide.title_en, fallbackKey);
+  }
+
+  function _resolveSlideDesc(slide, fallbackKey) {
+    if (!slide) return fallbackKey ? _copy(fallbackKey) : '';
+    if (_currentLang() === 'en') {
+      return _resolveField(slide.desc_en, slide.desc_ar, fallbackKey);
+    }
+    return _resolveField(slide.desc_ar, slide.desc_en, fallbackKey);
+  }
+
+  function _applyStaticTemplateCopy() {
+    document.title = _copy('pageTitle');
+    const loadingTitle = document.getElementById('onboarding-loading-title');
+    const loadingDesc = document.getElementById('onboarding-loading-desc');
+    const nextBtn = document.getElementById('btn-onboard-next');
+    const skipBtn = document.getElementById('btn-onboard-skip');
+    if (loadingTitle) loadingTitle.textContent = _copy('loadingTitle');
+    if (loadingDesc) loadingDesc.textContent = _copy('loadingMessage');
+    if (skipBtn) skipBtn.textContent = _copy('skip');
+    if (nextBtn) {
+      nextBtn.textContent = _copy('next');
+      nextBtn.setAttribute('aria-label', _copy('next'));
+    }
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticTemplateCopy();
+    if (_phase === 'preview' && _introBlock) {
+      _renderPreview();
+      return;
+    }
+    if (_slidesData.length) {
+      _renderSlides();
+      return;
+    }
+    _renderStatus(_statusKey, _statusRetryable, _statusLoading);
   }
 
   if (document.readyState === 'loading') {

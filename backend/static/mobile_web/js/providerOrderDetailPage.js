@@ -3,6 +3,7 @@
 
 const ProviderOrderDetailPage = (() => {
   const state = {
+    initialized: false,
     id: null,
     order: null,
     actionLoading: false,
@@ -11,28 +12,404 @@ const ProviderOrderDetailPage = (() => {
     toastTimer: null,
     offerAlreadySent: false,
   };
-  const TYPE_LABEL = { normal: 'عادي', competitive: 'تنافسي', urgent: 'عاجل' };
+  const COPY = {
+    ar: {
+      pageTitle: 'تفاصيل الطلب — نوافــذ',
+      gateTitle: 'تسجيل الدخول مطلوب',
+      gateDescription: 'يرجى تسجيل الدخول للوصول إلى تفاصيل الطلب.',
+      login: 'تسجيل الدخول',
+      back: 'رجوع',
+      detailTitle: 'تفاصيل الطلب',
+      detailSubtitle: 'تفاصيل تشغيل الطلب',
+      openMessages: 'فتح الرسائل',
+      startChat: 'بدء المحادثة مع العميل',
+      openingChat: 'جاري فتح المحادثة...',
+      requestChip: 'طلب',
+      attachmentsLabel: 'المرفقات',
+      executionAttachmentsLabel: 'مرفقات التنفيذ',
+      statusLabel: 'الحالة',
+      descriptionHeading: 'وصف الطلب',
+      textLabel: 'النص',
+      actionsHeading: 'الإجراءات',
+      logsHeading: 'السجل',
+      backToOrders: 'العودة للطلبات',
+      clientHeading: 'العميل',
+      phoneLabel: 'الجوال',
+      cityLabel: 'المدينة',
+      unavailable: 'غير متوفر',
+      invalidUrl: 'رابط غير صحيح',
+      loadFailed: 'تعذّر تحميل تفاصيل الطلب',
+      requestTypeDefault: 'طلب خدمة',
+      typeNormal: 'عادي',
+      typeCompetitive: 'تنافسي',
+      typeUrgent: 'عاجل',
+      statusNew: 'جديد',
+      statusAccepted: 'تم قبول الطلب',
+      statusAwaitingClient: 'بانتظار اعتماد العميل للتفاصيل',
+      statusInProgress: 'تحت التنفيذ',
+      statusCompleted: 'مكتمل',
+      statusCancelled: 'ملغي',
+      fileImage: 'صورة',
+      fileVideo: 'فيديو',
+      fileAudio: 'صوت',
+      fileDocument: 'مستند',
+      file: 'ملف',
+      attachmentAlt: 'مرفق',
+      openFile: 'فتح الملف',
+      fileUnavailable: 'غير متاح',
+      fromProvider: 'من مزود الخدمة',
+      fromClient: 'من العميل',
+      noAttachments: 'لا توجد مرفقات.',
+      clientAttachments: 'مرفقات العميل',
+      providerAttachments: 'مرفقات مزود الخدمة',
+      logStatusUpdate: 'تحديث على الحالة: {status}',
+      logStatusTransition: 'من {from} إلى {to}',
+      byActor: 'بواسطة: {actor}',
+      logNoteProviderAcceptedAwaitingDetails: 'قبول من المزود بانتظار إرسال تفاصيل التنفيذ',
+      logNoteProviderSentExecutionInputs: 'إرسال/تحديث مدخلات التنفيذ من مزود الخدمة',
+      logNoteProviderSentProgressUpdate: 'إرسال تحديث تقدم من مزود الخدمة بانتظار اعتماد العميل',
+      logNoteClientApprovedInputs: 'العميل وافق على مدخلات المزود وبدأ التنفيذ',
+      logNoteClientApprovedProgress: 'العميل وافق على تحديث التقدم ويمكن متابعة التنفيذ',
+      logNoteClientApprovedInputsWithNote: 'العميل وافق على مدخلات المزود: {note}',
+      logNoteClientApprovedProgressWithNote: 'العميل وافق على تحديث التقدم: {note}',
+      logNoteClientRejectedInputs: 'العميل رفض مدخلات المزود',
+      logNoteClientRejectedProgress: 'العميل رفض تحديث التقدم',
+      logNoteClientRejectedInputsWithNote: 'العميل رفض مدخلات المزود: {note}',
+      logNoteClientRejectedProgressWithNote: 'العميل رفض تحديث التقدم: {note}',
+      logNoteStartExecution: 'بدء التنفيذ',
+      logNoteStartExecutionAwaitingApproval: 'إرسال مدخلات التنفيذ بانتظار اعتماد العميل',
+      logNoteCompleted: 'تم الإكمال. يرجى مراجعة الطلب وتقييم الخدمة.',
+      logNoteCompletedReview: 'تم إكمال الطلب. يرجى مراجعة الطلب وتقييم الخدمة.',
+      logNoteOfferSelected: 'اختيار عرض وإسناد الطلب لمزود الخدمة',
+      logNoteRequestAssignedToProvider: 'قبول الطلب وإسناده لمزود الخدمة',
+      logNoteProviderAcceptedRequest: 'قبول الطلب من مزود الخدمة',
+      logNoteReopened: 'إعادة فتح الطلب',
+      logNoteClientCancelledUrgentAfterAccept: 'إلغاء الطلب العاجل من العميل بعد قبول مزود الخدمة',
+      logNoteClientCancelled: 'إلغاء الطلب من العميل',
+      logNoteAdminCancelled: 'إلغاء الطلب من فريق الإدارة',
+      logNoteProviderCancelled: 'إلغاء الطلب من مزود الخدمة',
+      logNoteProviderUrgentDeclinedPrefix: 'اعتذار مزود الخدمة عن الطلب العاجل: {reason}',
+      logNoteProviderCancelledPrefix: 'إلغاء من المزود: {reason}',
+      logNoteProviderCancelledDuringExecutionPrefix: 'إلغاء من مزود الخدمة أثناء التنفيذ: {reason}',
+      awaitingResponseLabel: 'بانتظار ردك على الطلب',
+      awaitingResponseDesc: 'بعد قبول الطلب ستتمكن من إدخال السعر وموعد التسليم وإرسالها للعميل لاعتمادها.',
+      acceptRequest: 'قبول الطلب',
+      rejectRequest: 'رفض الطلب',
+      rejectReasonLabel: 'سبب الرفض',
+      rejectReasonPlaceholder: 'سبب الرفض...',
+      cancelReasonPlaceholder: 'سبب الإلغاء...',
+      urgentAvailableLabel: 'طلب عاجل متاح',
+      urgentAvailableDesc: 'هذا الطلب العاجل متاح الآن لك. عند القبول سيتم إسناده لك مباشرة.',
+      acceptUrgent: 'قبول الطلب العاجل',
+      competitiveAvailableLabel: 'طلب عروض أسعار متاح',
+      competitiveAvailableDesc: 'أدخل السعر ومدة التنفيذ لإرسال عرضك للعميل. يمكنك إرسال عرض واحد لكل طلب.',
+      offerPriceLabel: 'سعر العرض (SR)',
+      offerDurationLabel: 'مدة التنفيذ (يوم)',
+      clientNoteLabel: 'ملاحظة للعميل (اختياري)',
+      noteLabel: 'ملاحظة (اختياري)',
+      notePlaceholder: 'ملاحظة (اختياري)',
+      sendOffer: 'إرسال عرض السعر',
+      offerSentLabel: 'عرض السعر',
+      offerSentDesc: 'تم إرسال عرضك على هذا الطلب. بانتظار قرار العميل.',
+      previousClientRejectionLabel: 'سبب رفض العميل للتفاصيل السابقة',
+      sentProgressTitle: 'تحديث التقدم المرسل',
+      expectedDeliveryLabel: 'موعد التسليم المتوقع',
+      estimatedAmountLabel: 'قيمة الخدمة المقدرة (SR)',
+      receivedAmountLabel: 'المبلغ المستلم (SR)',
+      resendUpdateToClient: 'إعادة إرسال التحديث للعميل',
+      resendExecutionDetails: 'إعادة إرسال تفاصيل التنفيذ',
+      sendExecutionDetails: 'إرسال تفاصيل التنفيذ',
+      updateExecutionDetails: 'تحديث تفاصيل التنفيذ المرسلة',
+      sendDetailsToClient: 'إرسال التفاصيل للعميل',
+      resendDetailsToClient: 'إعادة إرسال التفاصيل',
+      progressUpdateTitle: 'تحديث التقدم',
+      progressUpdateButton: 'تحديث التقدم',
+      completeOrderTitle: 'إكمال الطلب',
+      deliveredAtLabel: 'موعد التسليم الفعلي',
+      actualAmountLabel: 'قيمة الخدمة الفعلية (SR)',
+      completionAttachmentsLabel: 'مرفقات الإكمال (فواتير/صور/ملفات)',
+      addAttachments: 'إضافة مرفقات',
+      cancelDuringExecutionTitle: 'إلغاء الطلب أثناء التنفيذ',
+      cancelOrder: 'إلغاء الطلب',
+      completionDateLabel: 'موعد التسليم الفعلي',
+      actualServiceAmountLabel: 'قيمة الخدمة الفعلية (SR)',
+      clientReviewLabel: 'تقييم العميل',
+      cancellationDateLabel: 'تاريخ الإلغاء',
+      cancellationReasonLabel: 'سبب الإلغاء',
+      remove: 'إزالة',
+      acceptSuccess: 'تم قبول الطلب. أرسل تفاصيل التنفيذ للعميل',
+      urgentAcceptSuccess: 'تم قبول الطلب العاجل بنجاح',
+      operationFailed: 'فشلت العملية',
+      invalidOfferPrice: 'أدخل سعر عرض صالح',
+      invalidDuration: 'أدخل مدة تنفيذ بالأيام بشكل صحيح',
+      offerSentSuccess: 'تم إرسال عرض السعر بنجاح',
+      offerAlreadyExists: 'تم إرسال عرض مسبقًا على هذا الطلب',
+      offerSendFailed: 'تعذّر إرسال العرض',
+      chooseExpectedDelivery: 'حدد موعد التسليم المتوقع',
+      enterEstimatedAndReceived: 'أدخل القيمة المقدرة والمبلغ المستلم',
+      enterAmountsTogether: 'أدخل القيمة المقدرة والمبلغ المستلم معًا',
+      enterNoteOrUpdate: 'أدخل ملاحظة أو حدّث بيانات التنفيذ',
+      progressSentAwaitingClient: 'تم إرسال تحديثك للعميل بانتظار القرار',
+      progressUpdated: 'تم تحديث التقدم',
+      chooseActualDelivery: 'حدد موعد التسليم الفعلي',
+      enterActualAmount: 'أدخل قيمة الخدمة الفعلية',
+      orderCompleted: 'تم إكمال الطلب',
+      writeCancelReason: 'الرجاء كتابة سبب الإلغاء',
+      orderCancelled: 'تم إلغاء الطلب',
+      orderRejected: 'تم رفض الطلب',
+      cannotDetermineClient: 'تعذّر تحديد العميل لفتح المحادثة',
+      openChatFailed: 'تعذّر فتح المحادثة',
+      retry: 'إعادة المحاولة',
+      originalLanguageNotice: 'بعض التفاصيل والأسماء والملاحظات تُعرض بلغتها الأصلية.',
+      summaryStatus: '{type} بحالة {status}',
+      summaryWithin: 'ضمن {category}',
+      summaryIn: 'في {city}'
+    },
+    en: {
+      pageTitle: 'Order Details — Nawafeth',
+      gateTitle: 'Sign in required',
+      gateDescription: 'Please sign in to access the order details.',
+      login: 'Sign in',
+      back: 'Back',
+      detailTitle: 'Order details',
+      detailSubtitle: 'Order operations details',
+      openMessages: 'Open messages',
+      startChat: 'Start chat with client',
+      openingChat: 'Opening chat...',
+      requestChip: 'Request',
+      attachmentsLabel: 'Attachments',
+      executionAttachmentsLabel: 'Execution attachments',
+      statusLabel: 'Status',
+      descriptionHeading: 'Request description',
+      textLabel: 'Text',
+      actionsHeading: 'Actions',
+      logsHeading: 'Timeline',
+      backToOrders: 'Back to orders',
+      clientHeading: 'Client',
+      phoneLabel: 'Phone',
+      cityLabel: 'City',
+      unavailable: 'Not available',
+      invalidUrl: 'Invalid link',
+      loadFailed: 'Unable to load the order details',
+      requestTypeDefault: 'Service request',
+      typeNormal: 'Standard',
+      typeCompetitive: 'Competitive',
+      typeUrgent: 'Urgent',
+      statusNew: 'New',
+      statusAccepted: 'Accepted',
+      statusAwaitingClient: 'Awaiting client approval for the details',
+      statusInProgress: 'In progress',
+      statusCompleted: 'Completed',
+      statusCancelled: 'Cancelled',
+      fileImage: 'Image',
+      fileVideo: 'Video',
+      fileAudio: 'Audio',
+      fileDocument: 'Document',
+      file: 'File',
+      attachmentAlt: 'Attachment',
+      openFile: 'Open file',
+      fileUnavailable: 'Unavailable',
+      fromProvider: 'From provider',
+      fromClient: 'From client',
+      noAttachments: 'No attachments available.',
+      clientAttachments: 'Client attachments',
+      providerAttachments: 'Provider attachments',
+      logStatusUpdate: 'Status update: {status}',
+      logStatusTransition: 'From {from} to {to}',
+      byActor: 'By: {actor}',
+      logNoteProviderAcceptedAwaitingDetails: 'Provider accepted the request and is expected to send execution details',
+      logNoteProviderSentExecutionInputs: 'Provider sent or updated the execution inputs',
+      logNoteProviderSentProgressUpdate: 'Provider sent a progress update pending client approval',
+      logNoteClientApprovedInputs: 'The client approved the provider inputs and execution started',
+      logNoteClientApprovedProgress: 'The client approved the progress update and execution can continue',
+      logNoteClientApprovedInputsWithNote: 'The client approved the provider inputs: {note}',
+      logNoteClientApprovedProgressWithNote: 'The client approved the progress update: {note}',
+      logNoteClientRejectedInputs: 'The client rejected the provider inputs',
+      logNoteClientRejectedProgress: 'The client rejected the progress update',
+      logNoteClientRejectedInputsWithNote: 'The client rejected the provider inputs: {note}',
+      logNoteClientRejectedProgressWithNote: 'The client rejected the progress update: {note}',
+      logNoteStartExecution: 'Execution started',
+      logNoteStartExecutionAwaitingApproval: 'Execution inputs were sent and are waiting for client approval',
+      logNoteCompleted: 'Completed. Please review the request and rate the service.',
+      logNoteCompletedReview: 'The order was completed. Please review the request and rate the service.',
+      logNoteOfferSelected: 'An offer was selected and the request was assigned to the provider',
+      logNoteRequestAssignedToProvider: 'The request was accepted and assigned to the provider',
+      logNoteProviderAcceptedRequest: 'The provider accepted the request',
+      logNoteReopened: 'The request was reopened',
+      logNoteClientCancelledUrgentAfterAccept: 'The client cancelled the urgent request after provider acceptance',
+      logNoteClientCancelled: 'The client cancelled the request',
+      logNoteAdminCancelled: 'The admin team cancelled the request',
+      logNoteProviderCancelled: 'The provider cancelled the request',
+      logNoteProviderUrgentDeclinedPrefix: 'The provider declined the urgent request: {reason}',
+      logNoteProviderCancelledPrefix: 'Cancelled by provider: {reason}',
+      logNoteProviderCancelledDuringExecutionPrefix: 'Cancelled by provider during execution: {reason}',
+      awaitingResponseLabel: 'Waiting for your response',
+      awaitingResponseDesc: 'After accepting the request, you will be able to enter the price and delivery date, then send them to the client for approval.',
+      acceptRequest: 'Accept request',
+      rejectRequest: 'Reject request',
+      rejectReasonLabel: 'Rejection reason',
+      rejectReasonPlaceholder: 'Rejection reason...',
+      cancelReasonPlaceholder: 'Cancellation reason...',
+      urgentAvailableLabel: 'Urgent request available',
+      urgentAvailableDesc: 'This urgent request is available to you now. Once accepted, it will be assigned to you directly.',
+      acceptUrgent: 'Accept urgent request',
+      competitiveAvailableLabel: 'Competitive quote request available',
+      competitiveAvailableDesc: 'Enter the price and execution duration to send your offer to the client. You can send one offer per request.',
+      offerPriceLabel: 'Offer price (SAR)',
+      offerDurationLabel: 'Execution duration (days)',
+      clientNoteLabel: 'Note to client (optional)',
+      noteLabel: 'Note (optional)',
+      notePlaceholder: 'Note (optional)',
+      sendOffer: 'Send quote offer',
+      offerSentLabel: 'Quote offer',
+      offerSentDesc: 'Your offer has already been sent for this request. Waiting for the client decision.',
+      previousClientRejectionLabel: 'Reason the client rejected the previous details',
+      sentProgressTitle: 'Last progress update sent',
+      expectedDeliveryLabel: 'Expected delivery time',
+      estimatedAmountLabel: 'Estimated service amount (SAR)',
+      receivedAmountLabel: 'Received amount (SAR)',
+      resendUpdateToClient: 'Resend update to client',
+      resendExecutionDetails: 'Resend execution details',
+      sendExecutionDetails: 'Send execution details',
+      updateExecutionDetails: 'Update the execution details already sent',
+      sendDetailsToClient: 'Send details to client',
+      resendDetailsToClient: 'Resend details',
+      progressUpdateTitle: 'Progress update',
+      progressUpdateButton: 'Update progress',
+      completeOrderTitle: 'Complete order',
+      deliveredAtLabel: 'Actual delivery time',
+      actualAmountLabel: 'Actual service amount (SAR)',
+      completionAttachmentsLabel: 'Completion attachments (invoices/images/files)',
+      addAttachments: 'Add attachments',
+      cancelDuringExecutionTitle: 'Cancel order during execution',
+      cancelOrder: 'Cancel order',
+      completionDateLabel: 'Actual delivery time',
+      actualServiceAmountLabel: 'Actual service amount (SAR)',
+      clientReviewLabel: 'Client review',
+      cancellationDateLabel: 'Cancellation date',
+      cancellationReasonLabel: 'Cancellation reason',
+      remove: 'Remove',
+      acceptSuccess: 'The request was accepted. Send the execution details to the client.',
+      urgentAcceptSuccess: 'The urgent request was accepted successfully',
+      operationFailed: 'The operation failed',
+      invalidOfferPrice: 'Enter a valid offer price',
+      invalidDuration: 'Enter a valid execution duration in days',
+      offerSentSuccess: 'The quote offer was sent successfully',
+      offerAlreadyExists: 'An offer has already been sent for this request',
+      offerSendFailed: 'Unable to send the offer',
+      chooseExpectedDelivery: 'Select the expected delivery time',
+      enterEstimatedAndReceived: 'Enter the estimated amount and received amount',
+      enterAmountsTogether: 'Enter the estimated amount and the received amount together',
+      enterNoteOrUpdate: 'Enter a note or update the execution details',
+      progressSentAwaitingClient: 'Your update was sent to the client and is waiting for a decision',
+      progressUpdated: 'Progress updated',
+      chooseActualDelivery: 'Select the actual delivery time',
+      enterActualAmount: 'Enter the actual service amount',
+      orderCompleted: 'The order was completed',
+      writeCancelReason: 'Please provide a cancellation reason',
+      orderCancelled: 'The order was cancelled',
+      orderRejected: 'The request was rejected',
+      cannotDetermineClient: 'Unable to determine the client to open the chat',
+      openChatFailed: 'Unable to open the chat',
+      retry: 'Retry',
+      originalLanguageNotice: 'Some request details, names, and notes are shown in their original language.',
+      summaryStatus: '{type} with status {status}',
+      summaryWithin: 'under {category}',
+      summaryIn: 'in {city}'
+    }
+  };
+  const TYPE_COPY_KEYS = { normal: 'typeNormal', competitive: 'typeCompetitive', urgent: 'typeUrgent' };
   const STATUS_COLOR = { new: '#A56800', in_progress: '#E67E22', completed: '#2E7D32', cancelled: '#C62828' };
   const STATUS_PILL_TEXT_COLOR = '#F8FAFC';
-  const STATUS_LABEL_AR = {
-    new: 'جديد',
-    provider_accepted: 'تم قبول الطلب',
-    awaiting_client: 'بانتظار اعتماد العميل للتفاصيل',
-    in_progress: 'تحت التنفيذ',
-    completed: 'مكتمل',
-    cancelled: 'ملغي',
-    canceled: 'ملغي'
+  const STATUS_COPY_KEYS = {
+    new: 'statusNew',
+    provider_accepted: 'statusAccepted',
+    awaiting_client: 'statusAwaitingClient',
+    in_progress: 'statusInProgress',
+    completed: 'statusCompleted',
+    cancelled: 'statusCancelled',
+    canceled: 'statusCancelled'
   };
-  const FILE_TYPE_LABEL_AR = { image: 'صورة', video: 'فيديو', audio: 'صوت', document: 'مستند' };
+  const FILE_TYPE_COPY_KEYS = { image: 'fileImage', video: 'fileVideo', audio: 'fileAudio', document: 'fileDocument' };
+  const SYSTEM_LOG_NOTE_COPY_KEYS = {
+    'قبول من المزود بانتظار إرسال تفاصيل التنفيذ': 'logNoteProviderAcceptedAwaitingDetails',
+    'إرسال/تحديث مدخلات التنفيذ من مزود الخدمة': 'logNoteProviderSentExecutionInputs',
+    'إرسال تحديث تقدم من مزود الخدمة بانتظار اعتماد العميل': 'logNoteProviderSentProgressUpdate',
+    'العميل وافق على مدخلات المزود وبدأ التنفيذ': 'logNoteClientApprovedInputs',
+    'العميل وافق على تحديث التقدم ويمكن متابعة التنفيذ': 'logNoteClientApprovedProgress',
+    'العميل رفض مدخلات المزود': 'logNoteClientRejectedInputs',
+    'العميل رفض تحديث التقدم': 'logNoteClientRejectedProgress',
+    'بدء التنفيذ': 'logNoteStartExecution',
+    'إرسال مدخلات التنفيذ بانتظار اعتماد العميل': 'logNoteStartExecutionAwaitingApproval',
+    'تم الإكمال. يرجى مراجعة الطلب وتقييم الخدمة.': 'logNoteCompleted',
+    'تم إكمال الطلب. يرجى مراجعة الطلب وتقييم الخدمة.': 'logNoteCompletedReview',
+    'اختيار عرض وإسناد الطلب لمزود الخدمة': 'logNoteOfferSelected',
+    'قبول الطلب وإسناده لمزود الخدمة': 'logNoteRequestAssignedToProvider',
+    'قبول الطلب من مزود الخدمة': 'logNoteProviderAcceptedRequest',
+    'إعادة فتح الطلب': 'logNoteReopened',
+    'إلغاء الطلب العاجل من العميل بعد قبول مزود الخدمة': 'logNoteClientCancelledUrgentAfterAccept',
+    'إلغاء الطلب من العميل': 'logNoteClientCancelled',
+    'إلغاء الطلب من فريق الإدارة': 'logNoteAdminCancelled',
+    'إلغاء الطلب من مزود الخدمة': 'logNoteProviderCancelled'
+  };
 
   function init() {
+    if (state.initialized) return;
+    state.initialized = true;
+
+    applyStaticCopy();
+    document.addEventListener('nawafeth:languagechange', handleLanguageChange);
+
     if (!Auth.isLoggedIn()) return showGate();
     byId('pod-content').style.display = '';
     const m = location.pathname.match(/\/provider-orders\/(\d+)\/?$/);
-    if (!m) return showError('رابط غير صحيح');
+    if (!m) return showError(_copy('invalidUrl'));
     state.id = Number(m[1]);
     bindChatButtons();
     loadDetail();
+  }
+
+  function applyStaticCopy() {
+    document.title = _copy('pageTitle');
+
+    const backLink = byId('pod-back-link');
+    const topChatButton = byId('pod-chat-btn');
+    const launchChatButton = byId('pod-chat-launch-btn');
+
+    setText('pod-auth-title', _copy('gateTitle'));
+    setText('pod-auth-desc', _copy('gateDescription'));
+    setText('pod-login-link', _copy('login'));
+    setText('pod-page-title', _copy('detailTitle'));
+    setText('pod-page-subtitle', _copy('detailSubtitle'));
+    setText('pod-request-chip', _copy('requestChip'));
+    setText('pod-chat-launch-label', _copy('startChat'));
+    setText('pod-overview-attachments-label', _copy('attachmentsLabel'));
+    setText('pod-overview-final-label', _copy('executionAttachmentsLabel'));
+    setText('pod-overview-status-label', _copy('statusLabel'));
+    setText('pod-description-heading', _copy('descriptionHeading'));
+    setText('pod-description-label', _copy('textLabel'));
+    setText('pod-attachments-heading', _copy('attachmentsLabel'));
+    setText('pod-attachments-empty', _copy('noAttachments'));
+    setText('pod-actions-heading', _copy('actionsHeading'));
+    setText('pod-logs-heading', _copy('logsHeading'));
+    setText('pod-back-orders-link', _copy('backToOrders'));
+    setText('pod-client-heading', _copy('clientHeading'));
+    setText('pod-phone-label', _copy('phoneLabel'));
+    setText('pod-city-label', _copy('cityLabel'));
+
+    if (backLink) backLink.setAttribute('aria-label', _copy('back'));
+    if (topChatButton) topChatButton.setAttribute('aria-label', _copy('openMessages'));
+    if (launchChatButton) launchChatButton.setAttribute('aria-label', _copy('startChat'));
+  }
+
+  function handleLanguageChange() {
+    applyStaticCopy();
+    if (state.order) {
+      render();
+      return;
+    }
+    renderPickedFiles();
+    updateChatButtons();
   }
 
   function bindChatButtons() {
@@ -55,7 +432,7 @@ const ProviderOrderDetailPage = (() => {
     hideError();
     const res = await ApiClient.get('/api/marketplace/provider/requests/' + state.id + '/detail/');
     setLoading(false);
-    if (!res.ok || !res.data || typeof res.data !== 'object') return showError(extractError(res, 'تعذّر تحميل تفاصيل الطلب'));
+    if (!res.ok || !res.data || typeof res.data !== 'object') return showError(extractError(res, _copy('loadFailed')));
     state.order = res.data;
     state.completionFiles = [];
     state.offerAlreadySent = false;
@@ -68,17 +445,17 @@ const ProviderOrderDetailPage = (() => {
     hideError();
     byId('pod-detail').style.display = '';
 
-    const clientName = val(o.client_name, 'غير متوفر');
-    const clientPhone = val(o.client_phone, 'غير متوفر');
-    const requestCity = val(UI.formatCityDisplay(o.city_display || o.city, o.region || o.region_name), '');
+    const clientName = val(o.client_name, _copy('unavailable'));
+    const clientPhone = val(o.client_phone, _copy('unavailable'));
+    const requestCity = localizedRequestCity(o);
     const clientCity = val(
-      UI.formatCityDisplay(o.client_city_display || o.client_city || requestCity),
-      'غير متوفر'
+      localizedClientCity(o, requestCity),
+      _copy('unavailable')
     );
     setText('pod-client-name', clientName);
     setText('pod-client-phone', clientPhone);
     setText('pod-client-city', clientCity);
-    setText('pod-client-summary', [clientPhone, clientCity].filter((item) => item && item !== 'غير متوفر').join(' • ') || '-');
+    setText('pod-client-summary', [clientPhone, clientCity].filter((item) => item && item !== _copy('unavailable')).join(' • ') || '-');
     setText('pod-client-initials', clientInitials(clientName));
 
     const displayId = Number.isFinite(Number(o.id)) ? ('R' + String(o.id).padStart(6, '0')) : val(o.display_id, '-');
@@ -88,7 +465,7 @@ const ProviderOrderDetailPage = (() => {
     const typeBadge = byId('pod-type-badge');
     if (t && t !== 'normal') {
       typeBadge.style.display = 'inline-flex';
-      typeBadge.textContent = TYPE_LABEL[t] || t;
+      typeBadge.textContent = typeLabel(t);
       const urgent = t === 'urgent';
       typeBadge.style.color = urgent ? '#C62828' : '#1565C0';
       typeBadge.style.backgroundColor = urgent ? 'rgba(198,40,40,.12)' : 'rgba(21,101,192,.12)';
@@ -97,8 +474,8 @@ const ProviderOrderDetailPage = (() => {
       typeBadge.textContent = '';
     }
 
-    const c = str(o.category_name);
-    const s = str(o.subcategory_name);
+    const c = localizedCategoryName(o);
+    const s = localizedSubcategoryName(o);
     const catEl = byId('pod-category');
     if (c) {
       catEl.style.display = '';
@@ -113,15 +490,16 @@ const ProviderOrderDetailPage = (() => {
     const group = statusGroup(o);
     const color = STATUS_COLOR[group] || '#9E9E9E';
     const status = byId('pod-status-pill');
-    status.textContent = val(o.status_label, statusLabel(group));
+    status.textContent = statusLabelFromRaw(o.status);
     status.style.color = STATUS_PILL_TEXT_COLOR;
     status.style.backgroundColor = color + '33';
     status.style.borderColor = color + 'A6';
     status.style.boxShadow = '0 10px 22px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12)';
     setText('pod-status-inline', status.textContent || '-');
 
-    setText('pod-title', val(o.title, '-'));
-    setText('pod-description', val(o.description, '-'));
+    setTextAutoDirection('pod-title', val(o.title, '-'));
+    setTextAutoDirection('pod-description', val(o.description, '-'));
+    updateOriginalLanguageNotice(o);
 
     renderAttachments(o);
     renderLogs(o);
@@ -142,16 +520,17 @@ const ProviderOrderDetailPage = (() => {
     const rCount = byId('pod-regular-count');
     fh.innerHTML = '';
     rh.innerHTML = '';
-    if (fhTitle) fhTitle.textContent = 'مرفقات مزود الخدمة';
-    if (rhTitle) rhTitle.textContent = 'مرفقات العميل';
+    if (fhTitle) fhTitle.textContent = _copy('providerAttachments');
+    if (rhTitle) rhTitle.textContent = _copy('clientAttachments');
     if (!list.length) {
       empty.style.display = '';
+      empty.textContent = _copy('noAttachments');
       fw.style.display = 'none';
       rw.style.display = 'none';
-      if (fCount) fCount.textContent = '٠';
-      if (rCount) rCount.textContent = '٠';
-      setText('pod-final-count-summary', '٠');
-      setText('pod-regular-count-summary', '٠');
+      if (fCount) fCount.textContent = localizeDigits('0');
+      if (rCount) rCount.textContent = localizeDigits('0');
+      setText('pod-final-count-summary', localizeDigits('0'));
+      setText('pod-regular-count-summary', localizeDigits('0'));
       return;
     }
     empty.style.display = 'none';
@@ -164,10 +543,10 @@ const ProviderOrderDetailPage = (() => {
     });
     finals.sort((a, b) => toMs(b && b.created_at) - toMs(a && a.created_at));
     regular.sort((a, b) => toMs(b && b.created_at) - toMs(a && a.created_at));
-    if (fCount) fCount.textContent = arDigits(finals.length);
-    if (rCount) rCount.textContent = arDigits(regular.length);
-    setText('pod-final-count-summary', arDigits(finals.length));
-    setText('pod-regular-count-summary', arDigits(regular.length));
+    if (fCount) fCount.textContent = localizeDigits(finals.length);
+    if (rCount) rCount.textContent = localizeDigits(regular.length);
+    setText('pod-final-count-summary', localizeDigits(finals.length));
+    setText('pod-regular-count-summary', localizeDigits(regular.length));
     fw.classList.add('is-provider');
     rw.classList.add('is-client');
     if (finals.length) {
@@ -205,11 +584,11 @@ const ProviderOrderDetailPage = (() => {
 
     const title = document.createElement('span');
     title.className = 'pod-attachment-name';
-    title.textContent = name || 'ملف';
+    title.textContent = name || _copy('file');
 
     const open = document.createElement('span');
     open.className = 'pod-attachment-open';
-    open.textContent = href ? 'فتح الملف' : 'غير متاح';
+    open.textContent = href ? _copy('openFile') : _copy('fileUnavailable');
 
     head.appendChild(title);
     head.appendChild(open);
@@ -224,7 +603,7 @@ const ProviderOrderDetailPage = (() => {
 
     const owner = document.createElement('span');
     owner.className = 'pod-attachment-owner';
-    owner.textContent = isProviderFile ? 'من مزود الخدمة' : 'من العميل';
+    owner.textContent = isProviderFile ? _copy('fromProvider') : _copy('fromClient');
     meta.appendChild(owner);
 
     const createdAt = asDate(a && a.created_at);
@@ -245,7 +624,7 @@ const ProviderOrderDetailPage = (() => {
     if (type === 'image' && href) {
       const img = document.createElement('img');
       img.src = href;
-      img.alt = name || 'مرفق';
+      img.alt = name || _copy('attachmentAlt');
       img.loading = 'lazy';
       return img;
     }
@@ -297,21 +676,22 @@ const ProviderOrderDetailPage = (() => {
       const fromLabel = statusLabelFromRaw(log.from_status);
       const toLabel = statusLabelFromRaw(log.to_status);
       title.textContent = fromLabel === toLabel
-        ? ('تحديث على الحالة: ' + toLabel)
-        : ('من ' + fromLabel + ' إلى ' + toLabel);
+        ? _copy('logStatusUpdate', { status: toLabel })
+        : _copy('logStatusTransition', { from: fromLabel, to: toLabel });
       body.appendChild(title);
       const actor = str(log.actor_name);
       if (actor && actor !== '-') {
         const p = document.createElement('p');
         p.className = 'pod-log-actor';
-        p.textContent = 'بواسطة: ' + actor;
+        p.textContent = _copy('byActor', { actor });
         body.appendChild(p);
       }
-      const note = str(log.note);
+      const note = localizeSystemLogNote(log.note);
       if (note) {
         const p = document.createElement('p');
         p.className = 'pod-log-note';
         p.textContent = note;
+        setAutoDirection(p, note);
         body.appendChild(p);
       }
       if (asDate(log.created_at)) {
@@ -348,19 +728,19 @@ const ProviderOrderDetailPage = (() => {
   function renderAwaitingClientProgressActions(root, o) {
     root.innerHTML = `
       <div class="pod-readonly-box">
-        <label>بانتظار قرار العميل على التحديث الأخير</label>
-        <p>أرسلت تحديثًا جديدًا على التنفيذ. يمكنك تعديل البيانات وإعادة إرسالها عند الحاجة، وسيصل التحديث مرة أخرى للعميل لاعتماده أو رفضه.</p>
+        <label>${_copy('sentProgressTitle')}</label>
+        <p>${_copy('progressSentAwaitingClient')}</p>
       </div>
-      <p class="pod-action-title">تحديث التقدم المرسل</p>
-      <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
+      <p class="pod-action-title">${_copy('sentProgressTitle')}</p>
+      <label class="pod-input-label" for="pod-expected-delivery">${_copy('expectedDeliveryLabel')}</label>
       <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
       <div class="pod-grid-2">
-        <div><label class="pod-input-label" for="pod-estimated-amount">قيمة الخدمة المقدرة (SR)</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
-        <div><label class="pod-input-label" for="pod-received-amount">المبلغ المستلم (SR)</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('estimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-received-amount">${_copy('receivedAmountLabel')}</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
       </div>
-      <label class="pod-input-label" for="pod-note">ملاحظة (اختياري)</label>
-      <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="ملاحظة (اختياري)"></textarea>
-      <button type="button" class="pod-btn pod-btn-warning pod-btn-block" id="pod-progress-btn" data-pod-action>إعادة إرسال التحديث للعميل</button>`;
+      <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
+      <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
+      <button type="button" class="pod-btn pod-btn-warning pod-btn-block" id="pod-progress-btn" data-pod-action>${_copy('resendUpdateToClient')}</button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
     byId('pod-estimated-amount').value = str(o.estimated_service_amount);
     byId('pod-received-amount').value = str(o.received_amount);
@@ -370,22 +750,22 @@ const ProviderOrderDetailPage = (() => {
 
   function renderAssignedNewActions(root, o) {
     root.innerHTML = `
-      <div class="pod-readonly-box" id="pod-client-rejection-box" style="display:none"><label>سبب رفض العميل للتفاصيل السابقة</label><p id="pod-client-rejection-note">-</p></div>
+      <div class="pod-readonly-box" id="pod-client-rejection-box" style="display:none"><label>${_copy('previousClientRejectionLabel')}</label><p id="pod-client-rejection-note">-</p></div>
       <p class="pod-action-title" id="pod-progress-title"></p>
-      <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
+      <label class="pod-input-label" for="pod-expected-delivery">${_copy('expectedDeliveryLabel')}</label>
       <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
       <div class="pod-grid-2">
-        <div><label class="pod-input-label" for="pod-estimated-amount">قيمة الخدمة المقدرة (SR)</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
-        <div><label class="pod-input-label" for="pod-received-amount">المبلغ المستلم (SR)</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('estimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-received-amount">${_copy('receivedAmountLabel')}</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
       </div>
-      <label class="pod-input-label" for="pod-note">ملاحظة (اختياري)</label>
-      <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="ملاحظة (اختياري)"></textarea>
+      <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
+      <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
       <button type="button" class="pod-btn pod-btn-primary pod-btn-block" id="pod-progress-btn" data-pod-action></button>
       <div class="pod-divider"></div>
-      <p class="pod-action-title">رفض الطلب</p>
-      <label class="pod-input-label" for="pod-cancel-reason">سبب الإلغاء</label>
-      <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="سبب الإلغاء..."></textarea>
-      <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>رفض الطلب</button>`;
+      <p class="pod-action-title">${_copy('rejectRequest')}</p>
+      <label class="pod-input-label" for="pod-cancel-reason">${_copy('cancellationReasonLabel')}</label>
+      <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="${_copy('cancelReasonPlaceholder')}"></textarea>
+      <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>${_copy('rejectRequest')}</button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
     byId('pod-estimated-amount').value = str(o.estimated_service_amount);
     byId('pod-received-amount').value = str(o.received_amount);
@@ -393,15 +773,15 @@ const ProviderOrderDetailPage = (() => {
     const rejected = o.provider_inputs_approved === false;
     const waitingClient = workflowStage(o) === 'awaiting_client' && !rejected;
     byId('pod-progress-title').textContent = rejected
-      ? 'إعادة إرسال تفاصيل التنفيذ'
-      : (waitingClient ? 'تحديث تفاصيل التنفيذ المرسلة' : 'إرسال تفاصيل التنفيذ');
+      ? _copy('resendExecutionDetails')
+      : (waitingClient ? _copy('updateExecutionDetails') : _copy('sendExecutionDetails'));
     byId('pod-progress-btn').textContent = rejected
-      ? 'إعادة إرسال التفاصيل'
-      : (waitingClient ? 'تحديث التفاصيل المرسلة' : 'إرسال التفاصيل للعميل');
+      ? _copy('resendDetailsToClient')
+      : (waitingClient ? _copy('updateExecutionDetails') : _copy('sendDetailsToClient'));
     const rbox = byId('pod-client-rejection-box');
     if (rejected) {
       rbox.style.display = '';
-      setText('pod-client-rejection-note', val(o.provider_inputs_decision_note, '-'));
+      setTextAutoDirection('pod-client-rejection-note', val(o.provider_inputs_decision_note, '-'));
     } else rbox.style.display = 'none';
     byId('pod-progress-btn').addEventListener('click', () => submitProgress(true));
     byId('pod-reject-btn').addEventListener('click', rejectOrder);
@@ -411,15 +791,15 @@ const ProviderOrderDetailPage = (() => {
   function renderAwaitingAcceptanceActions(root) {
     root.innerHTML = `
       <div class="pod-readonly-box">
-        <label>بانتظار ردك على الطلب</label>
-        <p>بعد قبول الطلب ستتمكن من إدخال السعر وموعد التسليم وإرسالها للعميل لاعتمادها.</p>
+        <label>${_copy('awaitingResponseLabel')}</label>
+        <p>${_copy('awaitingResponseDesc')}</p>
       </div>
-      <button type="button" class="pod-btn pod-btn-success pod-btn-block" id="pod-accept-btn" data-pod-action>قبول الطلب</button>
+      <button type="button" class="pod-btn pod-btn-success pod-btn-block" id="pod-accept-btn" data-pod-action>${_copy('acceptRequest')}</button>
       <div class="pod-divider"></div>
-      <p class="pod-action-title">رفض الطلب</p>
-      <label class="pod-input-label" for="pod-cancel-reason">سبب الرفض</label>
-      <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="سبب الرفض..."></textarea>
-      <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>رفض الطلب</button>`;
+      <p class="pod-action-title">${_copy('rejectRequest')}</p>
+      <label class="pod-input-label" for="pod-cancel-reason">${_copy('rejectReasonLabel')}</label>
+      <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="${_copy('cancelReasonPlaceholder')}"></textarea>
+      <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>${_copy('rejectRequest')}</button>`;
     byId('pod-accept-btn').addEventListener('click', acceptOrder);
     byId('pod-reject-btn').addEventListener('click', rejectOrder);
     setActionLoading(false);
@@ -428,33 +808,33 @@ const ProviderOrderDetailPage = (() => {
   function renderUrgentAvailableActions(root) {
     root.innerHTML = `
       <div class="pod-readonly-box">
-        <label>طلب عاجل متاح</label>
-        <p>هذا الطلب العاجل متاح الآن لك. عند القبول سيتم إسناده لك مباشرة.</p>
+        <label>${_copy('urgentAvailableLabel')}</label>
+        <p>${_copy('urgentAvailableDesc')}</p>
       </div>
-      <button type="button" class="pod-btn pod-btn-danger pod-btn-block" id="pod-urgent-accept-btn" data-pod-action>قبول الطلب العاجل</button>`;
+      <button type="button" class="pod-btn pod-btn-danger pod-btn-block" id="pod-urgent-accept-btn" data-pod-action>${_copy('acceptUrgent')}</button>`;
     byId('pod-urgent-accept-btn').addEventListener('click', acceptOrder);
     setActionLoading(false);
   }
 
   function renderCompetitiveOfferActions(root) {
     if (state.offerAlreadySent) {
-      root.appendChild(readonly('عرض السعر', 'تم إرسال عرضك على هذا الطلب. بانتظار قرار العميل.'));
+      root.appendChild(readonly(_copy('offerSentLabel'), _copy('offerSentDesc')));
       setActionLoading(false);
       return;
     }
 
     root.innerHTML = `
       <div class="pod-readonly-box">
-        <label>طلب عروض أسعار متاح</label>
-        <p>أدخل السعر ومدة التنفيذ لإرسال عرضك للعميل. يمكنك إرسال عرض واحد لكل طلب.</p>
+        <label>${_copy('competitiveAvailableLabel')}</label>
+        <p>${_copy('competitiveAvailableDesc')}</p>
       </div>
       <div class="pod-grid-2">
-        <div><label class="pod-input-label" for="pod-offer-price">سعر العرض (SR)</label><input type="number" class="pod-input" id="pod-offer-price" step="0.01" min="0" placeholder="0"></div>
-        <div><label class="pod-input-label" for="pod-offer-duration">مدة التنفيذ (يوم)</label><input type="number" class="pod-input" id="pod-offer-duration" step="1" min="1" placeholder="5"></div>
+        <div><label class="pod-input-label" for="pod-offer-price">${_copy('offerPriceLabel')}</label><input type="number" class="pod-input" id="pod-offer-price" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-offer-duration">${_copy('offerDurationLabel')}</label><input type="number" class="pod-input" id="pod-offer-duration" step="1" min="1" placeholder="5"></div>
       </div>
-      <label class="pod-input-label" for="pod-offer-note">ملاحظة للعميل (اختياري)</label>
-      <textarea class="pod-textarea" id="pod-offer-note" rows="3" placeholder="ملاحظة (اختياري)"></textarea>
-      <button type="button" class="pod-btn pod-btn-primary pod-btn-block" id="pod-send-offer-btn" data-pod-action>إرسال عرض السعر</button>`;
+      <label class="pod-input-label" for="pod-offer-note">${_copy('clientNoteLabel')}</label>
+      <textarea class="pod-textarea" id="pod-offer-note" rows="3" placeholder="${_copy('notePlaceholder')}"></textarea>
+      <button type="button" class="pod-btn pod-btn-primary pod-btn-block" id="pod-send-offer-btn" data-pod-action>${_copy('sendOffer')}</button>`;
 
     byId('pod-send-offer-btn').addEventListener('click', sendCompetitiveOffer);
     setActionLoading(false);
@@ -462,28 +842,28 @@ const ProviderOrderDetailPage = (() => {
 
   function renderCompetitiveAssignedNewActions(root, o) {
     root.innerHTML = `
-      <div class="pod-readonly-box" id="pod-client-rejection-box" style="display:none"><label>سبب رفض العميل للتفاصيل السابقة</label><p id="pod-client-rejection-note">-</p></div>
+      <div class="pod-readonly-box" id="pod-client-rejection-box" style="display:none"><label>${_copy('previousClientRejectionLabel')}</label><p id="pod-client-rejection-note">-</p></div>
       <p class="pod-action-title" id="pod-progress-title"></p>
-      <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
+      <label class="pod-input-label" for="pod-expected-delivery">${_copy('expectedDeliveryLabel')}</label>
       <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
       <div class="pod-grid-2">
-        <div><label class="pod-input-label" for="pod-estimated-amount">قيمة الخدمة المقدرة (SR)</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
-        <div><label class="pod-input-label" for="pod-received-amount">المبلغ المستلم (SR)</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('estimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-received-amount">${_copy('receivedAmountLabel')}</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
       </div>
-      <label class="pod-input-label" for="pod-note">ملاحظة (اختياري)</label>
-      <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="ملاحظة (اختياري)"></textarea>
+      <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
+      <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
       <button type="button" class="pod-btn pod-btn-primary pod-btn-block" id="pod-progress-btn" data-pod-action></button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
     byId('pod-estimated-amount').value = str(o.estimated_service_amount);
     byId('pod-received-amount').value = str(o.received_amount);
 
     const rejected = o.provider_inputs_approved === false;
-    byId('pod-progress-title').textContent = rejected ? 'إعادة إرسال تفاصيل التنفيذ' : 'إرسال تفاصيل التنفيذ';
-    byId('pod-progress-btn').textContent = rejected ? 'إعادة إرسال التفاصيل' : 'إرسال التفاصيل للعميل';
+    byId('pod-progress-title').textContent = rejected ? _copy('resendExecutionDetails') : _copy('sendExecutionDetails');
+    byId('pod-progress-btn').textContent = rejected ? _copy('resendDetailsToClient') : _copy('sendDetailsToClient');
     const rbox = byId('pod-client-rejection-box');
     if (rejected) {
       rbox.style.display = '';
-      setText('pod-client-rejection-note', val(o.provider_inputs_decision_note, '-'));
+      setTextAutoDirection('pod-client-rejection-note', val(o.provider_inputs_decision_note, '-'));
     } else rbox.style.display = 'none';
 
     byId('pod-progress-btn').addEventListener('click', () => submitProgress(true));
@@ -492,31 +872,31 @@ const ProviderOrderDetailPage = (() => {
 
   function renderProgressActions(root, o) {
     root.innerHTML = `
-      <p class="pod-action-title">تحديث التقدم</p>
-      <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
+      <p class="pod-action-title">${_copy('progressUpdateTitle')}</p>
+      <label class="pod-input-label" for="pod-expected-delivery">${_copy('expectedDeliveryLabel')}</label>
       <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
       <div class="pod-grid-2">
-        <div><label class="pod-input-label" for="pod-estimated-amount">قيمة الخدمة المقدرة (SR)</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
-        <div><label class="pod-input-label" for="pod-received-amount">المبلغ المستلم (SR)</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('estimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-received-amount">${_copy('receivedAmountLabel')}</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
       </div>
-      <label class="pod-input-label" for="pod-note">ملاحظة (اختياري)</label>
-      <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="ملاحظة (اختياري)"></textarea>
-      <button type="button" class="pod-btn pod-btn-warning pod-btn-block" id="pod-progress-btn" data-pod-action>تحديث التقدم</button>
+      <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
+      <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
+      <button type="button" class="pod-btn pod-btn-warning pod-btn-block" id="pod-progress-btn" data-pod-action>${_copy('progressUpdateButton')}</button>
       <div class="pod-divider"></div>
-      <p class="pod-action-title">إكمال الطلب</p>
-      <label class="pod-input-label" for="pod-delivered-at">موعد التسليم الفعلي</label>
+      <p class="pod-action-title">${_copy('completeOrderTitle')}</p>
+      <label class="pod-input-label" for="pod-delivered-at">${_copy('deliveredAtLabel')}</label>
       <input type="datetime-local" class="pod-input" id="pod-delivered-at">
-      <label class="pod-input-label" for="pod-actual-amount">قيمة الخدمة الفعلية (SR)</label>
+      <label class="pod-input-label" for="pod-actual-amount">${_copy('actualAmountLabel')}</label>
       <input type="number" class="pod-input" id="pod-actual-amount" step="0.01" min="0" placeholder="0">
-      <p class="pod-input-label">مرفقات الإكمال (فواتير/صور/ملفات)</p>
-      <label class="pod-file-picker"><input type="file" id="pod-completion-files" multiple><span class="pod-btn pod-btn-outline pod-btn-block">إضافة مرفقات</span></label>
+      <p class="pod-input-label">${_copy('completionAttachmentsLabel')}</p>
+      <label class="pod-file-picker"><input type="file" id="pod-completion-files" multiple><span class="pod-btn pod-btn-outline pod-btn-block">${_copy('addAttachments')}</span></label>
       <div id="pod-completion-files-list" class="pod-file-list"></div>
-      <button type="button" class="pod-btn pod-btn-success pod-btn-block" id="pod-complete-btn" data-pod-action>إكمال الطلب</button>
+      <button type="button" class="pod-btn pod-btn-success pod-btn-block" id="pod-complete-btn" data-pod-action>${_copy('completeOrderTitle')}</button>
       <div class="pod-divider"></div>
-      <p class="pod-action-title">إلغاء الطلب أثناء التنفيذ</p>
-      <label class="pod-input-label" for="pod-cancel-reason">سبب الإلغاء</label>
-      <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="سبب الإلغاء..."></textarea>
-      <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>إلغاء الطلب</button>`;
+      <p class="pod-action-title">${_copy('cancelDuringExecutionTitle')}</p>
+      <label class="pod-input-label" for="pod-cancel-reason">${_copy('cancellationReasonLabel')}</label>
+      <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="${_copy('cancelReasonPlaceholder')}"></textarea>
+      <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>${_copy('cancelOrder')}</button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
     byId('pod-estimated-amount').value = str(o.estimated_service_amount);
     byId('pod-received-amount').value = str(o.received_amount);
@@ -532,25 +912,27 @@ const ProviderOrderDetailPage = (() => {
   }
 
   function renderCompleted(root, o) {
-    root.appendChild(readonly('موعد التسليم الفعلي', o.delivered_at ? fmtDateOnly(o.delivered_at) : '-'));
-    root.appendChild(readonly('قيمة الخدمة الفعلية (SR)', val(o.actual_service_amount, '-')));
+    root.appendChild(readonly(_copy('completionDateLabel'), o.delivered_at ? fmtDateOnly(o.delivered_at) : '-'));
+    root.appendChild(readonly(_copy('actualServiceAmountLabel'), val(o.actual_service_amount, '-')));
     if (o.review_rating !== null && o.review_rating !== undefined) {
-      root.appendChild(readonly('تقييم العميل', String(o.review_rating) + '/5 — ' + str(o.review_comment)));
+      root.appendChild(readonly(_copy('clientReviewLabel'), String(o.review_rating) + '/5 — ' + str(o.review_comment), { autoDirection: true }));
     }
   }
 
   function renderCancelled(root, o) {
-    root.appendChild(readonly('تاريخ الإلغاء', o.canceled_at ? fmtDateOnly(o.canceled_at) : '-'));
-    root.appendChild(readonly('سبب الإلغاء', val(o.cancel_reason, '-')));
+    root.appendChild(readonly(_copy('cancellationDateLabel'), o.canceled_at ? fmtDateOnly(o.canceled_at) : '-'));
+    root.appendChild(readonly(_copy('cancellationReasonLabel'), val(o.cancel_reason, '-'), { autoDirection: true }));
   }
 
-  function readonly(label, value) {
+  function readonly(label, value, options) {
     const box = document.createElement('div');
     box.className = 'pod-readonly-box';
     const l = document.createElement('label');
     l.textContent = label;
     const p = document.createElement('p');
-    p.textContent = val(value, '-');
+    const text = val(value, '-');
+    p.textContent = text;
+    if (options && options.autoDirection) setAutoDirection(p, text);
     box.appendChild(l);
     box.appendChild(p);
     return box;
@@ -580,7 +962,7 @@ const ProviderOrderDetailPage = (() => {
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'pod-file-remove';
-      del.textContent = 'إزالة';
+      del.textContent = _copy('remove');
       del.setAttribute('data-pod-action', '1');
       del.disabled = state.actionLoading;
       del.addEventListener('click', () => {
@@ -606,10 +988,10 @@ const ProviderOrderDetailPage = (() => {
       })
       : await ApiClient.request('/api/marketplace/provider/requests/' + state.id + '/accept/', { method: 'POST' });
     setActionLoading(false);
-    if (!res.ok) return toast(extractError(res, 'فشلت العملية'));
+    if (!res.ok) return toast(extractError(res, _copy('operationFailed')));
     toast(isUrgentAvailable(order)
-      ? 'تم قبول الطلب العاجل بنجاح'
-      : 'تم قبول الطلب. أرسل تفاصيل التنفيذ للعميل');
+      ? _copy('urgentAcceptSuccess')
+      : _copy('acceptSuccess'));
     loadDetail();
   }
 
@@ -620,11 +1002,11 @@ const ProviderOrderDetailPage = (() => {
     const noteRaw = str(byId('pod-offer-note').value);
 
     const price = Number(priceRaw);
-    if (!priceRaw || !Number.isFinite(price) || price <= 0) return toast('أدخل سعر عرض صالح');
+    if (!priceRaw || !Number.isFinite(price) || price <= 0) return toast(_copy('invalidOfferPrice'));
 
     const duration = Number(durationRaw);
     if (!durationRaw || !Number.isInteger(duration) || duration <= 0) {
-      return toast('أدخل مدة تنفيذ بالأيام بشكل صحيح');
+      return toast(_copy('invalidDuration'));
     }
 
     const body = {
@@ -642,19 +1024,19 @@ const ProviderOrderDetailPage = (() => {
 
     if (res.ok) {
       state.offerAlreadySent = true;
-      toast('تم إرسال عرض السعر بنجاح');
+      toast(_copy('offerSentSuccess'));
       renderActions(state.order, statusGroup(state.order));
       return;
     }
 
     if (res.status === 409) {
       state.offerAlreadySent = true;
-      toast('تم إرسال عرض مسبقًا على هذا الطلب');
+      toast(_copy('offerAlreadyExists'));
       renderActions(state.order, statusGroup(state.order));
       return;
     }
 
-    toast(extractError(res, 'تعذّر إرسال العرض'));
+    toast(extractError(res, _copy('offerSendFailed')));
   }
 
   async function submitProgress(isNew) {
@@ -663,20 +1045,20 @@ const ProviderOrderDetailPage = (() => {
     const est = str(byId('pod-estimated-amount').value);
     const rec = str(byId('pod-received-amount').value);
     const note = str(byId('pod-note').value);
-    if (isNew && !expected) return toast('حدد موعد التسليم المتوقع');
-    if (isNew && (!est || !rec)) return toast('أدخل القيمة المقدرة والمبلغ المستلم');
-    if ((est && !rec) || (!est && rec)) return toast('أدخل القيمة المقدرة والمبلغ المستلم معًا');
+    if (isNew && !expected) return toast(_copy('chooseExpectedDelivery'));
+    if (isNew && (!est || !rec)) return toast(_copy('enterEstimatedAndReceived'));
+    if ((est && !rec) || (!est && rec)) return toast(_copy('enterAmountsTogether'));
     const body = {};
     if (expected) body.expected_delivery_at = expected;
     if (est) body.estimated_service_amount = est;
     if (rec) body.received_amount = rec;
     if (note) body.note = note;
-    if (!Object.keys(body).length) return toast('أدخل ملاحظة أو حدّث بيانات التنفيذ');
+    if (!Object.keys(body).length) return toast(_copy('enterNoteOrUpdate'));
     setActionLoading(true);
     const res = await ApiClient.request('/api/marketplace/provider/requests/' + state.id + '/progress-update/', { method: 'POST', body });
     setActionLoading(false);
-    if (!res.ok) return toast(extractError(res, 'فشلت العملية'));
-    toast(isNew ? 'تم إرسال تحديثك للعميل بانتظار القرار' : 'تم تحديث التقدم');
+    if (!res.ok) return toast(extractError(res, _copy('operationFailed')));
+    toast(isNew ? _copy('progressSentAwaitingClient') : _copy('progressUpdated'));
     loadDetail();
   }
 
@@ -686,8 +1068,8 @@ const ProviderOrderDetailPage = (() => {
     const actual = str(byId('pod-actual-amount').value);
     const noteEl = byId('pod-note');
     const note = noteEl ? str(noteEl.value) : '';
-    if (!delivered) return toast('حدد موعد التسليم الفعلي');
-    if (!actual) return toast('أدخل قيمة الخدمة الفعلية');
+    if (!delivered) return toast(_copy('chooseActualDelivery'));
+    if (!actual) return toast(_copy('enterActualAmount'));
     setActionLoading(true);
     let res;
     if (state.completionFiles.length) {
@@ -703,8 +1085,8 @@ const ProviderOrderDetailPage = (() => {
       res = await ApiClient.request('/api/marketplace/requests/' + state.id + '/complete/', { method: 'POST', body });
     }
     setActionLoading(false);
-    if (!res.ok) return toast(extractError(res, 'فشلت العملية'));
-    toast('تم إكمال الطلب');
+    if (!res.ok) return toast(extractError(res, _copy('operationFailed')));
+    toast(_copy('orderCompleted'));
     state.completionFiles = [];
     loadDetail();
   }
@@ -714,7 +1096,7 @@ const ProviderOrderDetailPage = (() => {
     const order = state.order;
     if (!order) return;
     const reason = str(byId('pod-cancel-reason').value);
-    if (!reason) return toast('الرجاء كتابة سبب الإلغاء');
+    if (!reason) return toast(_copy('writeCancelReason'));
     setActionLoading(true);
     const endpoint = statusGroup(order) === 'in_progress'
       ? '/api/marketplace/provider/requests/' + state.id + '/cancel/'
@@ -724,8 +1106,8 @@ const ProviderOrderDetailPage = (() => {
       body: { canceled_at: new Date().toISOString(), cancel_reason: reason },
     });
     setActionLoading(false);
-    if (!res.ok) return toast(extractError(res, 'فشلت العملية'));
-    toast(statusGroup(order) === 'in_progress' ? 'تم إلغاء الطلب' : 'تم رفض الطلب');
+    if (!res.ok) return toast(extractError(res, _copy('operationFailed')));
+    toast(statusGroup(order) === 'in_progress' ? _copy('orderCancelled') : _copy('orderRejected'));
     loadDetail();
   }
 
@@ -733,7 +1115,7 @@ const ProviderOrderDetailPage = (() => {
     if (event) event.preventDefault();
     if (state.chatOpening) return;
     if (!state.order || !state.id) {
-      toast('تعذّر تحديد العميل لفتح المحادثة');
+      toast(_copy('cannotDetermineClient'));
       return;
     }
 
@@ -747,7 +1129,7 @@ const ProviderOrderDetailPage = (() => {
     updateChatButtons();
 
     if (!res.ok || !res.data || !res.data.id) {
-      toast(extractError(res, 'تعذّر فتح المحادثة'));
+      toast(extractError(res, _copy('openChatFailed')));
       return;
     }
 
@@ -774,7 +1156,7 @@ const ProviderOrderDetailPage = (() => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'pod-error-retry';
-    btn.textContent = 'إعادة المحاولة';
+    btn.textContent = _copy('retry');
     btn.addEventListener('click', loadDetail);
     box.appendChild(text);
     box.appendChild(btn);
@@ -823,20 +1205,20 @@ const ProviderOrderDetailPage = (() => {
       const label = launchLabel.querySelector('.pod-chat-btn-text span:last-child');
       if (label) {
         label.textContent = state.chatOpening
-          ? 'جاري فتح المحادثة...'
-          : 'بدء المحادثة مع العميل';
+          ? _copy('openingChat')
+          : _copy('startChat');
       }
     }
   }
 
   function buildHeroSummary(order, cityLabel) {
     const parts = [];
-    const type = TYPE_LABEL[str(order && order.request_type).toLowerCase()] || 'طلب خدمة';
-    const status = val(order && order.status_label, statusLabel(statusGroup(order)));
-    const category = [str(order && order.category_name), str(order && order.subcategory_name)].filter(Boolean).join(' / ');
-    parts.push(type + ' بحالة ' + status);
-    if (category) parts.push('ضمن ' + category);
-    if (cityLabel && cityLabel !== 'غير متوفر') parts.push('في ' + cityLabel);
+    const type = typeLabel(str(order && order.request_type).toLowerCase()) || _copy('requestTypeDefault');
+    const status = statusLabelFromRaw(order && order.status);
+    const category = [localizedCategoryName(order), localizedSubcategoryName(order)].filter(Boolean).join(' / ');
+    parts.push(_copy('summaryStatus', { type, status }));
+    if (category) parts.push(_copy('summaryWithin', { category }));
+    if (cityLabel && cityLabel !== _copy('unavailable')) parts.push(_copy('summaryIn', { city: cityLabel }));
     return parts.join(' • ');
   }
 
@@ -880,15 +1262,15 @@ const ProviderOrderDetailPage = (() => {
   }
 
   function statusLabel(group) {
-    if (group === 'in_progress') return 'تحت التنفيذ';
-    if (group === 'completed') return 'مكتمل';
-    if (group === 'cancelled') return 'ملغي';
-    return 'جديد';
+    if (group === 'in_progress') return _copy('statusInProgress');
+    if (group === 'completed') return _copy('statusCompleted');
+    if (group === 'cancelled') return _copy('statusCancelled');
+    return _copy('statusNew');
   }
 
   function statusLabelFromRaw(raw) {
     const key = str(raw).toLowerCase();
-    return STATUS_LABEL_AR[key] || val(raw, '—');
+    return STATUS_COPY_KEYS[key] ? _copy(STATUS_COPY_KEYS[key]) : val(raw, '—');
   }
 
   function statusGroupFromRaw(raw) {
@@ -931,17 +1313,17 @@ const ProviderOrderDetailPage = (() => {
   }
 
   function fileTypeLabel(type) {
-    return FILE_TYPE_LABEL_AR[type] || 'ملف';
+    return FILE_TYPE_COPY_KEYS[type] ? _copy(FILE_TYPE_COPY_KEYS[type]) : _copy('file');
   }
 
   function attachmentName(path, attachment) {
-    if (!path) return val(attachment && attachment.original_name, 'ملف');
+    if (!path) return val(attachment && attachment.original_name, _copy('file'));
     const cleanPath = String(path).split('?')[0].split('#')[0];
     const name = cleanPath.split('/').pop() || '';
     try {
-      return decodeURIComponent(name) || 'ملف';
+      return decodeURIComponent(name) || _copy('file');
     } catch (_) {
-      return name || 'ملف';
+      return name || _copy('file');
     }
   }
 
@@ -997,13 +1379,13 @@ const ProviderOrderDetailPage = (() => {
   function fmtDateTime(v) {
     const d = asDate(v);
     if (!d) return '-';
-    return arDigits(pad(d.getHours()) + ':' + pad(d.getMinutes()) + '  ' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear());
+    return localizeDigits(pad(d.getHours()) + ':' + pad(d.getMinutes()) + '  ' + pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear());
   }
 
   function fmtDateOnly(v) {
     const d = asDate(v);
     if (!d) return '-';
-    return arDigits(pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear());
+    return localizeDigits(pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear());
   }
 
   function toDateTimeInput(v) {
@@ -1030,11 +1412,153 @@ const ProviderOrderDetailPage = (() => {
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
-  function arDigits(v) { return String(v).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]); }
+  function currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function _copy(key, replacements) {
+    const lang = currentLang();
+    let text = (COPY[lang] && COPY[lang][key]) || COPY.ar[key] || '';
+
+    if (!replacements || typeof replacements !== 'object') return text;
+
+    return text.replace(/\{(\w+)\}/g, (_, token) => {
+      return Object.prototype.hasOwnProperty.call(replacements, token)
+        ? String(replacements[token])
+        : '';
+    });
+  }
+
+  function typeLabel(type) {
+    const key = TYPE_COPY_KEYS[type] || 'requestTypeDefault';
+    return _copy(key);
+  }
+
+  function localizeSystemLogNote(note) {
+    const raw = str(note);
+    if (!raw) return '';
+
+    if (SYSTEM_LOG_NOTE_COPY_KEYS[raw]) {
+      return _copy(SYSTEM_LOG_NOTE_COPY_KEYS[raw]);
+    }
+
+    const matchedClientApproval = raw.match(/^العميل وافق على (مدخلات المزود|تحديث التقدم):\s*(.+)$/);
+    if (matchedClientApproval) {
+      return _copy(
+        matchedClientApproval[1] === 'تحديث التقدم'
+          ? 'logNoteClientApprovedProgressWithNote'
+          : 'logNoteClientApprovedInputsWithNote',
+        { note: matchedClientApproval[2] }
+      );
+    }
+
+    const matchedClientReject = raw.match(/^العميل رفض (مدخلات المزود|تحديث التقدم):\s*(.+)$/);
+    if (matchedClientReject) {
+      return _copy(
+        matchedClientReject[1] === 'تحديث التقدم'
+          ? 'logNoteClientRejectedProgressWithNote'
+          : 'logNoteClientRejectedInputsWithNote',
+        { note: matchedClientReject[2] }
+      );
+    }
+
+    const matchedUrgentDecline = raw.match(/^اعتذار مزود الخدمة عن الطلب العاجل:\s*(.+)$/);
+    if (matchedUrgentDecline) {
+      return _copy('logNoteProviderUrgentDeclinedPrefix', { reason: matchedUrgentDecline[1] });
+    }
+
+    const matchedProviderCancel = raw.match(/^إلغاء من المزود:\s*(.+)$/);
+    if (matchedProviderCancel) {
+      return _copy('logNoteProviderCancelledPrefix', { reason: matchedProviderCancel[1] });
+    }
+
+    const matchedProviderCancelInProgress = raw.match(/^إلغاء من مزود الخدمة أثناء التنفيذ:\s*(.+)$/);
+    if (matchedProviderCancelInProgress) {
+      return _copy('logNoteProviderCancelledDuringExecutionPrefix', { reason: matchedProviderCancelInProgress[1] });
+    }
+
+    return raw;
+  }
+
+  function localizedCategoryName(order) {
+    if (currentLang() === 'en') return val(order && order.category_name_en, str(order && order.category_name));
+    return str(order && order.category_name);
+  }
+
+  function localizedSubcategoryName(order) {
+    if (currentLang() === 'en') return val(order && order.subcategory_name_en, str(order && order.subcategory_name));
+    return str(order && order.subcategory_name);
+  }
+
+  function localizedRequestCity(order) {
+    if (currentLang() === 'en') {
+      return val(str(order && order.city_display_en), str(order && order.city_display) || str(order && order.city));
+    }
+    return val(UI.formatCityDisplay(order && (order.city_display || order.city), order && (order.region || order.region_name)), '');
+  }
+
+  function localizedClientCity(order, fallbackCity) {
+    if (currentLang() === 'en') {
+      return val(str(order && order.client_city_display_en), str(order && order.client_city_display) || str(order && order.client_city) || fallbackCity);
+    }
+    return UI.formatCityDisplay(order && (order.client_city_display || order.client_city || fallbackCity));
+  }
+
+  function localizeDigits(v) {
+    const raw = String(v);
+    if (currentLang() === 'en') return raw;
+    return raw.replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[Number(d)]);
+  }
+
+  function containsArabicScript(value) {
+    return /[\u0600-\u06FF]/.test(str(value));
+  }
+
+  function hasOriginalLanguageContent(order) {
+    if (!order || currentLang() !== 'en') return false;
+    const directFields = [
+      order.title,
+      order.description,
+      order.client_name,
+      order.provider_inputs_decision_note,
+      order.review_comment,
+      order.cancel_reason,
+    ];
+    if (directFields.some(containsArabicScript)) return true;
+    return (order.status_logs || []).some((log) => {
+      if (containsArabicScript(log && log.actor_name)) return true;
+      const rawNote = str(log && log.note);
+      if (!rawNote || localizeSystemLogNote(rawNote) !== rawNote) return false;
+      return containsArabicScript(rawNote);
+    });
+  }
+
+  function updateOriginalLanguageNotice(order) {
+    const el = byId('pod-original-language-note');
+    if (!el) return;
+    el.textContent = _copy('originalLanguageNotice');
+    el.style.display = hasOriginalLanguageContent(order) ? '' : 'none';
+  }
+
   function pad(n) { return String(n).padStart(2, '0'); }
   function str(v) { return v === null || v === undefined ? '' : String(v).trim(); }
   function val(v, f) { const s = str(v); return s || f; }
   function setText(id, value) { const el = byId(id); if (el) el.textContent = value; }
+  function setAutoDirection(el, value) {
+    if (!el) return;
+    if (str(value)) el.setAttribute('dir', 'auto');
+    else el.removeAttribute('dir');
+  }
+  function setTextAutoDirection(id, value) {
+    const el = byId(id);
+    if (!el) return;
+    el.textContent = value;
+    setAutoDirection(el, value);
+  }
   function byId(id) { return document.getElementById(id); }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

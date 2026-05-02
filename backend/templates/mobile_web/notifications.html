@@ -793,16 +793,16 @@
           <circle cx="14.5" cy="10" r="1" fill="#FFFFFF"></circle>
         </svg>
       </div>
-      <h2 class="auth-gate-unified-title">سجّل دخولك لعرض الإشعارات</h2>
-      <p class="auth-gate-unified-desc">يمكنك تصفح إشعاراتك وآخر التحديثات بعد تسجيل الدخول</p>
-      <a href="/login/?next=/notifications/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
+      <h2 class="auth-gate-unified-title" id="notif-auth-title">سجّل دخولك لعرض الإشعارات</h2>
+      <p class="auth-gate-unified-desc" id="notif-auth-desc">يمكنك تصفح إشعاراتك وآخر التحديثات بعد تسجيل الدخول</p>
+      <a href="/login/?next=/notifications/" class="btn btn-primary auth-gate-unified-btn" id="notif-auth-cta">تسجيل الدخول</a>
     </div>
 
     <div id="notif-content" class="hidden notif-shell ux26-form-shell">
       <header class="notif-page-top ux26-page-header">
         <div class="notif-page-title-wrap">
-          <h1>الإشعارات</h1>
-          <p>تابع آخر التحديثات والعروض والرسائل في مكان واحد.</p>
+          <h1 id="notif-page-title">الإشعارات</h1>
+          <p id="notif-page-subtitle">تابع آخر التحديثات والعروض والرسائل في مكان واحد.</p>
         </div>
         <div class="notif-top-counters">
           <span id="notif-total" class="notif-total-badge ux26-status-badge">0</span>
@@ -812,7 +812,7 @@
 
       <section class="notif-control-panel ux26-toolbar">
         <div class="notif-actions ux26-form-actions">
-          <a href="/notification-settings/" class="btn-sm notif-action-btn">إعدادات الإشعارات</a>
+          <a href="/notification-settings/" class="btn-sm notif-action-btn" id="notif-settings-link">إعدادات الإشعارات</a>
           <button class="btn-sm notif-action-btn" id="btn-mark-all">تمييز الكل كمقروء</button>
           <button class="btn-sm btn-danger notif-action-btn" id="btn-delete-old">حذف القديم</button>
         </div>
@@ -829,7 +829,7 @@
         <div id="notif-list" class="notif-list"></div>
         <div id="notif-empty" class="empty-hint ux26-alert ux26-alert-info hidden">
           <div class="empty-icon">🔕</div>
-          <p>لا توجد إشعارات حالياً</p>
+          <p id="notif-empty-text">لا توجد إشعارات حالياً</p>
         </div>
         <div id="notif-loader" class="text-center hidden">
           <div class="spinner-inline"></div>
@@ -844,5 +844,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/notificationsPage.js' %}?v=20260422-premium"></script>
+<script src="{% static 'mobile_web/js/notificationsPage.js' %}?v=20260502-notifications-i18n-stage1"></script>
 {% endblock %}

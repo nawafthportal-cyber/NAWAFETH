@@ -147,7 +147,7 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="phone-input">رقم الجوال</label>
+        <label class="form-label" for="phone-input" id="login-phone-label">رقم الجوال</label>
         <input
           type="tel"
           id="phone-input"
@@ -169,14 +169,14 @@
       </button>
 
       <div id="faceid-login-section" class="hidden">
-        <div class="auth-divider"><span>أو</span></div>
+        <div class="auth-divider"><span id="login-faceid-divider">أو</span></div>
         <button class="btn btn-faceid-login" id="btn-faceid-login" type="button">
           <svg width="22" height="22" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="22" height="22" rx="6"/><circle cx="14" cy="11.5" r="3.5"/><path d="M8.5 23c0-3.5 2.5-6 5.5-6s5.5 2.5 5.5 6"/></svg>
-          <span>الدخول بمعرف الوجه</span>
+          <span id="login-faceid-label">الدخول بمعرف الوجه</span>
         </button>
       </div>
 
-      <div class="auth-divider"><span>أو</span></div>
+      <div class="auth-divider"><span id="login-guest-divider">أو</span></div>
       <button class="btn btn-secondary" id="btn-guest" type="button">
         <span class="login-guest-icon" aria-hidden="true">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -228,5 +228,5 @@
     border-color:#fff !important;
   }
 </style>
-<script src="{% static 'mobile_web/js/loginPage.js' %}?v=20260423-guest-icon"></script>
+<script src="{% static 'mobile_web/js/loginPage.js' %}?v=20260501-login-i18n-stage1"></script>
 {% endblock %}

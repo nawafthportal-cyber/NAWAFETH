@@ -73,6 +73,7 @@ class _TermsDoc {
     required this.icon,
     required this.version,
     required this.published,
+    required this.publishedMillis,
     required this.clauses,
     required this.fileUrl,
   });
@@ -81,6 +82,7 @@ class _TermsDoc {
   final IconData icon;
   final String version;
   final String published;
+  final int publishedMillis;
   final List<_Clause> clauses;
   final String fileUrl;
 }
@@ -105,13 +107,21 @@ class _TermsScreenState extends State<TermsScreen> {
   bool _isLoading = true;
   bool _hasError  = false;
   String _pageTitle          = 'الشروط والأحكام';
+  String _heroKicker         = 'المركز القانوني';
+  String _pageSummary        = 'اطلع على سياسات نوافذ الرسمية بطريقة واضحة ومنظمة قبل استخدام خدمات المنصة.';
   String _emptyLabel         = 'لا توجد مستندات متاحة حالياً';
+  String _documentsLabel     = 'المستندات';
+  String _latestUpdateLabel  = 'آخر تحديث';
+  String _fileCountLabel     = 'مرفقات رسمية';
+  String _railTitle          = 'المستندات';
   String _openDocumentLabel  = 'عرض المستند';
   String _fileOnlyHint       = 'اضغط على "عرض المستند" لفتح النسخة الرسمية.';
   String _missingHint        = 'لا توجد بيانات متاحة لهذا المستند حالياً.';
 
   List<_TermsDoc> _docs       = [];
   final _scrollController     = ScrollController();
+  final Map<String, GlobalKey> _docKeys = <String, GlobalKey>{};
+  String? _activeDocKey;
 
   @override
   void initState() {
@@ -135,13 +145,25 @@ class _TermsScreenState extends State<TermsScreen> {
       final documents = data['documents'] as Map<String, dynamic>?;
 
       final pageTitle   = (blocks['terms_page_title']?['title_ar']             ?? '').toString().trim();
+      final heroKicker  = (blocks['terms_kicker']?['title_ar']                  ?? '').toString().trim();
+      final pageSummary = (blocks['terms_page_summary']?['title_ar']            ?? '').toString().trim();
       final emptyLabel  = (blocks['terms_empty_label']?['title_ar']            ?? '').toString().trim();
+      final documentsLabel = (blocks['terms_documents_label']?['title_ar']     ?? '').toString().trim();
+      final latestUpdateLabel = (blocks['terms_latest_update_label']?['title_ar'] ?? '').toString().trim();
+      final fileCountLabel = (blocks['terms_file_count_label']?['title_ar']    ?? '').toString().trim();
+      final railTitle   = (blocks['terms_rail_title']?['title_ar']             ?? '').toString().trim();
       final openLabel   = (blocks['terms_open_document_label']?['title_ar']    ?? '').toString().trim();
       final fileOnly    = (blocks['terms_file_only_hint']?['title_ar']         ?? '').toString().trim();
       final missingHint = (blocks['terms_missing_document_hint']?['title_ar']  ?? '').toString().trim();
 
       if (pageTitle.isNotEmpty)   _pageTitle         = pageTitle;
+      if (heroKicker.isNotEmpty)  _heroKicker        = heroKicker;
+      if (pageSummary.isNotEmpty) _pageSummary       = pageSummary;
       if (emptyLabel.isNotEmpty)  _emptyLabel        = emptyLabel;
+      if (documentsLabel.isNotEmpty) _documentsLabel = documentsLabel;
+      if (latestUpdateLabel.isNotEmpty) _latestUpdateLabel = latestUpdateLabel;
+      if (fileCountLabel.isNotEmpty) _fileCountLabel = fileCountLabel;
+      if (railTitle.isNotEmpty)   _railTitle         = railTitle;
       if (openLabel.isNotEmpty)   _openDocumentLabel = openLabel;
       if (fileOnly.isNotEmpty)    _fileOnlyHint      = fileOnly;
       if (missingHint.isNotEmpty) _missingHint       = missingHint;
@@ -158,6 +180,7 @@ class _TermsScreenState extends State<TermsScreen> {
           final fileUrl = ApiClient.buildMediaUrl(doc['file_url']?.toString()) ?? '';
           final body    = (doc['body_ar'] ?? '').toString().trim();
           final version = (doc['version'] ?? '').toString().trim();
+          final publishedAt = DateTime.tryParse((doc['published_at'] ?? '').toString().trim())?.toLocal();
           final content = body.isNotEmpty ? body : (fileUrl.isNotEmpty ? _fileOnlyHint : _missingHint);
           parsed.add(_TermsDoc(
             key:       docType,
@@ -165,12 +188,18 @@ class _TermsScreenState extends State<TermsScreen> {
             icon:      meta['icon'] as IconData,
             version:   version,
             published: _formatDate(doc['published_at']?.toString()),
+            publishedMillis: publishedAt?.millisecondsSinceEpoch ?? 0,
             clauses:   _parseClauses(content),
             fileUrl:   fileUrl,
           ));
         }
         if (parsed.isNotEmpty) {
-          setState(() => _docs = parsed);
+          setState(() {
+            _docs = parsed;
+            if (_activeDocKey == null || !parsed.any((doc) => doc.key == _activeDocKey)) {
+              _activeDocKey = parsed.first.key;
+            }
+          });
         }
       }
     }
@@ -202,6 +231,35 @@ class _TermsScreenState extends State<TermsScreen> {
     );
   }
 
+  String get _latestPublishedLabel {
+    if (_docs.isEmpty) return '-';
+    final candidates = _docs.where((doc) => doc.published.isNotEmpty).toList();
+    if (candidates.isEmpty) return '-';
+    candidates.sort((left, right) => right.publishedMillis.compareTo(left.publishedMillis));
+    return candidates.first.published;
+  }
+
+  int get _officialFileCount => _docs.where((doc) => doc.fileUrl.isNotEmpty).length;
+
+  GlobalKey _keyForDoc(String docKey) {
+    return _docKeys.putIfAbsent(docKey, GlobalKey.new);
+  }
+
+  Future<void> _jumpToDoc(String docKey) async {
+    final key = _keyForDoc(docKey);
+    setState(() {
+      _activeDocKey = docKey;
+    });
+    final targetContext = key.currentContext;
+    if (targetContext == null) return;
+    await Scrollable.ensureVisible(
+      targetContext,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      alignment: 0.06,
+    );
+  }
+
   // ── build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -221,7 +279,19 @@ class _TermsScreenState extends State<TermsScreen> {
               child: CustomScrollView(
               controller: _scrollController,
               slivers: [
-                SliverToBoxAdapter(child: const SizedBox(height: 8)),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _buildHeroSection(),
+                  ),
+                ),
+                if (_docs.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      child: _buildNavRail(),
+                    ),
+                  ),
                 if (_hasError)
                   SliverFillRemaining(
                     hasScrollBody: false,
@@ -238,11 +308,17 @@ class _TermsScreenState extends State<TermsScreen> {
                     sliver: SliverList.separated(
                       itemCount: _docs.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 14),
-                      itemBuilder: (context, index) => _DocCard(
-                        doc: _docs[index],
-                        openDocumentLabel: _openDocumentLabel,
-                        onOpenDocument: _openDocument,
-                      ),
+                      itemBuilder: (context, index) {
+                        final doc = _docs[index];
+                        return Container(
+                          key: _keyForDoc(doc.key),
+                          child: _DocCard(
+                            doc: doc,
+                            openDocumentLabel: _openDocumentLabel,
+                            onOpenDocument: _openDocument,
+                          ),
+                        );
+                      },
                     ),
                   ),
               ],
@@ -354,6 +430,246 @@ class _TermsScreenState extends State<TermsScreen> {
       ),
     );
   }
+
+  Widget _buildHeroSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF24135F), Color(0xFF5132A7), Color(0xFF0F766E)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2E211956),
+            blurRadius: 34,
+            offset: Offset(0, 18),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: -40,
+            bottom: -70,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0x1FFFFFFF),
+              ),
+            ),
+          ),
+          Positioned(
+            right: -24,
+            top: -32,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0x162DD4BF),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _heroKicker,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xC2FFFFFF),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _pageTitle,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _pageSummary,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xD1FFFFFF),
+                  height: 1.85,
+                ),
+              ),
+              const SizedBox(height: 18),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final narrow = constraints.maxWidth < 420;
+                  final stats = [
+                    _buildHeroStat(_documentsLabel, _toArabicDigits('${_docs.length}')),
+                    _buildHeroStat(_latestUpdateLabel, _latestPublishedLabel),
+                    _buildHeroStat(_fileCountLabel, _toArabicDigits('$_officialFileCount')),
+                  ];
+                  if (narrow) {
+                    return Column(
+                      children: [
+                        for (var i = 0; i < stats.length; i++) ...[
+                          stats[i],
+                          if (i < stats.length - 1) const SizedBox(height: 10),
+                        ],
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      for (var i = 0; i < stats.length; i++) ...[
+                        Expanded(child: stats[i]),
+                        if (i < stats.length - 1) const SizedBox(width: 10),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroStat(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0x1FFFFFFF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x2EFFFFFF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: Color(0xB8FFFFFF),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavRail() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0x140F172A)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x120F172A),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _railTitle,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final doc in _docs) ...[
+                  _buildNavChip(doc),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavChip(_TermsDoc doc) {
+    final selected = _activeDocKey == doc.key;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _jumpToDoc(doc.key),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0x140F766E) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? const Color(0x3D0F766E) : const Color(0x120F172A),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(13),
+                gradient: const LinearGradient(
+                  colors: [Color(0x1F0F766E), Color(0x197C3AED)],
+                ),
+              ),
+              child: Icon(doc.icon, size: 18, color: const Color(0xFF115E59)),
+            ),
+            const SizedBox(width: 9),
+            Text(
+              doc.title,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11.5,
+                fontWeight: FontWeight.w900,
+                color: selected ? const Color(0xFF115E59) : const Color(0xFF243042),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ─── _DocCard ────────────────────────────────────────────────────────────────
@@ -380,7 +696,7 @@ class _DocCard extends StatefulWidget {
 }
 
 class _DocCardState extends State<_DocCard> {
-  bool _expanded = false;
+  bool _expanded = true;
 
   Color get _accent =>
       _kDocAccents[widget.doc.key] ?? AppColors.primary;

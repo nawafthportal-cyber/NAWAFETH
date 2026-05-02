@@ -942,8 +942,8 @@
           <path d="M7 11V8a5 5 0 0 1 10 0v3"></path>
         </svg>
       </div>
-      <h2>تسجيل الدخول مطلوب</h2>
-      <p>يرجى تسجيل الدخول للوصول إلى تفاصيل الطلب.</p>
+      <h2 id="pod-auth-title">تسجيل الدخول مطلوب</h2>
+      <p id="pod-auth-desc">يرجى تسجيل الدخول للوصول إلى تفاصيل الطلب.</p>
       <a href="/login/" id="pod-login-link" class="pod-btn pod-btn-primary">تسجيل الدخول</a>
     </div>
   </div>
@@ -951,12 +951,12 @@
   <div id="pod-content" style="display:none">
     <header class="pod-topbar">
       <div class="pod-topbar-main">
-        <a href="/provider-orders/" class="pod-icon-link" aria-label="رجوع">
+        <a href="/provider-orders/" id="pod-back-link" class="pod-icon-link" aria-label="رجوع">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </a>
         <div class="pod-title-stack">
-          <h1>تفاصيل الطلب</h1>
-          <span>تفاصيل تشغيل الطلب</span>
+          <h1 id="pod-page-title">تفاصيل الطلب</h1>
+          <span id="pod-page-subtitle">تفاصيل تشغيل الطلب</span>
         </div>
       </div>
       <div class="pod-topbar-actions">
@@ -977,7 +977,7 @@
         <section class="pod-hero">
           <div class="pod-hero-grid">
             <div>
-              <span class="pod-chip">طلب</span>
+              <span id="pod-request-chip" class="pod-chip">طلب</span>
               <div class="pod-display-id" id="pod-display-id"></div>
               <p id="pod-hero-summary" class="pod-hero-facts"></p>
               <div class="pod-meta-line">
@@ -991,12 +991,14 @@
               <button type="button" class="pod-btn pod-chat-btn" id="pod-chat-launch-btn">
                 <span class="pod-chat-btn-text">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path></svg>
-                  <span>فتح الرسائل</span>
+                  <span id="pod-chat-launch-label">فتح الرسائل</span>
                 </span>
               </button>
             </div>
           </div>
         </section>
+
+        <p id="pod-original-language-note" class="pod-muted" style="display:none"></p>
 
         <section id="pod-header-section" class="pod-card orders-mobile-sheet">
           <div class="pod-head">
@@ -1004,15 +1006,15 @@
           </div>
           <div class="pod-overview-grid">
             <div class="pod-overview-tile">
-              <span>المرفقات</span>
+              <span id="pod-overview-attachments-label">المرفقات</span>
               <strong id="pod-regular-count-summary">0</strong>
             </div>
             <div class="pod-overview-tile">
-              <span>مرفقات التنفيذ</span>
+              <span id="pod-overview-final-label">مرفقات التنفيذ</span>
               <strong id="pod-final-count-summary">0</strong>
             </div>
             <div class="pod-overview-tile">
-              <span>الحالة</span>
+              <span id="pod-overview-status-label">الحالة</span>
               <strong id="pod-status-inline">-</strong>
             </div>
           </div>
@@ -1020,17 +1022,17 @@
 
         <section id="pod-order-info-section" class="pod-card orders-mobile-sheet">
           <div class="pod-head">
-            <h3>وصف الطلب</h3>
+            <h3 id="pod-description-heading">وصف الطلب</h3>
           </div>
           <div class="pod-readonly-box">
-            <label>النص</label>
+            <label id="pod-description-label">النص</label>
             <p id="pod-description" class="pod-multiline"></p>
           </div>
         </section>
 
         <section id="pod-attachments-section" class="pod-card orders-mobile-sheet">
           <div class="pod-head">
-            <h3>المرفقات</h3>
+            <h3 id="pod-attachments-heading">المرفقات</h3>
           </div>
           <p id="pod-attachments-empty" class="pod-muted">لا توجد مرفقات.</p>
 
@@ -1053,27 +1055,27 @@
 
         <section id="pod-actions-section" class="pod-card orders-mobile-sheet">
           <div class="pod-head">
-            <h3>الإجراءات</h3>
+            <h3 id="pod-actions-heading">الإجراءات</h3>
           </div>
           <div id="pod-actions"></div>
         </section>
 
         <section class="pod-card orders-mobile-sheet" id="pod-logs-section" style="display:none">
           <div class="pod-head">
-            <h3>السجل</h3>
+            <h3 id="pod-logs-heading">السجل</h3>
           </div>
           <div id="pod-logs" class="pod-timeline"></div>
         </section>
 
         <div class="pod-back-wrap">
-          <a href="/provider-orders/" class="pod-btn pod-btn-outline-neutral pod-btn-block">العودة للطلبات</a>
+          <a href="/provider-orders/" id="pod-back-orders-link" class="pod-btn pod-btn-outline-neutral pod-btn-block">العودة للطلبات</a>
         </div>
       </div>
 
       <aside class="pod-side">
         <section id="pod-client-section" class="pod-card orders-mobile-sheet pod-client-card">
           <div class="pod-client-head">
-            <h3>العميل</h3>
+            <h3 id="pod-client-heading">العميل</h3>
           </div>
           <div class="pod-client-hero">
             <div class="pod-client-avatar" id="pod-client-initials">--</div>
@@ -1085,12 +1087,12 @@
           <div class="pod-info-stack">
             <div class="pod-info-line">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7 12.8 12.8 0 0 0 .7 2.8 2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.4-1.4a2 2 0 0 1 2.1-.4 12.8 12.8 0 0 0 2.8.7 2 2 0 0 1 1.6 2z"></path></svg>
-              <span class="pod-info-label">الجوال</span>
+              <span id="pod-phone-label" class="pod-info-label">الجوال</span>
               <span class="pod-info-value" id="pod-client-phone"></span>
             </div>
             <div class="pod-info-line">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-              <span class="pod-info-label">المدينة</span>
+              <span id="pod-city-label" class="pod-info-label">المدينة</span>
               <span class="pod-info-value" id="pod-client-city"></span>
             </div>
           </div>
@@ -1103,6 +1105,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260418-redesign-v3"></script>
+<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260502-provider-order-detail-i18n-stage4"></script>
 {% endblock %}
 

@@ -508,33 +508,112 @@
   }
 
   /* ── Extra services card ── */
-  .pdv4-extras-title { margin: 0 0 12px; color: #0f172a; font-size: 14px; font-weight: 900; }
-  .pdv4-extras-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  .pdv4-extra-pill {
-    min-height: 38px; padding: 0 14px;
-    border-radius: 10px; border: 1px solid;
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 12px; font-weight: 800;
-    text-decoration: none;
-    transition: transform .15s ease, box-shadow .15s ease;
+  .pdv4-extras-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    padding: 18px;
+    background:
+      radial-gradient(circle at top right, rgba(14, 116, 144, 0.08), transparent 28%),
+      radial-gradient(circle at bottom left, rgba(217, 119, 6, 0.08), transparent 26%),
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96));
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
   }
-  .pdv4-extra-pill:hover { transform: translateY(-1px); }
+  .pdv4-extras-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .pdv4-extras-head-copy {
+    min-width: 0;
+  }
+  .pdv4-extras-title {
+    margin: 0;
+    color: #0f172a;
+    font-size: 16px;
+    line-height: 1.3;
+    font-weight: 900;
+  }
+  .pdv4-extras-note {
+    margin: 6px 0 0;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.8;
+    font-weight: 700;
+  }
+  .pdv4-extras-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    color: #0c4a6e;
+    background: rgba(14, 116, 144, 0.08);
+    border: 1px solid rgba(14, 116, 144, 0.14);
+    font-size: 11px;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+  .pdv4-extras-pills {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .pdv4-extra-pill {
+    min-height: 42px; padding: 0 15px;
+    border-radius: 14px; border: 1px solid;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 850;
+    text-decoration: none;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .pdv4-extra-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  }
   .pdv4-extra-pill-green {
-    background: rgba(15,118,110,.08); border-color: rgba(15,118,110,.22); color: #115e59;
+    background: rgba(15,118,110,.08); border-color: rgba(15,118,110,.18); color: #115e59;
   }
   .pdv4-extra-pill-gold {
-    background: rgba(217,119,6,.08); border-color: rgba(217,119,6,.22); color: #92400e;
+    background: rgba(217,119,6,.08); border-color: rgba(217,119,6,.18); color: #92400e;
   }
   .pdv4-extra-pill-blue {
-    background: rgba(14,116,144,.08); border-color: rgba(14,116,144,.22); color: #0c4a6e;
+    background: rgba(14,116,144,.08); border-color: rgba(14,116,144,.18); color: #0c4a6e;
   }
   .pdv4-extras-cta {
-    display: block; text-align: center;
-    color: #0e7490; font-size: 12px; font-weight: 800;
-    text-decoration: none; padding: 8px; border-radius: 8px;
-    transition: background .15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    text-align: center;
+    color: #0e7490;
+    font-size: 12px;
+    font-weight: 900;
+    text-decoration: none;
+    padding: 10px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(14, 116, 144, 0.1);
+    background: rgba(255,255,255,0.76);
+    transition: background .15s ease, transform .15s ease, box-shadow .15s ease;
   }
-  .pdv4-extras-cta:hover { background: rgba(14, 116, 144, 0.07); }
+  .pdv4-extras-cta:hover {
+    background: rgba(14, 116, 144, 0.06);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(14, 116, 144, 0.08);
+  }
+  .pdv4-extras-cta-arrow {
+    color: #f97316;
+    font-weight: 900;
+    font-size: 14px;
+    line-height: 1;
+  }
 
   /* ── QR Modal ── */
   .pd-qr-modal {
@@ -786,7 +865,7 @@
           <article class="pdv4-card pdv4-summary-card" aria-label="ملخص لوحة مزود الخدمة">
             <span class="pdv4-badge">لوحة مزود الخدمة</span>
             <h2 class="pdv4-summary-title">نافذتي المهنية</h2>
-            <p class="pdv4-summary-sub">رؤية واضحة لما هو مهم اليوم: الطلبات، الحساب، ونقاط التحسين.</p>
+            <p class="pdv4-summary-sub">رؤية واضحة لما هو مهم اليوم: الطلبات، الحساب،</p>
             <div class="pdv4-pills-row" aria-hidden="true">
               <span class="pdv4-pill">تنفيذ أسرع</span>
               <span class="pdv4-pill">نظرة موحدة</span>
@@ -927,8 +1006,15 @@
           </article>
 
           <!-- Extra Services -->
-          <article class="pdv4-card pdv4-section">
-            <h3 class="pdv4-extras-title">التوسع والظهور</h3>
+          <article class="pdv4-card pdv4-section pdv4-extras-card">
+            <div class="pdv4-extras-head">
+              <div class="pdv4-extras-head-copy">
+                <h3 class="pdv4-extras-title">التوسع والظهور</h3>
+                <p class="pdv4-extras-note">فعّل خدمات النمو الإضافية وارفع حضورك داخل المنصة بواجهة أوضح ووصول أسرع.</p>
+              </div>
+              <span class="pdv4-extras-badge">خدمات احترافية</span>
+            </div>
+
             <div class="pdv4-extras-pills">
               <a href="/promotion/" class="pdv4-extra-pill pdv4-extra-pill-green">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
@@ -943,7 +1029,11 @@
                 <span>توثيق</span>
               </a>
             </div>
-            <a href="{% url 'additional_services' %}" class="pdv4-extras-cta">عرض كل الخدمات الإضافية ←</a>
+
+            <a href="{% url 'additional_services' %}" class="pdv4-extras-cta">
+              <span>عرض كل الخدمات الإضافية</span>
+              <span class="pdv4-extras-cta-arrow">←</span>
+            </a>
           </article>
 
         </div>

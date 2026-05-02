@@ -4,6 +4,287 @@
 'use strict';
 
 const ChatDetailPage = (() => {
+  const COPY = {
+    ar: {
+      pageTitle: 'الرسائل',
+      originalLanguageNotice: 'بعض أسماء المحادثة والرسائل والملاحظات تُعرض بلغتها الأصلية.',
+      unknownUser: 'مستخدم',
+      unavailable: 'غير متوفر',
+      favoriteIndicator: 'مفضلة',
+      clientRequests: 'طلبات العميل',
+      sendServiceRequest: 'إرسال رابط طلب خدمة',
+      favoriteTitle: 'المفضلة',
+      favoriteToggle: 'تبديل المفضلة',
+      messageOptions: 'خيارات الرسائل',
+      memberLabel: 'العضو',
+      senderTeamLabel: 'الفريق المرسل',
+      phoneLabel: 'الهاتف',
+      cityLabel: 'المدينة',
+      messageTypeLabel: 'نوع الرسالة',
+      systemMessagesPlatform: 'رسائل آلية من المنصة',
+      loadingMessages: 'جاري تحميل الرسائل...',
+      loadMessagesFailed: 'تعذر تحميل الرسائل حالياً',
+      retry: 'إعادة المحاولة',
+      noMessages: 'لا توجد رسائل بعد',
+      noMessagesHint: 'ابدأ بإرسال رسالة.',
+      attach: 'إضافة مرفق',
+      messagePlaceholder: 'اكتب رسالة...',
+      sendMessage: 'إرسال الرسالة',
+      optionsTitle: 'خيارات الرسائل',
+      markRead: 'اجعلها مقروءة',
+      addFavorite: 'إضافة للمفضلة',
+      removeFavorite: 'إزالة من المفضلة',
+      blockMember: 'حظر العضو',
+      unblockMember: 'إلغاء الحظر',
+      reportMessages: 'الإبلاغ عن الرسائل',
+      archiveMessages: 'أرشفة الرسائل',
+      unarchiveMessages: 'إلغاء الأرشفة',
+      reportTitle: 'إبلاغ عن الرسائل',
+      reportReasonLabel: 'سبب الإبلاغ',
+      reportReasonEmpty: 'اختر السبب',
+      reportReasonAbuse: 'إساءة',
+      reportReasonFraud: 'احتيال',
+      reportReasonInappropriate: 'محتوى غير لائق',
+      reportReasonSpam: 'سبام',
+      reportReasonOther: 'أخرى',
+      reportDetailsLabel: 'تفاصيل إضافية (اختياري)',
+      reportDetailsPlaceholder: 'اكتب التفاصيل هنا...',
+      reportCancel: 'إلغاء',
+      reportSend: 'إرسال البلاغ',
+      close: 'إغلاق',
+      automatedFrom: 'رسائل آلية من {label}',
+      automatedDirectFrom: 'رسائل آلية مباشرة من {label}',
+      senderFallback: 'الجهة المرسلة',
+      platformTeamMessages: 'رسائل فريق المنصة',
+      providerOnPlatform: 'مقدم خدمة على المنصة',
+      clientOnPlatform: 'عميل على المنصة',
+      directMessagesSubtitle: 'رسائل مباشرة داخل نوافذ',
+      automatedMessages: 'رسائل آلية',
+      platformTeam: 'فريق المنصة',
+      provider: 'مزود خدمة',
+      client: 'عميل',
+      directMessages: 'رسائل مباشرة',
+      sendStopped: 'الإرسال متوقف حتى يتم رفع الحظر.',
+      repliesLocked: 'الردود مغلقة على هذه الرسائل الآلية.',
+      teamComposer: 'يمكنك متابعة الرسائل مع فريق المنصة وإرسال المرفقات عند الحاجة.',
+      providerComposer: 'أرسل تفاصيلك أو مرفقاتك مباشرة إلى مقدم الخدمة.',
+      clientComposer: 'تابع مع العميل وأرسل التفاصيل أو الملفات المطلوبة.',
+      directComposer: 'يمكنك إرسال نصوص ومرفقات بشكل مباشر.',
+      blockedByOtherBanner: 'لا يمكنك إرسال رسائل لأن الطرف الآخر قام بحظرك.',
+      blockedBySelfBanner: 'قمت بحظر هذا العضو. أزل الحظر من خيارات الرسائل للمتابعة.',
+      archivedBanner: 'هذه الرسائل مؤرشفة وستعود تلقائياً عند إرسال رسالة جديدة.',
+      automatedMessage: 'رسالة آلية',
+      serviceRequest: 'طلب خدمة',
+      serviceRequestSubtitle: 'اضغط هنا لإرسال طلبك لهذا المزوّد',
+      paymentPage: 'صفحة الدفع',
+      paymentPageSubtitle: 'اضغط هنا للانتقال إلى صفحة الدفع',
+      promotionPage: 'صفحة الترويج',
+      verificationPage: 'صفحة التوثيق',
+      serviceRequestPage: 'طلب خدمة',
+      providerOrdersPage: 'طلبات المزوّد',
+      providerPage: 'صفحة المزوّد',
+      profileCompletionPage: 'إكمال الملف',
+      subscriptionPage: 'الاشتراك',
+      chatsPage: 'الرسائل',
+      chatPage: 'المحادثة',
+      additionalServicesPage: 'الخدمات الإضافية',
+      additionalServicesPaymentLink: 'رابط دفع الخدمات الإضافية',
+      email: 'البريد الإلكتروني',
+      phoneContact: 'رقم للتواصل',
+      imageAttachmentAlt: 'صورة مرفقة',
+      attachmentFallback: 'مرفق',
+      attachmentImage: 'صورة',
+      attachmentAudio: 'صوت',
+      attachmentFile: 'ملف',
+      cannotSendBlocked: 'لا يمكن الإرسال لأن هذه الرسائل محظورة.',
+      sendAttachmentFailed: 'تعذر إرسال المرفق',
+      messageSent: 'تم إرسال الرسالة',
+      sendMessageFailed: 'تعذر إرسال الرسالة',
+      removeAttachment: 'إزالة',
+      messagesMarkedRead: 'تم تمييز الرسائل كمقروءة',
+      connected: 'متصل',
+      reconnecting: 'جاري إعادة الاتصال...',
+      limitedConnection: 'اتصال محدود (تحديث تلقائي)',
+      offline: 'غير متصل',
+      realtimeUnavailable: 'تعذر الاتصال الفوري حالياً، سيتم التحديث تلقائياً.',
+      blockedNow: 'لا يمكنك المراسلة حالياً لأن الطرف الآخر قام بحظرك.',
+      unblockedNow: 'تم رفع الحظر ويمكنك المتابعة.',
+      providerClientOnly: 'هذا الإجراء متاح فقط في رسائل المزوّد مع العميل',
+      unableDetermineClient: 'تعذر تحديد العميل لعرض طلباته',
+      loadClientRequestsFailed: 'تعذر تحميل طلبات العميل',
+      loadingClientRequests: 'جاري تحميل طلبات العميل...',
+      noClientRequests: 'لا توجد طلبات لهذا العميل',
+      currentRequests: 'الطلبات الحالية',
+      previousRequests: 'الطلبات السابقة',
+      assignedOrdersOnly: 'يمكن فتح تفاصيل الطلبات المسندة لك فقط',
+      untitledRequest: 'طلب بدون عنوان',
+      statusCompleted: 'مكتمل',
+      statusCancelled: 'ملغي',
+      statusInProgress: 'تحت التنفيذ',
+      statusNew: 'جديد',
+      unableDetermineProvider: 'تعذر تحديد معرف المزوّد لإرسال الرابط',
+      directServiceRequestMessage: 'طلب خدمة مباشر:',
+      sendRequestLinkFailed: 'فشل إرسال رابط الطلب',
+      sendRequestLinkSuccess: 'تم إرسال رابط طلب الخدمة',
+      favoriteUpdateFailed: 'تعذر تحديث المفضلة',
+      favoriteAddedSuccess: 'تمت إضافة الرسائل للمفضلة',
+      favoriteRemovedSuccess: 'تمت إزالة الرسائل من المفضلة',
+      archiveConfirm: 'أرشفة هذه الرسائل؟ سيتم إخفاؤها من قائمة الرسائل.',
+      archiveUpdateFailed: 'تعذر تحديث الأرشفة',
+      archiveAddedSuccess: 'تمت أرشفة الرسائل',
+      archiveRemovedSuccess: 'تم إلغاء أرشفة الرسائل',
+      unblockConfirm: 'هل تريد إلغاء الحظر عن هذا العضو؟',
+      blockConfirm: 'هل أنت متأكد من حظر هذا العضو؟ لن يتمكن من مراسلتك.',
+      blockUpdateFailed: 'تعذر تحديث حالة الحظر',
+      blockAddedSuccess: 'تم حظر العضو',
+      blockRemovedSuccess: 'تم إلغاء الحظر',
+      chooseReportReason: 'اختر سبب الإبلاغ أولاً',
+      reportSubmitFailed: 'تعذر إرسال البلاغ',
+      reportSubmitSuccess: 'تم إرسال البلاغ بنجاح',
+      today: 'اليوم',
+      yesterday: 'أمس',
+    },
+    en: {
+      originalLanguageNotice: 'Some chat names, messages, and notes are shown in their original language.',
+      pageTitle: 'Messages',
+      unknownUser: 'User',
+      unavailable: 'Unavailable',
+      favoriteIndicator: 'Favorite',
+      clientRequests: 'Client requests',
+      sendServiceRequest: 'Send service request link',
+      favoriteTitle: 'Favorite',
+      favoriteToggle: 'Toggle favorite',
+      messageOptions: 'Message options',
+      memberLabel: 'Member',
+      senderTeamLabel: 'Sender team',
+      phoneLabel: 'Phone',
+      cityLabel: 'City',
+      messageTypeLabel: 'Message type',
+      systemMessagesPlatform: 'Automated platform messages',
+      loadingMessages: 'Loading messages...',
+      loadMessagesFailed: 'Unable to load messages right now',
+      retry: 'Retry',
+      noMessages: 'No messages yet',
+      noMessagesHint: 'Start by sending a message.',
+      attach: 'Add attachment',
+      messagePlaceholder: 'Write a message...',
+      sendMessage: 'Send message',
+      optionsTitle: 'Message options',
+      markRead: 'Mark as read',
+      addFavorite: 'Add to favorites',
+      removeFavorite: 'Remove from favorites',
+      blockMember: 'Block member',
+      unblockMember: 'Unblock member',
+      reportMessages: 'Report messages',
+      archiveMessages: 'Archive messages',
+      unarchiveMessages: 'Remove archive',
+      reportTitle: 'Report messages',
+      reportReasonLabel: 'Report reason',
+      reportReasonEmpty: 'Choose a reason',
+      reportReasonAbuse: 'Abuse',
+      reportReasonFraud: 'Fraud',
+      reportReasonInappropriate: 'Inappropriate content',
+      reportReasonSpam: 'Spam',
+      reportReasonOther: 'Other',
+      reportDetailsLabel: 'Additional details (optional)',
+      reportDetailsPlaceholder: 'Write the details here...',
+      reportCancel: 'Cancel',
+      reportSend: 'Send report',
+      close: 'Close',
+      automatedFrom: 'Automated messages from {label}',
+      automatedDirectFrom: 'Direct automated messages from {label}',
+      senderFallback: 'Sender',
+      platformTeamMessages: 'Platform team messages',
+      providerOnPlatform: 'Provider on the platform',
+      clientOnPlatform: 'Client on the platform',
+      directMessagesSubtitle: 'Direct messages inside Nawafeth',
+      automatedMessages: 'Automated messages',
+      platformTeam: 'Platform team',
+      provider: 'Provider',
+      client: 'Client',
+      directMessages: 'Direct messages',
+      sendStopped: 'Sending is paused until the block is removed.',
+      repliesLocked: 'Replies are locked for these automated messages.',
+      teamComposer: 'You can follow up with the platform team and send attachments when needed.',
+      providerComposer: 'Send your details or attachments directly to the provider.',
+      clientComposer: 'Follow up with the client and send the needed details or files.',
+      directComposer: 'You can send text and attachments directly.',
+      blockedByOtherBanner: 'You cannot send messages because the other party blocked you.',
+      blockedBySelfBanner: 'You blocked this member. Remove the block from message options to continue.',
+      archivedBanner: 'These messages are archived and will return automatically when you send a new message.',
+      automatedMessage: 'Automated message',
+      serviceRequest: 'Service request',
+      serviceRequestSubtitle: 'Tap here to send your request to this provider',
+      paymentPage: 'Payment page',
+      paymentPageSubtitle: 'Tap here to open the payment page',
+      promotionPage: 'Promotion page',
+      verificationPage: 'Verification page',
+      serviceRequestPage: 'Service request',
+      providerOrdersPage: 'Provider orders',
+      providerPage: 'Provider page',
+      profileCompletionPage: 'Profile completion',
+      subscriptionPage: 'Subscription',
+      chatsPage: 'Messages',
+      chatPage: 'Chat',
+      additionalServicesPage: 'Additional services',
+      additionalServicesPaymentLink: 'Additional services payment link',
+      email: 'Email',
+      phoneContact: 'Contact number',
+      imageAttachmentAlt: 'Attached image',
+      attachmentFallback: 'Attachment',
+      attachmentImage: 'Image',
+      attachmentAudio: 'Audio',
+      attachmentFile: 'File',
+      cannotSendBlocked: 'You cannot send because this conversation is blocked.',
+      sendAttachmentFailed: 'Unable to send the attachment',
+      messageSent: 'Message sent',
+      sendMessageFailed: 'Unable to send the message',
+      removeAttachment: 'Remove',
+      messagesMarkedRead: 'Messages marked as read',
+      connected: 'Connected',
+      reconnecting: 'Reconnecting...',
+      limitedConnection: 'Limited connection (auto refresh)',
+      offline: 'Offline',
+      realtimeUnavailable: 'Real-time connection is unavailable right now. Automatic refresh will continue.',
+      blockedNow: 'You cannot message right now because the other party blocked you.',
+      unblockedNow: 'The block was removed and you can continue.',
+      providerClientOnly: 'This action is only available in provider-to-client chats',
+      unableDetermineClient: 'Unable to determine the client to show requests',
+      loadClientRequestsFailed: 'Unable to load client requests',
+      loadingClientRequests: 'Loading client requests...',
+      noClientRequests: 'There are no requests for this client',
+      currentRequests: 'Current requests',
+      previousRequests: 'Previous requests',
+      assignedOrdersOnly: 'Only orders assigned to you can be opened',
+      untitledRequest: 'Untitled request',
+      statusCompleted: 'Completed',
+      statusCancelled: 'Cancelled',
+      statusInProgress: 'In progress',
+      statusNew: 'New',
+      unableDetermineProvider: 'Unable to determine the provider ID to send the link',
+      directServiceRequestMessage: 'Direct service request:',
+      sendRequestLinkFailed: 'Failed to send the request link',
+      sendRequestLinkSuccess: 'Service request link sent',
+      favoriteUpdateFailed: 'Unable to update favorites',
+      favoriteAddedSuccess: 'Messages added to favorites',
+      favoriteRemovedSuccess: 'Messages removed from favorites',
+      archiveConfirm: 'Archive these messages? They will be hidden from the messages list.',
+      archiveUpdateFailed: 'Unable to update archive state',
+      archiveAddedSuccess: 'Messages archived',
+      archiveRemovedSuccess: 'Messages unarchived',
+      unblockConfirm: 'Do you want to unblock this member?',
+      blockConfirm: 'Are you sure you want to block this member? They will not be able to message you.',
+      blockUpdateFailed: 'Unable to update block state',
+      blockAddedSuccess: 'Member blocked',
+      blockRemovedSuccess: 'Block removed',
+      chooseReportReason: 'Choose a report reason first',
+      reportSubmitFailed: 'Unable to send the report',
+      reportSubmitSuccess: 'Report sent successfully',
+      today: 'Today',
+      yesterday: 'Yesterday',
+    },
+  };
+
   const state = {
     threadId: null,
     messages: [],
@@ -20,9 +301,9 @@ const ChatDetailPage = (() => {
     pendingByClientId: new Map(),
     pendingAttachment: null,
     peer: {
-      name: 'مستخدم',
-      phone: 'غير متوفر',
-      city: 'غير متوفر',
+      name: '',
+      phone: '',
+      city: '',
       avatar: '',
       id: null,
       providerId: null,
@@ -65,6 +346,8 @@ const ChatDetailPage = (() => {
     state.myUserId = _toInt(Auth.getUserId()) || 0;
 
     _cacheDom();
+    _applyStaticCopy();
+    document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
     _bindEvents();
     _renderPeer();
     _updateSendButtonState();
@@ -101,6 +384,7 @@ const ChatDetailPage = (() => {
     dom.peerCardSystemValue = document.getElementById('peer-card-system-value');
     dom.favoriteIndicator = document.getElementById('chat-favorite-indicator');
     dom.banner = document.getElementById('chat-thread-banner');
+    dom.originalLanguageNote = document.getElementById('chat-original-language-note');
     dom.composerNote = document.getElementById('chat-composer-note');
 
     dom.btnFavorite = document.getElementById('btn-chat-fav');
@@ -141,6 +425,57 @@ const ChatDetailPage = (() => {
     dom.msgInput = document.getElementById('msg-input');
     dom.btnSend = document.getElementById('btn-send');
     dom.toast = document.getElementById('chat-toast');
+  }
+
+  function _applyStaticCopy() {
+    const copy = _copy();
+    if (window.NawafethI18n && typeof window.NawafethI18n.t === 'function') {
+      document.title = window.NawafethI18n.t('siteTitle') + ' — ' + copy.pageTitle;
+    }
+    _setText('chat-favorite-indicator', copy.favoriteIndicator);
+    _setText('peer-card-phone-label', copy.phoneLabel);
+    _setText('peer-card-city-label', copy.cityLabel);
+    _setText('peer-card-system-label', copy.messageTypeLabel);
+    _setText('messages-loader-text', copy.loadingMessages);
+    _setText('messages-error-text', copy.loadMessagesFailed);
+    _setText('btn-retry-load', copy.retry);
+    _setText('messages-empty-text', copy.noMessages);
+    _setText('messages-empty-subtext', copy.noMessagesHint);
+    _setText('chat-options-title', copy.optionsTitle);
+    _setText('chat-action-read-label', copy.markRead);
+    _setText('chat-action-report-label', copy.reportMessages);
+    _setText('chat-report-title', copy.reportTitle);
+    _setText('chat-report-reason-label', copy.reportReasonLabel);
+    _setText('chat-report-details-label', copy.reportDetailsLabel);
+    _setText('btn-report-cancel', copy.reportCancel);
+    _setText('btn-report-send', copy.reportSend);
+    _setText('chat-client-requests-title', copy.clientRequests);
+    _setText('chat-report-reason-empty', copy.reportReasonEmpty);
+    _setText('chat-report-reason-abuse', copy.reportReasonAbuse);
+    _setText('chat-report-reason-fraud', copy.reportReasonFraud);
+    _setText('chat-report-reason-inappropriate', copy.reportReasonInappropriate);
+    _setText('chat-report-reason-spam', copy.reportReasonSpam);
+    _setText('chat-report-reason-other', copy.reportReasonOther);
+    _setAttr('msg-input', 'placeholder', copy.messagePlaceholder);
+    _setAttr('chat-report-details', 'placeholder', copy.reportDetailsPlaceholder);
+    _setAttr('btn-client-requests', 'title', copy.clientRequests);
+    _setAttr('btn-client-requests', 'aria-label', copy.clientRequests);
+    _setAttr('btn-client-requests-card', 'title', copy.clientRequests);
+    _setAttr('btn-client-requests-card', 'aria-label', copy.clientRequests);
+    _setAttr('btn-send-service-request', 'title', copy.sendServiceRequest);
+    _setAttr('btn-send-service-request', 'aria-label', copy.sendServiceRequest);
+    _setAttr('btn-chat-fav', 'title', copy.favoriteTitle);
+    _setAttr('btn-chat-fav', 'aria-label', copy.favoriteToggle);
+    _setAttr('btn-chat-options', 'title', copy.messageOptions);
+    _setAttr('btn-chat-options', 'aria-label', copy.messageOptions);
+    _setAttr('btn-attach', 'title', copy.attach);
+    _setAttr('btn-attach', 'aria-label', copy.attach);
+    _setAttr('btn-send', 'title', copy.sendMessage);
+    _setAttr('btn-send', 'aria-label', copy.sendMessage);
+    _setAttr('chat-options-sheet', 'aria-label', copy.optionsTitle);
+    _setAttr('chat-report-dialog', 'aria-label', copy.reportMessages);
+    _setAttr('chat-client-requests-sheet', 'aria-label', copy.clientRequests);
+    _setAttr('btn-client-requests-close', 'aria-label', copy.close);
   }
 
   function _bindEvents() {
@@ -199,6 +534,7 @@ const ChatDetailPage = (() => {
     if (state.ws) {
       try { state.ws.close(); } catch (_) {}
     }
+    document.removeEventListener('nawafeth:languagechange', _handleLanguageChange);
   }
 
   async function _loadThreadMeta() {
@@ -209,11 +545,11 @@ const ChatDetailPage = (() => {
     const thread = list.find((t) => String(t.thread_id || t.id) === String(state.threadId));
     if (!thread) return;
 
-    const name = _trim(thread.peer_name) || _joinName(thread.peer_first_name, thread.peer_last_name) || _trim(thread.peer_username) || 'مستخدم';
+    const name = _trim(thread.peer_name) || _joinName(thread.peer_first_name, thread.peer_last_name) || _trim(thread.peer_username);
     state.peer = {
       name,
-      phone: _trim(thread.peer_phone) || 'غير متوفر',
-      city: UI.formatCityDisplay(_trim(thread.peer_city)) || 'غير متوفر',
+      phone: _trim(thread.peer_phone),
+      city: UI.formatCityDisplay(_trim(thread.peer_city)),
       avatar: _trim(thread.peer_image || thread.peer_profile_image),
       id: _toInt(thread.peer_id),
       providerId: _toInt(thread.peer_provider_id),
@@ -279,7 +615,7 @@ const ChatDetailPage = (() => {
     state.isLoading = false;
 
     if (!res.ok || !res.data) {
-      _showViewState('error', _extractError(res, 'تعذر تحميل الرسائل حالياً'));
+      _showViewState('error', _extractError(res, _copy('loadMessagesFailed')));
       return;
     }
 
@@ -350,7 +686,7 @@ const ChatDetailPage = (() => {
 
     if (mode === 'loading') dom.loader?.classList.remove('hidden');
     if (mode === 'error') {
-      if (dom.errorText) dom.errorText.textContent = errText || 'تعذر تحميل الرسائل حالياً';
+      if (dom.errorText) dom.errorText.textContent = errText || _copy('loadMessagesFailed');
       dom.error?.classList.remove('hidden');
     }
     if (mode === 'empty') dom.empty?.classList.remove('hidden');
@@ -359,18 +695,23 @@ const ChatDetailPage = (() => {
 
   function _renderPeer() {
     const isSystem = _isAutoPlatformThread();
-    const displayName = isSystem ? _systemThreadSenderLabel() : (state.peer.name || 'مستخدم');
+    const displayName = isSystem ? _systemThreadSenderLabel() : (state.peer.name || _copy('unknownUser'));
     if (isSystem && displayName) state.peer.name = displayName;
 
-    if (dom.peerName) dom.peerName.textContent = displayName || 'مستخدم';
-    if (dom.peerCardName) dom.peerCardName.textContent = displayName || 'مستخدم';
-    if (dom.peerCardPhone) dom.peerCardPhone.textContent = state.peer.phone || 'غير متوفر';
-    if (dom.peerCardCity) dom.peerCardCity.textContent = state.peer.city || 'غير متوفر';
-    if (dom.peerCardNameLabel) dom.peerCardNameLabel.textContent = isSystem ? 'الفريق المرسل' : 'العضو';
+    if (dom.peerName) dom.peerName.textContent = displayName || _copy('unknownUser');
+    if (dom.peerCardName) dom.peerCardName.textContent = displayName || _copy('unknownUser');
+    if (dom.peerCardPhone) dom.peerCardPhone.textContent = state.peer.phone || _copy('unavailable');
+    if (dom.peerCardCity) dom.peerCardCity.textContent = state.peer.city || _copy('unavailable');
+    _setAutoDirection(dom.peerName, displayName);
+    _setAutoDirection(dom.peerCardName, displayName);
+    _setAutoDirection(dom.peerCardPhone, state.peer.phone);
+    _setAutoDirection(dom.peerCardCity, state.peer.city);
+    if (dom.peerCardNameLabel) dom.peerCardNameLabel.textContent = isSystem ? _copy('senderTeamLabel') : _copy('memberLabel');
     if (dom.peerCardSystemValue) {
       dom.peerCardSystemValue.textContent = isSystem
-        ? 'رسائل آلية مباشرة من ' + _systemThreadSenderLabel()
-        : 'رسائل آلية من المنصة';
+        ? _copy('automatedDirectFrom', { label: _systemThreadSenderLabel() })
+        : _copy('systemMessagesPlatform');
+      _setAutoDirection(dom.peerCardSystemValue, dom.peerCardSystemValue.textContent);
     }
 
     state.peer.kind = _derivePeerKind();
@@ -378,6 +719,7 @@ const ChatDetailPage = (() => {
     if (dom.peerSubtitle) {
       const subtitle = _peerSubtitle();
       dom.peerSubtitle.textContent = subtitle;
+      _setAutoDirection(dom.peerSubtitle, subtitle);
       dom.peerSubtitle.classList.toggle('hidden', !subtitle);
     }
 
@@ -390,6 +732,7 @@ const ChatDetailPage = (() => {
           className: 'chat-peer-tag' + (tag.accent ? ' accent-' + tag.accent : ''),
           textContent: tag.text,
         });
+        _setAutoDirection(chip, tag.text);
         dom.peerTags.appendChild(chip);
       });
     }
@@ -406,6 +749,7 @@ const ChatDetailPage = (() => {
 
     if (dom.composerNote) {
       dom.composerNote.textContent = _composerNote();
+      _setAutoDirection(dom.composerNote, dom.composerNote.textContent);
     }
     dom.header?.classList.toggle('is-system-thread', isSystem);
     dom.memberCard?.classList.toggle('is-system-thread', isSystem);
@@ -417,7 +761,7 @@ const ChatDetailPage = (() => {
       dom.peerAvatar.appendChild(UI.lazyImg(ApiClient.mediaUrl(state.peer.avatar), state.peer.name || ''));
       return;
     }
-    dom.peerAvatar.textContent = (state.peer.name || 'م').trim().charAt(0) || 'م';
+    dom.peerAvatar.textContent = (state.peer.name || _copy('unknownUser')).trim().charAt(0) || _copy('unknownUser').charAt(0);
   }
 
   function _isChatWithClient() {
@@ -433,8 +777,9 @@ const ChatDetailPage = (() => {
     const show = _canShowProviderClientActions() && !_isAutoPlatformThread();
     dom.btnClientRequestsCard?.classList.toggle('hidden', !show);
     if (dom.clientRequestsTitle) {
-      const peerName = _trim(state.peer.name) || 'العميل';
-      dom.clientRequestsTitle.textContent = 'طلبات العميل: ' + peerName;
+      const peerName = _trim(state.peer.name) || _copy('client');
+      dom.clientRequestsTitle.textContent = _copy('clientRequests') + ': ' + peerName;
+      _setAutoDirection(dom.clientRequestsTitle, peerName);
     }
     _renderHeaderActions();
   }
@@ -466,13 +811,13 @@ const ChatDetailPage = (() => {
 
   function _peerSubtitle() {
     if (_isAutoPlatformThread() || state.threadState.reply_restricted_to_me) {
-      const label = _systemThreadSenderLabel() || 'الجهة المرسلة';
-      return 'رسائل آلية من ' + label;
+      const label = _systemThreadSenderLabel() || _copy('senderFallback');
+      return _copy('automatedFrom', { label });
     }
-    if (state.peer.kind === 'team') return 'رسائل فريق المنصة';
-    if (state.peer.kind === 'provider') return 'مقدم خدمة على المنصة';
-    if (state.peer.kind === 'client') return 'عميل على المنصة';
-    return 'رسائل مباشرة داخل نوافذ';
+    if (state.peer.kind === 'team') return _copy('platformTeamMessages');
+    if (state.peer.kind === 'provider') return _copy('providerOnPlatform');
+    if (state.peer.kind === 'client') return _copy('clientOnPlatform');
+    return _copy('directMessagesSubtitle');
   }
 
   function _peerTags() {
@@ -480,19 +825,19 @@ const ChatDetailPage = (() => {
     const isSystem = _isAutoPlatformThread();
 
     if (isSystem) {
-      tags.push({ text: 'رسائل آلية', accent: 'violet' });
+      tags.push({ text: _copy('automatedMessages'), accent: 'violet' });
     }
 
     if (state.peer.kind === 'team') {
-      tags.push({ text: 'فريق المنصة', accent: 'violet' });
+      tags.push({ text: _copy('platformTeam'), accent: 'violet' });
     } else if (state.peer.kind === 'provider') {
-      tags.push({ text: 'مزود خدمة', accent: 'blue' });
+      tags.push({ text: _copy('provider'), accent: 'blue' });
     } else if (state.peer.kind === 'client') {
-      tags.push({ text: 'عميل', accent: 'amber' });
+      tags.push({ text: _copy('client'), accent: 'amber' });
     }
 
     if (!isSystem) {
-      tags.push({ text: 'رسائل مباشرة' });
+      tags.push({ text: _copy('directMessages') });
     }
 
     if (!isSystem && _hasMeaningfulValue(state.peer.city)) {
@@ -504,31 +849,31 @@ const ChatDetailPage = (() => {
 
   function _composerNote() {
     if (state.threadState.blocked_by_other || state.threadState.is_blocked) {
-      return 'الإرسال متوقف حتى يتم رفع الحظر.';
+      return _copy('sendStopped');
     }
     if (_isAutoPlatformThread() || state.threadState.reply_restricted_to_me) {
-      return state.threadState.reply_restriction_reason || 'الردود مغلقة على هذه الرسائل الآلية.';
+      return state.threadState.reply_restriction_reason || _copy('repliesLocked');
     }
     if (state.peer.kind === 'team') {
-      return 'يمكنك متابعة الرسائل مع فريق المنصة وإرسال المرفقات عند الحاجة.';
+      return _copy('teamComposer');
     }
     if (state.peer.kind === 'provider') {
-      return 'أرسل تفاصيلك أو مرفقاتك مباشرة إلى مقدم الخدمة.';
+      return _copy('providerComposer');
     }
     if (state.peer.kind === 'client') {
-      return 'تابع مع العميل وأرسل التفاصيل أو الملفات المطلوبة.';
+      return _copy('clientComposer');
     }
-    return 'يمكنك إرسال نصوص ومرفقات بشكل مباشر.';
+    return _copy('directComposer');
   }
 
   function _hasMeaningfulValue(value) {
     const normalized = _trim(value);
-    return !!normalized && normalized !== 'غير متوفر';
+    return !!normalized && normalized !== _copy('unavailable');
   }
 
   function _isPlatformTeamName(name) {
     const normalized = _trim(name);
-    return normalized.startsWith('فريق ');
+    return normalized.startsWith('فريق ') || normalized.toLowerCase().startsWith('team ');
   }
 
   function _isAutoPlatformThread() {
@@ -536,7 +881,7 @@ const ChatDetailPage = (() => {
   }
 
   function _systemThreadSenderLabel() {
-    return _trim(state.threadState.system_sender_label) || _trim(state.peer.name) || 'فريق المنصة';
+    return _trim(state.threadState.system_sender_label) || _trim(state.peer.name) || _copy('platformTeam');
   }
 
   function _renderThreadState() {
@@ -548,41 +893,46 @@ const ChatDetailPage = (() => {
 
     if (dom.actionFavorite) {
       const label = dom.actionFavorite.querySelector('span');
-      if (label) label.textContent = isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة';
+      if (label) label.textContent = isFavorite ? _copy('removeFavorite') : _copy('addFavorite');
     }
     if (dom.actionArchive) {
       const label = dom.actionArchive.querySelector('span');
-      if (label) label.textContent = state.threadState.is_archived ? 'إلغاء الأرشفة' : 'أرشفة الرسائل';
+      if (label) label.textContent = state.threadState.is_archived ? _copy('unarchiveMessages') : _copy('archiveMessages');
     }
     if (dom.actionBlock) {
       const label = dom.actionBlock.querySelector('span');
-      if (label) label.textContent = state.threadState.is_blocked ? 'إلغاء الحظر' : 'حظر العضو';
+      if (label) label.textContent = state.threadState.is_blocked ? _copy('unblockMember') : _copy('blockMember');
     }
 
     if (state.threadState.blocked_by_other) {
-      _showBanner('لا يمكنك إرسال رسائل لأن الطرف الآخر قام بحظرك.', 'danger');
+      _showBanner(_copy('blockedByOtherBanner'), 'danger');
+      _updateOriginalLanguageNotice();
       _setComposerDisabled(true);
       return;
     }
     if (state.threadState.is_blocked) {
-      _showBanner('قمت بحظر هذا العضو. أزل الحظر من خيارات الرسائل للمتابعة.', 'danger');
+      _showBanner(_copy('blockedBySelfBanner'), 'danger');
+      _updateOriginalLanguageNotice();
       _setComposerDisabled(true);
       return;
     }
     if (isSystem || state.threadState.reply_restricted_to_me) {
-      _showBanner(state.threadState.reply_restriction_reason || 'الردود مغلقة لهذه الرسائل الآلية.', 'info');
+      _showBanner(state.threadState.reply_restriction_reason || _copy('repliesLocked'), 'info');
+      _updateOriginalLanguageNotice();
       _setComposerDisabled(true);
       return;
     }
-    if (state.threadState.is_archived) _showBanner('هذه الرسائل مؤرشفة وستعود تلقائياً عند إرسال رسالة جديدة.', 'info');
+    if (state.threadState.is_archived) _showBanner(_copy('archivedBanner'), 'info');
     else _hideBanner();
 
+    _updateOriginalLanguageNotice();
     _setComposerDisabled(false);
   }
 
   function _showBanner(text, kind) {
     if (!dom.banner) return;
     dom.banner.textContent = text;
+    _setAutoDirection(dom.banner, text);
     dom.banner.classList.remove('hidden', 'is-danger', 'is-info');
     dom.banner.classList.add(kind === 'danger' ? 'is-danger' : 'is-info');
   }
@@ -591,6 +941,7 @@ const ChatDetailPage = (() => {
     if (!dom.banner) return;
     dom.banner.classList.add('hidden');
     dom.banner.textContent = '';
+    dom.banner.removeAttribute('dir');
   }
 
   function _setComposerDisabled(disabled) {
@@ -673,7 +1024,9 @@ const ChatDetailPage = (() => {
     if (badgeRow) bubble.appendChild(badgeRow);
     if (attachmentNode) bubble.appendChild(attachmentNode);
     if (serviceRequestCta && serviceRequestCta.helperText) {
-      bubble.appendChild(UI.el('div', { className: 'msg-text', textContent: serviceRequestCta.helperText }));
+      const helperNode = UI.el('div', { className: 'msg-text', textContent: serviceRequestCta.helperText });
+      _setAutoDirection(helperNode, serviceRequestCta.helperText);
+      bubble.appendChild(helperNode);
     }
     if (serviceRequestCta) {
       bubble.appendChild(_buildServiceRequestNode(serviceRequestCta, mine));
@@ -700,13 +1053,13 @@ const ChatDetailPage = (() => {
 
     if (!options.mine && msg.isSystemGenerated) {
       items.push({
-        text: msg.senderTeamName || msg.senderName || state.threadState.system_sender_label || 'رسالة آلية',
+        text: msg.senderTeamName || msg.senderName || state.threadState.system_sender_label || _copy('automatedMessage'),
         accent: 'violet',
       });
-      items.push({ text: 'رسالة آلية', accent: 'soft' });
+      items.push({ text: _copy('automatedMessage'), accent: 'soft' });
     } else if (options.kind === 'team' && !options.mine) {
       items.push({
-        text: msg.senderName || 'فريق المنصة',
+        text: msg.senderName || _copy('platformTeam'),
         accent: 'violet',
       });
     }
@@ -719,17 +1072,19 @@ const ChatDetailPage = (() => {
     }
 
     if (options.serviceRequestCta) {
-      items.push({ text: 'طلب خدمة', accent: 'amber' });
+      items.push({ text: _copy('serviceRequest'), accent: 'amber' });
     }
 
     if (!items.length) return null;
 
     const row = UI.el('div', { className: 'msg-badge-row' });
     items.forEach((item) => {
-      row.appendChild(UI.el('span', {
+      const badge = UI.el('span', {
         className: 'msg-kind-badge accent-' + item.accent,
         textContent: item.text,
-      }));
+      });
+      _setAutoDirection(badge, item.text);
+      row.appendChild(badge);
     });
     return row;
   }
@@ -743,8 +1098,8 @@ const ChatDetailPage = (() => {
     node.appendChild(UI.el('span', { className: 'msg-service-cta-icon', textContent: '🛠️' }));
 
     const body = UI.el('span', { className: 'msg-service-cta-body' });
-    body.appendChild(UI.el('strong', { className: 'msg-service-cta-title', textContent: 'طلب خدمة' }));
-    body.appendChild(UI.el('small', { className: 'msg-service-cta-subtitle', textContent: 'اضغط هنا لإرسال طلبك لهذا المزوّد' }));
+    body.appendChild(UI.el('strong', { className: 'msg-service-cta-title', textContent: _copy('serviceRequest') }));
+    body.appendChild(UI.el('small', { className: 'msg-service-cta-subtitle', textContent: _copy('serviceRequestSubtitle') }));
     node.appendChild(body);
 
     node.appendChild(UI.el('span', { className: 'msg-service-cta-arrow', textContent: '‹' }));
@@ -810,25 +1165,25 @@ const ChatDetailPage = (() => {
       const u = new URL(href || displayText, window.location.origin);
       const path = u.pathname.replace(/\/+$/, '');
       const LABELS = {
-        '/promotion': 'صفحة الترويج',
-        '/verification': 'صفحة التوثيق',
-        '/service-request': 'طلب خدمة',
-        '/provider-orders': 'طلبات المزوّد',
-        '/provider': 'صفحة المزوّد',
-        '/profile-completion': 'إكمال الملف',
-        '/subscription': 'الاشتراك',
-        '/chats': 'الرسائل',
-        '/chat': 'المحادثة',
-        '/additional-services': 'الخدمات الإضافية',
-        '/additional-services/payment': 'رابط دفع الخدمات الإضافية',
+        '/promotion': _copy('promotionPage'),
+        '/verification': _copy('verificationPage'),
+        '/service-request': _copy('serviceRequestPage'),
+        '/provider-orders': _copy('providerOrdersPage'),
+        '/provider': _copy('providerPage'),
+        '/profile-completion': _copy('profileCompletionPage'),
+        '/subscription': _copy('subscriptionPage'),
+        '/chats': _copy('chatsPage'),
+        '/chat': _copy('chatPage'),
+        '/additional-services': _copy('additionalServicesPage'),
+        '/additional-services/payment': _copy('additionalServicesPaymentLink'),
       };
       const found = Object.entries(LABELS).find(function (entry) {
         var key = entry[0];
         return path === key || path.indexOf(key + '/') === 0;
       });
       if (found) return found[1];
-      if (/^mailto:/i.test(u.href)) return 'البريد الإلكتروني';
-      if (/^tel:/i.test(u.href)) return 'رقم للتواصل';
+      if (/^mailto:/i.test(u.href)) return _copy('email');
+      if (/^tel:/i.test(u.href)) return _copy('phoneContact');
       if (/^https?:\/\//i.test(u.href) && u.hostname) return u.hostname.replace(/^www\./i, '');
     } catch (_) {
       return label;
@@ -838,6 +1193,7 @@ const ChatDetailPage = (() => {
 
   function _buildRichTextNode(text, mine) {
     const container = UI.el('div', { className: 'msg-text' });
+    _setAutoDirection(container, text);
     _URL_RE.lastIndex = 0;
     let cursor = 0;
     let match;
@@ -887,8 +1243,8 @@ const ChatDetailPage = (() => {
       });
       card.appendChild(UI.el('span', { className: 'msg-payment-cta-icon', textContent: '💳' }));
       const body = UI.el('span', { className: 'msg-payment-cta-body' });
-      body.appendChild(UI.el('strong', { className: 'msg-payment-cta-title', textContent: 'صفحة الدفع' }));
-      body.appendChild(UI.el('small', { className: 'msg-payment-cta-sub', textContent: 'اضغط هنا للانتقال إلى صفحة الدفع' }));
+      body.appendChild(UI.el('strong', { className: 'msg-payment-cta-title', textContent: _copy('paymentPage') }));
+      body.appendChild(UI.el('small', { className: 'msg-payment-cta-sub', textContent: _copy('paymentPageSubtitle') }));
       card.appendChild(body);
       card.appendChild(UI.el('span', { className: 'msg-payment-cta-arrow', textContent: '‹' }));
       return card;
@@ -951,14 +1307,18 @@ const ChatDetailPage = (() => {
         target: '_blank',
         rel: 'noopener',
       });
-      link.appendChild(UI.lazyImg(url, msg.attachmentName || 'صورة مرفقة'));
+      link.appendChild(UI.lazyImg(url, msg.attachmentName || _copy('imageAttachmentAlt')));
       return link;
     }
 
     if (msg.attachmentType === 'audio') {
       const wrap = UI.el('div', { className: 'msg-attachment msg-attachment-audio' });
       wrap.appendChild(UI.el('audio', { controls: 'controls', preload: 'none', src: url }));
-      if (msg.attachmentName) wrap.appendChild(UI.el('div', { className: 'msg-attachment-name', textContent: msg.attachmentName }));
+      if (msg.attachmentName) {
+        const audioName = UI.el('div', { className: 'msg-attachment-name', textContent: msg.attachmentName });
+        _setAutoDirection(audioName, msg.attachmentName);
+        wrap.appendChild(audioName);
+      }
       return wrap;
     }
 
@@ -969,7 +1329,9 @@ const ChatDetailPage = (() => {
       rel: 'noopener',
     });
     fileLink.appendChild(UI.el('span', { className: 'msg-attachment-icon', textContent: '📎' }));
-    fileLink.appendChild(UI.el('span', { className: 'msg-attachment-name', textContent: msg.attachmentName || 'مرفق' }));
+    const fileName = UI.el('span', { className: 'msg-attachment-name', textContent: msg.attachmentName || _copy('attachmentFallback') });
+    _setAutoDirection(fileName, msg.attachmentName);
+    fileLink.appendChild(fileName);
     return fileLink;
   }
 
@@ -1045,11 +1407,11 @@ const ChatDetailPage = (() => {
     if (!text && !attachment) return;
 
     if (state.threadState.blocked_by_other || state.threadState.is_blocked) {
-      _showToast('لا يمكن الإرسال لأن هذه الرسائل محظورة.', 'error');
+      _showToast(_copy('cannotSendBlocked'), 'error');
       return;
     }
     if (_isAutoPlatformThread() || state.threadState.reply_restricted_to_me) {
-      _showToast(state.threadState.reply_restriction_reason || 'الردود مغلقة لهذه الرسائل الآلية.', 'warning');
+      _showToast(state.threadState.reply_restriction_reason || _copy('repliesLocked'), 'warning');
       return;
     }
 
@@ -1107,7 +1469,7 @@ const ChatDetailPage = (() => {
     });
 
     if (!res.ok) {
-      _showToast(_extractError(res, 'تعذر إرسال المرفق'), 'error');
+      _showToast(_extractError(res, _copy('sendAttachmentFailed')), 'error');
       return;
     }
 
@@ -1115,7 +1477,7 @@ const ChatDetailPage = (() => {
     _autoGrowInput();
     _clearPendingAttachment();
     await _loadMessages({ forceScroll: true });
-    _showToast('تم إرسال الرسالة', 'success');
+    _showToast(_copy('messageSent'), 'success');
     window.dispatchEvent(new Event('nw:badge-refresh'));
   }
 
@@ -1128,7 +1490,7 @@ const ChatDetailPage = (() => {
     state.pendingByClientId.delete(clientId);
 
     if (!res.ok) {
-      _showToast(_extractError(res, 'تعذر إرسال الرسالة'), 'error');
+      _showToast(_extractError(res, _copy('sendMessageFailed')), 'error');
       return false;
     }
 
@@ -1162,11 +1524,11 @@ const ChatDetailPage = (() => {
     const file = state.pendingAttachment.file;
     const row = UI.el('div', { className: 'chat-preview-row' });
     row.appendChild(UI.el('span', { className: 'chat-preview-type', textContent: _attachmentLabel(state.pendingAttachment.type) }));
-    row.appendChild(UI.el('span', { className: 'chat-preview-name', textContent: file.name || 'مرفق' }));
+    row.appendChild(UI.el('span', { className: 'chat-preview-name', textContent: file.name || _copy('attachmentFallback') }));
     row.appendChild(UI.el('button', {
       type: 'button',
       className: 'chat-preview-remove',
-      textContent: 'إزالة',
+      textContent: _copy('removeAttachment'),
       onclick: () => _clearPendingAttachment(),
     }));
 
@@ -1175,9 +1537,9 @@ const ChatDetailPage = (() => {
   }
 
   function _attachmentLabel(type) {
-    if (type === 'image') return 'صورة';
-    if (type === 'audio') return 'صوت';
-    return 'ملف';
+    if (type === 'image') return _copy('attachmentImage');
+    if (type === 'audio') return _copy('attachmentAudio');
+    return _copy('attachmentFile');
   }
 
   function _clearPendingAttachment() {
@@ -1194,7 +1556,7 @@ const ChatDetailPage = (() => {
     );
     if (!res.ok) return;
     window.dispatchEvent(new Event('nw:badge-refresh'));
-    if (withToast) _showToast('تم تمييز الرسائل كمقروءة', 'success');
+    if (withToast) _showToast(_copy('messagesMarkedRead'), 'success');
   }
 
   function _startPollingFallback() {
@@ -1243,21 +1605,21 @@ const ChatDetailPage = (() => {
     if (!dom.peerStatus) return;
     dom.peerStatus.classList.remove('is-online', 'is-offline', 'is-reconnecting');
     if (status === 'online') {
-      dom.peerStatus.textContent = 'متصل';
+      dom.peerStatus.textContent = _copy('connected');
       dom.peerStatus.classList.add('is-online');
       return;
     }
     if (status === 'reconnecting') {
-      dom.peerStatus.textContent = 'جاري إعادة الاتصال...';
+      dom.peerStatus.textContent = _copy('reconnecting');
       dom.peerStatus.classList.add('is-reconnecting');
       return;
     }
     if (status === 'fallback') {
-      dom.peerStatus.textContent = 'اتصال محدود (تحديث تلقائي)';
+      dom.peerStatus.textContent = _copy('limitedConnection');
       dom.peerStatus.classList.add('is-offline');
       return;
     }
-    dom.peerStatus.textContent = 'غير متصل';
+    dom.peerStatus.textContent = _copy('offline');
     dom.peerStatus.classList.add('is-offline');
   }
 
@@ -1341,7 +1703,7 @@ const ChatDetailPage = (() => {
 
       if (!state.wsFallbackNotified) {
         state.wsFallbackNotified = true;
-        _showToast('تعذر الاتصال الفوري حالياً، سيتم التحديث تلقائياً.', 'warning');
+        _showToast(_copy('realtimeUnavailable'), 'warning');
       }
 
       _scheduleReconnect(WS_DISABLE_WINDOW_MS);
@@ -1392,21 +1754,21 @@ const ChatDetailPage = (() => {
     if (payload.type === 'error' && payload.code === 'blocked') {
       state.threadState.blocked_by_other = true;
       _renderThreadState();
-      _showToast('لا يمكنك المراسلة حالياً لأن الطرف الآخر قام بحظرك.', 'error');
+      _showToast(_copy('blockedNow'), 'error');
       return;
     }
 
     if (payload.type === 'error' && payload.code === 'reply_locked') {
       state.threadState.reply_restricted_to_me = true;
       _renderThreadState();
-      _showToast(payload.error || 'الردود مغلقة لهذه الرسائل الآلية.', 'warning');
+      _showToast(payload.error || _copy('repliesLocked'), 'warning');
       return;
     }
 
     if (payload.type === 'unblocked') {
       state.threadState.blocked_by_other = false;
       _renderThreadState();
-      _showToast('تم رفع الحظر ويمكنك المتابعة.', 'success');
+      _showToast(_copy('unblockedNow'), 'success');
     }
   }
 
@@ -1487,11 +1849,11 @@ const ChatDetailPage = (() => {
 
   function _openClientRequestsSheet() {
     if (!_canShowProviderClientActions()) {
-      _showToast('هذا الإجراء متاح فقط في رسائل المزوّد مع العميل', 'error');
+      _showToast(_copy('providerClientOnly'), 'error');
       return;
     }
     if (!Number.isFinite(state.peer.id) || state.peer.id <= 0) {
-      _showToast('تعذر تحديد العميل لعرض طلباته', 'error');
+      _showToast(_copy('unableDetermineClient'), 'error');
       return;
     }
 
@@ -1518,13 +1880,13 @@ const ChatDetailPage = (() => {
     if (!dom.clientRequestsBody) return;
     const peerId = _toInt(state.peer.id);
     if (!peerId || peerId <= 0) {
-      _renderClientRequestsError('تعذر تحديد العميل لعرض طلباته');
+      _renderClientRequestsError(_copy('unableDetermineClient'));
       return;
     }
 
     const res = await ApiClient.get('/api/marketplace/provider/requests/?client_user_id=' + peerId);
     if (!res.ok) {
-      _renderClientRequestsError(_extractError(res, 'تعذر تحميل طلبات العميل'));
+      _renderClientRequestsError(_extractError(res, _copy('loadClientRequestsFailed')));
       return;
     }
     const list = _asList(res.data);
@@ -1536,7 +1898,7 @@ const ChatDetailPage = (() => {
     dom.clientRequestsBody.innerHTML = '';
     const stateEl = UI.el('div', { className: 'chat-client-requests-state' });
     stateEl.appendChild(UI.el('div', { className: 'spinner-inline' }));
-    stateEl.appendChild(UI.el('p', { textContent: 'جاري تحميل طلبات العميل...' }));
+    stateEl.appendChild(UI.el('p', { textContent: _copy('loadingClientRequests') }));
     dom.clientRequestsBody.appendChild(stateEl);
   }
 
@@ -1544,7 +1906,7 @@ const ChatDetailPage = (() => {
     if (!dom.clientRequestsBody) return;
     dom.clientRequestsBody.innerHTML = '';
     const stateEl = UI.el('div', { className: 'chat-client-requests-state error' });
-    stateEl.appendChild(UI.el('p', { textContent: message || 'تعذر تحميل طلبات العميل' }));
+    stateEl.appendChild(UI.el('p', { textContent: message || _copy('loadClientRequestsFailed') }));
     dom.clientRequestsBody.appendChild(stateEl);
   }
 
@@ -1553,7 +1915,7 @@ const ChatDetailPage = (() => {
     dom.clientRequestsBody.innerHTML = '';
     if (!items.length) {
       const empty = UI.el('div', { className: 'chat-client-requests-state' });
-      empty.appendChild(UI.el('p', { textContent: 'لا توجد طلبات لهذا العميل' }));
+      empty.appendChild(UI.el('p', { textContent: _copy('noClientRequests') }));
       dom.clientRequestsBody.appendChild(empty);
       return;
     }
@@ -1573,11 +1935,11 @@ const ChatDetailPage = (() => {
     });
 
     if (current.length) {
-      dom.clientRequestsBody.appendChild(UI.el('div', { className: 'chat-client-requests-section-title', textContent: 'الطلبات الحالية' }));
+      dom.clientRequestsBody.appendChild(UI.el('div', { className: 'chat-client-requests-section-title', textContent: _copy('currentRequests') }));
       current.forEach((req) => dom.clientRequestsBody.appendChild(_buildClientRequestCard(req)));
     }
     if (previous.length) {
-      dom.clientRequestsBody.appendChild(UI.el('div', { className: 'chat-client-requests-section-title', textContent: 'الطلبات السابقة' }));
+      dom.clientRequestsBody.appendChild(UI.el('div', { className: 'chat-client-requests-section-title', textContent: _copy('previousRequests') }));
       previous.forEach((req) => dom.clientRequestsBody.appendChild(_buildClientRequestCard(req)));
     }
   }
@@ -1596,7 +1958,7 @@ const ChatDetailPage = (() => {
     card.addEventListener('click', () => {
       if (!id || id <= 0) return;
       if (!assignedToMe) {
-        _showToast('يمكن فتح تفاصيل الطلبات المسندة لك فقط', 'error');
+        _showToast(_copy('assignedOrdersOnly'), 'error');
         return;
       }
       window.location.href = '/provider-orders/' + id + '/';
@@ -1613,7 +1975,7 @@ const ChatDetailPage = (() => {
 
     card.appendChild(UI.el('div', {
       className: 'chat-client-request-title',
-      textContent: _trim(req.title) || 'طلب بدون عنوان',
+      textContent: _trim(req.title) || _copy('untitledRequest'),
     }));
     card.appendChild(UI.el('div', {
       className: 'chat-client-request-meta',
@@ -1637,10 +1999,10 @@ const ChatDetailPage = (() => {
   }
 
   function _requestStatusLabel(group) {
-    if (group === 'completed') return 'مكتمل';
-    if (group === 'cancelled') return 'ملغي';
-    if (group === 'in_progress') return 'تحت التنفيذ';
-    return 'جديد';
+    if (group === 'completed') return _copy('statusCompleted');
+    if (group === 'cancelled') return _copy('statusCancelled');
+    if (group === 'in_progress') return _copy('statusInProgress');
+    return _copy('statusNew');
   }
 
   function _requestStatusColor(group) {
@@ -1653,7 +2015,7 @@ const ChatDetailPage = (() => {
   function _formatRequestDate(value) {
     const dt = new Date(value);
     if (!Number.isFinite(dt.getTime())) return '';
-    return dt.toLocaleDateString('ar-SA', {
+    return dt.toLocaleDateString(_locale(), {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -1662,26 +2024,26 @@ const ChatDetailPage = (() => {
 
   async function _sendServiceRequestLink() {
     if (!_canShowProviderClientActions()) {
-      _showToast('هذا الإجراء متاح فقط في رسائل المزوّد مع العميل', 'error');
+      _showToast(_copy('providerClientOnly'), 'error');
       return;
     }
     const providerId = _toInt(state.account.providerProfileId);
     if (!providerId || providerId <= 0) {
-      _showToast('تعذر تحديد معرف المزوّد لإرسال الرابط', 'error');
+      _showToast(_copy('unableDetermineProvider'), 'error');
       return;
     }
 
-    const body = 'طلب خدمة مباشر:\nhttps://www.nawafthportal.com/service-request/?provider_id=' + providerId;
+    const body = _copy('directServiceRequestMessage') + '\nhttps://www.nawafthportal.com/service-request/?provider_id=' + providerId;
     const res = await ApiClient.request(_withMode('/api/messaging/direct/thread/' + state.threadId + '/messages/send/'), {
       method: 'POST',
       body: { body },
     });
     if (!res.ok) {
-      _showToast(_extractError(res, 'فشل إرسال رابط الطلب'), 'error');
+      _showToast(_extractError(res, _copy('sendRequestLinkFailed')), 'error');
       return;
     }
     await _loadMessages({ forceScroll: true });
-    _showToast('تم إرسال رابط طلب الخدمة', 'success');
+    _showToast(_copy('sendRequestLinkSuccess'), 'success');
     window.dispatchEvent(new Event('nw:badge-refresh'));
   }
 
@@ -1727,48 +2089,48 @@ const ChatDetailPage = (() => {
       method: 'POST',
       body: remove ? { action: 'remove' } : {},
     });
-    if (!res.ok) return _showToast(_extractError(res, 'تعذر تحديث المفضلة'), 'error');
+    if (!res.ok) return _showToast(_extractError(res, _copy('favoriteUpdateFailed')), 'error');
 
     state.threadState.is_favorite = !!res.data?.is_favorite;
     _renderThreadState();
-    _showToast(remove ? 'تمت إزالة الرسائل من المفضلة' : 'تمت إضافة الرسائل للمفضلة', 'success');
+    _showToast(remove ? _copy('favoriteRemovedSuccess') : _copy('favoriteAddedSuccess'), 'success');
   }
 
   async function _toggleArchive() {
     const remove = !!state.threadState.is_archived;
-    if (!remove && !window.confirm('أرشفة هذه الرسائل؟ سيتم إخفاؤها من قائمة الرسائل.')) return;
+    if (!remove && !window.confirm(_copy('archiveConfirm'))) return;
 
     const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/archive/', {
       method: 'POST',
       body: remove ? { action: 'remove' } : {},
     });
-    if (!res.ok) return _showToast(_extractError(res, 'تعذر تحديث الأرشفة'), 'error');
+    if (!res.ok) return _showToast(_extractError(res, _copy('archiveUpdateFailed')), 'error');
 
     state.threadState.is_archived = !!res.data?.is_archived;
     _renderThreadState();
-    _showToast(remove ? 'تم إلغاء أرشفة الرسائل' : 'تمت أرشفة الرسائل', 'success');
+    _showToast(remove ? _copy('archiveRemovedSuccess') : _copy('archiveAddedSuccess'), 'success');
   }
 
   async function _toggleBlock() {
     const remove = !!state.threadState.is_blocked;
-    const msg = remove ? 'هل تريد إلغاء الحظر عن هذا العضو؟' : 'هل أنت متأكد من حظر هذا العضو؟ لن يتمكن من مراسلتك.';
+    const msg = remove ? _copy('unblockConfirm') : _copy('blockConfirm');
     if (!window.confirm(msg)) return;
 
     const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/block/', {
       method: 'POST',
       body: remove ? { action: 'remove' } : {},
     });
-    if (!res.ok) return _showToast(_extractError(res, 'تعذر تحديث حالة الحظر'), 'error');
+    if (!res.ok) return _showToast(_extractError(res, _copy('blockUpdateFailed')), 'error');
 
     state.threadState.is_blocked = !!res.data?.is_blocked;
     _renderThreadState();
-    _showToast(state.threadState.is_blocked ? 'تم حظر العضو' : 'تم إلغاء الحظر', 'success');
+    _showToast(state.threadState.is_blocked ? _copy('blockAddedSuccess') : _copy('blockRemovedSuccess'), 'success');
   }
 
   async function _submitReport() {
     const reason = _trim(dom.reportReason?.value);
     const details = _trim(dom.reportDetails?.value);
-    if (!reason) return _showToast('اختر سبب الإبلاغ أولاً', 'error');
+    if (!reason) return _showToast(_copy('chooseReportReason'), 'error');
 
     dom.btnReportSend.disabled = true;
     const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/report/', {
@@ -1781,17 +2143,18 @@ const ChatDetailPage = (() => {
     });
     dom.btnReportSend.disabled = false;
 
-    if (!res.ok) return _showToast(_extractError(res, 'تعذر إرسال البلاغ'), 'error');
+    if (!res.ok) return _showToast(_extractError(res, _copy('reportSubmitFailed')), 'error');
 
     _closeReportDialog();
     if (dom.reportReason) dom.reportReason.value = '';
     if (dom.reportDetails) dom.reportDetails.value = '';
-    _showToast('تم إرسال البلاغ بنجاح', 'success');
+    _showToast(_copy('reportSubmitSuccess'), 'success');
   }
 
   function _showToast(message, type) {
     if (!dom.toast) return;
     dom.toast.textContent = message || '';
+    _setAutoDirection(dom.toast, message);
     dom.toast.classList.remove('show', 'success', 'error');
     if (type) dom.toast.classList.add(type);
     requestAnimationFrame(() => dom.toast.classList.add('show'));
@@ -1799,10 +2162,95 @@ const ChatDetailPage = (() => {
     dom.toast._timer = window.setTimeout(() => dom.toast.classList.remove('show'), 2400);
   }
 
+  function _currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+        return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+      }
+      return (localStorage.getItem('nw_lang') || 'ar').toLowerCase() === 'en' ? 'en' : 'ar';
+    } catch (_) {
+      return 'ar';
+    }
+  }
+
+  function _copy(key, replacements) {
+    const bundle = COPY[_currentLang()] || COPY.ar;
+    if (!key) return bundle;
+    const fallback = COPY.ar[key];
+    const value = Object.prototype.hasOwnProperty.call(bundle, key) ? bundle[key] : fallback;
+    if (typeof value !== 'string') return value;
+    return _replaceTokens(value, replacements);
+  }
+
+  function _replaceTokens(text, replacements) {
+    if (!replacements) return text;
+    return String(text).replace(/\{(\w+)\}/g, function (_, key) {
+      return Object.prototype.hasOwnProperty.call(replacements, key) ? String(replacements[key]) : '';
+    });
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value == null ? '' : String(value);
+  }
+
+  function _setAttr(id, name, value) {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute(name, value == null ? '' : String(value));
+  }
+
+  function _containsArabicScript(value) {
+    return /[\u0600-\u06FF]/.test(String(value || '').trim());
+  }
+
+  function _setAutoDirection(el, value) {
+    if (!el) return;
+    if (String(value || '').trim()) el.setAttribute('dir', 'auto');
+    else el.removeAttribute('dir');
+  }
+
+  function _hasOriginalLanguageContent() {
+    if (_currentLang() !== 'en') return false;
+
+    const directFields = [
+      state.peer.name,
+      state.peer.city,
+      state.threadState.reply_restriction_reason,
+      state.threadState.system_sender_label,
+    ];
+    if (directFields.some(_containsArabicScript)) return true;
+
+    return state.messages.some((msg) => {
+      return _containsArabicScript(msg && msg.text)
+        || _containsArabicScript(msg && msg.senderName)
+        || _containsArabicScript(msg && msg.senderTeamName)
+        || _containsArabicScript(msg && msg.attachmentName);
+    });
+  }
+
+  function _updateOriginalLanguageNotice() {
+    if (!dom.originalLanguageNote) return;
+    dom.originalLanguageNote.textContent = _copy('originalLanguageNotice');
+    dom.originalLanguageNote.classList.toggle('hidden', !_hasOriginalLanguageContent());
+  }
+
+  function _handleLanguageChange() {
+    _applyStaticCopy();
+    _renderPeer();
+    _renderThreadState();
+    _renderProviderClientActions();
+    _renderMessages({ forceScroll: false });
+    _updateOriginalLanguageNotice();
+  }
+
+  function _locale() {
+    return _currentLang() === 'en' ? 'en-US' : 'ar-SA';
+  }
+
   function _formatTime(value) {
     const dt = new Date(value);
     if (!Number.isFinite(dt.getTime())) return '';
-    return dt.toLocaleTimeString('ar-SA', { hour: 'numeric', minute: '2-digit' });
+    return dt.toLocaleTimeString(_locale(), { hour: 'numeric', minute: '2-digit' });
   }
 
   function _formatDayLabel(value) {
@@ -1814,9 +2262,9 @@ const ChatDetailPage = (() => {
     const startTarget = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
     const diffDays = Math.round((startToday - startTarget) / 86400000);
 
-    if (diffDays === 0) return 'اليوم';
-    if (diffDays === 1) return 'أمس';
-    return dt.toLocaleDateString('ar-SA', { day: 'numeric', month: 'long' });
+    if (diffDays === 0) return _copy('today');
+    if (diffDays === 1) return _copy('yesterday');
+    return dt.toLocaleDateString(_locale(), { day: 'numeric', month: 'long' });
   }
 
   function _dayKey(value) {
@@ -1862,7 +2310,7 @@ const ChatDetailPage = (() => {
 
   function _isDefaultPeerName(name) {
     const n = _trim(name);
-    return !n || n === 'مستخدم' || n === '...';
+    return !n || n === _copy('unknownUser') || n === '...';
   }
 
   function _trim(v) {

@@ -12,8 +12,10 @@ import '../../constants/request_status_filters.dart';
 import '../../models/service_request_model.dart';
 import '../../services/api_client.dart';
 import '../../services/marketplace_service.dart';
+import '../../services/messaging_service.dart';
 import '../../constants/app_theme.dart';
 import '../../widgets/platform_top_bar.dart';
+import '../chat_detail_screen.dart';
 import '../notifications_screen.dart';
 
 class ProviderOrderDetailsScreen extends StatefulWidget {
@@ -68,6 +70,7 @@ class _ProviderOrderDetailsScreenState
 
   bool _accountChecked = false;
   bool _isProviderAccount = false;
+  bool _chatOpening = false;
   int _notificationUnread = 0;
   int _chatUnread = 0;
   ValueListenable<UnreadBadges>? _badgeHandle;
@@ -415,6 +418,50 @@ class _ProviderOrderDetailsScreenState
 
   // ─── Helper widgets ───
 
+  String _clientCityLabel(ServiceRequest order) {
+    if (order.clientLocationDisplay.trim().isNotEmpty) {
+      return order.clientLocationDisplay;
+    }
+    if (order.locationDisplay.trim().isNotEmpty) {
+      return order.locationDisplay;
+    }
+    return 'غير متوفر';
+  }
+
+  String _clientSummaryText(ServiceRequest order) {
+    final phone = (order.clientPhone ?? '').trim();
+    final city = _clientCityLabel(order);
+    final parts = <String>[];
+    if (phone.isNotEmpty && phone != 'غير متوفر') parts.add(phone);
+    if (city.isNotEmpty && city != 'غير متوفر') parts.add(city);
+    return parts.isEmpty ? 'لا توجد بيانات إضافية' : parts.join(' • ');
+  }
+
+  String _clientInitials(ServiceRequest order) {
+    final source = (order.clientName ?? '').trim();
+    if (source.isEmpty) return '--';
+    final parts = source.split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
+    if (parts.isEmpty) return '--';
+    final first = parts.first.characters.first;
+    final second = parts.length > 1 ? parts.last.characters.first : '';
+    return '$first$second';
+  }
+
+  String _orderOverviewText(ServiceRequest order) {
+    final parts = <String>[
+      '${order.requestTypeLabel} بحالة ${order.statusLabel.isNotEmpty ? order.statusLabel : order.statusGroup}',
+    ];
+    final category = order.categoryName?.trim();
+    if (category != null && category.isNotEmpty) {
+      parts.add('ضمن $category');
+    }
+    final city = order.locationDisplay.trim();
+    if (city.isNotEmpty) {
+      parts.add('في $city');
+    }
+    return parts.join(' • ');
+  }
+
   String _formatDate(DateTime date) =>
       DateFormat('HH:mm  dd/MM/yyyy', 'ar').format(date);
 
@@ -463,8 +510,52 @@ class _ProviderOrderDetailsScreenState
     return DateTime(date.year, date.month, date.day, t.hour, t.minute);
   }
 
-  void _openChat() {
-    _snack('سيتم فتح المحادثة مع العميل قريباً');
+  Future<void> _openChat() async {
+    final order = _order;
+    if (_chatOpening) return;
+    if (order == null || order.clientId == null || order.clientId! <= 0) {
+      _snack('تعذّر تحديد العميل لفتح المحادثة');
+      return;
+    }
+
+    setState(() => _chatOpening = true);
+    try {
+      final threadId =
+          await MessagingService.getOrCreateDirectThreadForRequest(order.id);
+      if (!mounted) return;
+      if (threadId == null || threadId <= 0) {
+        _snack('تعذّر فتح المحادثة');
+        return;
+      }
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatDetailScreen(
+            threadId: threadId,
+            peerName: (order.clientName ?? '').trim().isNotEmpty
+                ? order.clientName!.trim()
+                : 'العميل',
+            peerPhone: order.clientPhone,
+            peerCity: order.clientLocationDisplay.trim().isNotEmpty
+              ? order.clientLocationDisplay
+              : (order.locationDisplay.trim().isNotEmpty
+                ? order.locationDisplay
+                : order.city),
+            peerId: order.clientId,
+          ),
+        ),
+      );
+      await UnreadBadgeService.refresh(force: true);
+    } catch (_) {
+      if (mounted) {
+        _snack('تعذّر فتح المحادثة');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _chatOpening = false);
+      }
+    }
   }
 
   Widget _sectionTitle(String text) {
@@ -569,6 +660,66 @@ class _ProviderOrderDetailsScreenState
                 color: isDark ? Colors.white : _inkColor)),
       ),
     ]);
+  }
+
+  Widget _overviewTile({required String label, required String value}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF6FBFA),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFDCE7E7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.8,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white60 : const Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : _inkColor,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _countPill(String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: _mainColor.withAlpha(isDark ? 34 : 20),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _mainColor.withAlpha(48)),
+      ),
+      child: Text(
+        value,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 10.8,
+          fontWeight: FontWeight.w900,
+          color: _mainColor,
+        ),
+      ),
+    );
   }
 
   Widget _textField({
@@ -873,15 +1024,48 @@ class _ProviderOrderDetailsScreenState
                     _summaryChip(Icons.flash_on_rounded, order.requestTypeLabel),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                _formatDate(order.createdAt),
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.84),
-                ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _formatDate(order.createdAt),
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white.withValues(alpha: 0.84),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  TextButton.icon(
+                    onPressed: _chatOpening ? null : _openChat,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white.withValues(alpha: 0.14),
+                      disabledForegroundColor: Colors.white70,
+                      disabledBackgroundColor: Colors.white.withValues(alpha: 0.10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                      ),
+                    ),
+                    icon: Icon(
+                      _chatOpening ? Icons.hourglass_top_rounded : Icons.chat_bubble_outline_rounded,
+                      size: 16,
+                    ),
+                    label: Text(
+                      _chatOpening ? 'جاري فتح المحادثة...' : 'بدء المحادثة مع العميل',
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 10.6,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1092,6 +1276,75 @@ class _ProviderOrderDetailsScreenState
                   title: 'بيانات العميل',
                   child: Column(
                     children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF6FBFA),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isDark ? Colors.white10 : const Color(0xFFDCE7E7),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 54,
+                              height: 54,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF115E59), Color(0xFF14B8A6)],
+                                  begin: Alignment.topRight,
+                                  end: Alignment.bottomLeft,
+                                ),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _clientInitials(order),
+                                  style: const TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    (order.clientName ?? '').trim().isNotEmpty
+                                        ? order.clientName!.trim()
+                                        : 'عميل الطلب',
+                                    style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                      color: isDark ? Colors.white : _inkColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _clientSummaryText(order),
+                                    style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 10.8,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                                      height: 1.6,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       _infoLine(
                         icon: Icons.badge_outlined,
                         label: 'الاسم',
@@ -1109,9 +1362,7 @@ class _ProviderOrderDetailsScreenState
                       _infoLine(
                         icon: Icons.location_on_outlined,
                         label: 'المدينة',
-                        value: order.locationDisplay.trim().isEmpty
-                            ? 'غير متوفر'
-                            : order.locationDisplay,
+                        value: _clientCityLabel(order),
                       ),
                     ],
                   ),
@@ -1122,13 +1373,39 @@ class _ProviderOrderDetailsScreenState
                 2,
                 _surfaceCard(
                   icon: Icons.description_outlined,
-                  title: 'ملخص الطلب',
+                  title: order.title,
+                  description: _orderOverviewText(order),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _readOnlyBox(label: 'عنوان الطلب', value: order.title, maxLines: 2),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _overviewTile(
+                              label: 'المرفقات',
+                              value: regularAttachments.length.toString(),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _overviewTile(
+                              label: 'مرفقات التنفيذ',
+                              value: finalDeliveryAttachments.length.toString(),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _overviewTile(
+                              label: 'الحالة',
+                              value: order.statusLabel.isNotEmpty
+                                  ? order.statusLabel
+                                  : order.statusGroup,
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 12),
-                      _readOnlyBox(label: 'تفاصيل الطلب', value: order.description, maxLines: 8),
+                      _readOnlyBox(label: 'وصف الطلب', value: order.description, maxLines: 8),
                     ],
                   ),
                 ),
@@ -1168,28 +1445,44 @@ class _ProviderOrderDetailsScreenState
                         )
                       else ...[
                         if (finalDeliveryAttachments.isNotEmpty) ...[
-                          const Text(
-                            'مرفقات التسليم النهائي',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12.5,
-                              color: _mainColor,
-                            ),
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'مرفقات التسليم النهائي',
+                                  style: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12.5,
+                                    color: _mainColor,
+                                  ),
+                                ),
+                              ),
+                              _countPill(finalDeliveryAttachments.length.toString()),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           ...finalDeliveryAttachments.map((a) => _attachmentRow(a)),
                           if (regularAttachments.isNotEmpty) const SizedBox(height: 12),
                         ],
                         if (regularAttachments.isNotEmpty) ...[
-                          Text(
-                            finalDeliveryAttachments.isNotEmpty ? 'مرفقات الطلب' : 'مرفقات العميل',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12.5,
-                              color: isDark ? Colors.white : _inkColor,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  finalDeliveryAttachments.isNotEmpty
+                                      ? 'مرفقات الطلب'
+                                      : 'مرفقات العميل',
+                                  style: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12.5,
+                                    color: isDark ? Colors.white : _inkColor,
+                                  ),
+                                ),
+                              ),
+                              _countPill(regularAttachments.length.toString()),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           ...regularAttachments.map((a) => _attachmentRow(a)),

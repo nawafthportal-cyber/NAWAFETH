@@ -43,12 +43,480 @@
 
   function el(id) { return document.getElementById(id); }
   var dom = {};
+  var languageObserver = null;
+
+  var COPY = {
+    ar: {
+      pageTitle: "نوافــذ — طلب خدمة",
+      submitOverlayTitle: "جارٍ إرسال الطلب...",
+      submitOverlayMessage: "يرجى الانتظار حتى تكتمل العملية.",
+      providerGateKicker: "وضع الحساب الحالي",
+      providerGateTitle: "إنشاء الطلبات متاح في وضع العميل فقط",
+      providerGateDescription: "أنت تستخدم المنصة الآن بوضع مقدم الخدمة، لذلك لا يمكن إرسال طلب مباشر أو تنافسي أو عاجل من هذا الوضع.",
+      providerGateNote: "بدّل نوع الحساب إلى عميل الآن، ثم أكمل الطلب من نفس الصفحة مباشرة.",
+      providerGateSwitch: "التبديل إلى عميل",
+      providerGateProfile: "الذهاب إلى نافذتي",
+      loginTitle: "سجّل دخولك لإرسال الطلب",
+      loginDescription: "سيتم حفظ الطلب وربطه بحسابك حتى تتابع حالته وتستقبل العروض والردود.",
+      loginButton: "تسجيل الدخول",
+      headerTitle: "بيانات الطلب",
+      headerSubtitle: "ابدأ بالمطلوب، واترك الحقول الاختيارية عند الحاجة.",
+      sectionTypeTitle: "نوع الخدمة",
+      sectionScopeTitle: "التصنيف المناسب",
+      sectionDispatchTitle: "طريقة الوصول للمزودين",
+      sectionDetailsTitle: "وصف الطلب",
+      sectionAttachmentsTitle: "المرفقات",
+      optionalLabel: "(اختياري)",
+      typeCompetitive: "تنافسي",
+      typeUrgent: "عاجل",
+      typeDirect: "مباشر",
+      categoryLabel: "القسم الرئيسي",
+      subcategoryLabel: "التصنيف الفرعي",
+      categoryPlaceholder: "اختر القسم",
+      subcategoryPlaceholder: "اختر التصنيف",
+      fixedProviderLabel: "المزود",
+      fixedServiceLabel: "الخدمة",
+      fixedCategoryLabel: "القسم",
+      fixedSubcategoryLabel: "التصنيف",
+      fixedCityLabel: "المدينة",
+      directScopeTitle: "طلب مباشر لمزود خدمة",
+      directScopeText: "تم تحديد المزود تلقائيًا بناءً على صفحة المزود.",
+      serviceIdFallback: "خدمة #{id}",
+      providerFallbackName: "مزود الخدمة",
+      cityGroupLabel: "المنطقة والمدينة",
+      regionPlaceholder: "اختر المنطقة",
+      cityPlaceholder: "اختر المدينة",
+      cityEmptyPlaceholder: "اختر المنطقة أولًا",
+      cityClear: "مسح المدينة",
+      dispatchModeTitle: "طريقة التوجيه",
+      dispatchAll: "إرسال للجميع",
+      dispatchNearest: "إرسال للأقرب",
+      providerChange: "تغيير",
+      providerRemove: "إزالة",
+      requestTitleLabel: "عنوان الطلب",
+      requestTitlePlaceholder: "مثال: تصميم موقع إلكتروني",
+      descriptionLabel: "وصف الطلب",
+      descriptionPlaceholder: "اشرح المطلوب بدقة ...",
+      deadlineLabel: "آخر موعد لاستلام العروض",
+      imagesLabel: "صور",
+      videosLabel: "فيديو",
+      filesLabel: "ملفات",
+      audioLabel: "تسجيل صوتي",
+      audioStop: "إيقاف التسجيل",
+      audioRemove: "حذف",
+      submitDefault: "إرسال الطلب",
+      submitCompetitive: "إرسال الطلب التنافسي",
+      submitUrgent: "إرسال الطلب العاجل",
+      submitDirect: "إرسال الطلب المباشر",
+      submitHelperDefault: "اكتب المطلوب بوضوح وأرفق ما يلزم فقط.",
+      submitHelperCompetitive: "سيتمكن المزودون من تقديم عروضهم عليه.",
+      submitHelperUrgent: "سيتم إرسال الطلب فورًا للمزودين المتاحين.",
+      submitHelperDirect: "سيتم إرسال الطلب مباشرة إلى المزود المحدد.",
+      mapTitle: "اختيار مزود قريب",
+      closeAria: "إغلاق",
+      mapLocating: "جاري تحديد موقعك...",
+      mapUnsupported: "المتصفح لا يدعم تحديد الموقع. يتم استخدام الموقع الافتراضي.",
+      mapReadError: "تعذر قراءة موقعك الحالي. حاول مرة أخرى.",
+      mapSearching: "تم تحديد موقعك. جاري البحث عن المزودين...",
+      mapDenied: "لم يتم السماح بتحديد الموقع. يتم استخدام الموقع الافتراضي.",
+      mapEmpty: "لا يوجد مزودون قريبون في هذا النطاق.",
+      providerCompleted: "{count} مكتمل",
+      providerRequests: "{count} طلب",
+      providerDistance: "{value} كم",
+      popupCall: "اتصال",
+      popupWhatsapp: "واتساب",
+      popupChoose: "اختيار",
+      providerSelectedTitle: "تم الاختيار",
+      providerSelectedMessage: "تم اختيار {name} كمزود قريب.",
+      validationCategory: "اختر القسم الرئيسي",
+      validationSubcategory: "اختر التصنيف الفرعي",
+      validationTitle: "أدخل عنوان الطلب",
+      validationDescription: "أدخل وصف الطلب",
+      validationDeadlinePast: "التاريخ يجب أن يكون اليوم أو لاحقًا",
+      toastError: "خطأ",
+      toastSuccess: "تم بنجاح",
+      toastWarning: "تنبيه",
+      toastInfo: "معلومة",
+      submitUnexpectedError: "حدث خطأ غير متوقع. حاول مرة أخرى.",
+      directSentButton: "تم إرسال الطلب",
+      directSentHelper: "يمكنك متابعة الطلب من صفحة طلباتي. جارٍ إعادتك للصفحة السابقة...",
+      directSentToastTitle: "تم إرسال طلبك",
+      directSentToastMessage: "تم إرسال طلبك إلى {provider}. يمكنك متابعة الطلب من صفحة طلباتي.",
+      successUrgentTitle: "تم إرسال الطلب العاجل",
+      successUrgentMessage: "سيتم إشعار المزودين المتاحين فورًا.",
+      successCompetitiveTitle: "تم إرسال الطلب التنافسي",
+      successCompetitiveMessage: "ستبدأ العروض بالوصول قريبًا.",
+      successNormalTitle: "تم إرسال الطلب",
+      successNormalMessage: "تم إرسال طلبك بنجاح للمزود.",
+      successToastTitle: "تم الإرسال",
+      successToastMessage: "تم إرسال طلبك بنجاح ✓",
+      submitErrorGeneric: "حدث خطأ أثناء إرسال الطلب. حاول مرة أخرى.",
+      sessionExpiredTitle: "جلسة منتهية",
+      sessionExpiredMessage: "يرجى تسجيل الدخول مرة أخرى.",
+      ordersLink: "عرض طلباتي",
+      homeLink: "العودة للرئيسية",
+      heroCompetitiveBadge: "نوع الطلب: تنافسي",
+      heroCompetitiveTitle: "طلب خدمة تنافسي",
+      heroCompetitiveSubtitle: "أطلق طلبك ليصل إلى المزودين المطابقين ويقدموا لك عروضهم للمقارنة.",
+      heroCompetitiveNoteTitle: "هذا النوع مناسب للمقارنة بين العروض",
+      heroCompetitiveNoteBody: "يصل طلبك إلى المزودين المطابقين ليقدموا لك عروضهم، ثم تختار الأنسب من حيث السعر والمدة وطريقة التنفيذ.",
+      heroCompetitivePill1: "مطابقة ذكية حسب التخصص",
+      heroCompetitivePill2: "استقبال أكثر من عرض",
+      heroCompetitivePill3: "إمكانية تحديد موعد العروض",
+      heroUrgentBadge: "نوع الطلب: عاجل",
+      heroUrgentTitle: "طلب خدمة عاجل",
+      heroUrgentSubtitle: "مسار سريع للحالات التي تحتاج استجابة فورية من المزودين المطابقين.",
+      heroUrgentNoteTitle: "هذا النوع مصمم للحالات العاجلة",
+      heroUrgentNoteBody: "يمكنك الإرسال للجميع أو اختيار الأقرب عبر الخريطة، مع إبراز التطابق حسب التصنيف والمدينة.",
+      heroUrgentPill1: "استجابة أسرع للطلب",
+      heroUrgentPill2: "إرسال للجميع أو للأقرب",
+      heroUrgentPill3: "خريطة تفاعلية للتوجيه",
+      heroDirectBadge: "نوع الطلب: مباشر",
+      heroDirectTitle: "طلب مباشر",
+      heroDirectSubtitle: "سيتم إرسال طلبك مباشرة لـ {provider}، دون إدخاله في مسار تنافسي أو عاجل.",
+      heroDirectNoteTitle: "هذا النوع موجه لمزود محدد",
+      heroDirectNoteBody: "يصل الطلب مباشرة إلى المزود الذي اخترته، مع الحفاظ على نفس جودة التفاصيل والمرفقات.",
+      heroDirectPill1: "موجه إلى مزود واحد",
+      heroDirectPill2: "دقة في نطاق الإرسال",
+      heroDirectPill3: "وضوح في نوع الطلب"
+    },
+    en: {
+      pageTitle: "Nawafeth — Service Request",
+      submitOverlayTitle: "Sending request...",
+      submitOverlayMessage: "Please wait until the action completes.",
+      providerGateKicker: "Current account mode",
+      providerGateTitle: "Request creation is only available in client mode",
+      providerGateDescription: "You are using the platform in provider mode right now, so direct, competitive, or urgent requests cannot be sent from this mode.",
+      providerGateNote: "Switch your account type to client now, then continue the request from the same page.",
+      providerGateSwitch: "Switch to client",
+      providerGateProfile: "Go to My Profile",
+      loginTitle: "Sign in to send the request",
+      loginDescription: "The request will be saved to your account so you can track it and receive offers and replies.",
+      loginButton: "Sign in",
+      headerTitle: "Request details",
+      headerSubtitle: "Start with the core need, and leave optional fields empty when needed.",
+      sectionTypeTitle: "Service type",
+      sectionScopeTitle: "Matching category",
+      sectionDispatchTitle: "How providers will be reached",
+      sectionDetailsTitle: "Request description",
+      sectionAttachmentsTitle: "Attachments",
+      optionalLabel: "(Optional)",
+      typeCompetitive: "Competitive",
+      typeUrgent: "Urgent",
+      typeDirect: "Direct",
+      categoryLabel: "Main category",
+      subcategoryLabel: "Subcategory",
+      categoryPlaceholder: "Choose a category",
+      subcategoryPlaceholder: "Choose a subcategory",
+      fixedProviderLabel: "Provider",
+      fixedServiceLabel: "Service",
+      fixedCategoryLabel: "Category",
+      fixedSubcategoryLabel: "Subcategory",
+      fixedCityLabel: "City",
+      directScopeTitle: "Direct request to a provider",
+      directScopeText: "The provider was selected automatically from the provider page.",
+      serviceIdFallback: "Service #{id}",
+      providerFallbackName: "the provider",
+      cityGroupLabel: "Region and city",
+      regionPlaceholder: "Choose a region",
+      cityPlaceholder: "Choose a city",
+      cityEmptyPlaceholder: "Choose the region first",
+      cityClear: "Clear city",
+      dispatchModeTitle: "Dispatch method",
+      dispatchAll: "Send to all",
+      dispatchNearest: "Send to nearest",
+      providerChange: "Change",
+      providerRemove: "Remove",
+      requestTitleLabel: "Request title",
+      requestTitlePlaceholder: "Example: Website design",
+      descriptionLabel: "Request description",
+      descriptionPlaceholder: "Explain what you need clearly...",
+      deadlineLabel: "Offer deadline",
+      imagesLabel: "Images",
+      videosLabel: "Video",
+      filesLabel: "Files",
+      audioLabel: "Voice note",
+      audioStop: "Stop recording",
+      audioRemove: "Delete",
+      submitDefault: "Send request",
+      submitCompetitive: "Send competitive request",
+      submitUrgent: "Send urgent request",
+      submitDirect: "Send direct request",
+      submitHelperDefault: "Describe the need clearly and attach only what is necessary.",
+      submitHelperCompetitive: "Matching providers will be able to send their offers.",
+      submitHelperUrgent: "The request will be sent immediately to available providers.",
+      submitHelperDirect: "The request will be sent directly to the selected provider.",
+      mapTitle: "Choose a nearby provider",
+      closeAria: "Close",
+      mapLocating: "Locating you...",
+      mapUnsupported: "This browser does not support geolocation. The default location will be used.",
+      mapReadError: "Could not read your current location. Please try again.",
+      mapSearching: "Your location was found. Searching for providers...",
+      mapDenied: "Location permission was not granted. The default location will be used.",
+      mapEmpty: "No nearby providers were found in this range.",
+      providerCompleted: "{count} completed",
+      providerRequests: "{count} requests",
+      providerDistance: "{value} km",
+      popupCall: "Call",
+      popupWhatsapp: "WhatsApp",
+      popupChoose: "Choose",
+      providerSelectedTitle: "Selected",
+      providerSelectedMessage: "{name} was selected as the nearby provider.",
+      validationCategory: "Choose the main category",
+      validationSubcategory: "Choose the subcategory",
+      validationTitle: "Enter the request title",
+      validationDescription: "Enter the request description",
+      validationDeadlinePast: "The date must be today or later",
+      toastError: "Error",
+      toastSuccess: "Done successfully",
+      toastWarning: "Notice",
+      toastInfo: "Information",
+      submitUnexpectedError: "An unexpected error occurred. Please try again.",
+      directSentButton: "Request sent",
+      directSentHelper: "You can track the request from My Orders. Returning you to the previous page...",
+      directSentToastTitle: "Your request was sent",
+      directSentToastMessage: "Your request was sent to {provider}. You can track it from My Orders.",
+      successUrgentTitle: "Urgent request sent",
+      successUrgentMessage: "Available providers will be notified immediately.",
+      successCompetitiveTitle: "Competitive request sent",
+      successCompetitiveMessage: "Offers will start arriving soon.",
+      successNormalTitle: "Request sent",
+      successNormalMessage: "Your request was sent successfully to the provider.",
+      successToastTitle: "Sent",
+      successToastMessage: "Your request was sent successfully ✓",
+      submitErrorGeneric: "An error occurred while sending the request. Please try again.",
+      sessionExpiredTitle: "Session expired",
+      sessionExpiredMessage: "Please sign in again.",
+      ordersLink: "View My Orders",
+      homeLink: "Back to home",
+      heroCompetitiveBadge: "Request type: Competitive",
+      heroCompetitiveTitle: "Competitive service request",
+      heroCompetitiveSubtitle: "Launch your request so matching providers can send offers for comparison.",
+      heroCompetitiveNoteTitle: "This type is best for comparing offers",
+      heroCompetitiveNoteBody: "Your request reaches matching providers so they can send offers, then you choose the best one by price, timing, and delivery method.",
+      heroCompetitivePill1: "Smart matching by specialty",
+      heroCompetitivePill2: "Receive multiple offers",
+      heroCompetitivePill3: "Optional offer deadline",
+      heroUrgentBadge: "Request type: Urgent",
+      heroUrgentTitle: "Urgent service request",
+      heroUrgentSubtitle: "A fast path for cases that need an immediate response from matching providers.",
+      heroUrgentNoteTitle: "This type is built for urgent cases",
+      heroUrgentNoteBody: "You can send to all or choose the nearest provider from the map, with matching based on category and city.",
+      heroUrgentPill1: "Faster response",
+      heroUrgentPill2: "Send to all or nearest",
+      heroUrgentPill3: "Interactive routing map",
+      heroDirectBadge: "Request type: Direct",
+      heroDirectTitle: "Direct request",
+      heroDirectSubtitle: "Your request will be sent directly to {provider}, without entering a competitive or urgent flow.",
+      heroDirectNoteTitle: "This type targets one provider",
+      heroDirectNoteBody: "The request goes directly to the provider you selected, while preserving the same level of detail and attachments.",
+      heroDirectPill1: "Sent to one provider",
+      heroDirectPill2: "Precise delivery scope",
+      heroDirectPill3: "Clear request mode"
+    }
+  };
+
+  function currentLang() {
+    try {
+      if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === "function") {
+        return window.NawafethI18n.getLanguage() === "en" ? "en" : "ar";
+      }
+    } catch (_) {}
+    try {
+      return (localStorage.getItem("nw_lang") || "ar").toLowerCase() === "en" ? "en" : "ar";
+    } catch (_) {
+      return "ar";
+    }
+  }
+
+  function interpolate(template, replacements) {
+    var value = String(template || "");
+    if (!replacements || typeof replacements !== "object") return value;
+    return value.replace(/\{(\w+)\}/g, function (_, key) {
+      return Object.prototype.hasOwnProperty.call(replacements, key) ? String(replacements[key]) : "";
+    });
+  }
+
+  function text(key, replacements) {
+    var lang = currentLang();
+    var bundle = COPY[lang] || COPY.ar;
+    var template = Object.prototype.hasOwnProperty.call(bundle, key) ? bundle[key] : COPY.ar[key];
+    return interpolate(template || "", replacements);
+  }
+
+  function setText(id, value) {
+    var node = el(id);
+    if (node) node.textContent = value;
+  }
+
+  function setAttr(id, name, value) {
+    var node = el(id);
+    if (node) node.setAttribute(name, value);
+  }
+
+  function setPlaceholder(id, value) {
+    var node = el(id);
+    if (node) node.setAttribute("placeholder", value);
+  }
+
+  function observeLanguageChanges() {
+    if (languageObserver || typeof MutationObserver === "undefined" || !document.documentElement) return;
+    languageObserver = new MutationObserver(function () { refreshLanguage(); });
+    languageObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["lang", "dir"],
+    });
+  }
+
+  function refreshSelectPlaceholders() {
+    if (dom.category) {
+      var categoryOption = dom.category.querySelector('option[value=""]');
+      if (categoryOption) categoryOption.textContent = text("categoryPlaceholder");
+    }
+    if (dom.subcategory) {
+      var subcategoryOption = dom.subcategory.querySelector('option[value=""]');
+      if (subcategoryOption) subcategoryOption.textContent = text("subcategoryPlaceholder");
+    }
+  }
+
+  function refreshRegionCityOptions() {
+    var regionValue = dom.region ? String(dom.region.value || "") : "";
+    var cityValue = dom.city ? String(dom.city.value || "") : "";
+    if (regionCatalog.length) {
+      UI.populateRegionOptions(dom.region, regionCatalog, {
+        placeholder: text("regionPlaceholder"),
+        currentValue: regionValue,
+      });
+      UI.populateCityOptions(dom.city, regionCatalog, regionValue, {
+        currentValue: cityValue,
+        placeholder: text("cityPlaceholder"),
+        emptyPlaceholder: text("cityEmptyPlaceholder"),
+      });
+      dom.city.disabled = !regionValue;
+    } else {
+      if (dom.region) dom.region.innerHTML = '<option value="">' + escHtml(text("regionPlaceholder")) + '</option>';
+      if (dom.city) {
+        dom.city.innerHTML = '<option value="">' + escHtml(text("cityPlaceholder")) + '</option>';
+        dom.city.disabled = true;
+      }
+    }
+    if (dom.cityClear) dom.cityClear.classList.toggle("hidden", !cityValue);
+  }
+
+  function applyStaticCopy() {
+    document.title = text("pageTitle");
+    setText("sr-provider-kicker", text("providerGateKicker"));
+    setText("sr-provider-title", text("providerGateTitle"));
+    setText("sr-provider-description", text("providerGateDescription"));
+    setText("sr-provider-switch", text("providerGateSwitch"));
+    setText("sr-provider-profile", text("providerGateProfile"));
+    setText("sr-provider-note", text("providerGateNote"));
+    setText("sr-login-title", text("loginTitle"));
+    setText("sr-login-description", text("loginDescription"));
+    setText("sr-login-link", text("loginButton"));
+    setText("sr-header-title", text("headerTitle"));
+    setText("sr-header-subtitle", text("headerSubtitle"));
+    setText("sr-section-type-title", text("sectionTypeTitle"));
+    setText("sr-section-scope-title", text("sectionScopeTitle"));
+    setText("sr-section-dispatch-title", text("sectionDispatchTitle"));
+    setText("sr-section-details-title", text("sectionDetailsTitle"));
+    setText("sr-section-attachments-title", text("sectionAttachmentsTitle"));
+    setText("sr-section-attachments-optional", text("optionalLabel"));
+    setText("sr-type-competitive-text", text("typeCompetitive"));
+    setText("sr-type-urgent-text", text("typeUrgent"));
+    setText("sr-type-direct-text", text("typeDirect"));
+    setText("sr-category-label", text("categoryLabel"));
+    setText("sr-subcategory-label", text("subcategoryLabel"));
+    setText("sr-fixed-provider-label", text("fixedProviderLabel"));
+    setText("sr-fixed-service-label", text("fixedServiceLabel"));
+    setText("sr-fixed-category-label", text("fixedCategoryLabel"));
+    setText("sr-fixed-subcategory-label", text("fixedSubcategoryLabel"));
+    setText("sr-fixed-city-label", text("fixedCityLabel"));
+    setText("sr-city-group-label", text("cityGroupLabel"));
+    setText("sr-city-group-optional", text("optionalLabel"));
+    setText("sr-city-clear", text("cityClear"));
+    setText("sr-dispatch-mode-title", text("dispatchModeTitle"));
+    setText("sr-dispatch-all-text", text("dispatchAll"));
+    setText("sr-dispatch-nearest-text", text("dispatchNearest"));
+    setText("sr-sp-change", text("providerChange"));
+    setText("sr-sp-remove", text("providerRemove"));
+    setText("sr-req-title-label", text("requestTitleLabel"));
+    setPlaceholder("sr-req-title", text("requestTitlePlaceholder"));
+    setText("sr-desc-label", text("descriptionLabel"));
+    setPlaceholder("sr-desc", text("descriptionPlaceholder"));
+    setText("sr-deadline-label", text("deadlineLabel"));
+    setText("sr-deadline-optional", text("optionalLabel"));
+    setText("sr-images-text", text("imagesLabel"));
+    setText("sr-videos-text", text("videosLabel"));
+    setText("sr-files-text", text("filesLabel"));
+    setText("sr-audio-btn-text", isRecording ? text("audioStop") : text("audioLabel"));
+    setText("sr-audio-remove", text("audioRemove"));
+    setText("sr-map-title", text("mapTitle"));
+    setText("sr-modal-empty", text("mapEmpty"));
+    setText("sr-success-orders-link", text("ordersLink"));
+    setText("sr-success-home-link", text("homeLink"));
+    setAttr("sr-map-modal-close", "aria-label", text("closeAria"));
+    setAttr("sr-toast-close", "aria-label", text("closeAria"));
+    if (!holdSuccessState && dom.success && !dom.success.classList.contains("visible")) {
+      setText("sr-success-title", text("successNormalTitle"));
+      setText("sr-success-message", text("successNormalMessage"));
+    }
+    if (submitOverlay && typeof submitOverlay.update === "function") {
+      submitOverlay.update({
+        title: text("submitOverlayTitle"),
+        message: text("submitOverlayMessage"),
+      });
+    }
+    refreshSelectPlaceholders();
+    refreshRegionCityOptions();
+  }
+
+  function refreshLanguage() {
+    applyStaticCopy();
+    applyCurrentTypeCopy();
+    updateFixedTargetCopy();
+    if (nearestProvider) showSelectedProviderCard(nearestProvider);
+    if (dom.modalList && nearbyProviders.length) renderProvidersList();
+  }
+
+  function updateFixedTargetCopy() {
+    if (!fixedTargetCtx) return;
+    if (dom.scopeTitle) dom.scopeTitle.textContent = text("directScopeTitle");
+    if (dom.scopeText) dom.scopeText.textContent = text("directScopeText");
+    if (serviceId && dom.fixedService) dom.fixedService.textContent = text("serviceIdFallback", { id: serviceId });
+  }
+
+  function applyCurrentTypeCopy() {
+    var isCompetitive = requestType === "competitive";
+    if (fixedTargetCtx) {
+      updateHeroTypeContent("normal", fixedTargetCtx.providerName);
+      if (dom.submitText) dom.submitText.textContent = text("submitDirect");
+      if (dom.submitHelper) dom.submitHelper.textContent = text("submitHelperDirect");
+      return;
+    }
+    if (requestType === "urgent") {
+      updateHeroTypeContent("urgent");
+      if (dom.submitText) dom.submitText.textContent = text("submitUrgent");
+      if (dom.submitHelper) dom.submitHelper.textContent = text("submitHelperUrgent");
+    } else if (isCompetitive) {
+      updateHeroTypeContent("competitive");
+      if (dom.submitText) dom.submitText.textContent = text("submitCompetitive");
+      if (dom.submitHelper) dom.submitHelper.textContent = text("submitHelperCompetitive");
+    } else {
+      updateHeroTypeContent("normal");
+      if (dom.submitText) dom.submitText.textContent = text("submitDefault");
+      if (dom.submitHelper) dom.submitHelper.textContent = text("submitHelperDefault");
+    }
+  }
 
   /* ═══════════════════════════════════════
      init()
      ═══════════════════════════════════════ */
   function init() {
     cacheDom();
+    document.addEventListener("nawafeth:languagechange", refreshLanguage);
+    observeLanguageChanges();
+    applyStaticCopy();
 
     var serverAuth = window.NAWAFETH_SERVER_AUTH || null;
     var loggedIn = !!(
@@ -59,11 +527,12 @@
       gateId: "auth-gate",
       contentId: "form-content",
       target: window.location.pathname + window.location.search,
-      title: "إنشاء الطلبات متاح في وضع العميل فقط",
-      description: "أنت تستخدم المنصة الآن بوضع مقدم الخدمة، لذلك لا يمكن إرسال طلب مباشر أو تنافسي أو عاجل من هذا الوضع.",
-      note: "بدّل نوع الحساب إلى عميل الآن، ثم أكمل الطلب من نفس الصفحة مباشرة.",
-      switchLabel: "التبديل إلى عميل",
-      profileLabel: "الذهاب إلى نافذتي",
+      kicker: text("providerGateKicker"),
+      title: text("providerGateTitle"),
+      description: text("providerGateDescription"),
+      note: text("providerGateNote"),
+      switchLabel: text("providerGateSwitch"),
+      profileLabel: text("providerGateProfile"),
     })) {
       return;
     }
@@ -79,7 +548,7 @@
     }
 
     submitOverlay = (window.UI && UI.createSubmitOverlay)
-      ? UI.createSubmitOverlay({ title: "\u062c\u0627\u0631\u064d \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628..." })
+      ? UI.createSubmitOverlay({ title: text("submitOverlayTitle"), message: text("submitOverlayMessage") })
       : null;
     returnTargetUrl = resolveReturnTarget();
 
@@ -206,7 +675,7 @@
   }
 
   function populateCategorySelect() {
-    dom.category.innerHTML = '<option value="">\u0627\u062e\u062a\u0631 \u0627\u0644\u0642\u0633\u0645</option>';
+    dom.category.innerHTML = '<option value="">' + escHtml(text("categoryPlaceholder")) + '</option>';
     categories.forEach(function (cat) {
       var o = document.createElement("option");
       o.value = cat.id;
@@ -226,7 +695,7 @@
     var catId = parseInt(dom.category.value, 10);
     var cat = categories.find(function (c) { return c.id === catId; });
     var subs = cat ? (cat.subcategories || []) : [];
-    dom.subcategory.innerHTML = '<option value="">\u0627\u062e\u062a\u0631 \u0627\u0644\u062a\u0635\u0646\u064a\u0641</option>';
+    dom.subcategory.innerHTML = '<option value="">' + escHtml(text("subcategoryPlaceholder")) + '</option>';
     subs.forEach(function (s) {
       var o = document.createElement("option");
       o.value = s.id;
@@ -246,7 +715,8 @@
     } catch (e) {
       regionCatalog = UI.getRegionCatalogFallback();
     }
-    UI.populateRegionOptions(dom.region, regionCatalog);
+    UI.populateRegionOptions(dom.region, regionCatalog, { placeholder: text("regionPlaceholder") });
+    refreshRegionCityOptions();
   }
 
   /* ═══════════════════════════════════════
@@ -367,12 +837,12 @@
     dom.dispatchSection.classList.add("hidden");
     toggleDirectDesktopLayout(true);
 
-    dom.scopeTitle.textContent = "\u0637\u0644\u0628 \u0645\u0628\u0627\u0634\u0631 \u0644\u0645\u0632\u0648\u062f \u062e\u062f\u0645\u0629";
-    dom.scopeText.textContent = "\u062a\u0645 \u062a\u062d\u062f\u064a\u062f \u0627\u0644\u0645\u0632\u0648\u062f \u062a\u0644\u0642\u0627\u0626\u064a\u0627\u064b \u0628\u0646\u0627\u0621\u064b \u0639\u0644\u0649 \u0635\u0641\u062d\u0629 \u0627\u0644\u0645\u0632\u0648\u062f.";
+    dom.scopeTitle.textContent = text("directScopeTitle");
+    dom.scopeText.textContent = text("directScopeText");
     dom.fixedProvName.textContent = fixedTargetCtx.providerName;
 
     if (serviceId) {
-      dom.fixedService.textContent = "\u062e\u062f\u0645\u0629 #" + serviceId;
+      dom.fixedService.textContent = text("serviceIdFallback", { id: serviceId });
       dom.fixedServiceRow.style.display = "";
     } else {
       dom.fixedServiceRow.style.display = "none";
@@ -391,7 +861,8 @@
     }
 
     updateHeroTypeContent("normal", fixedTargetCtx.providerName);
-    dom.submitText.textContent = "\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628 \u0627\u0644\u0645\u0628\u0627\u0634\u0631";
+    dom.submitText.textContent = text("submitDirect");
+    dom.submitHelper.textContent = text("submitHelperDirect");
 
     renumberSteps();
   }
@@ -416,7 +887,10 @@
     // Region change
     dom.region.addEventListener("change", function () {
       var val = dom.region.value;
-      UI.populateCityOptions(dom.city, regionCatalog, val);
+      UI.populateCityOptions(dom.city, regionCatalog, val, {
+        placeholder: text("cityPlaceholder"),
+        emptyPlaceholder: text("cityEmptyPlaceholder"),
+      });
       dom.cityClear.classList.toggle("hidden", !val);
     });
 
@@ -428,7 +902,7 @@
     // City clear
     dom.cityClear.addEventListener("click", function () {
       dom.region.value = "";
-      dom.city.innerHTML = '<option value="">\u0627\u062e\u062a\u0631 \u0627\u0644\u0645\u062f\u064a\u0646\u0629</option>';
+      dom.city.innerHTML = '<option value="">' + escHtml(text("cityEmptyPlaceholder")) + '</option>';
       dom.city.disabled = true;
       dom.cityClear.classList.add("hidden");
     });
@@ -505,22 +979,7 @@
       dom.dispatchSection.classList.toggle("hidden", requestType === "normal");
     }
 
-    // Update submit text
-    if (!fixedTargetCtx) {
-      if (requestType === "urgent") {
-        updateHeroTypeContent("urgent");
-        dom.submitText.textContent = "\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628 \u0627\u0644\u0639\u0627\u062c\u0644";
-        dom.submitHelper.textContent = "\u0633\u064a\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628 \u0641\u0648\u0631\u0627\u064b \u0644\u0644\u0645\u0632\u0648\u062f\u064a\u0646 \u0627\u0644\u0645\u062a\u0627\u062d\u064a\u0646.";
-      } else if (isCompetitive) {
-        updateHeroTypeContent("competitive");
-        dom.submitText.textContent = "\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628 \u0627\u0644\u062a\u0646\u0627\u0641\u0633\u064a";
-        dom.submitHelper.textContent = "\u0633\u064a\u062a\u0645\u0643\u0646 \u0627\u0644\u0645\u0632\u0648\u062f\u0648\u0646 \u0645\u0646 \u062a\u0642\u062f\u064a\u0645 \u0639\u0631\u0648\u0636\u0647\u0645 \u0639\u0644\u064a\u0647.";
-      } else {
-        updateHeroTypeContent("normal");
-        dom.submitText.textContent = "\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628";
-        dom.submitHelper.textContent = "\u0627\u0643\u062a\u0628 \u0627\u0644\u0645\u0637\u0644\u0648\u0628 \u0628\u0648\u0636\u0648\u062d \u0648\u0623\u0631\u0641\u0642 \u0645\u0627 \u064a\u0644\u0632\u0645 \u0641\u0642\u0637.";
-      }
-    }
+    applyCurrentTypeCopy();
 
     syncDispatchUI();
     renumberSteps();
@@ -565,34 +1024,34 @@
     if (!dom.title || !dom.subtitle || !dom.typeBadge || !dom.typeBadgeText) return;
 
     var nextType = type || requestType || "competitive";
-    var badgeText = "\u0646\u0648\u0639 \u0627\u0644\u0637\u0644\u0628: \u062a\u0646\u0627\u0641\u0633\u064a";
-    var title = "\u0637\u0644\u0628 \u062e\u062f\u0645\u0629 \u062a\u0646\u0627\u0641\u0633\u064a";
-    var subtitle = "\u0623\u0637\u0644\u0642 \u0637\u0644\u0628\u0643 \u0644\u064a\u0635\u0644 \u0625\u0644\u0649 \u0627\u0644\u0645\u0632\u0648\u062f\u064a\u0646 \u0627\u0644\u0645\u0637\u0627\u0628\u0642\u064a\u0646 \u0648\u064a\u0642\u062f\u0645\u0648\u0627 \u0644\u0643 \u0639\u0631\u0648\u0636\u0647\u0645 \u0644\u0644\u0645\u0642\u0627\u0631\u0646\u0629.";
-    var noteTitle = "\u0647\u0630\u0627 \u0627\u0644\u0646\u0648\u0639 \u0645\u0646\u0627\u0633\u0628 \u0644\u0644\u0645\u0642\u0627\u0631\u0646\u0629 \u0628\u064a\u0646 \u0627\u0644\u0639\u0631\u0648\u0636";
-    var noteBody = "\u064a\u0635\u0644 \u0637\u0644\u0628\u0643 \u0625\u0644\u0649 \u0627\u0644\u0645\u0632\u0648\u062f\u064a\u0646 \u0627\u0644\u0645\u0637\u0627\u0628\u0642\u064a\u0646 \u0644\u064a\u0642\u062f\u0645\u0648\u0627 \u0644\u0643 \u0639\u0631\u0648\u0636\u0647\u0645\u060c \u062b\u0645 \u062a\u062e\u062a\u0627\u0631 \u0627\u0644\u0623\u0646\u0633\u0628 \u0645\u0646 \u062d\u064a\u062b \u0627\u0644\u0633\u0639\u0631 \u0648\u0627\u0644\u0645\u062f\u0629 \u0648\u0637\u0631\u064a\u0642\u0629 \u0627\u0644\u062a\u0646\u0641\u064a\u0630.";
-    var pill1 = "\u0645\u0637\u0627\u0628\u0642\u0629 \u0630\u0643\u064a\u0629 \u062d\u0633\u0628 \u0627\u0644\u062a\u062e\u0635\u0635";
-    var pill2 = "\u0627\u0633\u062a\u0642\u0628\u0627\u0644 \u0623\u0643\u062b\u0631 \u0645\u0646 \u0639\u0631\u0636";
-    var pill3 = "\u0625\u0645\u0643\u0627\u0646\u064a\u0629 \u062a\u062d\u062f\u064a\u062f \u0645\u0648\u0639\u062f \u0627\u0644\u0639\u0631\u0648\u0636";
+    var badgeText = text("heroCompetitiveBadge");
+    var title = text("heroCompetitiveTitle");
+    var subtitle = text("heroCompetitiveSubtitle");
+    var noteTitle = text("heroCompetitiveNoteTitle");
+    var noteBody = text("heroCompetitiveNoteBody");
+    var pill1 = text("heroCompetitivePill1");
+    var pill2 = text("heroCompetitivePill2");
+    var pill3 = text("heroCompetitivePill3");
 
     if (nextType === "urgent") {
-      badgeText = "\u0646\u0648\u0639 \u0627\u0644\u0637\u0644\u0628: \u0639\u0627\u062c\u0644";
-      title = "\u0637\u0644\u0628 \u062e\u062f\u0645\u0629 \u0639\u0627\u062c\u0644";
-      subtitle = "\u0645\u0633\u0627\u0631 \u0633\u0631\u064a\u0639 \u0644\u0644\u062d\u0627\u0644\u0627\u062a \u0627\u0644\u062a\u064a \u062a\u062d\u062a\u0627\u062c \u0627\u0633\u062a\u062c\u0627\u0628\u0629 \u0641\u0648\u0631\u064a\u0629 \u0645\u0646 \u0627\u0644\u0645\u0632\u0648\u062f\u064a\u0646 \u0627\u0644\u0645\u0637\u0627\u0628\u0642\u064a\u0646.";
-      noteTitle = "\u0647\u0630\u0627 \u0627\u0644\u0646\u0648\u0639 \u0645\u0635\u0645\u0645 \u0644\u0644\u062d\u0627\u0644\u0627\u062a \u0627\u0644\u0639\u0627\u062c\u0644\u0629";
-      noteBody = "\u064a\u0645\u0643\u0646\u0643 \u0627\u0644\u0625\u0631\u0633\u0627\u0644 \u0644\u0644\u062c\u0645\u064a\u0639 \u0623\u0648 \u0627\u062e\u062a\u064a\u0627\u0631 \u0627\u0644\u0623\u0642\u0631\u0628 \u0639\u0628\u0631 \u0627\u0644\u062e\u0631\u064a\u0637\u0629\u060c \u0645\u0639 \u0625\u0628\u0631\u0627\u0632 \u0627\u0644\u062a\u0637\u0627\u0628\u0642 \u062d\u0633\u0628 \u0627\u0644\u062a\u0635\u0646\u064a\u0641 \u0648\u0627\u0644\u0645\u062f\u064a\u0646\u0629.";
-      pill1 = "\u0627\u0633\u062a\u062c\u0627\u0628\u0629 \u0623\u0633\u0631\u0639 \u0644\u0644\u0637\u0644\u0628";
-      pill2 = "\u0625\u0631\u0633\u0627\u0644 \u0644\u0644\u062c\u0645\u064a\u0639 \u0623\u0648 \u0644\u0644\u0623\u0642\u0631\u0628";
-      pill3 = "\u062e\u0631\u064a\u0637\u0629 \u062a\u0641\u0627\u0639\u0644\u064a\u0629 \u0644\u0644\u062a\u0648\u062c\u064a\u0647";
+      badgeText = text("heroUrgentBadge");
+      title = text("heroUrgentTitle");
+      subtitle = text("heroUrgentSubtitle");
+      noteTitle = text("heroUrgentNoteTitle");
+      noteBody = text("heroUrgentNoteBody");
+      pill1 = text("heroUrgentPill1");
+      pill2 = text("heroUrgentPill2");
+      pill3 = text("heroUrgentPill3");
     } else if (nextType === "normal") {
-      var displayName = providerName || (fixedTargetCtx && fixedTargetCtx.providerName) || "\u0645\u0632\u0648\u062f \u0627\u0644\u062e\u062f\u0645\u0629";
-      badgeText = "\u0646\u0648\u0639 \u0627\u0644\u0637\u0644\u0628: \u0645\u0628\u0627\u0634\u0631";
-      title = "\u0637\u0644\u0628 \u0645\u0628\u0627\u0634\u0631";
-      subtitle = "\u0633\u064a\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628\u0643 \u0645\u0628\u0627\u0634\u0631\u0629 \u0644\u0640 " + displayName + "\u060c \u062f\u0648\u0646 \u0625\u062f\u062e\u0627\u0644\u0647 \u0641\u064a \u0645\u0633\u0627\u0631 \u062a\u0646\u0627\u0641\u0633\u064a \u0623\u0648 \u0639\u0627\u062c\u0644.";
-      noteTitle = "\u0647\u0630\u0627 \u0627\u0644\u0646\u0648\u0639 \u0645\u0648\u062c\u0647 \u0644\u0645\u0632\u0648\u062f \u0645\u062d\u062f\u062f";
-      noteBody = "\u064a\u0635\u0644 \u0627\u0644\u0637\u0644\u0628 \u0645\u0628\u0627\u0634\u0631\u0629 \u0625\u0644\u0649 \u0627\u0644\u0645\u0632\u0648\u062f \u0627\u0644\u0630\u064a \u0627\u062e\u062a\u0631\u062a\u0647\u060c \u0645\u0639 \u0627\u0644\u062d\u0641\u0627\u0638 \u0639\u0644\u0649 \u0646\u0641\u0633 \u062c\u0648\u062f\u0629 \u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644 \u0648\u0627\u0644\u0645\u0631\u0641\u0642\u0627\u062a.";
-      pill1 = "\u0645\u0648\u062c\u0647 \u0625\u0644\u0649 \u0645\u0632\u0648\u062f \u0648\u0627\u062d\u062f";
-      pill2 = "\u062f\u0642\u0629 \u0641\u064a \u0646\u0637\u0627\u0642 \u0627\u0644\u0625\u0631\u0633\u0627\u0644";
-      pill3 = "\u0648\u0636\u0648\u062d \u0641\u064a \u0646\u0648\u0639 \u0627\u0644\u0637\u0644\u0628";
+      var displayName = providerName || (fixedTargetCtx && fixedTargetCtx.providerName) || text("providerFallbackName");
+      badgeText = text("heroDirectBadge");
+      title = text("heroDirectTitle");
+      subtitle = text("heroDirectSubtitle", { provider: displayName });
+      noteTitle = text("heroDirectNoteTitle");
+      noteBody = text("heroDirectNoteBody");
+      pill1 = text("heroDirectPill1");
+      pill2 = text("heroDirectPill2");
+      pill3 = text("heroDirectPill3");
     }
 
     dom.typeBadge.dataset.tone = nextType;
@@ -701,10 +1160,9 @@
       mediaRecorder.start();
       isRecording = true;
       dom.audioBtn.classList.add("recording");
-      var textNode = findTextNode(dom.audioBtn);
-      if (textNode) textNode.textContent = " \u0625\u064a\u0642\u0627\u0641 \u0627\u0644\u062a\u0633\u062c\u064a\u0644";
+      setText("sr-audio-btn-text", text("audioStop"));
     } catch (e) {
-      showToast("error", "\u062e\u0637\u0623", "\u0644\u0645 \u064a\u062a\u0645 \u0627\u0644\u0633\u0645\u0627\u062d \u0628\u0627\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0627\u0644\u0645\u064a\u0643\u0631\u0648\u0641\u0648\u0646.");
+      showToast("error", text("toastError"), text("submitUnexpectedError"));
     }
   }
 
@@ -722,8 +1180,7 @@
     }
     isRecording = false;
     dom.audioBtn.classList.remove("recording");
-    var textNode = findTextNode(dom.audioBtn);
-    if (textNode) textNode.textContent = " \u062a\u0633\u062c\u064a\u0644 \u0635\u0648\u062a\u064a";
+    setText("sr-audio-btn-text", text("audioLabel"));
   }
 
   function removeAudio() {
@@ -742,7 +1199,7 @@
     dom.spName.textContent = prov.name || prov.display_name || "";
     var parts = [];
     if (prov.rating != null) parts.push("\u2b50 " + Number(prov.rating).toFixed(1));
-    if (prov.completed != null) parts.push(prov.completed + " \u0637\u0644\u0628 \u0645\u0643\u062a\u0645\u0644");
+    if (prov.completed != null) parts.push(text("providerCompleted", { count: prov.completed }));
     dom.spMeta.textContent = parts.join(" \u2022 ");
     dom.selectedProv.classList.add("visible");
   }
@@ -759,7 +1216,7 @@
     dom.mapModal.classList.add("open");
     document.body.style.overflow = "hidden";
     dom.modalStatus.style.display = "flex";
-    dom.modalStatusText.textContent = "\u062c\u0627\u0631\u064a \u062a\u062d\u062f\u064a\u062f \u0645\u0648\u0642\u0639\u0643...";
+    dom.modalStatusText.textContent = text("mapLocating");
     dom.modalList.innerHTML = "";
     dom.modalEmpty.classList.remove("visible");
 
@@ -791,7 +1248,9 @@
 
   function geolocateAndFetch() {
     if (!navigator.geolocation) {
-      dom.modalStatusText.textContent = "\u0627\u0644\u0645\u062a\u0635\u0641\u062d \u0644\u0627 \u064a\u062f\u0639\u0645 \u062a\u062d\u062f\u064a\u062f \u0627\u0644\u0645\u0648\u0642\u0639. \u064a\u062a\u0645 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0627\u0644\u0645\u0648\u0642\u0639 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a.";
+      requestLat = 24.7136;
+      requestLng = 46.6753;
+      dom.modalStatusText.textContent = text("mapUnsupported");
       fetchNearbyProviders(24.7136, 46.6753);
       return;
     }
@@ -800,10 +1259,10 @@
         requestLat = normalizeCoordinate(pos.coords.latitude);
         requestLng = normalizeCoordinate(pos.coords.longitude);
         if (requestLat === null || requestLng === null) {
-          dom.modalStatusText.textContent = "تعذر قراءة موقعك الحالي. حاول مرة أخرى.";
+          dom.modalStatusText.textContent = text("mapReadError");
           return;
         }
-        dom.modalStatusText.textContent = "\u062a\u0645 \u062a\u062d\u062f\u064a\u062f \u0645\u0648\u0642\u0639\u0643. \u062c\u0627\u0631\u064a \u0627\u0644\u0628\u062d\u062b \u0639\u0646 \u0627\u0644\u0645\u0632\u0648\u062f\u064a\u0646...";
+        dom.modalStatusText.textContent = text("mapSearching");
         leafletMap.setView([requestLat, requestLng], 13);
 
         if (leafletMarker) leafletMap.removeLayer(leafletMarker);
@@ -819,7 +1278,9 @@
         fetchNearbyProviders(requestLat, requestLng);
       },
       function () {
-        dom.modalStatusText.textContent = "\u0644\u0645 \u064a\u062a\u0645 \u0627\u0644\u0633\u0645\u0627\u062d \u0628\u062a\u062d\u062f\u064a\u062f \u0627\u0644\u0645\u0648\u0642\u0639. \u064a\u062a\u0645 \u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0627\u0644\u0645\u0648\u0642\u0639 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a.";
+        requestLat = 24.7136;
+        requestLng = 46.6753;
+        dom.modalStatusText.textContent = text("mapDenied");
         fetchNearbyProviders(24.7136, 46.6753);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -915,11 +1376,11 @@
     var html = '<div class="sr-popup-inner">';
     if (img) html += '<img src="' + img + '" alt="" />';
     html += '<div class="sr-popup-name">' + name + '</div>';
-    html += '<div class="sr-popup-stats">\u2b50 ' + rating + ' \u2022 ' + completed + ' \u0637\u0644\u0628</div>';
+    html += '<div class="sr-popup-stats">\u2b50 ' + rating + ' \u2022 ' + escHtml(text("providerRequests", { count: completed })) + '</div>';
     html += '<div class="sr-popup-actions">';
-    if (phone) html += '<a href="tel:' + phone + '" class="sr-prov-action-btn call" onclick="event.stopPropagation()">\ud83d\udcde \u0627\u062a\u0635\u0627\u0644</a>';
-    if (whatsapp) html += '<a href="' + whatsapp + '" target="_blank" rel="noopener" class="sr-prov-action-btn whatsapp" onclick="event.stopPropagation()">\ud83d\udcac \u0648\u0627\u062a\u0633\u0627\u0628</a>';
-    html += '<button class="sr-prov-action-btn send" onclick="window._srSelectProvider(' + p.id + ')">\u2713 \u0627\u062e\u062a\u064a\u0627\u0631</button>';
+    if (phone) html += '<a href="tel:' + phone + '" class="sr-prov-action-btn call" onclick="event.stopPropagation()">\ud83d\udcde ' + escHtml(text("popupCall")) + '</a>';
+    if (whatsapp) html += '<a href="' + whatsapp + '" target="_blank" rel="noopener" class="sr-prov-action-btn whatsapp" onclick="event.stopPropagation()">\ud83d\udcac ' + escHtml(text("popupWhatsapp")) + '</a>';
+    html += '<button class="sr-prov-action-btn send" onclick="window._srSelectProvider(' + p.id + ')">\u2713 ' + escHtml(text("popupChoose")) + '</button>';
     html += '</div></div>';
     return html;
   }
@@ -942,7 +1403,7 @@
       var img = escHtml(p.profile_image || "");
       var rating = p.rating_avg != null ? Number(p.rating_avg).toFixed(1) : "\u2014";
       var completed = p.completed_requests || 0;
-      var dist = p._dist < 9999 ? p._dist.toFixed(1) + " \u0643\u0645" : "";
+      var dist = p._dist < 9999 ? text("providerDistance", { value: p._dist.toFixed(1) }) : "";
       var phone = escHtml(p.phone || "");
       var whatsapp = escHtml(p.whatsapp_url || "");
 
@@ -962,14 +1423,14 @@
         + '<div class="sr-prov-card-name">' + name + '</div>'
         + '<div class="sr-prov-card-stats">'
         + '<span><svg viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg> ' + rating + '</span>'
-        + '<span>' + completed + ' \u0645\u0643\u062a\u0645\u0644</span>'
+        + '<span>' + escHtml(text("providerCompleted", { count: completed })) + '</span>'
         + (dist ? '<span>' + dist + '</span>' : '')
         + '</div>'
         + '</div>'
         + '<div class="sr-prov-card-actions">'
         + (phone ? '<a href="tel:' + phone + '" class="sr-prov-action-btn call" onclick="event.stopPropagation()">\ud83d\udcde</a>' : '')
         + (whatsapp ? '<a href="' + whatsapp + '" target="_blank" rel="noopener" class="sr-prov-action-btn whatsapp" onclick="event.stopPropagation()">\ud83d\udcac</a>' : '')
-        + '<button class="sr-prov-action-btn send" data-select="' + p.id + '">\u2713 \u0625\u0631\u0633\u0627\u0644</button>'
+        + '<button class="sr-prov-action-btn send" data-select="' + p.id + '">\u2713 ' + escHtml(text("popupChoose")) + '</button>'
         + '</div>';
 
       var avatarWrap = card.querySelector(".sr-prov-card-avatar-wrap");
@@ -1006,7 +1467,7 @@
     };
     showSelectedProviderCard(nearestProvider);
     closeMapModal();
-    showToast("success", "\u062a\u0645 \u0627\u0644\u0627\u062e\u062a\u064a\u0627\u0631", "\u062a\u0645 \u0627\u062e\u062a\u064a\u0627\u0631 " + nearestProvider.name + " \u0643\u0645\u0632\u0648\u062f \u0642\u0631\u064a\u0628.");
+    showToast("success", text("providerSelectedTitle"), text("providerSelectedMessage", { name: nearestProvider.name }));
   }
 
   window._srSelectProvider = function (id) {
@@ -1037,28 +1498,28 @@
 
     if (!fixedTargetCtx) {
       if (!dom.subcategory.value) {
-        if (!dom.category.value) showFieldError(dom.category, dom.catError, "\u0627\u062e\u062a\u0631 \u0627\u0644\u0642\u0633\u0645 \u0627\u0644\u0631\u0626\u064a\u0633\u064a");
-        showFieldError(dom.subcategory, dom.subError, "\u0627\u062e\u062a\u0631 \u0627\u0644\u062a\u0635\u0646\u064a\u0641 \u0627\u0644\u0641\u0631\u0639\u064a");
+        if (!dom.category.value) showFieldError(dom.category, dom.catError, text("validationCategory"));
+        showFieldError(dom.subcategory, dom.subError, text("validationSubcategory"));
         ok = false;
       }
     }
 
     var title = dom.reqTitle.value.trim();
     if (!title) {
-      showFieldError(dom.reqTitle, dom.titleError, "\u0623\u062f\u062e\u0644 \u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0637\u0644\u0628");
+      showFieldError(dom.reqTitle, dom.titleError, text("validationTitle"));
       ok = false;
     }
 
     var desc = dom.desc.value.trim();
     if (!desc) {
-      showFieldError(dom.desc, dom.descError, "\u0623\u062f\u062e\u0644 \u0648\u0635\u0641 \u0627\u0644\u0637\u0644\u0628");
+      showFieldError(dom.desc, dom.descError, text("validationDescription"));
       ok = false;
     }
 
     if (requestType === "competitive" && dom.deadline.value) {
       var today = new Date().toISOString().slice(0, 10);
       if (dom.deadline.value < today) {
-        showFieldError(dom.deadline, dom.deadlineError, "\u0627\u0644\u062a\u0627\u0631\u064a\u062e \u064a\u062c\u0628 \u0623\u0646 \u064a\u0643\u0648\u0646 \u0627\u0644\u064a\u0648\u0645 \u0623\u0648 \u0644\u0627\u062d\u0642\u0627\u064b");
+        showFieldError(dom.deadline, dom.deadlineError, text("validationDeadlinePast"));
         ok = false;
       }
     }
@@ -1132,7 +1593,7 @@
         onSubmitError(res);
       }
     } catch (e) {
-      showToast("error", "\u062e\u0637\u0623", "\u062d\u062f\u062b \u062e\u0637\u0623 \u063a\u064a\u0631 \u0645\u062a\u0648\u0642\u0639. \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649.");
+      showToast("error", text("toastError"), text("submitUnexpectedError"));
     } finally {
       isSubmitting = false;
       if (!holdSuccessState) {
@@ -1156,14 +1617,12 @@
     if (isDirectRequestFlow()) {
       holdSuccessState = true;
       dom.submitBtn.disabled = true;
-      dom.submitText.textContent = "\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628";
-      dom.submitHelper.textContent = "\u064a\u0645\u0643\u0646\u0643 \u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0637\u0644\u0628 \u0645\u0646 \u0635\u0641\u062d\u0629 \u0637\u0644\u0628\u0627\u062a\u064a. \u062c\u0627\u0631\u064d \u0625\u0639\u0627\u062f\u062a\u0643 \u0644\u0644\u0635\u0641\u062d\u0629 \u0627\u0644\u0633\u0627\u0628\u0642\u0629...";
+      dom.submitText.textContent = text("directSentButton");
+      dom.submitHelper.textContent = text("directSentHelper");
       showToast(
         "success",
-        "\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628\u0643",
-        "\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628\u0643 \u0625\u0644\u0649 " +
-          ((fixedTargetCtx && fixedTargetCtx.providerName) || "\u0627\u0644\u0645\u0632\u0648\u062f") +
-          ". \u064a\u0645\u0643\u0646\u0643 \u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u0637\u0644\u0628 \u0645\u0646 \u0635\u0641\u062d\u0629 \u0637\u0644\u0628\u0627\u062a\u064a."
+        text("directSentToastTitle"),
+        text("directSentToastMessage", { provider: (fixedTargetCtx && fixedTargetCtx.providerName) || text("providerFallbackName") })
       );
       scheduleReturnToSource();
       return;
@@ -1173,17 +1632,17 @@
     dom.success.classList.add("visible");
 
     if (requestType === "urgent") {
-      dom.successTitle.textContent = "\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628 \u0627\u0644\u0639\u0627\u062c\u0644";
-      dom.successMsg.textContent = "\u0633\u064a\u062a\u0645 \u0625\u0634\u0639\u0627\u0631 \u0627\u0644\u0645\u0632\u0648\u062f\u064a\u0646 \u0627\u0644\u0645\u062a\u0627\u062d\u064a\u0646 \u0641\u0648\u0631\u0627\u064b.";
+      dom.successTitle.textContent = text("successUrgentTitle");
+      dom.successMsg.textContent = text("successUrgentMessage");
     } else if (requestType === "competitive") {
-      dom.successTitle.textContent = "\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628 \u0627\u0644\u062a\u0646\u0627\u0641\u0633\u064a";
-      dom.successMsg.textContent = "\u0633\u062a\u0628\u062f\u0623 \u0627\u0644\u0639\u0631\u0648\u0636 \u0628\u0627\u0644\u0648\u0635\u0648\u0644 \u0642\u0631\u064a\u0628\u0627\u064b.";
+      dom.successTitle.textContent = text("successCompetitiveTitle");
+      dom.successMsg.textContent = text("successCompetitiveMessage");
     } else {
-      dom.successTitle.textContent = "\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628";
-      dom.successMsg.textContent = "\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628\u0643 \u0628\u0646\u062c\u0627\u062d \u0644\u0644\u0645\u0632\u0648\u062f.";
+      dom.successTitle.textContent = text("successNormalTitle");
+      dom.successMsg.textContent = text("successNormalMessage");
     }
 
-    showToast("success", "\u062a\u0645 \u0627\u0644\u0625\u0631\u0633\u0627\u0644", "\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0637\u0644\u0628\u0643 \u0628\u0646\u062c\u0627\u062d \u2713");
+    showToast("success", text("successToastTitle"), text("successToastMessage"));
   }
 
   function onSubmitError(res) {
@@ -1199,11 +1658,11 @@
 
     var detail = data.detail || data.non_field_errors || data.provider || data.request_lat || data.request_lng;
     if (detail) {
-      showToast("error", "\u062e\u0637\u0623", arrayToStr(detail));
+      showToast("error", text("toastError"), arrayToStr(detail));
     } else if (status === 401) {
-      showToast("warning", "\u062c\u0644\u0633\u0629 \u0645\u0646\u062a\u0647\u064a\u0629", "\u064a\u0631\u062c\u0649 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649.");
+      showToast("warning", text("sessionExpiredTitle"), text("sessionExpiredMessage"));
     } else {
-      showToast("error", "\u062e\u0637\u0623", "\u062d\u062f\u062b \u062e\u0637\u0623 \u0623\u062b\u0646\u0627\u0621 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0637\u0644\u0628. \u062d\u0627\u0648\u0644 \u0645\u0631\u0629 \u0623\u062e\u0631\u0649.");
+      showToast("error", text("toastError"), text("submitErrorGeneric"));
     }
   }
 
@@ -1237,6 +1696,7 @@
      Module export + init
      ═══════════════════════════════════════ */
   window.ServiceRequestForm = { init: init, _selectProviderFromMap: window._srSelectProvider };
+  window.ServiceRequestForm.refreshLanguage = refreshLanguage;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

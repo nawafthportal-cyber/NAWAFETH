@@ -40,8 +40,8 @@
       <div class="home-section-shell">
         <div class="home-section-header home-section-header--compact">
           <div class="home-section-heading">
-            <span class="home-section-kicker">لمحات حية</span>
-            <h2 class="home-section-title-static">أحدث اللمحات</h2>
+            <span class="home-section-kicker" id="home-reels-kicker">لمحات حية</span>
+            <h2 class="home-section-title-static" id="home-reels-title">أحدث اللمحات</h2>
           </div>
         </div>
         <div class="reels-track" id="reels-track">
@@ -61,9 +61,9 @@
       <div class="home-section-shell home-section-shell--promo">
         <div class="home-section-header home-section-header--compact">
           <div class="home-section-heading">
-            <span class="home-section-kicker">رسالة مميزة</span>
-            <h2 class="home-section-title-static">مساحة ترويجية نشطة</h2>
-            <p class="home-section-note">إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون تشويش.</p>
+            <span class="home-section-kicker" id="home-promo-kicker">رسالة مميزة</span>
+            <h2 class="home-section-title-static" id="home-promo-title">مساحة ترويجية نشطة</h2>
+            <p class="home-section-note" id="home-promo-note">إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون تشويش.</p>
           </div>
         </div>
         <div class="sponsor-card" id="home-promo-message-card"></div>
@@ -77,13 +77,13 @@
       <div class="home-section-shell">
         <div class="home-section-header">
           <div class="home-section-heading">
-            <span class="home-section-kicker">اكتشف الخدمات</span>
+            <span class="home-section-kicker" id="home-categories-kicker">اكتشف الخدمات</span>
             <h2 class="home-section-title-static" id="categories-title">التصنيفات</h2>
           </div>
-          <a href="/search/" class="view-all-btn" aria-label="عرض كل التصنيفات">عرض الكل</a>
+          <a href="/search/" class="view-all-btn" id="home-categories-view-all" aria-label="عرض كل التصنيفات">عرض الكل</a>
         </div>
         <div class="categories-carousel">
-          <button class="categories-arrow categories-arrow--prev" aria-label="السابق" type="button">
+          <button class="categories-arrow categories-arrow--prev" id="home-categories-prev" aria-label="السابق" type="button">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
           </button>
           <div class="categories-scroll" id="categories-list">
@@ -94,7 +94,7 @@
             <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
             <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
           </div>
-          <button class="categories-arrow categories-arrow--next" aria-label="التالي" type="button">
+          <button class="categories-arrow categories-arrow--next" id="home-categories-next" aria-label="التالي" type="button">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
 
@@ -112,7 +112,7 @@
       <div class="home-section-shell">
         <div class="home-section-header">
           <div class="home-section-heading">
-            <span class="home-section-kicker">ترشيحات المنصة</span>
+            <span class="home-section-kicker" id="home-providers-kicker">ترشيحات المنصة</span>
             <h2 class="home-section-title-static" id="providers-title">أبرز المختصين</h2>
           </div>
         </div>
@@ -142,8 +142,8 @@
       <div class="home-section-shell">
         <div class="home-section-header">
           <div class="home-section-heading">
-            <span class="home-section-kicker">أعمال وبنرات</span>
-            <h2 class="section-title">شريط البنرات والمشاريع</h2>
+            <span class="home-section-kicker" id="home-portfolio-kicker">أعمال وبنرات</span>
+            <h2 class="section-title" id="home-portfolio-title">البنرات والمشاريع</h2>
           </div>
         </div>
         <div class="showcase-scroll" id="portfolio-showcase-list"></div>
@@ -156,7 +156,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/onboardingOverlay.js' %}?v=20260423-ob-guest-contrast"></script>
+<script src="{% static 'mobile_web/js/onboardingOverlay.js' %}?v=20260501-onboarding-overlay-i18n-stage1"></script>
 <script src="{% static 'mobile_web/js/spotlightViewer.js' %}?v=20260421-tiktok-viewer"></script>
-<script src="{% static 'mobile_web/js/homePage.js' %}?v=20260422-autoscroll-fix"></script>
+<script src="{% static 'mobile_web/js/homePage.js' %}?v=20260501-home-i18n-stage1"></script>
 {% endblock %}

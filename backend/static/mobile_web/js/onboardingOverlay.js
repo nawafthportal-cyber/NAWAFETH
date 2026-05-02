@@ -7,6 +7,48 @@
 
 const OnboardingOverlay = (() => {
   const STORAGE_KEY = 'nw_onboarding_seen';
+  const COPY = {
+    ar: {
+      overlayLabel: 'مرحبا بك في نوافذ',
+      skip: 'تخطي',
+      next: 'التالي',
+      startNow: 'ابدأ الآن',
+      continue: 'متابعة',
+      promoAlt: 'تعرف على نوافذ',
+      signInTitle: 'تسجيل الدخول',
+      signInSubtitle: 'أدخل رقم جوالك وسنرسل لك رمز تحقق للدخول',
+      sendOtp: 'إرسال رمز التحقق',
+      sending: 'جاري الإرسال...',
+      divider: 'أو',
+      guest: 'الدخول كزائر',
+      invalidPhone: 'أدخل رقم جوال صحيح يبدأ بـ 05 ومكون من 10 أرقام',
+      sendFailed: 'تعذر إرسال رمز التحقق، حاول مرة أخرى',
+      connectionFailed: 'حدث خطأ في الاتصال، حاول مرة أخرى',
+      resend: 'إعادة إرسال رمز التحقق',
+      resendAfter: 'يمكنك إعادة الإرسال بعد {time}',
+      stepLabel: '{index} / {total}',
+    },
+    en: {
+      overlayLabel: 'Welcome to Nawafeth',
+      skip: 'Skip',
+      next: 'Next',
+      startNow: 'Start now',
+      continue: 'Continue',
+      promoAlt: 'Discover Nawafeth',
+      signInTitle: 'Sign in',
+      signInSubtitle: 'Enter your mobile number and we will send you a verification code to sign in.',
+      sendOtp: 'Send verification code',
+      sending: 'Sending...',
+      divider: 'or',
+      guest: 'Continue as guest',
+      invalidPhone: 'Enter a valid mobile number starting with 05 and containing 10 digits.',
+      sendFailed: 'Unable to send the verification code. Please try again.',
+      connectionFailed: 'A connection error occurred. Please try again.',
+      resend: 'Resend verification code',
+      resendAfter: 'You can resend after {time}',
+      stepLabel: '{index} / {total}',
+    },
+  };
   const SLIDE_KEYS = [
     { key: 'onboarding_first_time',  iconSvg: 'widgets' },
     { key: 'onboarding_intro',       iconSvg: 'people' },
@@ -28,6 +70,26 @@ const OnboardingOverlay = (() => {
   let _phase = 'slides';          /* 'slides' | 'promo' | 'login' */
   let _otpCooldownTimer = null;
   let _otpCooldownEnd = 0;
+
+  function _currentLang() {
+    if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
+      return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
+    }
+    return document.documentElement.lang === 'en' ? 'en' : 'ar';
+  }
+
+  function _copy(key) {
+    const lang = _currentLang();
+    return (COPY[lang] && COPY[lang][key]) || COPY.ar[key] || '';
+  }
+
+  function _resolveText(arValue, enValue, fallbackKey) {
+    const primary = _currentLang() === 'en' ? String(enValue || '').trim() : String(arValue || '').trim();
+    if (primary) return primary;
+    const secondary = _currentLang() === 'en' ? String(arValue || '').trim() : String(enValue || '').trim();
+    if (secondary) return secondary;
+    return fallbackKey ? _copy(fallbackKey) : '';
+  }
 
   function _todayStamp() {
     const now = new Date();
@@ -74,14 +136,16 @@ const OnboardingOverlay = (() => {
     const blocks = res.data.blocks || {};
     _slides = SLIDE_KEYS
       .map(def => _mergeBlock(def, blocks[def.key]))
-      .filter(s => s && s.title);
+      .filter(s => s && _resolveSlideTitle(s));
 
     /* Save standalone app preview block shown after the 3 onboarding slides */
     const introRaw = blocks['app_intro_preview'];
     if (introRaw && introRaw.media_url) {
       _introBlock = {
-        title:     String(introRaw.title_ar || '').trim(),
-        desc:      String(introRaw.body_ar  || '').trim(),
+        title_ar:  String(introRaw.title_ar || '').trim(),
+        title_en:  String(introRaw.title_en || '').trim(),
+        desc_ar:   String(introRaw.body_ar  || '').trim(),
+        desc_en:   String(introRaw.body_en  || '').trim(),
         mediaUrl:  ApiClient.mediaUrl(introRaw.media_url) || '',
         mediaType: String(introRaw.media_type || '').toLowerCase(),
         hasMedia:  !!introRaw.has_media,
@@ -97,13 +161,17 @@ const OnboardingOverlay = (() => {
 
   function _mergeBlock(def, block) {
     if (!block || typeof block !== 'object') return null;
-    const title = String(block.title_ar || '').trim();
-    const desc  = String(block.body_ar  || '').trim();
-    if (!title && !desc) return null;
+    const titleAr = String(block.title_ar || '').trim();
+    const titleEn = String(block.title_en || '').trim();
+    const descAr = String(block.body_ar || '').trim();
+    const descEn = String(block.body_en || '').trim();
+    if (!titleAr && !titleEn && !descAr && !descEn) return null;
     return {
       ...def,
-      title,
-      desc,
+      title_ar: titleAr,
+      title_en: titleEn,
+      desc_ar: descAr,
+      desc_en: descEn,
       mediaUrl:  ApiClient.mediaUrl(block.media_url || '') || '',
       mediaType: String(block.media_type || '').toLowerCase(),
     };
@@ -116,7 +184,7 @@ const OnboardingOverlay = (() => {
     _overlay.className = 'ob-overlay';
     _overlay.setAttribute('role', 'dialog');
     _overlay.setAttribute('aria-modal', 'true');
-    _overlay.setAttribute('aria-label', 'مرحبا بك في نوافذ');
+    _overlay.setAttribute('aria-label', _copy('overlayLabel'));
     document.body.appendChild(_overlay);
     document.body.style.overflow = 'hidden';
 
@@ -176,7 +244,7 @@ const OnboardingOverlay = (() => {
 
     const skipBtn = document.createElement('button');
     skipBtn.className = 'ob-btn-skip';
-    skipBtn.textContent = 'تخطي';
+    skipBtn.textContent = _copy('skip');
     skipBtn.addEventListener('click', _dismiss);
 
     const nextBtn = document.createElement('button');
@@ -232,7 +300,7 @@ const OnboardingOverlay = (() => {
         const img = document.createElement('img');
         img.className = 'ob-media-asset';
         img.src = slide.mediaUrl;
-        img.alt = slide.title;
+        img.alt = _resolveSlideTitle(slide, 'promoAlt');
         img.loading = idx === 0 ? 'eager' : 'lazy';
         mediaWrap.appendChild(img);
       }
@@ -254,11 +322,11 @@ const OnboardingOverlay = (() => {
     textWrap.className = 'ob-text ob-copy-card';
     const h = document.createElement('h2');
     h.className = 'ob-title';
-    h.textContent = slide.title;
+    h.textContent = _resolveSlideTitle(slide);
     textWrap.appendChild(h);
     const p = document.createElement('p');
     p.className = 'ob-desc';
-    p.textContent = slide.desc;
+    p.textContent = _resolveSlideDesc(slide);
     p.style.whiteSpace = 'pre-line';
     textWrap.appendChild(p);
     el.appendChild(textWrap);
@@ -302,14 +370,19 @@ const OnboardingOverlay = (() => {
     dots.forEach((d, i) => d.classList.toggle('ob-dot--active', i === _index));
 
     const counter = document.getElementById('ob-counter');
-    if (counter) counter.textContent = '0' + (_index + 1) + ' / ' + _slides.length;
+    if (counter) {
+      const current = String(_index + 1).padStart(2, '0');
+      counter.textContent = _copy('stepLabel')
+        .replace('{index}', current)
+        .replace('{total}', String(_slides.length));
+    }
 
     const nextBtn = document.getElementById('ob-btn-next');
     if (nextBtn) {
       const isLast = _index >= _slides.length - 1;
       nextBtn.innerHTML = isLast
-        ? '<span>ابدأ الآن</span>' + _checkSvg()
-        : '<span>التالي</span>' + _arrowSvg();
+        ? '<span>' + _copy('startNow') + '</span>' + _checkSvg()
+        : '<span>' + _copy('next') + '</span>' + _arrowSvg();
       nextBtn.classList.toggle('ob-btn-next--finish', isLast);
     }
   }
@@ -365,7 +438,7 @@ const OnboardingOverlay = (() => {
       const img = document.createElement('img');
       img.className = 'ob-promo-asset';
       img.src = _introBlock.mediaUrl;
-      img.alt = 'تعرف على نوافذ';
+      img.alt = _resolveSlideTitle(_introBlock, 'promoAlt');
       mediaWrap.appendChild(img);
     }
     wrap.appendChild(mediaWrap);
@@ -376,7 +449,7 @@ const OnboardingOverlay = (() => {
 
     const continueBtn = document.createElement('button');
     continueBtn.className = 'ob-promo-continue';
-    continueBtn.innerHTML = '<span>متابعة</span>' + _arrowSvg();
+    continueBtn.innerHTML = '<span>' + _copy('continue') + '</span>' + _arrowSvg();
     continueBtn.addEventListener('click', _openPostOnboardingDestination);
     bottomBar.appendChild(continueBtn);
 
@@ -427,12 +500,12 @@ const OnboardingOverlay = (() => {
     /* ── Title ── */
     const title = document.createElement('h2');
     title.className = 'ob-login-title';
-    title.textContent = 'تسجيل الدخول';
+    title.textContent = _copy('signInTitle');
     card.appendChild(title);
 
     const subtitle = document.createElement('p');
     subtitle.className = 'ob-login-subtitle';
-    subtitle.textContent = 'أدخل رقم جوالك وسنرسل لك رمز تحقق للدخول';
+    subtitle.textContent = _copy('signInSubtitle');
     card.appendChild(subtitle);
 
     /* ── Phone input ── */
@@ -467,7 +540,7 @@ const OnboardingOverlay = (() => {
     const sendBtn = document.createElement('button');
     sendBtn.className = 'ob-login-submit';
     sendBtn.id = 'ob-login-submit';
-    sendBtn.innerHTML = '<span>إرسال رمز التحقق</span>';
+    sendBtn.innerHTML = '<span>' + _copy('sendOtp') + '</span>';
     sendBtn.addEventListener('click', _handleSendOtp);
     card.appendChild(sendBtn);
 
@@ -482,7 +555,7 @@ const OnboardingOverlay = (() => {
     divider.className = 'ob-login-divider';
     const divLine1 = document.createElement('span');
     const divText = document.createElement('span');
-    divText.textContent = 'أو';
+    divText.textContent = _copy('divider');
     const divLine2 = document.createElement('span');
     divider.appendChild(divLine1);
     divider.appendChild(divText);
@@ -492,7 +565,7 @@ const OnboardingOverlay = (() => {
     /* ── Guest button ── */
     const guestBtn = document.createElement('button');
     guestBtn.className = 'ob-login-guest';
-    guestBtn.innerHTML = _guestSvg() + '<span>الدخول كزائر</span>';
+    guestBtn.innerHTML = _guestSvg() + '<span>' + _copy('guest') + '</span>';
     guestBtn.addEventListener('click', _dismissFinal);
     card.appendChild(guestBtn);
 
@@ -531,14 +604,14 @@ const OnboardingOverlay = (() => {
 
     /* Validate */
     if (!phone || !/^05\d{8}$/.test(phone)) {
-      errorEl.textContent = 'أدخل رقم جوال صحيح يبدأ بـ 05 ومكون من 10 أرقام';
+      errorEl.textContent = _copy('invalidPhone');
       _shakeElement(input.parentElement);
       return;
     }
 
     /* Loading */
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="ob-login-spinner"></span><span>جاري الإرسال...</span>';
+    submitBtn.innerHTML = '<span class="ob-login-spinner"></span><span>' + _copy('sending') + '</span>';
 
     try {
       const res = await ApiClient.request('/api/accounts/otp/send/', {
@@ -566,15 +639,15 @@ const OnboardingOverlay = (() => {
         window.location.href = '/twofa/?next=/';
       } else {
         const msg = (res.data && (res.data.detail || res.data.error || res.data.phone))
-          || 'تعذر إرسال رمز التحقق، حاول مرة أخرى';
+          || _copy('sendFailed');
         errorEl.textContent = typeof msg === 'string' ? msg : String(msg);
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span>إرسال رمز التحقق</span>';
+        submitBtn.innerHTML = '<span>' + _copy('sendOtp') + '</span>';
       }
     } catch (_) {
-      errorEl.textContent = 'حدث خطأ في الاتصال، حاول مرة أخرى';
+      errorEl.textContent = _copy('connectionFailed');
       submitBtn.disabled = false;
-      submitBtn.innerHTML = '<span>إرسال رمز التحقق</span>';
+      submitBtn.innerHTML = '<span>' + _copy('sendOtp') + '</span>';
     }
   }
 
@@ -590,17 +663,28 @@ const OnboardingOverlay = (() => {
         cooldownEl.textContent = '';
         if (submitBtn) {
           submitBtn.disabled = false;
-          submitBtn.innerHTML = '<span>إعادة إرسال رمز التحقق</span>';
+          submitBtn.innerHTML = '<span>' + _copy('resend') + '</span>';
         }
         clearInterval(_otpCooldownTimer);
         return;
       }
       const m = Math.floor(remaining / 60);
       const s = remaining % 60;
-      cooldownEl.textContent = 'يمكنك إعادة الإرسال بعد ' + (m > 0 ? m + ':' : '') + String(s).padStart(2, '0');
+      const time = (m > 0 ? m + ':' : '') + String(s).padStart(2, '0');
+      cooldownEl.textContent = _copy('resendAfter').replace('{time}', time);
     }
     tick();
     _otpCooldownTimer = setInterval(tick, 1000);
+  }
+
+  function _resolveSlideTitle(slide, fallbackKey) {
+    if (!slide) return fallbackKey ? _copy(fallbackKey) : '';
+    return _resolveText(slide.title_ar, slide.title_en, fallbackKey);
+  }
+
+  function _resolveSlideDesc(slide, fallbackKey) {
+    if (!slide) return fallbackKey ? _copy(fallbackKey) : '';
+    return _resolveText(slide.desc_ar, slide.desc_en, fallbackKey);
   }
 
   function _shakeElement(el) {

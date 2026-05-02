@@ -15,6 +15,7 @@ import '../widgets/custom_drawer.dart';
 import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/promo_media_tile.dart';
 import '../widgets/verified_badge_view.dart';
+import 'service_request_form_screen.dart';
 import 'provider_profile_screen.dart';
 
 class SearchProviderScreen extends StatefulWidget {
@@ -405,6 +406,15 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         categoryId: _selectedCatId,
         forceRefresh: forceRefresh,
       );
+      var effectiveResult = result;
+      if (q.isNotEmpty && result.data.isEmpty && !result.hasError) {
+        effectiveResult = await _buildSpecializationFallbackResult(
+          query: q,
+          forceRefresh: forceRefresh,
+          requestLocationPermission: requestLocationPermission,
+          primaryResult: result,
+        );
+      }
       await ProvidersApiService.saveLastSearchFilters(
         query: q,
         categoryId: _selectedCatId,
@@ -412,11 +422,11 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       );
 
       final distanceMap = await _buildDistanceMap(
-        result.data,
+        effectiveResult.data,
         requestPermission:
             _selectedSort == 'nearest' ? requestLocationPermission : false,
       );
-      final sorted = List<ProviderPublicModel>.from(result.data);
+      final sorted = List<ProviderPublicModel>.from(effectiveResult.data);
       _distanceKmByProviderId
         ..clear()
         ..addAll(distanceMap);
@@ -425,15 +435,15 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       if (mounted) {
         setState(() {
           _providers = _applySearchPromoOrdering(sorted);
-          _totalResults = result.totalCount < sorted.length
+          _totalResults = effectiveResult.totalCount < sorted.length
               ? sorted.length
-              : result.totalCount;
-          _hasMore = result.hasMore;
-          _nextPage = result.nextPage;
-          _showOfflineCachedResults = result.isOfflineFallback;
-          _cacheStatusLabel = _cacheStatusFor(result);
-          _loadError = sorted.isEmpty && result.hasError
-              ? result.errorMessage ?? 'فشل تحميل البيانات'
+              : effectiveResult.totalCount;
+          _hasMore = effectiveResult.hasMore;
+          _nextPage = effectiveResult.nextPage;
+          _showOfflineCachedResults = effectiveResult.isOfflineFallback;
+          _cacheStatusLabel = _cacheStatusFor(effectiveResult);
+          _loadError = sorted.isEmpty && effectiveResult.hasError
+              ? effectiveResult.errorMessage ?? 'فشل تحميل البيانات'
               : null;
         });
       }
@@ -451,6 +461,125 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       }
     }
     if (mounted) setState(() => _loadingProviders = false);
+  }
+
+  Future<SearchProvidersPageResult> _buildSpecializationFallbackResult({
+    required String query,
+    required bool forceRefresh,
+    required bool requestLocationPermission,
+    required SearchProvidersPageResult primaryResult,
+  }) async {
+    final fallbackSource = await ProvidersApiService.fetchProvidersPageResult(
+      page: 1,
+      pageSize: 60,
+      query: null,
+      categoryId: _selectedCatId,
+      forceRefresh: forceRefresh,
+    );
+    if (fallbackSource.data.isEmpty) {
+      return primaryResult;
+    }
+
+    final normalizedQuery = _normalizeArabicSearchText(query);
+    if (normalizedQuery.isEmpty) {
+      return primaryResult;
+    }
+
+    final filtered = fallbackSource.data
+        .where((provider) => _providerMatchesFallbackQuery(provider, normalizedQuery))
+        .toList(growable: false);
+    if (filtered.isEmpty) {
+      return primaryResult;
+    }
+
+    return SearchProvidersPageResult(
+      data: filtered,
+      source: '${fallbackSource.source}_specialization_fallback',
+      errorMessage: fallbackSource.errorMessage,
+      statusCode: fallbackSource.statusCode,
+      totalCount: filtered.length,
+      hasMore: false,
+      nextPage: null,
+      cachedAt: fallbackSource.cachedAt,
+    );
+  }
+
+  bool _providerMatchesFallbackQuery(
+    ProviderPublicModel provider,
+    String normalizedQuery,
+  ) {
+    final haystack = _normalizeArabicSearchText(
+      [
+        provider.displayName,
+        provider.bio,
+        provider.aboutDetails,
+        provider.primaryCategoryName,
+        provider.primarySubcategoryName,
+        provider.locationDisplay,
+        ...provider.mainCategories.map(_searchValueFromDynamic),
+        ...provider.selectedSubcategories.map(_searchValueFromDynamic),
+      ].whereType<String>().join(' '),
+    );
+    return haystack.contains(normalizedQuery);
+  }
+
+  String _searchValueFromDynamic(dynamic value) {
+    if (value == null) {
+      return '';
+    }
+    if (value is String) {
+      return value;
+    }
+    if (value is Map) {
+      final map = Map<String, dynamic>.from(value);
+      return (map['name'] ??
+              map['title'] ??
+              map['display_name'] ??
+              map['label'] ??
+              map['category_name'] ??
+              map['subcategory_name'] ??
+              '')
+          .toString();
+    }
+    return value.toString();
+  }
+
+  String _normalizeArabicSearchText(String raw) {
+    var value = raw.trim().toLowerCase();
+    if (value.isEmpty) {
+      return '';
+    }
+    const diacritics = [
+      '\u0640',
+      '\u064b',
+      '\u064c',
+      '\u064d',
+      '\u064e',
+      '\u064f',
+      '\u0650',
+      '\u0651',
+      '\u0652',
+      '\u0670',
+    ];
+    for (final mark in diacritics) {
+      value = value.replaceAll(mark, '');
+    }
+    const replacements = {
+      'أ': 'ا',
+      'إ': 'ا',
+      'آ': 'ا',
+      'ٱ': 'ا',
+      'ى': 'ي',
+      'ئ': 'ي',
+      'ؤ': 'و',
+      'ة': 'ه',
+    };
+    replacements.forEach((from, to) {
+      value = value.replaceAll(from, to);
+    });
+    value = value.replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), ' ');
+    value = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return value;
   }
 
   Future<void> _loadMoreProviders() async {
@@ -2047,38 +2176,64 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     final coverUrl = ApiClient.buildMediaUrl(p.coverImage);
     final distanceKm = _distanceKmByProviderId[p.id];
 
-    return GestureDetector(
-      onTap: () {
-        AnalyticsService.trackFireAndForget(
-          eventName: 'search.result_click',
-          surface: 'flutter.search.results',
-          sourceApp: 'providers',
-          objectType: 'ProviderProfile',
-          objectId: p.id.toString(),
-          payload: {
-            'query': _searchCtrl.text.trim(),
-            'selected_category_id': _selectedCatId,
-            'featured': _featuredProviderIds.contains(p.id),
-          },
-        );
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProviderProfileScreen(
-              providerId: p.id.toString(),
-              providerName: p.displayName,
-              providerImage: profileUrl,
-              providerRating: p.ratingAvg,
-              providerVerifiedBlue: p.isVerifiedBlue,
-              providerVerifiedGreen: p.isVerifiedGreen,
-              providerPhone: p.phone,
-              providerLat: p.lat,
-              providerLng: p.lng,
-              providerOperations: p.completedRequests,
-            ),
+    Future<void> openProviderProfile() async {
+      AnalyticsService.trackFireAndForget(
+        eventName: 'search.result_click',
+        surface: 'flutter.search.results',
+        sourceApp: 'providers',
+        objectType: 'ProviderProfile',
+        objectId: p.id.toString(),
+        payload: {
+          'query': _searchCtrl.text.trim(),
+          'selected_category_id': _selectedCatId,
+          'featured': _featuredProviderIds.contains(p.id),
+        },
+      );
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProviderProfileScreen(
+            providerId: p.id.toString(),
+            providerName: p.displayName,
+            providerImage: profileUrl,
+            providerRating: p.ratingAvg,
+            providerVerifiedBlue: p.isVerifiedBlue,
+            providerVerifiedGreen: p.isVerifiedGreen,
+            providerPhone: p.phone,
+            providerLat: p.lat,
+            providerLng: p.lng,
+            providerOperations: p.completedRequests,
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    Future<void> openDirectRequest() async {
+      AnalyticsService.trackFireAndForget(
+        eventName: 'search.direct_request_click',
+        surface: 'flutter.search.results',
+        sourceApp: 'providers',
+        objectType: 'ProviderProfile',
+        objectId: p.id.toString(),
+        payload: {
+          'query': _searchCtrl.text.trim(),
+          'selected_category_id': _selectedCatId,
+          'featured': _featuredProviderIds.contains(p.id),
+        },
+      );
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ServiceRequestFormScreen(
+            providerId: p.id.toString(),
+            providerName: p.displayName,
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: openProviderProfile,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(10),
@@ -2321,6 +2476,32 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                           isDark: isDark,
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: openDirectRequest,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: purple,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 10.5,
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        icon: const Icon(
+                          Icons.add_circle_outline_rounded,
+                          size: 16,
+                        ),
+                        label: const Text('طلب خدمة'),
+                      ),
                     ),
                   ],
                 ),
