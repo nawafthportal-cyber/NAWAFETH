@@ -3,7 +3,7 @@ import logging
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from rest_framework import generics, permissions, status
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Avg, Count, Exists, F, Max, OuterRef, Prefetch, Q
@@ -17,6 +17,7 @@ from apps.accounts.models import User
 from apps.accounts.models import UserRole
 from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider
 from apps.accounts.role_context import get_active_role
+from .cache import get_cached_public_category_list_payload
 from .eligibility import HasProviderProfile
 from apps.reviews.models import ReviewModerationStatus
 from apps.reviews.services import calculate_provider_rating
@@ -25,6 +26,8 @@ from .models import (
 	Category,
 	ContentShareChannel,
 	ContentShareContentType,
+	ProviderContentComment,
+	ProviderCoverImage,
 	ProviderFollow,
 	ProviderLike,
 	ProviderContentShare,
@@ -32,19 +35,26 @@ from .models import (
 	ProviderPortfolioItem,
 	ProviderPortfolioLike,
 	ProviderPortfolioSave,
+	ProviderPortfolioVisibilityBlock,
 	ProviderProfile,
 	ProviderService,
 	ProviderSpotlightItem,
 	ProviderSpotlightLike,
 	ProviderSpotlightSave,
+	ProviderSpotlightVisibilityBlock,
+	ProviderVisibilityBlock,
 	SaudiRegion,
 	SubCategory,
 	sync_provider_accepts_urgent_flag,
 )
 from .serializers import (
+    BlockedProviderSerializer,
+    BlockedSpotlightSerializer,
 	CategorySerializer,
 	MyProviderSubcategoriesSerializer,
 	ProviderFollowerSerializer,
+	ProviderCoverImageSerializer,
+	ProviderCoverImageUploadSerializer,
 	SaudiRegionSerializer,
 	SubCategoryWithCategorySerializer,
 	ProviderServicePublicDetailSerializer,
@@ -56,12 +66,15 @@ from .serializers import (
 	ProviderProfileSerializer,
 	ProviderProfileMeSerializer,
 	ProviderPublicSerializer,
+	SpotlightCommentCreateSerializer,
+	SpotlightCommentSerializer,
 	ProviderSpotlightItemCreateSerializer,
 	ProviderSpotlightItemSerializer,
 	UserPublicSerializer,
 )
 from .location_formatter import provider_city_query_values
 from .media_thumbnails import ensure_media_thumbnail
+from apps.subscriptions.capabilities import banner_image_limit_for_user, spotlight_quota_for_user
 
 
 def _dedup_follow_rows(rows: list[ProviderFollow]) -> list[ProviderFollow]:
@@ -149,6 +162,41 @@ def _with_rating_annotations(qs):
 	)
 
 
+def _blocked_provider_ids_queryset(user):
+	return ProviderVisibilityBlock.objects.filter(user=user).values("provider_id")
+
+
+def _blocked_spotlight_ids_queryset(user):
+	return ProviderSpotlightVisibilityBlock.objects.filter(user=user).values("spotlight_item_id")
+
+
+def _blocked_portfolio_ids_queryset(user):
+	return ProviderPortfolioVisibilityBlock.objects.filter(user=user).values("portfolio_item_id")
+
+
+def _filter_provider_queryset_for_user(qs, request):
+	user = getattr(request, "user", None)
+	if user and user.is_authenticated:
+		qs = qs.exclude(id__in=_blocked_provider_ids_queryset(user))
+	return qs
+
+
+def _filter_portfolio_queryset_for_user(qs, request):
+	user = getattr(request, "user", None)
+	if user and user.is_authenticated:
+		qs = qs.exclude(provider_id__in=_blocked_provider_ids_queryset(user))
+		qs = qs.exclude(id__in=_blocked_portfolio_ids_queryset(user))
+	return qs
+
+
+def _filter_spotlight_queryset_for_user(qs, request):
+	user = getattr(request, "user", None)
+	if user and user.is_authenticated:
+		qs = qs.exclude(provider_id__in=_blocked_provider_ids_queryset(user))
+		qs = qs.exclude(id__in=_blocked_spotlight_ids_queryset(user))
+	return qs
+
+
 class MyProviderProfileView(generics.RetrieveUpdateAPIView):
 	"""Get/update the current user's provider profile."""
 
@@ -159,7 +207,7 @@ class MyProviderProfileView(generics.RetrieveUpdateAPIView):
 		provider_profile = (
 			_with_rating_annotations(
 				ProviderProfile.objects.select_related("user")
-				.prefetch_related("providercategory_set__subcategory__category")
+				.prefetch_related("providercategory_set__subcategory__category", "cover_gallery")
 				.filter(user=self.request.user)
 			)
 			.first()
@@ -175,6 +223,114 @@ class MyProviderProfileView(generics.RetrieveUpdateAPIView):
 			if _is_storage_error(exc):
 				return _handle_storage_error(exc)
 			raise
+
+
+def _provider_cover_gallery_queryset(provider):
+	return provider.cover_gallery.order_by("sort_order", "id")
+
+
+def _ensure_cover_gallery_seeded(provider):
+	if getattr(provider, "cover_image", None):
+		provider.seed_cover_gallery_from_legacy_cover()
+
+
+def _provider_cover_gallery_payload(provider, *, request):
+	items = list(_provider_cover_gallery_queryset(provider))
+	limit = max(0, int(banner_image_limit_for_user(getattr(request, "user", None)) or 0))
+	count = len(items)
+	serializer = ProviderCoverImageSerializer(items, many=True, context={"request": request})
+	return {
+		"limit": limit,
+		"count": count,
+		"remaining": max(limit - count, 0),
+		"results": serializer.data,
+	}
+
+
+def _reindex_provider_cover_gallery(provider):
+	for index, item in enumerate(_provider_cover_gallery_queryset(provider)):
+		if int(getattr(item, "sort_order", 0) or 0) == index:
+			continue
+		item.sort_order = index
+		item.save(update_fields=["sort_order"])
+
+
+class MyProviderCoverGalleryView(APIView):
+	permission_classes = [IsAtLeastProvider]
+
+	def _provider(self, request):
+		provider = getattr(request.user, "provider_profile", None)
+		if not provider:
+			raise NotFound("provider_profile_not_found")
+		return provider
+
+	def get(self, request):
+		provider = self._provider(request)
+		_ensure_cover_gallery_seeded(provider)
+		return Response(_provider_cover_gallery_payload(provider, request=request), status=status.HTTP_200_OK)
+
+	def post(self, request):
+		provider = self._provider(request)
+		limit = max(0, int(banner_image_limit_for_user(request.user) or 0))
+		if limit <= 0:
+			return Response(
+				{
+					"detail": "رفع خلفيات الملف غير متاح قبل تفعيل الاشتراك المناسب.",
+					"error_code": "cover_gallery_unavailable",
+					"cover_images_limit": limit,
+				},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+
+		serializer = ProviderCoverImageUploadSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		_ensure_cover_gallery_seeded(provider)
+		current_count = _provider_cover_gallery_queryset(provider).count()
+		if current_count >= limit:
+			return Response(
+				{
+					"detail": f"بلغت الحد الأقصى لخلفيات الملف في باقتك الحالية ({limit}).",
+					"error_code": "cover_gallery_limit_exceeded",
+					"cover_images_limit": limit,
+					"current_count": current_count,
+				},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+
+		next_sort = (
+			_provider_cover_gallery_queryset(provider)
+			.aggregate(max_sort=Max("sort_order"))
+			.get("max_sort")
+		)
+		item = ProviderCoverImage.objects.create(
+			provider=provider,
+			image=serializer.validated_data["image"],
+			sort_order=int(next_sort or -1) + 1,
+		)
+		if not getattr(provider, "cover_image", None):
+			provider.cover_image = item.image
+			provider.save(update_fields=["cover_image", "updated_at"])
+		return Response(
+			{
+				"item": ProviderCoverImageSerializer(item, context={"request": request}).data,
+				**_provider_cover_gallery_payload(provider, request=request),
+			},
+			status=status.HTTP_201_CREATED,
+		)
+
+
+class MyProviderCoverImageDetailView(APIView):
+	permission_classes = [IsAtLeastProvider]
+
+	def delete(self, request, pk: int):
+		provider = getattr(request.user, "provider_profile", None)
+		if not provider:
+			raise NotFound("provider_profile_not_found")
+		item = generics.get_object_or_404(ProviderCoverImage, provider=provider, pk=pk)
+		item.delete()
+		_reindex_provider_cover_gallery(provider)
+		provider.sync_cover_image_from_gallery(save=True)
+		return Response(_provider_cover_gallery_payload(provider, request=request), status=status.HTTP_200_OK)
 
 
 class MyProviderSubcategoriesView(APIView):
@@ -197,7 +353,11 @@ class MyProviderSubcategoriesView(APIView):
 		)
 		ids = [row.subcategory_id for row in rows]
 		settings = [
-			{"subcategory_id": row.subcategory_id, "accepts_urgent": bool(row.accepts_urgent)}
+			{
+				"subcategory_id": row.subcategory_id,
+				"accepts_urgent": bool(row.accepts_urgent and getattr(row.subcategory, "allows_urgent_requests", False)),
+				"requires_geo_scope": bool(getattr(row.subcategory, "requires_geo_scope", True)),
+			}
 			for row in rows
 		]
 		return Response({"subcategory_ids": ids, "subcategory_settings": settings}, status=status.HTTP_200_OK)
@@ -221,6 +381,7 @@ class MyProviderSubcategoriesView(APIView):
 							provider=provider,
 							subcategory_id=item["subcategory_id"],
 							accepts_urgent=bool(item.get("accepts_urgent", False)),
+							requires_geo_scope=bool(item.get("requires_geo_scope", True)),
 						)
 						for item in settings
 					]
@@ -316,7 +477,6 @@ class ProviderSubcategoriesPublicListView(generics.ListAPIView):
 		)
 
 
-@method_decorator(cache_page(60 * 60), name="dispatch")  # 1 hour
 class CategoryListView(generics.ListAPIView):
 	queryset = Category.objects.filter(is_active=True).prefetch_related(
 		Prefetch(
@@ -327,6 +487,14 @@ class CategoryListView(generics.ListAPIView):
 	serializer_class = CategorySerializer
 	authentication_classes = []
 	permission_classes = [permissions.AllowAny]
+
+	def list(self, request, *args, **kwargs):
+		def _build_payload():
+			queryset = self.filter_queryset(self.get_queryset())
+			serializer = self.get_serializer(queryset, many=True)
+			return serializer.data
+
+		return Response(get_cached_public_category_list_payload(_build_payload))
 
 
 @method_decorator(cache_page(60 * 60 * 24), name="dispatch")  # 24 hours
@@ -371,7 +539,7 @@ class ProviderListView(generics.ListAPIView):
 		# Public list must include only real active provider accounts.
 		qs = _with_rating_annotations(
 			ProviderProfile.objects.select_related("user")
-			.prefetch_related("providercategory_set__subcategory__category")
+			.prefetch_related("providercategory_set__subcategory__category", "cover_gallery")
 			.filter(
 				user__is_active=True,
 			)
@@ -432,7 +600,7 @@ class ProviderListView(generics.ListAPIView):
 				pass
 		elif urgent_only:
 			qs = qs.filter(accepts_urgent=True)
-		return qs.distinct()
+		return _filter_provider_queryset_for_user(qs.distinct(), self.request)
 
 
 class ProviderDetailView(generics.RetrieveAPIView):
@@ -441,9 +609,9 @@ class ProviderDetailView(generics.RetrieveAPIView):
 
 	def get_queryset(self):
 		from apps.marketplace.models import RequestStatus
-		return _with_rating_annotations(
+		return _filter_provider_queryset_for_user(_with_rating_annotations(
 			ProviderProfile.objects.select_related("user")
-			.prefetch_related("providercategory_set__subcategory__category")
+			.prefetch_related("providercategory_set__subcategory__category", "cover_gallery")
 			.filter(
 				user__is_active=True,
 			)
@@ -458,7 +626,7 @@ class ProviderDetailView(generics.RetrieveAPIView):
 					distinct=True,
 				),
 			)
-		)
+		), self.request)
 
 
 class MyFollowingProvidersView(generics.ListAPIView):
@@ -470,8 +638,9 @@ class MyFollowingProvidersView(generics.ListAPIView):
 		followed_provider_ids = ProviderFollow.objects.filter(
 			user=self.request.user,
 		).values("provider_id").distinct()
-		return _with_rating_annotations(
+		return _filter_provider_queryset_for_user(_with_rating_annotations(
 			ProviderProfile.objects.filter(id__in=followed_provider_ids)
+			.prefetch_related("cover_gallery")
 			.annotate(
 				# Keep parity with provider stats: count unique users, not role rows.
 				followers_count=Count("followers__user", distinct=True),
@@ -484,7 +653,7 @@ class MyFollowingProvidersView(generics.ListAPIView):
 			)
 			.distinct()
 			.order_by("-activity_at", "-id")
-		)
+		), self.request)
 
 
 class ProviderPortfolioListView(generics.ListAPIView):
@@ -499,7 +668,9 @@ class ProviderPortfolioListView(generics.ListAPIView):
 			ProviderPortfolioItem.objects.filter(provider_id=provider_id)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
+			.annotate(comments_count=Count("comments", filter=Q(comments__is_approved=True), distinct=True))
 		)
+		qs = _filter_portfolio_queryset_for_user(qs, self.request)
 		user = self.request.user
 		if user.is_authenticated:
 			role = get_active_role(self.request)
@@ -580,6 +751,18 @@ class MyProviderPortfolioDetailView(generics.RetrieveUpdateDestroyAPIView):
 			.order_by("-created_at", "-id")
 		)
 
+	def perform_update(self, serializer):
+		item = serializer.save()
+		ensure_media_thumbnail(item, force=True)
+
+	def update(self, request, *args, **kwargs):
+		try:
+			return super().update(request, *args, **kwargs)
+		except Exception as exc:
+			if _is_storage_error(exc):
+				return _handle_storage_error(exc)
+			raise
+
 
 class ProviderSpotlightListView(generics.ListAPIView):
 	"""Public spotlight items for a provider (separate from portfolio)."""
@@ -594,7 +777,9 @@ class ProviderSpotlightListView(generics.ListAPIView):
 			.select_related("provider", "provider__user")
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
+			.annotate(comments_count=Count("comments", filter=Q(comments__is_approved=True), distinct=True))
 		)
+		qs = _filter_spotlight_queryset_for_user(qs, self.request)
 		user = self.request.user
 		if user.is_authenticated:
 			role = get_active_role(self.request)
@@ -618,7 +803,7 @@ class ProviderSpotlightListView(generics.ListAPIView):
 
 
 class ProviderSpotlightFeedView(generics.ListAPIView):
-	"""Public home spotlight feed: active paid items plus items added today."""
+	"""Public home spotlight feed: active paid items plus items added today, else latest fallback."""
 
 	serializer_class = ProviderSpotlightItemSerializer
 	permission_classes = [permissions.AllowAny]
@@ -626,38 +811,110 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 	def get_queryset(self):
 		from django.utils import timezone
 		from apps.promo.models import PromoAdType, PromoRequestItem, PromoRequestStatus, PromoServiceType
+		randomize = (self.request.query_params.get("random") or "").strip().lower() in {"1", "true", "yes"}
+		fallback_applied = False
 
-		qs = (
+		base_qs = _filter_spotlight_queryset_for_user((
 			ProviderSpotlightItem.objects.select_related("provider", "provider__user")
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
-		)
+			.annotate(comments_count=Count("comments", filter=Q(comments__is_approved=True), distinct=True))
+		), self.request)
+		qs = base_qs.filter(provider__user__is_active=True) if randomize else base_qs
 
-		now = timezone.now()
-		active_snapshot_promos = PromoRequestItem.objects.filter(
-			request__status=PromoRequestStatus.ACTIVE,
-			request__ad_type=PromoAdType.BUNDLE,
-			service_type=PromoServiceType.SNAPSHOTS,
-			start_at__lte=now,
-			end_at__gte=now,
-		).filter(
-			Q(target_spotlight_item_id=OuterRef("pk"))
-			| (
-				Q(target_spotlight_item__isnull=True)
-				& (
-					Q(target_provider_id=OuterRef("provider_id"))
-					| Q(
-						target_provider__isnull=True,
-						request__requester__provider_profile__id=OuterRef("provider_id"),
+		def annotate_user_state(queryset):
+			user = self.request.user
+			if not user.is_authenticated:
+				return queryset
+			role = get_active_role(self.request)
+			return queryset.annotate(
+				_is_liked=Exists(
+					ProviderSpotlightLike.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+				_is_saved=Exists(
+					ProviderSpotlightSave.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+			)
+
+		if not randomize:
+			now = timezone.now()
+			active_snapshot_promos = PromoRequestItem.objects.filter(
+				request__status=PromoRequestStatus.ACTIVE,
+				request__ad_type=PromoAdType.BUNDLE,
+				service_type=PromoServiceType.SNAPSHOTS,
+				start_at__lte=now,
+				end_at__gte=now,
+			).filter(
+				Q(target_spotlight_item_id=OuterRef("pk"))
+				| (
+					Q(target_spotlight_item__isnull=True)
+					& (
+						Q(target_provider_id=OuterRef("provider_id"))
+						| Q(
+							target_provider__isnull=True,
+							request__requester__provider_profile__id=OuterRef("provider_id"),
+						)
 					)
 				)
 			)
-		)
-		qs = qs.annotate(_promo_snapshot=Exists(active_snapshot_promos))
-		today = timezone.localdate(now)
-		qs = qs.filter(Q(_promo_snapshot=True) | Q(created_at__date=today))
+			qs = qs.annotate(_promo_snapshot=Exists(active_snapshot_promos))
+			today = timezone.localdate(now)
+			qs = qs.filter(Q(_promo_snapshot=True) | Q(created_at__date=today))
 
-		# Annotate is_liked / is_saved for authenticated users
+		qs = annotate_user_state(qs)
+
+		exclude_ids_raw = (self.request.query_params.get("exclude_ids") or "").strip()
+		if exclude_ids_raw:
+			exclude_ids = [int(value) for value in exclude_ids_raw.split(",") if value.strip().isdigit()]
+			if exclude_ids:
+				qs = qs.exclude(id__in=exclude_ids)
+
+		if randomize:
+			qs = qs.order_by("?")
+		else:
+			qs = qs.order_by("-_promo_snapshot", "-created_at", "-id")
+			if not qs.exists():
+				fallback_applied = True
+				qs = annotate_user_state(
+					base_qs
+					.filter(provider__user__is_active=True)
+					.order_by("-created_at", "-id")
+				)
+
+		limit_raw = (self.request.query_params.get("limit") or "").strip()
+		if limit_raw.isdigit():
+			limit = max(1, min(int(limit_raw), 100))
+			if fallback_applied:
+				limit = 1
+			return qs[:limit]
+		if fallback_applied:
+			return qs[:1]
+		return qs
+
+
+class PublicSpotlightDetailView(generics.RetrieveAPIView):
+	"""Public detail endpoint for a single spotlight item used by share links."""
+
+	serializer_class = ProviderSpotlightItemSerializer
+	permission_classes = [permissions.AllowAny]
+	lookup_url_kwarg = "item_id"
+
+	def get_queryset(self):
+		qs = _filter_spotlight_queryset_for_user((
+			ProviderSpotlightItem.objects.select_related("provider", "provider__user")
+			.filter(provider__user__is_active=True)
+			.annotate(likes_count=Count("likes", distinct=True))
+			.annotate(saves_count=Count("saves", distinct=True))
+			.annotate(comments_count=Count("comments", filter=Q(comments__is_approved=True), distinct=True))
+		), self.request)
 		user = self.request.user
 		if user.is_authenticated:
 			role = get_active_role(self.request)
@@ -677,14 +934,44 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 					)
 				),
 			)
+		return qs.order_by("-created_at", "-id")
 
-		qs = qs.order_by("-_promo_snapshot", "-created_at", "-id")
 
-		limit_raw = (self.request.query_params.get("limit") or "").strip()
-		if limit_raw.isdigit():
-			limit = max(1, min(int(limit_raw), 100))
-			return qs[:limit]
-		return qs
+class PublicPortfolioDetailView(generics.RetrieveAPIView):
+	"""Public detail endpoint for a single portfolio item used by share links."""
+
+	serializer_class = ProviderPortfolioItemSerializer
+	permission_classes = [permissions.AllowAny]
+	lookup_url_kwarg = "item_id"
+
+	def get_queryset(self):
+		qs = _filter_portfolio_queryset_for_user((
+			ProviderPortfolioItem.objects.select_related("provider", "provider__user")
+			.filter(provider__user__is_active=True)
+			.annotate(likes_count=Count("likes", distinct=True))
+			.annotate(saves_count=Count("saves", distinct=True))
+			.annotate(comments_count=Count("comments", filter=Q(comments__is_approved=True), distinct=True))
+		), self.request)
+		user = self.request.user
+		if user.is_authenticated:
+			role = get_active_role(self.request)
+			qs = qs.annotate(
+				_is_liked=Exists(
+					ProviderPortfolioLike.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+				_is_saved=Exists(
+					ProviderPortfolioSave.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+			)
+		return qs.order_by("-created_at", "-id")
 
 
 class ProviderPortfolioFeedView(generics.ListAPIView):
@@ -697,12 +984,13 @@ class ProviderPortfolioFeedView(generics.ListAPIView):
 		from django.utils import timezone
 		from apps.promo.models import PromoAdType, PromoRequestItem, PromoRequestStatus, PromoServiceType
 
-		qs = (
+		qs = _filter_portfolio_queryset_for_user((
 			ProviderPortfolioItem.objects.select_related("provider", "provider__user")
 			.filter(provider__user__is_active=True)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
-		)
+			.annotate(comments_count=Count("comments", filter=Q(comments__is_approved=True), distinct=True))
+		), self.request)
 
 		now = timezone.now()
 		active_portfolio_promos = PromoRequestItem.objects.filter(
@@ -785,6 +1073,29 @@ class MyProviderSpotlightListCreateView(generics.ListCreateAPIView):
 		pp = getattr(self.request.user, "provider_profile", None)
 		if not pp:
 			raise NotFound("provider_profile_not_found")
+		from apps.subscriptions.services import get_effective_active_subscription
+
+		active_subscription = get_effective_active_subscription(self.request.user)
+		plan = getattr(active_subscription, "plan", None)
+		plan_name = str(getattr(plan, "title", "") or "باقتك الحالية").strip() or "باقتك الحالية"
+		spotlight_quota = max(0, int(spotlight_quota_for_user(self.request.user) or 0))
+		current_spotlights = ProviderSpotlightItem.objects.filter(provider=pp).count()
+		if spotlight_quota <= 0:
+			raise ValidationError({
+				"detail": f"رفع اللمحات غير متاح ضمن {plan_name}. فعّل أو رقِّ الباقة للاستمرار.",
+				"error_code": "spotlight_quota_unavailable",
+				"plan_name": plan_name,
+				"spotlight_quota": spotlight_quota,
+				"current_count": current_spotlights,
+			})
+		if current_spotlights >= spotlight_quota:
+			raise ValidationError({
+				"detail": f"وصلت إلى الحد الأقصى لعدد اللمحات في {plan_name}. احذف لمحة حاليّة أو رقِّ الباقة لإضافة المزيد.",
+				"error_code": "spotlight_quota_exceeded",
+				"plan_name": plan_name,
+				"spotlight_quota": spotlight_quota,
+				"current_count": current_spotlights,
+			})
 		item = serializer.save(provider=pp)
 		ensure_media_thumbnail(item)
 
@@ -846,11 +1157,27 @@ class MySavedPortfolioItemsView(generics.ListAPIView):
 		role = get_active_role(self.request)
 		return (
 			ProviderPortfolioItem.objects.filter(
-				Q(saves__user=self.request.user, saves__role_context=role)
-				| Q(likes__user=self.request.user, likes__role_context=role)
+				saves__user=self.request.user,
+				saves__role_context=role,
 			)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
+			.annotate(
+				_is_liked=Exists(
+					ProviderPortfolioLike.objects.filter(
+						user=self.request.user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+				_is_saved=Exists(
+					ProviderPortfolioSave.objects.filter(
+						user=self.request.user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+			)
 			.select_related("provider", "provider__user")
 			.distinct()
 			.order_by("-created_at", "-id")
@@ -888,11 +1215,27 @@ class MySavedSpotlightItemsView(generics.ListAPIView):
 		role = get_active_role(self.request)
 		return (
 			ProviderSpotlightItem.objects.filter(
-				Q(saves__user=self.request.user, saves__role_context=role)
-				| Q(likes__user=self.request.user, likes__role_context=role)
+				saves__user=self.request.user,
+				saves__role_context=role,
 			)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
+			.annotate(
+				_is_liked=Exists(
+					ProviderSpotlightLike.objects.filter(
+						user=self.request.user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+				_is_saved=Exists(
+					ProviderSpotlightSave.objects.filter(
+						user=self.request.user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+			)
 			.select_related("provider", "provider__user")
 			.distinct()
 			.order_by("-created_at", "-id")
@@ -988,7 +1331,7 @@ class MyLikedProvidersView(generics.ListAPIView):
 			role_context=role,
 		)
 		return _with_rating_annotations(
-			ProviderProfile.objects.annotate(_is_liked=Exists(liked_by_me))
+			ProviderProfile.objects.prefetch_related("cover_gallery").annotate(_is_liked=Exists(liked_by_me))
 			.filter(_is_liked=True)
 			.annotate(
 				followers_count=Count("followers__user", distinct=True),
@@ -1082,6 +1425,7 @@ class ProviderFollowingView(generics.ListAPIView):
 			).values("provider_id").distinct()
 			return _with_rating_annotations(
 				ProviderProfile.objects.filter(id__in=followed_provider_ids)
+				.prefetch_related("cover_gallery")
 				.annotate(
 					followers_count=Count("followers__user", distinct=True),
 					likes_count=Count("likes__user", distinct=True),
@@ -1097,7 +1441,7 @@ class ProviderFollowingView(generics.ListAPIView):
 				role_context=role,
 			)
 		return _with_rating_annotations(
-			ProviderProfile.objects.annotate(_is_followed=Exists(follow_filter))
+			ProviderProfile.objects.prefetch_related("cover_gallery").annotate(_is_followed=Exists(follow_filter))
 			.filter(_is_followed=True)
 			.annotate(
 				followers_count=Count("followers__user", distinct=True),
@@ -1114,8 +1458,11 @@ class ProviderPublicStatsView(APIView):
 
 	def get(self, request, provider_id: int):
 		from django.core.cache import cache as _cache
+		from apps.marketplace.client_relationships import provider_service_request_client_ids
+		if request.user.is_authenticated and ProviderVisibilityBlock.objects.filter(user=request.user, provider_id=provider_id).exists():
+			raise NotFound("provider_not_found")
 
-		cache_key = f"provider:{provider_id}:public_stats:shared"
+		cache_key = f"provider:{provider_id}:public_stats:shared:v2"
 		cached = _cache.get(cache_key)
 		if cached is not None:
 			return Response(cached, status=status.HTTP_200_OK)
@@ -1135,6 +1482,7 @@ class ProviderPublicStatsView(APIView):
 			provider_id=provider_id,
 			status=RequestStatus.COMPLETED,
 		).count()
+		total_clients = len(provider_service_request_client_ids(provider))
 		followers_count = (
 			ProviderFollow.objects.filter(provider_id=provider_id)
 			.values("user_id")
@@ -1173,6 +1521,7 @@ class ProviderPublicStatsView(APIView):
 
 		payload = {
 			"provider_id": provider_id,
+			"total_clients": total_clients,
 			"completed_requests": completed_requests,
 			"followers_count": followers_count,
 			"following_count": following_count,
@@ -1192,6 +1541,380 @@ class ProviderPublicStatsView(APIView):
 		return Response(payload, status=status.HTTP_200_OK)
 
 
+class ReportSpotlightItemView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int):
+		item = generics.get_object_or_404(
+			ProviderSpotlightItem.objects.select_related("provider", "provider__user"),
+			id=item_id,
+			provider__user__is_active=True,
+		)
+		if request.user.id == item.provider.user_id:
+			return Response({"detail": "لا يمكنك الإبلاغ عن لمحتك الخاصة."}, status=status.HTTP_400_BAD_REQUEST)
+
+		from apps.moderation.services import assign_case, create_case
+
+		reason = str(request.data.get("reason") or "").strip()[:120] or "إبلاغ عن لمحة"
+		details = str(request.data.get("details") or "").strip()[:500]
+		case = create_case(
+			reporter=request.user,
+			payload={
+				"reported_user": item.provider.user,
+				"source_app": "providers",
+				"source_model": "ProviderSpotlightItem",
+				"source_object_id": str(item.id),
+				"source_label": f"لمحة {item.provider.display_name}",
+				"category": "spotlight",
+				"reason": reason,
+				"details": details,
+				"summary": f"بلاغ على لمحة {item.provider.display_name}",
+				"severity": "normal",
+				"snapshot": {
+					"provider_id": item.provider_id,
+					"provider_name": item.provider.display_name,
+					"caption": item.caption,
+					"file_type": item.file_type,
+					"file_url": getattr(getattr(item, "file", None), "url", "") or "",
+					"thumbnail_url": getattr(item.thumbnail, "url", "") if getattr(item, "thumbnail", None) else "",
+				},
+				"meta": {
+					"surface": str(request.data.get("surface") or "mobile_web.spotlight_viewer"),
+					"provider_id": item.provider_id,
+					"spotlight_id": item.id,
+				},
+			},
+			request=request,
+		)
+		assign_case(
+			case=case,
+			assigned_team_code="content",
+			assigned_team_name="المحتوى والمراجعات",
+			note="بلاغ وارد من عارض اللمحات",
+			by_user=request.user,
+			request=request,
+		)
+		return Response({"ok": True, "case_id": case.id, "case_code": case.code}, status=status.HTTP_201_CREATED)
+
+
+class ReportPortfolioItemView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int):
+		item = generics.get_object_or_404(
+			ProviderPortfolioItem.objects.select_related("provider", "provider__user"),
+			id=item_id,
+			provider__user__is_active=True,
+		)
+		if request.user.id == item.provider.user_id:
+			return Response({"detail": "لا يمكنك الإبلاغ عن محتواك الخاص."}, status=status.HTTP_400_BAD_REQUEST)
+
+		from apps.moderation.services import assign_case, create_case
+
+		reason = str(request.data.get("reason") or "").strip()[:120] or "إبلاغ عن محتوى خدمات ومشاريع"
+		details = str(request.data.get("details") or "").strip()[:500]
+		case = create_case(
+			reporter=request.user,
+			payload={
+				"reported_user": item.provider.user,
+				"source_app": "providers",
+				"source_model": "ProviderPortfolioItem",
+				"source_object_id": str(item.id),
+				"source_label": f"محتوى خدمات ومشاريع {item.provider.display_name}",
+				"category": "portfolio",
+				"reason": reason,
+				"details": details,
+				"summary": f"بلاغ على محتوى خدمات ومشاريع {item.provider.display_name}",
+				"severity": "normal",
+				"snapshot": {
+					"provider_id": item.provider_id,
+					"provider_name": item.provider.display_name,
+					"caption": item.caption,
+					"file_type": item.file_type,
+					"file_url": getattr(getattr(item, "file", None), "url", "") or "",
+					"thumbnail_url": getattr(item.thumbnail, "url", "") if getattr(item, "thumbnail", None) else "",
+				},
+				"meta": {
+					"surface": str(request.data.get("surface") or "mobile_web.portfolio_viewer"),
+					"provider_id": item.provider_id,
+					"portfolio_item_id": item.id,
+				},
+			},
+			request=request,
+		)
+		assign_case(
+			case=case,
+			assigned_team_code="content",
+			assigned_team_name="المحتوى والمراجعات",
+			note="بلاغ وارد من عارض خدمات ومشاريع",
+			by_user=request.user,
+			request=request,
+		)
+		return Response({"ok": True, "case_id": case.id, "case_code": case.code}, status=status.HTTP_201_CREATED)
+
+
+class SpotlightCommentsView(APIView):
+	permission_classes = [permissions.AllowAny]
+
+	def _item_queryset(self, request):
+		return _filter_spotlight_queryset_for_user(
+			ProviderSpotlightItem.objects.select_related("provider", "provider__user").filter(provider__user__is_active=True),
+			request,
+		)
+
+	def _get_item(self, request, item_id: int):
+		return generics.get_object_or_404(self._item_queryset(request), id=item_id)
+
+	def get(self, request, item_id: int):
+		item = self._get_item(request, item_id)
+		limit_raw = str(request.query_params.get("limit") or "").strip()
+		limit = max(1, min(int(limit_raw), 100)) if limit_raw.isdigit() else 25
+		replies_prefetch = Prefetch(
+			"replies",
+			queryset=ProviderContentComment.objects.filter(is_approved=True)
+			.select_related("user", "user__provider_profile")
+			.order_by("created_at", "id"),
+			to_attr="prefetched_replies",
+		)
+		comments_qs = (
+			ProviderContentComment.objects.filter(spotlight_item=item, is_approved=True, parent__isnull=True)
+			.select_related("user", "user__provider_profile")
+			.prefetch_related(replies_prefetch)
+			.order_by("-created_at", "-id")
+		)
+		rows = list(comments_qs[:limit])
+		serializer = SpotlightCommentSerializer(rows, many=True, context={"request": request})
+		return Response(
+			{
+				"count": ProviderContentComment.objects.filter(spotlight_item=item, is_approved=True).count(),
+				"results": serializer.data,
+			},
+			status=status.HTTP_200_OK,
+		)
+
+	def post(self, request, item_id: int):
+		if not request.user.is_authenticated:
+			return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
+		if not IsAtLeastPhoneOnly().has_permission(request, self):
+			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+		item = self._get_item(request, item_id)
+		serializer = SpotlightCommentCreateSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		parent = serializer.validated_data.get("parent")
+		if parent and int(getattr(parent, "spotlight_item_id", 0) or 0) != int(item.id):
+			return Response({"parent": ["التعليق الأصلي لا يتبع هذه اللمحة"]}, status=status.HTTP_400_BAD_REQUEST)
+		comment = ProviderContentComment.objects.create(
+			provider=item.provider,
+			user=request.user,
+			spotlight_item=item,
+			parent=parent,
+			body=serializer.validated_data["body"],
+			is_approved=True,
+		)
+		return Response(
+			SpotlightCommentSerializer(comment, context={"request": request}).data,
+			status=status.HTTP_201_CREATED,
+		)
+
+
+class PortfolioCommentsView(APIView):
+	permission_classes = [permissions.AllowAny]
+
+	def _item_queryset(self, request):
+		return _filter_portfolio_queryset_for_user(
+			ProviderPortfolioItem.objects.select_related("provider", "provider__user").filter(provider__user__is_active=True),
+			request,
+		)
+
+	def _get_item(self, request, item_id: int):
+		return generics.get_object_or_404(self._item_queryset(request), id=item_id)
+
+	def get(self, request, item_id: int):
+		item = self._get_item(request, item_id)
+		limit_raw = str(request.query_params.get("limit") or "").strip()
+		limit = max(1, min(int(limit_raw), 100)) if limit_raw.isdigit() else 25
+		replies_prefetch = Prefetch(
+			"replies",
+			queryset=ProviderContentComment.objects.filter(is_approved=True)
+			.select_related("user", "user__provider_profile")
+			.order_by("created_at", "id"),
+			to_attr="prefetched_replies",
+		)
+		comments_qs = (
+			ProviderContentComment.objects.filter(portfolio_item=item, is_approved=True, parent__isnull=True)
+			.select_related("user", "user__provider_profile")
+			.prefetch_related(replies_prefetch)
+			.order_by("-created_at", "-id")
+		)
+		rows = list(comments_qs[:limit])
+		serializer = SpotlightCommentSerializer(rows, many=True, context={"request": request})
+		return Response(
+			{
+				"count": ProviderContentComment.objects.filter(portfolio_item=item, is_approved=True).count(),
+				"results": serializer.data,
+			},
+			status=status.HTTP_200_OK,
+		)
+
+	def post(self, request, item_id: int):
+		if not request.user.is_authenticated:
+			return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
+		if not IsAtLeastPhoneOnly().has_permission(request, self):
+			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+		item = self._get_item(request, item_id)
+		serializer = SpotlightCommentCreateSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		parent = serializer.validated_data.get("parent")
+		if parent and int(getattr(parent, "portfolio_item_id", 0) or 0) != int(item.id):
+			return Response({"parent": ["التعليق الأصلي لا يتبع هذا المحتوى"]}, status=status.HTTP_400_BAD_REQUEST)
+		comment = ProviderContentComment.objects.create(
+			provider=item.provider,
+			user=request.user,
+			portfolio_item=item,
+			parent=parent,
+			body=serializer.validated_data["body"],
+			is_approved=True,
+		)
+		return Response(
+			SpotlightCommentSerializer(comment, context={"request": request}).data,
+			status=status.HTTP_201_CREATED,
+		)
+
+
+class SpotlightCommentDetailView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def delete(self, request, item_id: int, comment_id: int):
+		item = generics.get_object_or_404(
+			_filter_spotlight_queryset_for_user(
+				ProviderSpotlightItem.objects.select_related("provider", "provider__user").filter(provider__user__is_active=True),
+				request,
+			),
+			id=item_id,
+		)
+		comment = generics.get_object_or_404(
+			ProviderContentComment.objects.filter(spotlight_item=item).select_related("user"),
+			id=comment_id,
+		)
+		if request.user.id != comment.user_id:
+			return Response({"detail": "يمكنك حذف تعليقك فقط"}, status=status.HTTP_403_FORBIDDEN)
+		deleted_id = comment.id
+		comment.delete()
+		return Response({"ok": True, "deleted": True, "comment_id": deleted_id}, status=status.HTTP_200_OK)
+
+
+class PortfolioCommentDetailView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def delete(self, request, item_id: int, comment_id: int):
+		item = generics.get_object_or_404(
+			_filter_portfolio_queryset_for_user(
+				ProviderPortfolioItem.objects.select_related("provider", "provider__user").filter(provider__user__is_active=True),
+				request,
+			),
+			id=item_id,
+		)
+		comment = generics.get_object_or_404(
+			ProviderContentComment.objects.filter(portfolio_item=item).select_related("user"),
+			id=comment_id,
+		)
+		if request.user.id != comment.user_id:
+			return Response({"detail": "يمكنك حذف تعليقك فقط"}, status=status.HTTP_403_FORBIDDEN)
+		deleted_id = comment.id
+		comment.delete()
+		return Response({"ok": True, "deleted": True, "comment_id": deleted_id}, status=status.HTTP_200_OK)
+
+
+class MyVisibilityBlocksView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def get(self, request):
+		provider_blocks = ProviderVisibilityBlock.objects.filter(user=request.user).select_related("provider", "provider__user").order_by("-created_at")
+		spotlight_blocks = ProviderSpotlightVisibilityBlock.objects.filter(user=request.user).select_related(
+			"spotlight_item",
+			"spotlight_item__provider",
+			"spotlight_item__provider__user",
+		).order_by("-created_at")
+		return Response(
+			{
+				"blocked_providers": BlockedProviderSerializer(provider_blocks, many=True, context={"request": request}).data,
+				"blocked_spotlights": BlockedSpotlightSerializer(spotlight_blocks, many=True, context={"request": request}).data,
+			},
+			status=status.HTTP_200_OK,
+		)
+
+
+class BlockSpotlightItemView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int):
+		item = generics.get_object_or_404(
+			ProviderSpotlightItem.objects.select_related("provider", "provider__user"),
+			id=item_id,
+			provider__user__is_active=True,
+		)
+		block, created = ProviderSpotlightVisibilityBlock.objects.get_or_create(
+			user=request.user,
+			spotlight_item=item,
+		)
+		return Response({"ok": True, "blocked": True, "created": created, "spotlight_id": block.spotlight_item_id}, status=status.HTTP_200_OK)
+
+	def delete(self, request, item_id: int):
+		deleted_count, _ = ProviderSpotlightVisibilityBlock.objects.filter(
+			user=request.user,
+			spotlight_item_id=item_id,
+		).delete()
+		return Response({"ok": True, "blocked": False, "deleted": bool(deleted_count), "spotlight_id": item_id}, status=status.HTTP_200_OK)
+
+
+class BlockPortfolioItemView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int):
+		item = generics.get_object_or_404(
+			ProviderPortfolioItem.objects.select_related("provider", "provider__user"),
+			id=item_id,
+			provider__user__is_active=True,
+		)
+		block, created = ProviderPortfolioVisibilityBlock.objects.get_or_create(
+			user=request.user,
+			portfolio_item=item,
+		)
+		return Response({"ok": True, "blocked": True, "created": created, "portfolio_item_id": block.portfolio_item_id}, status=status.HTTP_200_OK)
+
+	def delete(self, request, item_id: int):
+		deleted_count, _ = ProviderPortfolioVisibilityBlock.objects.filter(
+			user=request.user,
+			portfolio_item_id=item_id,
+		).delete()
+		return Response({"ok": True, "blocked": False, "deleted": bool(deleted_count), "portfolio_item_id": item_id}, status=status.HTTP_200_OK)
+
+
+class BlockProviderView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, provider_id: int):
+		provider = generics.get_object_or_404(
+			ProviderProfile.objects.select_related("user"),
+			id=provider_id,
+			user__is_active=True,
+		)
+		if request.user.id == provider.user_id:
+			return Response({"detail": "لا يمكنك حظر حسابك الخاص."}, status=status.HTTP_400_BAD_REQUEST)
+		block, created = ProviderVisibilityBlock.objects.get_or_create(
+			user=request.user,
+			provider=provider,
+		)
+		return Response({"ok": True, "blocked": True, "created": created, "provider_id": block.provider_id}, status=status.HTTP_200_OK)
+
+	def delete(self, request, provider_id: int):
+		deleted_count, _ = ProviderVisibilityBlock.objects.filter(
+			user=request.user,
+			provider_id=provider_id,
+		).delete()
+		return Response({"ok": True, "blocked": False, "deleted": bool(deleted_count), "provider_id": provider_id}, status=status.HTTP_200_OK)
+
+
 def _invalidate_provider_counters(provider_id: int) -> None:
 	"""Delete cached follower/like counts so they are recalculated on next read."""
 	from django.core.cache import cache as _cache
@@ -1201,6 +1924,7 @@ def _invalidate_provider_counters(provider_id: int) -> None:
 		f"provider:{provider_id}:public_stats:client",
 		f"provider:{provider_id}:public_stats:provider",
 		f"provider:{provider_id}:public_stats:shared",
+		f"provider:{provider_id}:public_stats:shared:v2",
 	])
 
 

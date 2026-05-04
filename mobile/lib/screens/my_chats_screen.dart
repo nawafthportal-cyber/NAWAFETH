@@ -1484,6 +1484,22 @@ class _MyChatsScreenState extends State<MyChatsScreen>
                         ),
                       ),
                     ),
+                  if (kind == _ThreadKind.provider)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: Container(
+                        width: 13,
+                        height: 13,
+                        decoration: BoxDecoration(
+                          color: thread.peerIsOnline
+                              ? const Color(0xFF22C55E)
+                              : const Color(0xFF9CA3AF),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(width: 12),

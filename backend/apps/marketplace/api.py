@@ -20,7 +20,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.providers.models import ProviderCategory, ProviderProfile
-from apps.providers.location_formatter import city_matches_scope, provider_city_query_values
 from apps.notifications.models import EventType
 from apps.notifications.services import create_notification
 from apps.subscriptions.capabilities import (
@@ -69,6 +68,7 @@ from .services.dispatch import (
 	ensure_dispatch_windows_for_urgent_request,
 	provider_can_access_urgent_request,
 	provider_dispatch_tier,
+	provider_matches_request_scope,
 )
 
 from .views import (
@@ -127,15 +127,6 @@ def _infer_attachment_type(uploaded_file) -> str:
 	if content_type.startswith("audio/") or name.endswith((".mp3", ".wav", ".aac", ".ogg", ".m4a")):
 		return "audio"
 	return "document"
-
-
-def _request_subcategory_ids(service_request: ServiceRequest) -> list[int]:
-	try:
-		return service_request.selected_subcategory_ids()
-	except Exception:
-		if getattr(service_request, "subcategory_id", None):
-			return [service_request.subcategory_id]
-		return []
 
 
 def _provider_can_access_competitive_request(provider: ProviderProfile, service_request: ServiceRequest, *, now=None) -> bool:
@@ -446,21 +437,9 @@ class UrgentRequestAcceptView(APIView):
 					{"detail": "الطلبات العاجلة تتطلب اشتراكًا فعالًا في إحدى الباقات."},
 					status=status.HTTP_403_FORBIDDEN,
 				)
-			if not city_matches_scope(
-				getattr(service_request, "city", "") or "",
-				provider_city=getattr(provider, "city", "") or "",
-				provider_region=getattr(provider, "region", "") or "",
-			):
+			if not provider_matches_request_scope(provider, service_request):
 				return Response(
-					{"detail": "هذا الطلب خارج نطاق مدينتك"},
-					status=status.HTTP_403_FORBIDDEN,
-				)
-			if not ProviderCategory.objects.filter(
-				provider=provider,
-				subcategory_id__in=_request_subcategory_ids(service_request),
-			).exists():
-				return Response(
-					{"detail": "هذا الطلب لا يطابق تخصصاتك"},
+					{"detail": "هذا الطلب لا يطابق تخصصاتك أو نطاق خدمتك"},
 					status=status.HTTP_403_FORBIDDEN,
 				)
 			now = timezone.now()
@@ -516,11 +495,6 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 			flat=True,
 		)
 
-		provider_city_values = provider_city_query_values(
-			getattr(provider, "city", "") or "",
-			provider_region=getattr(provider, "region", "") or "",
-		)
-
 		qs = (
 			ServiceRequest.objects.select_related("client", "subcategory", "subcategory__category")
 			.filter(
@@ -533,7 +507,6 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 				Q(subcategory_id__in=provider_subcats)
 				| Q(subcategories__id__in=provider_subcats)
 			)
-			.filter(Q(city__in=provider_city_values) | Q(city=""))
 			.order_by("-created_at")
 			.distinct()
 		)
@@ -576,11 +549,6 @@ class AvailableCompetitiveRequestsView(generics.ListAPIView):
 
 		delay = competitive_request_delay_for_user(provider.user)
 
-		provider_city_values = provider_city_query_values(
-			getattr(provider, "city", "") or "",
-			provider_region=getattr(provider, "region", "") or "",
-		)
-
 		qs = (
 			ServiceRequest.objects.select_related("client", "subcategory", "subcategory__category")
 			.filter(
@@ -593,13 +561,17 @@ class AvailableCompetitiveRequestsView(generics.ListAPIView):
 				Q(subcategory_id__in=provider_subcats)
 				| Q(subcategories__id__in=provider_subcats)
 			)
-			.filter(Q(city__in=provider_city_values) | Q(city=""))
 			.order_by("-created_at")
 			.distinct()
 		)
 		if delay.total_seconds() > 0:
 			qs = qs.filter(created_at__lte=now - delay)
-		return qs
+		eligible_ids = [
+			request_row.id
+			for request_row in qs
+			if provider_matches_request_scope(provider, request_row)
+		]
+		return qs.filter(id__in=eligible_ids).distinct()
 
 
 # ────────────────────────────────────────────────
@@ -674,13 +646,7 @@ class ProviderRequestDetailView(generics.RetrieveAPIView):
 		if obj.request_type == RequestType.COMPETITIVE and not _provider_can_access_competitive_request(provider, obj):
 			raise PermissionDenied("غير مصرح")
 
-		if (obj.city or "").strip() and (provider.city or "").strip() and obj.city.strip() != provider.city.strip():
-			raise PermissionDenied("غير مصرح")
-
-		if not ProviderCategory.objects.filter(
-			provider=provider,
-			subcategory_id__in=_request_subcategory_ids(obj),
-		).exists():
+		if not provider_matches_request_scope(provider, obj):
 			raise PermissionDenied("غير مصرح")
 
 		return obj
@@ -1053,21 +1019,9 @@ class CreateOfferView(APIView):
 				status=status.HTTP_400_BAD_REQUEST,
 			)
 
-		if not city_matches_scope(
-			getattr(service_request, "city", "") or "",
-			provider_city=getattr(provider, "city", "") or "",
-			provider_region=getattr(provider, "region", "") or "",
-		):
+		if not provider_matches_request_scope(provider, service_request):
 			return Response(
-				{"detail": "هذا الطلب خارج نطاق مدينتك"},
-				status=status.HTTP_403_FORBIDDEN,
-			)
-		if not ProviderCategory.objects.filter(
-			provider=provider,
-			subcategory_id__in=_request_subcategory_ids(service_request),
-		).exists():
-			return Response(
-				{"detail": "هذا الطلب لا يطابق تخصصاتك"},
+				{"detail": "هذا الطلب لا يطابق تخصصاتك أو نطاق خدمتك"},
 				status=status.HTTP_403_FORBIDDEN,
 			)
 		if not _provider_can_access_competitive_request(provider, service_request, now=timezone.now()):

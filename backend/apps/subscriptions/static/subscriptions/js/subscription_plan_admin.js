@@ -52,12 +52,75 @@
     syncCompositeRows();
   }
 
-  document.addEventListener('DOMContentLoaded', function () {
-    const tierField = document.getElementById('id_tier');
-    if (!tierField) {
+  function slugifySectionLabel(value) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^\u0600-\u06FF\w]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function subscriptionFieldsets() {
+    return Array.from(document.querySelectorAll('fieldset.subscription-plan-fieldset'));
+  }
+
+  function decorateFieldsets() {
+    subscriptionFieldsets().forEach(function (fieldset, index) {
+      var heading = fieldset.querySelector('h2');
+      var title = heading ? heading.textContent.trim() : 'section-' + String(index + 1);
+      if (!fieldset.id) {
+        fieldset.id = 'subscription-plan-section-' + (slugifySectionLabel(title) || String(index + 1));
+      }
+      fieldset.dataset.sectionTitle = title;
+    });
+  }
+
+  function buildQuickNav() {
+    var fieldsets = subscriptionFieldsets();
+    if (!fieldsets.length) {
       return;
     }
-    tierField.addEventListener('change', syncTierVisibility);
-    syncTierVisibility();
+
+    var existing = document.querySelector('.subscription-plan-admin-nav');
+    if (existing) {
+      existing.remove();
+    }
+
+    var nav = document.createElement('div');
+    nav.className = 'subscription-plan-admin-nav';
+    var navTitle = document.createElement('div');
+    navTitle.className = 'subscription-plan-admin-nav-title';
+    navTitle.textContent = 'التنقل السريع بين أقسام الباقة';
+    nav.appendChild(navTitle);
+
+    var chips = document.createElement('div');
+    chips.className = 'subscription-plan-admin-nav-chips';
+    fieldsets.forEach(function (fieldset) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'subscription-plan-admin-nav-chip';
+      button.textContent = fieldset.dataset.sectionTitle || 'قسم';
+      button.addEventListener('click', function () {
+        fieldset.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      chips.appendChild(button);
+    });
+    nav.appendChild(chips);
+
+    var anchor = fieldsets[0].parentElement;
+    if (anchor) {
+      anchor.insertBefore(nav, fieldsets[0]);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.body.classList.add('subscription-plan-admin-page');
+    const tierField = document.getElementById('id_tier');
+    decorateFieldsets();
+    buildQuickNav();
+    if (tierField) {
+      tierField.addEventListener('change', syncTierVisibility);
+      syncTierVisibility();
+    }
   });
 })();

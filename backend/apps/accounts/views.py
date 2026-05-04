@@ -209,24 +209,12 @@ def _me_payload(user: User, *, request=None) -> dict:
                 "item_id", flat=True
             )
         )
-        portfolio_liked_ids = set(
-            user.portfolio_likes.filter(role_context=active_role).values_list(
-                "item_id", flat=True
-            )
-        )
         spotlight_saved_ids = set(
             user.spotlight_saves.filter(role_context=active_role).values_list(
                 "item_id", flat=True
             )
         )
-        spotlight_liked_ids = set(
-            user.spotlight_likes.filter(role_context=active_role).values_list(
-                "item_id", flat=True
-            )
-        )
-        favorites_media_count = len(portfolio_saved_ids | portfolio_liked_ids) + len(
-            spotlight_saved_ids | spotlight_liked_ids
-        )
+        favorites_media_count = len(portfolio_saved_ids) + len(spotlight_saved_ids)
     except Exception:
         favorites_media_count = 0
 
@@ -278,8 +266,11 @@ def _me_payload(user: User, *, request=None) -> dict:
         "username": user.username,
         "first_name": getattr(user, "first_name", None),
         "last_name": getattr(user, "last_name", None),
+        "country": getattr(user, "country", None),
         "city": getattr(user, "city", None),
         "city_display": _safe_format_city_display(getattr(user, "city", None)),
+        "lat": getattr(user, "lat", None),
+        "lng": getattr(user, "lng", None),
         "profile_image": _safe_media_url(getattr(user, "profile_image", None)),
         "cover_image": _safe_media_url(getattr(user, "cover_image", None)),
         "role_state": role_state,
@@ -940,7 +931,10 @@ def complete_registration(request):
     user.first_name = s.validated_data["first_name"]
     user.last_name = s.validated_data["last_name"]
     user.email = s.validated_data["email"]
+    user.country = s.validated_data.get("country")
     user.city = s.validated_data.get("city")
+    user.lat = s.validated_data.get("lat")
+    user.lng = s.validated_data.get("lng")
     user.set_password(s.validated_data["password"])
     user.terms_accepted_at = timezone.now()
 
@@ -954,7 +948,10 @@ def complete_registration(request):
             "first_name",
             "last_name",
             "email",
+            "country",
             "city",
+            "lat",
+            "lng",
             "password",
             "terms_accepted_at",
             "role_state",
@@ -1236,3 +1233,32 @@ def confirm_phone_change_view(request):
 
 
 request_phone_change_view.throttle_scope = "otp"
+
+
+# ────────────────────────────────────────────────
+# Presence (online/offline indicator)
+# ────────────────────────────────────────────────
+
+from .presence import mark_seen as _presence_mark_seen, is_online as _presence_is_online, last_seen as _presence_last_seen
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def heartbeat_view(request):
+    """Lightweight ping endpoint clients can call to keep `last_seen` fresh.
+
+    The `LastSeenMiddleware` already records activity on every authenticated
+    request, so this endpoint is mostly a convenience for long-lived UIs that
+    do not otherwise hit the API (e.g. a chat list left open).
+    """
+    user = request.user
+    _presence_mark_seen(user)
+    ts = _presence_last_seen(user)
+    return Response(
+        {
+            "ok": True,
+            "is_online": _presence_is_online(user),
+            "last_seen": ts.isoformat() if ts else None,
+        },
+        status=status.HTTP_200_OK,
+    )

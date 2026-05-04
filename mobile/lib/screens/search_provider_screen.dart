@@ -14,8 +14,6 @@ import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/promo_media_tile.dart';
-import '../widgets/provider_name_with_badges.dart';
-import '../widgets/verified_badge_view.dart';
 import 'service_request_form_screen.dart';
 import 'provider_profile_screen.dart';
 
@@ -2321,6 +2319,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                                   : null,
                             ),
                           ),
+                          ..._buildSearchProviderVerificationBadges(p),
                           if (p.hasExcellenceBadges)
                             Positioned(
                               top: -8,
@@ -2350,16 +2349,6 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                         ],
                       ),
                     ),
-                    if (p.isVerified)
-                      Positioned(
-                        top: 6,
-                        left: 6,
-                        child: VerifiedBadgeView(
-                          isVerifiedBlue: p.isVerifiedBlue,
-                          isVerifiedGreen: p.isVerifiedGreen,
-                          iconSize: 14,
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -2375,12 +2364,10 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: ProviderNameWithBadges(
-                            name: p.displayName,
-                            isVerifiedBlue: p.isVerifiedBlue,
-                            isVerifiedGreen: p.isVerifiedGreen,
+                          child: Text(
+                            p.displayName,
                             maxLines: 2,
-                            badgeIconSize: 13,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.45,
@@ -2520,6 +2507,67 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  List<Widget> _buildSearchProviderVerificationBadges(
+      ProviderPublicModel provider) {
+    final badges = <Widget>[];
+    if (provider.isVerifiedBlue) {
+      badges.add(
+        _buildSearchProviderVerificationBadge(
+          color: const Color(0xFF5DA9E9),
+        ),
+      );
+    }
+    if (provider.isVerifiedGreen) {
+      badges.add(
+        _buildSearchProviderVerificationBadge(
+          color: const Color(0xFF4CAF50),
+        ),
+      );
+    }
+    if (badges.isEmpty) return const [];
+    return [
+      Positioned(
+        top: -12,
+        right: -2,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var index = 0; index < badges.length; index++) ...[
+                if (index > 0) const SizedBox(width: 4),
+                badges[index],
+              ],
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+
+  Widget _buildSearchProviderVerificationBadge({required Color color}) {
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 1.6),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.check_rounded,
+        size: 11,
+        color: Colors.white,
       ),
     );
   }

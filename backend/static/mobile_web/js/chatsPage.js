@@ -684,6 +684,11 @@ const ChatsPage = (() => {
     }
     avatarWrap.appendChild(avatar);
 
+    // Presence dot – providers only.
+    if (kind === 'provider') {
+      avatarWrap.appendChild(UI.presenceDot(!!thread.peer_is_online));
+    }
+
     const content = UI.el('div', { className: 'thread-content' });
 
     const topRow = UI.el('div', { className: 'thread-top-row' });
@@ -1130,6 +1135,10 @@ const ChatsPage = (() => {
   }
 
   function _threadKind(thread, displayName) {
+    const apiKind = String(thread?.peer_kind || '').trim().toLowerCase();
+    if (apiKind === 'team' || apiKind === 'provider' || apiKind === 'client' || apiKind === 'member') {
+      return apiKind;
+    }
     if (_isPlatformTeamName(displayName)) return 'team';
     if (Number(thread.peer_provider_id) > 0) return 'provider';
     if (_isProviderMode) return 'client';

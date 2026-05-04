@@ -83,3 +83,39 @@ class ProviderModeRequestAccessTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["provider_mode_blocked"])
+
+
+class ProfileCompletionRedirectTests(TestCase):
+    def test_legacy_profile_completion_route_redirects_to_provider_profile_edit(self):
+        response = self.client.get(reverse("mobile_web:profile_completion"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/provider-profile-edit/")
+
+
+class ProviderDashboardCompletionLinkTests(TestCase):
+    def setUp(self):
+        self.provider_user = User.objects.create_user(
+            phone="0502000099",
+            username="provider.dashboard",
+            role_state=UserRole.PROVIDER,
+        )
+        ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود لوحة التحكم",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.client.force_login(self.provider_user)
+
+    def test_completion_card_points_to_basic_profile_section(self):
+        response = self.client.get(reverse("mobile_web:provider_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            'href="/provider-profile-edit/?tab=account&amp;focus=fullName&amp;section=basic"',
+        )

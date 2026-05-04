@@ -48,7 +48,7 @@ from .views import (
     MobileWebProviderReviewsView,
     MobileWebProviderProfileEditView,
     MobileWebProviderPortfolioView,
-    MobileWebProfileCompletionView,
+    MobileWebProfileCompletionRedirectView,
     MobileWebProvidersMapView,
     MobileWebSearchProvidersView,
 )
@@ -110,7 +110,7 @@ urlpatterns = [
     path("provider-reviews/", MobileWebProviderReviewsView.as_view(), name="provider_reviews"),
     path("provider-profile-edit/", MobileWebProviderProfileEditView.as_view(), name="provider_profile_edit"),
     path("provider-portfolio/", MobileWebProviderPortfolioView.as_view(), name="provider_portfolio"),
-    path("profile-completion/", MobileWebProfileCompletionView.as_view(), name="profile_completion"),
+    path("profile-completion/", MobileWebProfileCompletionRedirectView.as_view(), name="profile_completion"),
     path("providers-map/", MobileWebProvidersMapView.as_view(), name="providers_map"),
     path("search-providers/", MobileWebSearchProvidersView.as_view(), name="search_providers"),
 ]

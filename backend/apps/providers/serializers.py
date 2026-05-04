@@ -4,9 +4,12 @@ from django.utils.text import slugify
 from apps.accounts.models import User
 from apps.accounts.role_context import get_active_role
 from apps.accounts.phone_validation import normalize_phone_local05, require_phone_local05
+from apps.accounts.presence import is_online_value as _presence_is_online_value
 from apps.reviews.services import provider_rating_values
 from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import (
+    DOCUMENT_EXTENSIONS,
+    DOCUMENT_MIME_TYPES,
     IMAGE_EXTENSIONS,
     IMAGE_MIME_TYPES,
     VIDEO_EXTENSIONS,
@@ -16,18 +19,66 @@ from apps.uploads.validators import (
 
 from .models import (
     Category,
+    ProviderContentComment,
     ProviderFollow,
     ProviderCategory,
+    ProviderCoverImage,
     ProviderPortfolioItem,
     ProviderProfile,
     ProviderService,
     ProviderSpotlightItem,
+    ProviderSpotlightVisibilityBlock,
+    ProviderVisibilityBlock,
     SaudiCity,
     SaudiRegion,
     SubCategory,
     sync_provider_accepts_urgent_flag,
 )
-from .location_formatter import format_city_display
+from .location_formatter import format_city_display, resolve_country_city
+
+
+def _normalize_location_payload(attrs, *, instance=None, require_coordinates=False):
+    country_in_payload = "country" in attrs
+    city_in_payload = "city" in attrs
+    label_in_payload = "location_label" in attrs
+    lat_in_payload = "lat" in attrs
+    lng_in_payload = "lng" in attrs
+
+    if not any((country_in_payload, city_in_payload, label_in_payload, lat_in_payload, lng_in_payload)):
+        return attrs
+
+    existing_country = getattr(instance, "country", "") if instance is not None else ""
+    existing_label = getattr(instance, "city", "") if instance is not None else ""
+
+    country, city_name, location_label = resolve_country_city(
+        attrs.get("country", existing_country),
+        attrs.get("city", ""),
+        attrs.get("location_label", existing_label),
+    )
+
+    lat = attrs.get("lat", getattr(instance, "lat", None) if instance is not None else None)
+    lng = attrs.get("lng", getattr(instance, "lng", None) if instance is not None else None)
+
+    if (lat in (None, "")) != (lng in (None, "")):
+        raise serializers.ValidationError({"location_label": "أدخل الإحداثيين معًا أو اتركهما فارغين."})
+
+    if require_coordinates and (lat in (None, "") or lng in (None, "")):
+        raise serializers.ValidationError({"location_label": "حدد موقع مزود الخدمة من الخريطة لحفظ الإحداثيات."})
+
+    if lat not in (None, ""):
+        lat_value = float(lat)
+        if not (-90 <= lat_value <= 90):
+            raise serializers.ValidationError({"lat": "خط العرض غير صالح."})
+    if lng not in (None, ""):
+        lng_value = float(lng)
+        if not (-180 <= lng_value <= 180):
+            raise serializers.ValidationError({"lng": "خط الطول غير صالح."})
+
+    attrs["country"] = country
+    attrs["city"] = location_label
+    attrs["region"] = ""
+    attrs.pop("location_label", None)
+    return attrs
 
 
 def _safe_file_url(field_file):
@@ -48,6 +99,25 @@ def _safe_file_url(field_file):
         return field_file.url
     except Exception:
         return ""
+
+
+def _serialize_provider_cover_gallery(provider, *, serializer_context=None):
+    rows = provider.ordered_cover_gallery() if hasattr(provider, "ordered_cover_gallery") else []
+    if rows:
+        payload = ProviderCoverImageSerializer(rows, many=True, context=serializer_context or {}).data
+        return [item for item in payload if str(item.get("image_url") or "").strip()]
+    cover_url = _safe_file_url(getattr(provider, "cover_image", None))
+    if not cover_url:
+        return []
+    return [
+        {
+            "id": None,
+            "image_url": cover_url,
+            "sort_order": 0,
+            "is_primary": True,
+            "is_legacy": True,
+        }
+    ]
 
 
 def _trim_text(value):
@@ -94,7 +164,7 @@ def _infer_upload_media_type(upload, *, fallback: str = "") -> str:
     if upload is None:
         return fallback
     media_type = str(fallback or "").strip().lower()
-    if media_type in {"image", "video"}:
+    if media_type in {"image", "video", "document"}:
         return media_type
     content_type = str(getattr(upload, "content_type", "") or "").strip().lower()
     filename = str(getattr(upload, "name", "") or "").strip().lower()
@@ -102,6 +172,8 @@ def _infer_upload_media_type(upload, *, fallback: str = "") -> str:
         return "video"
     if content_type.startswith("image/") or filename.endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")):
         return "image"
+    if content_type in DOCUMENT_MIME_TYPES or filename.endswith((".pdf", ".doc", ".docx", ".txt", ".csv", ".xlsx")):
+        return "document"
     return media_type
 
 
@@ -141,7 +213,17 @@ def _normalize_provider_media_upload(upload, *, media_type: str, image_prefix: s
             rename_prefix=video_prefix,
         )
         return optimize_upload_for_storage(upload, declared_type="video")
-    raise serializers.ValidationError({"file_type": "نوع الملف يجب أن يكون صورة أو فيديو."})
+    if media_type == "document":
+        validate_secure_upload(
+            upload,
+            allowed_extensions=DOCUMENT_EXTENSIONS,
+            allowed_mime_types=DOCUMENT_MIME_TYPES,
+            max_size_mb=20,
+            rename=True,
+            rename_prefix="provider_portfolio_document",
+        )
+        return optimize_upload_for_storage(upload, declared_type="document")
+    raise serializers.ValidationError({"file_type": "نوع الملف يجب أن يكون صورة أو فيديو أو ملف PDF."})
 
 
 class ProviderSeoValidationMixin:
@@ -161,7 +243,7 @@ class ProviderSeoValidationMixin:
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
-        fields = ("id", "name")
+        fields = ("id", "name", "requires_geo_scope", "allows_urgent_requests")
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -194,8 +276,37 @@ class SaudiRegionSerializer(serializers.ModelSerializer):
         return SaudiCitySerializer(rows, many=True).data
 
 
+class ProviderCoverImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+    is_primary = serializers.SerializerMethodField()
+    is_legacy = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProviderCoverImage
+        fields = ("id", "image_url", "sort_order", "is_primary", "is_legacy", "created_at")
+
+    def get_image_url(self, obj):
+        return _safe_file_url(getattr(obj, "image", None))
+
+    def get_is_primary(self, obj):
+        return int(getattr(obj, "sort_order", 0) or 0) == 0
+
+    def get_is_legacy(self, obj):
+        return False
+
+
+class ProviderCoverImageUploadSerializer(serializers.Serializer):
+    image = serializers.FileField()
+
+    def validate_image(self, value):
+        attrs = {"image": value}
+        _normalize_provider_image_field(attrs, "image", prefix="provider_cover_gallery")
+        return attrs["image"]
+
+
 class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSerializer):
     whatsapp_url = serializers.SerializerMethodField(read_only=True)
+    location_label = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
     subcategory_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -220,6 +331,9 @@ class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSer
     def get_whatsapp_url(self, obj):
         return _build_whatsapp_url(getattr(obj, "whatsapp", ""))
 
+    def validate_country(self, value):
+        return _trim_text(value)
+
     def validate_region(self, value):
         return _trim_text(value)
 
@@ -230,33 +344,7 @@ class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSer
         attrs = super().validate(attrs)
         _normalize_provider_image_field(attrs, "profile_image", prefix="provider_profile_image")
         _normalize_provider_image_field(attrs, "cover_image", prefix="provider_cover_image")
-        region = _trim_text(attrs.get("region"))
-        city = _trim_text(attrs.get("city"))
-
-        if city and not region:
-            city_rows = SaudiCity.objects.filter(name_ar=city, is_active=True, region__is_active=True)
-            distinct_regions = list(city_rows.values_list("region__name_ar", flat=True).distinct())
-            if len(distinct_regions) == 1:
-                region = distinct_regions[0]
-                attrs["region"] = region
-            else:
-                raise serializers.ValidationError({"region": "اختر المنطقة المرتبطة بالمدينة المختارة."})
-
-        if region and not city:
-            raise serializers.ValidationError({"city": "اختر المدينة التابعة للمنطقة."})
-
-        if not region or not city:
-            raise serializers.ValidationError({"city": "المنطقة والمدينة مطلوبتان."})
-
-        if not SaudiCity.objects.filter(
-            is_active=True,
-            name_ar=city,
-            region__is_active=True,
-            region__name_ar=region,
-        ).exists():
-            raise serializers.ValidationError({"city": "المدينة المختارة لا تتبع المنطقة المحددة."})
-
-        return attrs
+        return _normalize_location_payload(attrs)
 
     def create(self, validated_data):
         subcategory_ids = validated_data.pop("subcategory_ids", [])
@@ -270,7 +358,12 @@ class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSer
                     ProviderCategory.objects.get_or_create(
                         provider=profile,
                         subcategory=subcategory,
-                        defaults={"accepts_urgent": bool(profile.accepts_urgent)},
+                        defaults={
+                            "accepts_urgent": bool(
+                                profile.accepts_urgent and getattr(subcategory, "allows_urgent_requests", False)
+                            ),
+                            "requires_geo_scope": bool(getattr(subcategory, "requires_geo_scope", True)),
+                        },
                     )
                 except SubCategory.DoesNotExist:
                     pass  # Skip invalid subcategory IDs
@@ -282,6 +375,7 @@ class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSer
 class ProviderSubcategorySettingSerializer(serializers.Serializer):
     subcategory_id = serializers.IntegerField(min_value=1)
     accepts_urgent = serializers.BooleanField(required=False, default=False)
+    requires_geo_scope = serializers.BooleanField(required=False, default=True)
 
 
 class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelSerializer):
@@ -298,9 +392,12 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
     selected_subcategories = serializers.SerializerMethodField()
     subcategory_ids = serializers.SerializerMethodField()
     whatsapp_url = serializers.SerializerMethodField()
+    location_label = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
     city_display = serializers.SerializerMethodField()
     rating_avg = serializers.SerializerMethodField()
     rating_count = serializers.SerializerMethodField()
+    cover_gallery = serializers.SerializerMethodField()
+    cover_images = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
@@ -311,6 +408,8 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
             "display_name",
             "profile_image",
             "cover_image",
+            "cover_gallery",
+            "cover_images",
             "bio",
             "about_details",
             "years_experience",
@@ -319,9 +418,11 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
             "website",
             "social_links",
             "languages",
+            "country",
             "region",
             "city",
             "city_display",
+            "location_label",
             "lat",
             "lng",
             "coverage_radius_km",
@@ -370,6 +471,9 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
     def get_whatsapp_url(self, obj):
         return _build_whatsapp_url(getattr(obj, "whatsapp", ""))
 
+    def validate_country(self, value):
+        return _trim_text(value)
+
     def validate_region(self, value):
         return _trim_text(value)
 
@@ -380,38 +484,7 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
         attrs = super().validate(attrs)
         _normalize_provider_image_field(attrs, "profile_image", prefix="provider_profile_image")
         _normalize_provider_image_field(attrs, "cover_image", prefix="provider_cover_image")
-
-        region_in_payload = "region" in attrs
-        city_in_payload = "city" in attrs
-
-        if not region_in_payload and not city_in_payload:
-            return attrs
-
-        region = _trim_text(attrs.get("region", getattr(self.instance, "region", "")))
-        city = _trim_text(attrs.get("city", getattr(self.instance, "city", "")))
-
-        if city and not region:
-            city_rows = SaudiCity.objects.filter(name_ar=city, is_active=True, region__is_active=True)
-            distinct_regions = list(city_rows.values_list("region__name_ar", flat=True).distinct())
-            if len(distinct_regions) == 1:
-                region = distinct_regions[0]
-                attrs["region"] = region
-            else:
-                raise serializers.ValidationError({"region": "اختر المنطقة المرتبطة بالمدينة المختارة."})
-
-        if region and not city:
-            raise serializers.ValidationError({"city": "اختر المدينة التابعة للمنطقة."})
-
-        if city and region:
-            if not SaudiCity.objects.filter(
-                is_active=True,
-                name_ar=city,
-                region__is_active=True,
-                region__name_ar=region,
-            ).exists():
-                raise serializers.ValidationError({"city": "المدينة المختارة لا تتبع المنطقة المحددة."})
-
-        return attrs
+        return _normalize_location_payload(attrs, instance=self.instance)
 
     def _provider_subcategory_rows(self, obj):
         rows = []
@@ -434,6 +507,7 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
                     "category_id": category.id,
                     "category_name": category.name,
                     "accepts_urgent": bool(getattr(relation, "accepts_urgent", False)),
+                    "requires_geo_scope": bool(getattr(relation, "requires_geo_scope", True)),
                 }
             )
         return rows
@@ -465,6 +539,31 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
     def get_rating_count(self, obj):
         return provider_rating_values(obj)["rating_count"]
 
+    def get_cover_gallery(self, obj):
+        return _serialize_provider_cover_gallery(obj, serializer_context=self.context)
+
+    def get_cover_images(self, obj):
+        return [item.get("image_url", "") for item in self.get_cover_gallery(obj) if item.get("image_url")]
+
+    def create(self, validated_data):
+        profile = super().create(validated_data)
+        if getattr(profile, "cover_image", None):
+            profile.seed_cover_gallery_from_legacy_cover()
+        return profile
+
+    def update(self, instance, validated_data):
+        cover_image_provided = "cover_image" in validated_data
+        profile = super().update(instance, validated_data)
+        if cover_image_provided and getattr(profile, "cover_image", None):
+            primary = profile.cover_gallery.order_by("sort_order", "id").first()
+            if primary is None:
+                profile.seed_cover_gallery_from_legacy_cover()
+            else:
+                primary.image = profile.cover_image
+                primary.sort_order = 0
+                primary.save(update_fields=["image", "sort_order"])
+        return profile
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["profile_image"] = _safe_file_url(getattr(instance, "profile_image", None))
@@ -491,6 +590,10 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
     city_display = serializers.SerializerMethodField()
     rating_avg = serializers.SerializerMethodField()
     rating_count = serializers.SerializerMethodField()
+    is_online = serializers.SerializerMethodField()
+    last_seen = serializers.SerializerMethodField()
+    cover_gallery = serializers.SerializerMethodField()
+    cover_images = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
@@ -502,6 +605,8 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             "username",
             "profile_image",
             "cover_image",
+            "cover_gallery",
+            "cover_images",
             "bio",
             "about_details",
             "years_experience",
@@ -511,6 +616,8 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             "website",
             "social_links",
             "languages",
+            "country",
+            "country",
             "region",
             "city",
             "city_display",
@@ -526,9 +633,12 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             "is_verified_green",
             "excellence_badges",
             "qualifications",
+            "experiences",
             "content_sections",
             "rating_avg",
             "rating_count",
+            "is_online",
+            "last_seen",
             "created_at",
             "followers_count",
             "likes_count",
@@ -580,6 +690,8 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
                     "name": subcategory.name,
                     "category_id": category.id,
                     "category_name": category.name,
+                    "accepts_urgent": bool(getattr(relation, "accepts_urgent", False)),
+                    "requires_geo_scope": bool(getattr(relation, "requires_geo_scope", True)),
                 }
             )
         return rows
@@ -611,6 +723,20 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
     def get_rating_count(self, obj):
         return provider_rating_values(obj)["rating_count"]
 
+    def get_is_online(self, obj):
+        last = getattr(getattr(obj, "user", None), "last_seen", None)
+        return _presence_is_online_value(last)
+
+    def get_last_seen(self, obj):
+        last = getattr(getattr(obj, "user", None), "last_seen", None)
+        return last.isoformat() if last else None
+
+    def get_cover_gallery(self, obj):
+        return _serialize_provider_cover_gallery(obj, serializer_context=self.context)
+
+    def get_cover_images(self, obj):
+        return [item.get("image_url", "") for item in self.get_cover_gallery(obj) if item.get("image_url")]
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["profile_image"] = _safe_file_url(getattr(instance, "profile_image", None))
@@ -623,10 +749,14 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
     provider_display_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_username = serializers.CharField(source="provider.user.username", read_only=True)
     provider_profile_image = serializers.SerializerMethodField()
+    is_verified_blue = serializers.SerializerMethodField()
+    is_verified_green = serializers.SerializerMethodField()
+    provider_is_online = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     saves_count = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
 
@@ -638,12 +768,16 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
             "provider_display_name",
             "provider_username",
             "provider_profile_image",
+            "is_verified_blue",
+            "is_verified_green",
+            "provider_is_online",
             "file_type",
             "file_url",
             "thumbnail_url",
             "caption",
             "likes_count",
             "saves_count",
+            "comments_count",
             "is_liked",
             "is_saved",
             "created_at",
@@ -655,6 +789,16 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
     def get_provider_profile_image(self, obj):
         provider = getattr(obj, "provider", None)
         return _safe_file_url(getattr(provider, "profile_image", None))
+
+    def get_is_verified_blue(self, obj):
+        return bool(getattr(getattr(obj, "provider", None), "is_verified_blue", False))
+
+    def get_is_verified_green(self, obj):
+        return bool(getattr(getattr(obj, "provider", None), "is_verified_green", False))
+
+    def get_provider_is_online(self, obj):
+        last = getattr(getattr(getattr(obj, "provider", None), "user", None), "last_seen", None)
+        return _presence_is_online_value(last)
 
     def get_thumbnail_url(self, obj):
         return _safe_file_url(getattr(obj, "thumbnail", None))
@@ -668,6 +812,15 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
     def get_saves_count(self, obj):
         try:
             return int(getattr(obj, "saves_count", None) or obj.saves.count())
+        except Exception:
+            return 0
+
+    def get_comments_count(self, obj):
+        try:
+            annotated = getattr(obj, "comments_count", None)
+            if annotated is not None:
+                return int(annotated)
+            return int(obj.comments.filter(is_approved=True).count())
         except Exception:
             return 0
 
@@ -728,10 +881,37 @@ class ProviderPortfolioItemCreateSerializer(serializers.ModelSerializer):
 
 
 class ProviderPortfolioItemUpdateSerializer(serializers.ModelSerializer):
+    file_type = serializers.ChoiceField(
+        choices=ProviderPortfolioItem.FILE_TYPE_CHOICES,
+        required=False,
+        allow_blank=True,
+    )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        upload = attrs.get("file")
+        if upload is None:
+            attrs.pop("file_type", None)
+            return attrs
+        media_type = _infer_upload_media_type(
+            upload,
+            fallback=str(attrs.get("file_type") or "").strip().lower(),
+        )
+        attrs["file_type"] = media_type
+        attrs["file"] = _normalize_provider_media_upload(
+            upload,
+            media_type=media_type,
+            image_prefix="provider_portfolio_image",
+            video_prefix="provider_portfolio_video",
+        )
+        return attrs
+
     class Meta:
         model = ProviderPortfolioItem
         fields = (
             "caption",
+            "file_type",
+            "file",
         )
 
 
@@ -740,10 +920,14 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
     provider_display_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_username = serializers.CharField(source="provider.user.username", read_only=True)
     provider_profile_image = serializers.SerializerMethodField()
+    is_verified_blue = serializers.SerializerMethodField()
+    is_verified_green = serializers.SerializerMethodField()
+    provider_is_online = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     saves_count = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
 
@@ -755,12 +939,16 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
             "provider_display_name",
             "provider_username",
             "provider_profile_image",
+            "is_verified_blue",
+            "is_verified_green",
+            "provider_is_online",
             "file_type",
             "file_url",
             "thumbnail_url",
             "caption",
             "likes_count",
             "saves_count",
+            "comments_count",
             "is_liked",
             "is_saved",
             "created_at",
@@ -768,6 +956,16 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
 
     def get_provider_profile_image(self, obj):
         return _safe_file_url(getattr(obj.provider, "profile_image", None))
+
+    def get_is_verified_blue(self, obj):
+        return bool(getattr(obj.provider, "is_verified_blue", False))
+
+    def get_is_verified_green(self, obj):
+        return bool(getattr(obj.provider, "is_verified_green", False))
+
+    def get_provider_is_online(self, obj):
+        last = getattr(getattr(getattr(obj, "provider", None), "user", None), "last_seen", None)
+        return _presence_is_online_value(last)
 
     def get_file_url(self, obj):
         return _safe_file_url(getattr(obj, "file", None))
@@ -784,6 +982,15 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
     def get_saves_count(self, obj):
         try:
             return int(getattr(obj, "saves_count", None) or obj.saves.count())
+        except Exception:
+            return 0
+
+    def get_comments_count(self, obj):
+        try:
+            annotated = getattr(obj, "comments_count", None)
+            if annotated is not None:
+                return int(annotated)
+            return int(obj.comments.filter(is_approved=True).count())
         except Exception:
             return 0
 
@@ -807,6 +1014,210 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
             role = get_active_role(request, fallback="client")
             return obj.saves.filter(user=request.user, role_context=role).exists()
         return False
+
+
+class BlockedProviderSerializer(serializers.ModelSerializer):
+    provider_id = serializers.IntegerField(source="provider.id", read_only=True)
+    display_name = serializers.CharField(source="provider.display_name", read_only=True)
+    username = serializers.CharField(source="provider.user.username", read_only=True)
+    profile_image = serializers.SerializerMethodField()
+    is_verified_blue = serializers.SerializerMethodField()
+    is_verified_green = serializers.SerializerMethodField()
+    country = serializers.CharField(source="provider.country", read_only=True)
+    city = serializers.CharField(source="provider.city", read_only=True)
+    region = serializers.CharField(source="provider.region", read_only=True)
+    city_display = serializers.SerializerMethodField()
+    blocked_at = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = ProviderVisibilityBlock
+        fields = (
+            "provider_id",
+            "display_name",
+            "username",
+            "profile_image",
+            "is_verified_blue",
+            "is_verified_green",
+            "country",
+            "city",
+            "region",
+            "city_display",
+            "blocked_at",
+        )
+
+    def get_profile_image(self, obj):
+        return _safe_file_url(getattr(getattr(obj, "provider", None), "profile_image", None))
+
+    def get_is_verified_blue(self, obj):
+        return bool(getattr(getattr(obj, "provider", None), "is_verified_blue", False))
+
+    def get_is_verified_green(self, obj):
+        return bool(getattr(getattr(obj, "provider", None), "is_verified_green", False))
+
+    def get_city_display(self, obj):
+        provider = getattr(obj, "provider", None)
+        return format_city_display(getattr(provider, "city", ""), region=getattr(provider, "region", ""))
+
+
+class SpotlightCommentSerializer(serializers.ModelSerializer):
+    parent_id = serializers.IntegerField(source="parent.id", read_only=True)
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
+    username = serializers.CharField(source="user.username", read_only=True)
+    display_name = serializers.SerializerMethodField()
+    profile_image = serializers.SerializerMethodField()
+    is_verified_blue = serializers.SerializerMethodField()
+    is_verified_green = serializers.SerializerMethodField()
+    is_provider = serializers.SerializerMethodField()
+    is_mine = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
+    replies_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProviderContentComment
+        fields = (
+            "id",
+            "parent_id",
+            "user_id",
+            "username",
+            "display_name",
+            "profile_image",
+            "is_verified_blue",
+            "is_verified_green",
+            "is_provider",
+            "is_mine",
+            "body",
+            "replies_count",
+            "replies",
+            "created_at",
+        )
+        read_only_fields = fields
+
+    def get_display_name(self, obj):
+        provider = getattr(getattr(obj, "user", None), "provider_profile", None)
+        if provider and getattr(provider, "display_name", ""):
+            return provider.display_name
+        user = getattr(obj, "user", None)
+        full_name = " ".join(
+            part for part in [getattr(user, "first_name", ""), getattr(user, "last_name", "")] if str(part or "").strip()
+        ).strip()
+        return full_name or getattr(user, "username", "") or "مستخدم"
+
+    def get_profile_image(self, obj):
+        provider = getattr(getattr(obj, "user", None), "provider_profile", None)
+        return _safe_file_url(getattr(provider, "profile_image", None))
+
+    def get_is_verified_blue(self, obj):
+        provider = getattr(getattr(obj, "user", None), "provider_profile", None)
+        return bool(getattr(provider, "is_verified_blue", False))
+
+    def get_is_verified_green(self, obj):
+        provider = getattr(getattr(obj, "user", None), "provider_profile", None)
+        return bool(getattr(provider, "is_verified_green", False))
+
+    def get_is_provider(self, obj):
+        return bool(getattr(getattr(obj, "user", None), "provider_profile", None))
+
+    def get_is_mine(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+        return int(getattr(user, "id", 0) or 0) == int(getattr(obj, "user_id", 0) or 0)
+
+    def get_replies_count(self, obj):
+        prefetched = getattr(obj, "prefetched_replies", None)
+        if prefetched is not None:
+            return len(prefetched)
+        return int(obj.replies.filter(is_approved=True).count())
+
+    def get_replies(self, obj):
+        prefetched = getattr(obj, "prefetched_replies", None)
+        if prefetched is None:
+            prefetched = list(
+                obj.replies.filter(is_approved=True)
+                .select_related("user", "user__provider_profile")
+                .order_by("created_at", "id")
+            )
+        serializer = SpotlightCommentSerializer(prefetched, many=True, context=self.context)
+        return serializer.data
+
+
+class SpotlightCommentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProviderContentComment
+        fields = ("body", "parent")
+        extra_kwargs = {
+            "parent": {"required": False, "allow_null": True},
+        }
+
+    def validate_body(self, value):
+        cleaned = " ".join(str(value or "").split()).strip()
+        if not cleaned:
+            raise serializers.ValidationError("نص التعليق مطلوب")
+        if len(cleaned) > 1000:
+            raise serializers.ValidationError("التعليق طويل جدًا")
+        return cleaned
+
+    def validate_parent(self, value):
+        if value is None:
+            return None
+        if getattr(value, "parent_id", None):
+            raise serializers.ValidationError("يمكن الرد على التعليق الأساسي فقط")
+        if not getattr(value, "is_approved", False):
+            raise serializers.ValidationError("لا يمكن الرد على هذا التعليق")
+        return value
+
+
+class BlockedSpotlightSerializer(serializers.ModelSerializer):
+    spotlight_id = serializers.IntegerField(source="spotlight_item.id", read_only=True)
+    provider_id = serializers.IntegerField(source="spotlight_item.provider.id", read_only=True)
+    provider_display_name = serializers.CharField(source="spotlight_item.provider.display_name", read_only=True)
+    provider_username = serializers.CharField(source="spotlight_item.provider.user.username", read_only=True)
+    provider_profile_image = serializers.SerializerMethodField()
+    is_verified_blue = serializers.SerializerMethodField()
+    is_verified_green = serializers.SerializerMethodField()
+    file_type = serializers.CharField(source="spotlight_item.file_type", read_only=True)
+    file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+    caption = serializers.CharField(source="spotlight_item.caption", read_only=True)
+    blocked_at = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = ProviderSpotlightVisibilityBlock
+        fields = (
+            "spotlight_id",
+            "provider_id",
+            "provider_display_name",
+            "provider_username",
+            "provider_profile_image",
+            "is_verified_blue",
+            "is_verified_green",
+            "file_type",
+            "file_url",
+            "thumbnail_url",
+            "caption",
+            "blocked_at",
+        )
+
+    def get_provider_profile_image(self, obj):
+        provider = getattr(getattr(obj, "spotlight_item", None), "provider", None)
+        return _safe_file_url(getattr(provider, "profile_image", None))
+
+    def get_is_verified_blue(self, obj):
+        provider = getattr(getattr(obj, "spotlight_item", None), "provider", None)
+        return bool(getattr(provider, "is_verified_blue", False))
+
+    def get_is_verified_green(self, obj):
+        provider = getattr(getattr(obj, "spotlight_item", None), "provider", None)
+        return bool(getattr(provider, "is_verified_green", False))
+
+    def get_file_url(self, obj):
+        item = getattr(obj, "spotlight_item", None)
+        return _safe_file_url(getattr(item, "file", None))
+
+    def get_thumbnail_url(self, obj):
+        item = getattr(obj, "spotlight_item", None)
+        return _safe_file_url(getattr(item, "thumbnail", None))
 
 
 class ProviderSpotlightItemCreateSerializer(serializers.ModelSerializer):
@@ -984,20 +1395,26 @@ class MyProviderSubcategoriesSerializer(serializers.Serializer):
         raw_settings = list(attrs.get("subcategory_settings") or [])
 
         ordered_ids = []
-        urgent_by_id = {}
+        settings_by_id = {}
 
         for sub_id in raw_ids:
-            if sub_id in urgent_by_id:
+            if sub_id in settings_by_id:
                 continue
             ordered_ids.append(sub_id)
-            urgent_by_id[sub_id] = False
+            settings_by_id[sub_id] = {
+                "accepts_urgent": False,
+            }
 
         for item in raw_settings:
             sub_id = item["subcategory_id"]
-            if sub_id not in urgent_by_id:
+            if sub_id not in settings_by_id:
                 ordered_ids.append(sub_id)
-                urgent_by_id[sub_id] = False
-            urgent_by_id[sub_id] = bool(item.get("accepts_urgent", False))
+                settings_by_id[sub_id] = {
+                    "accepts_urgent": False,
+                }
+            settings_by_id[sub_id] = {
+                "accepts_urgent": bool(item.get("accepts_urgent", False)),
+            }
 
         ids = ordered_ids
         if not ids:
@@ -1005,21 +1422,33 @@ class MyProviderSubcategoriesSerializer(serializers.Serializer):
             attrs["subcategory_settings"] = []
             return attrs
 
-        existing = set(
-            SubCategory.objects.filter(id__in=ids, is_active=True).values_list("id", flat=True)
-        )
-        missing = [i for i in ids if i not in existing]
+        active_subcategories = {
+            row.id: row for row in SubCategory.objects.filter(id__in=ids, is_active=True)
+        }
+        missing = [i for i in ids if i not in active_subcategories]
         if missing:
             raise serializers.ValidationError(f"تصنيفات فرعية غير صالحة: {missing}")
 
         attrs["subcategory_ids"] = ids
-        attrs["subcategory_settings"] = [
-            {
-                "subcategory_id": sub_id,
-                "accepts_urgent": bool(urgent_by_id.get(sub_id, False)),
-            }
-            for sub_id in ids
-        ]
+        normalized_settings = []
+        for sub_id in ids:
+            subcategory = active_subcategories[sub_id]
+            accepts_urgent = bool((settings_by_id.get(sub_id) or {}).get("accepts_urgent", False))
+            if accepts_urgent and not bool(getattr(subcategory, "allows_urgent_requests", False)):
+                raise serializers.ValidationError(
+                    {"subcategory_settings": f"التصنيف الفرعي {subcategory.name} لا يدعم الطلبات العاجلة."}
+                )
+            normalized_settings.append(
+                {
+                    "subcategory_id": sub_id,
+                    "accepts_urgent": bool(
+                        accepts_urgent and getattr(subcategory, "allows_urgent_requests", False)
+                    ),
+                    "requires_geo_scope": bool(getattr(subcategory, "requires_geo_scope", True)),
+                }
+            )
+
+        attrs["subcategory_settings"] = normalized_settings
         return attrs
 
 
@@ -1032,6 +1461,8 @@ class SubCategoryWithCategorySerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "name",
+            "requires_geo_scope",
+            "allows_urgent_requests",
             "category_id",
             "category_name",
         )
@@ -1041,6 +1472,7 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
     provider_id = serializers.IntegerField(read_only=True)
     price_unit_label = serializers.CharField(source="get_price_unit_display", read_only=True)
     accepts_urgent = serializers.SerializerMethodField()
+    requires_geo_scope = serializers.SerializerMethodField()
     subcategory_id = serializers.PrimaryKeyRelatedField(
         source="subcategory",
         queryset=SubCategory.objects.filter(is_active=True),
@@ -1061,6 +1493,7 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
             "price_unit_label",
             "is_active",
             "accepts_urgent",
+            "requires_geo_scope",
             "subcategory",
             "subcategory_id",
             "created_at",
@@ -1090,15 +1523,30 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
             )
         return cache[provider_id]
 
+    def _normalize_accepts_urgent(self, *, subcategory, accepts_urgent):
+        normalized = False if accepts_urgent is serializers.empty else bool(accepts_urgent)
+        if normalized and not bool(getattr(subcategory, "allows_urgent_requests", False)):
+            raise serializers.ValidationError({"accepts_urgent": "هذا التصنيف الفرعي لا يدعم الطلبات العاجلة."})
+        return bool(normalized and getattr(subcategory, "allows_urgent_requests", False))
+
     def _upsert_provider_category(self, provider, subcategory, accepts_urgent):
         relation, created = ProviderCategory.objects.get_or_create(
             provider=provider,
             subcategory=subcategory,
-            defaults={"accepts_urgent": bool(accepts_urgent)},
+            defaults={
+                "accepts_urgent": bool(accepts_urgent),
+                "requires_geo_scope": bool(getattr(subcategory, "requires_geo_scope", True)),
+            },
         )
+        update_fields = []
         if not created and relation.accepts_urgent != bool(accepts_urgent):
             relation.accepts_urgent = bool(accepts_urgent)
-            relation.save(update_fields=["accepts_urgent"])
+            update_fields.append("accepts_urgent")
+        if not created and relation.requires_geo_scope != bool(getattr(subcategory, "requires_geo_scope", True)):
+            relation.requires_geo_scope = bool(getattr(subcategory, "requires_geo_scope", True))
+            update_fields.append("requires_geo_scope")
+        if update_fields:
+            relation.save(update_fields=update_fields)
         cache = self.context.get("_provider_category_urgent_cache")
         if isinstance(cache, dict) and getattr(provider, "id", None) in cache:
             cache[provider.id][subcategory.id] = bool(accepts_urgent)
@@ -1109,28 +1557,41 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
         subcategory_id = getattr(obj, "subcategory_id", None)
         if not provider_id or not subcategory_id:
             return False
+        if not bool(getattr(getattr(obj, "subcategory", None), "allows_urgent_requests", False)):
+            return False
         return bool(self._accepts_urgent_map(provider_id).get(subcategory_id, False))
 
+    def get_requires_geo_scope(self, obj):
+        return bool(getattr(getattr(obj, "subcategory", None), "requires_geo_scope", True))
+
     def create(self, validated_data):
-        accepts_urgent = self._input_accepts_urgent()
-        if accepts_urgent is serializers.empty:
-            accepts_urgent = False
+        subcategory = validated_data.get("subcategory")
+        accepts_urgent = self._normalize_accepts_urgent(
+            subcategory=subcategory,
+            accepts_urgent=self._input_accepts_urgent(),
+        )
         service = super().create(validated_data)
         self._upsert_provider_category(service.provider, service.subcategory, accepts_urgent)
         return service
 
     def update(self, instance, validated_data):
+        subcategory = validated_data.get("subcategory", getattr(instance, "subcategory", None))
         accepts_urgent = self._input_accepts_urgent()
         service = super().update(instance, validated_data)
         if accepts_urgent is serializers.empty:
             accepts_urgent = self.get_accepts_urgent(service)
+        accepts_urgent = self._normalize_accepts_urgent(subcategory=subcategory, accepts_urgent=accepts_urgent)
         self._upsert_provider_category(service.provider, service.subcategory, accepts_urgent)
         return service
 
 
 class ProviderServicePublicSerializer(serializers.ModelSerializer):
     price_unit_label = serializers.CharField(source="get_price_unit_display", read_only=True)
+    requires_geo_scope = serializers.SerializerMethodField()
     subcategory = SubCategoryWithCategorySerializer(read_only=True)
+
+    def get_requires_geo_scope(self, obj):
+        return bool(getattr(getattr(obj, "subcategory", None), "requires_geo_scope", True))
 
     class Meta:
         model = ProviderService
@@ -1142,6 +1603,7 @@ class ProviderServicePublicSerializer(serializers.ModelSerializer):
             "price_to",
             "price_unit",
             "price_unit_label",
+            "requires_geo_scope",
             "subcategory",
             "created_at",
             "updated_at",
@@ -1153,6 +1615,7 @@ class ProviderServicePublicDetailSerializer(ProviderServicePublicSerializer):
     provider_id = serializers.IntegerField(source="provider.id", read_only=True)
     provider_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_avatar = serializers.SerializerMethodField()
+    provider_is_online = serializers.SerializerMethodField()
     category_name = serializers.CharField(source="subcategory.category.name", read_only=True)
 
     class Meta(ProviderServicePublicSerializer.Meta):
@@ -1161,12 +1624,14 @@ class ProviderServicePublicDetailSerializer(ProviderServicePublicSerializer):
             "provider_id",
             "provider_name",
             "provider_avatar",
+            "provider_is_online",
             "title",
             "description",
             "price_from",
             "price_to",
             "price_unit",
             "price_unit_label",
+            "requires_geo_scope",
             "category_name",
             "subcategory",
             "created_at",
@@ -1176,3 +1641,7 @@ class ProviderServicePublicDetailSerializer(ProviderServicePublicSerializer):
 
     def get_provider_avatar(self, obj):
         return _safe_file_url(getattr(obj.provider, "profile_image", None))
+
+    def get_provider_is_online(self, obj):
+        last = getattr(getattr(getattr(obj, "provider", None), "user", None), "last_seen", None)
+        return _presence_is_online_value(last)

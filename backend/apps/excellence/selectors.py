@@ -5,13 +5,11 @@ from datetime import timedelta
 from decimal import Decimal
 from itertools import groupby
 
-from django.db.models import Avg, Count, DecimalField, FloatField, Q, Value
-from django.db.models.functions import Coalesce
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from apps.marketplace.models import RequestStatus
 from apps.providers.models import ProviderCategory, ProviderProfile
-from apps.reviews.models import ReviewModerationStatus
 
 from .models import ExcellenceBadgeAward, ExcellenceBadgeCandidate
 
@@ -57,16 +55,21 @@ def _category_map_for_providers(provider_ids: list[int]) -> dict[int, dict[str, 
 
 
 def build_provider_metric_snapshots(now=None) -> list[dict[str, object]]:
-    period_start, period_end = current_review_window(now)
-    review_filter = Q(
-        reviews__created_at__gte=period_start,
-        reviews__created_at__lt=period_end,
-        reviews__moderation_status=ReviewModerationStatus.APPROVED,
-    )
+    now = now or timezone.now()
+    rolling_start = now - timedelta(days=365)
     completed_filter = Q(
         assigned_requests__status=RequestStatus.COMPLETED,
-        assigned_requests__created_at__gte=period_start,
-        assigned_requests__created_at__lt=period_end,
+    ) & (
+        Q(
+            assigned_requests__delivered_at__isnull=False,
+            assigned_requests__delivered_at__gte=rolling_start,
+            assigned_requests__delivered_at__lt=now,
+        )
+        | Q(
+            assigned_requests__delivered_at__isnull=True,
+            assigned_requests__created_at__gte=rolling_start,
+            assigned_requests__created_at__lt=now,
+        )
     )
     providers = list(
         ProviderProfile.objects.select_related("user")
@@ -78,12 +81,6 @@ def build_provider_metric_snapshots(now=None) -> list[dict[str, object]]:
                 filter=completed_filter,
                 distinct=True,
             ),
-            rating_count_period=Count("reviews", filter=review_filter, distinct=True),
-            rating_avg_period=Coalesce(
-                Avg("reviews__rating", filter=review_filter),
-                Value(0.0, output_field=FloatField()),
-                output_field=FloatField(),
-            ),
         )
     )
     if not providers:
@@ -93,10 +90,8 @@ def build_provider_metric_snapshots(now=None) -> list[dict[str, object]]:
     snapshots: list[dict[str, object]] = []
     for provider in providers:
         category_info = category_map.get(provider.id, {})
-        rating_count = int(getattr(provider, "rating_count_period", 0) or 0)
-        rating_avg = getattr(provider, "rating_avg_period", Decimal("0.00")) or Decimal("0.00")
-        if not rating_count:
-            rating_avg = getattr(provider, "rating_avg", Decimal("0.00")) or Decimal("0.00")
+        rating_count = int(getattr(provider, "rating_count", 0) or 0)
+        rating_avg = getattr(provider, "rating_avg", Decimal("0.00")) or Decimal("0.00")
         snapshots.append(
             {
                 "provider_id": provider.id,
@@ -109,14 +104,20 @@ def build_provider_metric_snapshots(now=None) -> list[dict[str, object]]:
                 "completed_orders_count": int(getattr(provider, "completed_orders_count", 0) or 0),
                 "rating_avg": rating_avg,
                 "rating_count": max(rating_count, int(getattr(provider, "rating_count", 0) or 0)),
-                "evaluation_period_start": period_start,
-                "evaluation_period_end": period_end,
             }
         )
     return snapshots
 
 
-def _decorate_ranked_rows(rows, *, badge_code: str, metric_key: str, group_key: str | None = None, limit: int | None = None):
+def _decorate_ranked_rows(
+    rows,
+    *,
+    badge_code: str,
+    metric_key: str,
+    group_key: str | None = None,
+    limit: int | None = None,
+    per_group_limit: int | None = None,
+):
     if not rows:
         return []
     grouped: dict[object, list[dict[str, object]]] = defaultdict(list)
@@ -137,6 +138,8 @@ def _decorate_ranked_rows(rows, *, badge_code: str, metric_key: str, group_key: 
                 int(item.get("provider_id") or 0),
             )
         )
+        if per_group_limit is not None:
+            bucket = bucket[: max(1, int(per_group_limit))]
         for rank, item in enumerate(bucket, start=1):
             enriched = dict(item)
             enriched["badge_code"] = badge_code
@@ -157,54 +160,52 @@ def _decorate_ranked_rows(rows, *, badge_code: str, metric_key: str, group_key: 
 
 
 def get_featured_service_candidates(now=None) -> list[dict[str, object]]:
-    from apps.core.models import PlatformConfig
-    config = PlatformConfig.load()
     base = [
         row
         for row in build_provider_metric_snapshots(now)
-        if Decimal(str(row.get("rating_avg") or 0)) >= config.excellence_min_rating
-        and int(row.get("rating_count") or 0) >= 3
+        if row.get("category_id")
+        and int(row.get("rating_count") or 0) > 0
+        and Decimal(str(row.get("rating_avg") or 0)) > Decimal("0.00")
     ]
     return _decorate_ranked_rows(
         base,
         badge_code=FEATURED_SERVICE_BADGE_CODE,
         metric_key="rating_avg",
         group_key="category_id",
+        per_group_limit=1,
     )
 
 
 def get_high_achievement_candidates(now=None) -> list[dict[str, object]]:
-    from apps.core.models import PlatformConfig
-    config = PlatformConfig.load()
     base = [
         row
         for row in build_provider_metric_snapshots(now)
-        if int(row.get("completed_orders_count") or 0) >= config.excellence_min_orders
+        if row.get("category_id")
+        and int(row.get("completed_orders_count") or 0) > 100
     ]
     return _decorate_ranked_rows(
         base,
         badge_code=HIGH_ACHIEVEMENT_BADGE_CODE,
         metric_key="completed_orders_count",
         group_key="category_id",
+        per_group_limit=1,
     )
 
 
 def get_top_100_club_candidates(now=None) -> list[dict[str, object]]:
-    from apps.core.models import PlatformConfig
-    config = PlatformConfig.load()
     base = [
         row
         for row in build_provider_metric_snapshots(now)
-        if int(row.get("followers_count") or 0) > 0
-        or int(row.get("completed_orders_count") or 0) > 0
-        or Decimal(str(row.get("rating_avg") or 0)) > Decimal("0.00")
+        if row.get("category_id")
+        and int(row.get("followers_count") or 0) > 100
     ]
-    ranked = _decorate_ranked_rows(
+    return _decorate_ranked_rows(
         base,
         badge_code=TOP_100_CLUB_BADGE_CODE,
         metric_key="followers_count",
+        group_key="category_id",
+        per_group_limit=1,
     )
-    return ranked[:config.excellence_top_n_club]
 
 
 def current_cycle_candidates_queryset(now=None):

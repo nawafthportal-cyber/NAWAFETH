@@ -26,6 +26,8 @@ class SubCategory(models.Model):
         related_name="subcategories",
     )
     name = models.CharField(max_length=100)
+    requires_geo_scope = models.BooleanField(default=True)
+    allows_urgent_requests = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
 
     def __str__(self) -> str:
@@ -84,6 +86,7 @@ class ProviderProfile(models.Model):
     social_links = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
 
+    country = models.CharField(max_length=100, blank=True, default="")
     region = models.CharField(max_length=100, blank=True, default="")
     city = models.CharField(max_length=100, blank=True, default="")
     lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
@@ -115,14 +118,62 @@ class ProviderProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def ordered_cover_gallery(self):
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("cover_gallery")
+        if prefetched is not None:
+            return sorted(prefetched, key=lambda item: (int(getattr(item, "sort_order", 0) or 0), int(getattr(item, "id", 0) or 0)))
+        return list(self.cover_gallery.all().order_by("sort_order", "id"))
+
+    def seed_cover_gallery_from_legacy_cover(self):
+        if not getattr(self, "cover_image", None):
+            return None
+        existing = self.cover_gallery.order_by("sort_order", "id").first()
+        if existing is not None:
+            return existing
+        return ProviderCoverImage.objects.create(
+            provider=self,
+            image=self.cover_image,
+            sort_order=0,
+        )
+
+    def sync_cover_image_from_gallery(self, *, save: bool = True):
+        primary = self.cover_gallery.order_by("sort_order", "id").first()
+        next_image = getattr(primary, "image", None)
+        current_name = str(getattr(getattr(self, "cover_image", None), "name", "") or "").strip()
+        next_name = str(getattr(next_image, "name", "") or "").strip()
+        if current_name == next_name:
+            return primary
+        self.cover_image = next_image
+        if save:
+            self.save(update_fields=["cover_image", "updated_at"])
+        return primary
+
     def __str__(self) -> str:
         return self.display_name
+
+
+class ProviderCoverImage(models.Model):
+    provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.CASCADE,
+        related_name="cover_gallery",
+    )
+    image = models.FileField(upload_to="providers/cover_gallery/%Y/%m/")
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+
+    def __str__(self) -> str:
+        return f"CoverImage {self.pk} for Provider {self.provider_id}"
 
 
 class ProviderPortfolioItem(models.Model):
     FILE_TYPE_CHOICES = (
         ("image", "صورة"),
         ("video", "فيديو"),
+        ("document", "ملف PDF"),
     )
 
     provider = models.ForeignKey(
@@ -261,10 +312,77 @@ class ProviderSpotlightSave(models.Model):
         ]
 
 
+class ProviderVisibilityBlock(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="provider_visibility_blocks",
+    )
+    provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.CASCADE,
+        related_name="visibility_blocks",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "provider"], name="uniq_provider_visibility_block_user_provider"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "provider"]),
+        ]
+
+
+class ProviderSpotlightVisibilityBlock(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="provider_spotlight_visibility_blocks",
+    )
+    spotlight_item = models.ForeignKey(
+        ProviderSpotlightItem,
+        on_delete=models.CASCADE,
+        related_name="visibility_blocks",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "spotlight_item"], name="uniq_spotlight_visibility_block_user_item"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "spotlight_item"]),
+        ]
+
+
+class ProviderPortfolioVisibilityBlock(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="provider_portfolio_visibility_blocks",
+    )
+    portfolio_item = models.ForeignKey(
+        ProviderPortfolioItem,
+        on_delete=models.CASCADE,
+        related_name="visibility_blocks",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "portfolio_item"], name="uniq_portfolio_visibility_block_user_item"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "portfolio_item"]),
+        ]
+
+
 class ProviderCategory(models.Model):
     provider = models.ForeignKey(ProviderProfile, on_delete=models.CASCADE)
     subcategory = models.ForeignKey(SubCategory, on_delete=models.CASCADE)
     accepts_urgent = models.BooleanField(default=False)
+    requires_geo_scope = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
@@ -279,7 +397,11 @@ def sync_provider_accepts_urgent_flag(provider: ProviderProfile | None) -> bool:
     if provider is None or not getattr(provider, "pk", None):
         return False
 
-    enabled = ProviderCategory.objects.filter(provider=provider, accepts_urgent=True).exists()
+    enabled = ProviderCategory.objects.filter(
+        provider=provider,
+        accepts_urgent=True,
+        subcategory__allows_urgent_requests=True,
+    ).exists()
     if provider.accepts_urgent != enabled:
         ProviderProfile.objects.filter(pk=provider.pk).update(accepts_urgent=enabled)
         provider.accepts_urgent = enabled
@@ -446,6 +568,13 @@ class ProviderContentComment(models.Model):
         null=True,
         blank=True,
         related_name="comments",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
     )
     body = models.TextField(max_length=1000)
     is_approved = models.BooleanField(default=True)

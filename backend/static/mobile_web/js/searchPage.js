@@ -172,7 +172,6 @@ const SearchPage = (() => {
   let _categories = [];
   let _promoBannerEl = null;
   let _lastCategoryPopupKey = '';
-  let _isProvidersMapPage = false;
   let _providerFetchSeq = 0;
   const _providerListCache = new Map();
   let _categoryPickerOpen = false;
@@ -189,13 +188,19 @@ const SearchPage = (() => {
   let _providersList;
   let _emptyState;
   let _resultsCount;
+  let _countBadge;
+  let _scrollTopBtn;
+  let _emptyClearBtn;
+  let _emptyBrowseBtn;
+  let _heroStatProviders;
+  let _heroStatCategories;
+  let _heroStatVerified;
   let _sortSheet;
   let _sortBackdrop;
   let _mapBtn;
   let _mapBackdrop;
   let _mapModal;
   let _resultsLink;
-  let _myLocationBtn;
   let _categorySummary;
   let _categoryOpenBtn;
   let _categoryPickerBackdrop;
@@ -206,19 +211,24 @@ const SearchPage = (() => {
   let _categoryPickerList;
 
   function init() {
-    _isProvidersMapPage = !!(document.body && document.body.classList.contains('page-providers-map'));
     _input = document.getElementById('search-input');
     _clearBtn = document.getElementById('search-clear');
     _providersList = document.getElementById('providers-list');
     _emptyState = document.getElementById('empty-state');
     _resultsCount = document.getElementById('results-count');
+    _countBadge = document.getElementById('search-results-count-badge');
+    _scrollTopBtn = document.getElementById('search-results-scroll-top');
+    _emptyClearBtn = document.getElementById('empty-clear-btn');
+    _emptyBrowseBtn = document.getElementById('empty-browse-btn');
+    _heroStatProviders = document.getElementById('stat-providers');
+    _heroStatCategories = document.getElementById('stat-categories');
+    _heroStatVerified = document.getElementById('stat-verified');
     _sortSheet = document.getElementById('sort-sheet');
     _sortBackdrop = document.getElementById('sort-sheet-backdrop');
     _mapBtn = document.getElementById('search-map-btn');
     _mapBackdrop = document.getElementById('search-map-backdrop');
     _mapModal = document.getElementById('search-map-modal');
     _resultsLink = document.getElementById('search-results-link');
-    _myLocationBtn = document.getElementById('providers-map-my-location');
     _categorySummary = document.getElementById('search-active-category');
     _categoryOpenBtn = document.getElementById('search-open-categories');
     _categoryPickerBackdrop = document.getElementById('category-picker-backdrop');
@@ -242,6 +252,7 @@ const SearchPage = (() => {
     _bindCategoryPicker();
     _bindSortSheet();
     _bindMapModal();
+    _bindExtraUiElements();
 
     const params = new URLSearchParams(window.location.search);
     const urlQ = (params.get('q') || '').trim();
@@ -267,6 +278,17 @@ const SearchPage = (() => {
       _loadSearchPromos();
     });
     _fetchProviders();
+
+    if (_openMapAfterFirstRender) {
+      requestAnimationFrame(() => {
+        _openDeferredMapIfNeeded();
+      });
+      window.setTimeout(() => {
+        if (_openMapAfterFirstRender) {
+          _openDeferredMapIfNeeded();
+        }
+      }, 220);
+    }
   }
 
   function _bindHeader() {
@@ -405,14 +427,6 @@ const SearchPage = (() => {
   }
 
   function _bindMapModal() {
-    if (_myLocationBtn) {
-      _myLocationBtn.addEventListener('click', _focusClientLocation);
-    }
-
-    if (_isProvidersMapPage) {
-      return;
-    }
-
     if (_mapBtn) _mapBtn.addEventListener('click', _openMapModal);
 
     const closeBtn = document.getElementById('search-map-close');
@@ -881,7 +895,7 @@ const SearchPage = (() => {
       }
     }
 
-    await _ensureDistanceMap(_isProvidersMapPage || _selectedSort === 'nearest');
+    await _ensureDistanceMap(_selectedSort === 'nearest');
     if (fetchSeq !== _providerFetchSeq) return;
     _renderProviders();
     _syncResultsLink();
@@ -1118,12 +1132,15 @@ const SearchPage = (() => {
     let sorted = _applyPromoOrdering(_sortProviders(_providers));
 
     if (_resultsCount) _resultsCount.textContent = _copy('resultsCount', { count: sorted.length });
+    if (_countBadge) _countBadge.textContent = sorted.length > 0 ? String(sorted.length) : '';
+    if (_scrollTopBtn) _scrollTopBtn.classList.toggle('visible', window.scrollY > 320);
     if (_mapBtn) _mapBtn.classList.toggle('hidden', sorted.length === 0);
+    _updateHeroStats(_providers);
 
     _providersList.textContent = '';
     if (!sorted.length) {
       _showEmpty(_copy('noResults'));
-      if (_isProvidersMapPage) _renderMap();
+      if (_mapModalOpen) _renderMap();
       return;
     }
 
@@ -1139,22 +1156,20 @@ const SearchPage = (() => {
     });
     _providersList.appendChild(frag);
 
-    if (_isProvidersMapPage) {
+    if (_mapModalOpen) {
       _renderMap();
-      return;
     }
 
-    if (_openMapAfterFirstRender) {
-      _openMapAfterFirstRender = false;
-      _openMapModal();
-    }
+    _openDeferredMapIfNeeded();
+  }
+
+  function _openDeferredMapIfNeeded() {
+    if (!_openMapAfterFirstRender) return;
+    _openMapAfterFirstRender = false;
+    _openMapModal();
   }
 
   function _openMapModal() {
-    if (_isProvidersMapPage) {
-      _renderMap();
-      return;
-    }
     if (_mapModalOpen || !_mapModal || !_mapBackdrop) return;
     _closeCategoryPicker();
     _closeSortSheet();
@@ -1243,18 +1258,6 @@ const SearchPage = (() => {
       points.push([lat, lng]);
     });
 
-    if (_isProvidersMapPage && hasClientPosition) {
-      const currentMarker = L.circleMarker([_clientPosition.lat, _clientPosition.lng], {
-        radius: 7,
-        color: '#4F46E5',
-        fillColor: '#4F46E5',
-        fillOpacity: 0.85,
-        weight: 2,
-      });
-      currentMarker.bindPopup(_copy('currentLocation'));
-      _mapMarkersLayer.addLayer(currentMarker);
-    }
-
     if (points.length === 1) {
       _mapInstance.setView(points[0], 12);
     } else {
@@ -1265,24 +1268,6 @@ const SearchPage = (() => {
     setTimeout(() => {
       try { _mapInstance.invalidateSize(); } catch (_) {}
     }, 120);
-  }
-
-  async function _focusClientLocation() {
-    const pos = await _resolveClientPosition(true);
-    if (!pos) {
-      _showToast(_copy('currentLocationFailed'));
-      return;
-    }
-    if (_mapInstance) {
-      _mapInstance.setView([pos.lat, pos.lng], 13);
-      return;
-    }
-    _renderMap();
-    setTimeout(() => {
-      if (_mapInstance) {
-        _mapInstance.setView([pos.lat, pos.lng], 13);
-      }
-    }, 160);
   }
 
   function _syncResultsLink() {
@@ -1507,10 +1492,27 @@ const SearchPage = (() => {
     }
     media.appendChild(mediaFrame);
 
+    const avatarShell = UI.el('div', { className: 'provider-search-avatar-shell' });
     const avatar = UI.el('div', { className: 'provider-search-avatar' });
     if (profileUrl) avatar.appendChild(UI.lazyImg(profileUrl, displayName));
     else avatar.appendChild(UI.el('span', { textContent: initial }));
-    media.appendChild(avatar);
+    avatarShell.appendChild(avatar);
+    if (typeof UI.presenceDot === 'function') {
+      const presenceDot = UI.presenceDot(!!provider.is_online);
+      presenceDot.classList.add('provider-search-avatar-presence');
+      avatarShell.appendChild(presenceDot);
+    }
+    if (provider.is_verified_blue) {
+      avatarShell.appendChild(_buildProviderAvatarVerificationBadge('blue'));
+    }
+    if (provider.is_verified_green) {
+      avatarShell.appendChild(_buildProviderAvatarVerificationBadge('green'));
+    }
+    const avatarExcellenceSummary = _buildProviderAvatarExcellenceSummary(UI.normalizeExcellenceBadges(provider.excellence_badges));
+    if (avatarExcellenceSummary) {
+      avatarShell.appendChild(avatarExcellenceSummary);
+    }
+    media.appendChild(avatarShell);
 
     card.appendChild(media);
 
@@ -1518,22 +1520,19 @@ const SearchPage = (() => {
     const titleRow = UI.el('div', { className: 'provider-search-title-row' });
     const nameWrap = UI.el('div', { className: 'provider-search-name-wrap' });
     const nameLine = UI.el('div', { className: 'provider-search-name-line' });
-    nameLine.style.display = 'flex';
-    nameLine.style.alignItems = 'center';
-    nameLine.style.gap = '6px';
-    nameLine.style.flexWrap = 'wrap';
     const nameEl = UI.el('h2', { className: 'provider-search-name', textContent: displayName });
     nameLine.appendChild(nameEl);
-    const inlineVerifiedBadges = UI.buildVerificationBadges({
-      isVerifiedBlue: provider.is_verified_blue,
-      isVerifiedGreen: provider.is_verified_green,
-      iconSize: 14,
-      gap: '4px',
-    });
-    if (inlineVerifiedBadges) nameLine.appendChild(inlineVerifiedBadges);
     nameWrap.appendChild(nameLine);
 
     const badgesRow = UI.el('div', { className: 'provider-search-badges' });
+
+    const providerTypeLabel = String(provider.provider_type_label || provider.provider_type || '').trim();
+    if (providerTypeLabel) {
+      badgesRow.appendChild(UI.el('span', {
+        className: 'provider-search-badge is-identity',
+        textContent: providerTypeLabel,
+      }));
+    }
 
     const excellenceItems = UI.normalizeExcellenceBadges(provider.excellence_badges);
     if (excellenceItems.length) {
@@ -1555,9 +1554,20 @@ const SearchPage = (() => {
     }
 
     titleRow.appendChild(nameWrap);
-
-    // Rating/trust pill removed from header — rating is shown in the stats row below.
     const titleAside = UI.el('div', { className: 'provider-search-title-aside' });
+    if (rating > 0 || ratingCount > 0) {
+      const trustPill = UI.el('div', { className: 'provider-search-trust' });
+      const trustIcon = UI.el('span', { className: 'provider-search-trust-icon' });
+      trustIcon.appendChild(UI.icon('star', 14, '#ffffff'));
+      trustPill.appendChild(trustIcon);
+      const trustCopy = UI.el('span', { className: 'provider-search-trust-copy' });
+      trustCopy.appendChild(UI.el('strong', { textContent: ratingLabel }));
+      trustCopy.appendChild(UI.el('span', {
+        textContent: ratingCount ? _copy('ratingsCount', { count: ratingCount }) : _copy('noRatings'),
+      }));
+      trustPill.appendChild(trustCopy);
+      titleAside.appendChild(trustPill);
+    }
     if (titleAside.childNodes.length) {
       titleRow.appendChild(titleAside);
     }
@@ -1692,10 +1702,60 @@ const SearchPage = (() => {
     if (_providersList) _providersList.textContent = '';
     if (_emptyState) {
       _emptyState.classList.remove('hidden');
-      const text = _emptyState.querySelector('p');
+      const text = _emptyState.querySelector('#search-empty-text');
       if (text) text.textContent = message || _copy('noResults');
     }
     if (_resultsCount) _resultsCount.textContent = _copy('resultsCount', { count: 0 });
+    if (_countBadge) _countBadge.textContent = '';
+    if (_scrollTopBtn) _scrollTopBtn.classList.remove('visible');
+    _openDeferredMapIfNeeded();
+  }
+
+  function _bindExtraUiElements() {
+    if (_emptyClearBtn) {
+      _emptyClearBtn.addEventListener('click', function () {
+        if (_input) { _input.value = ''; _input.dispatchEvent(new Event('input')); }
+        if (_clearBtn) _clearBtn.classList.add('hidden');
+        _query = '';
+        _fetchProviders();
+      });
+    }
+    if (_emptyBrowseBtn) {
+      _emptyBrowseBtn.addEventListener('click', function () {
+        _activeCat = '';
+        _activeSubcategory = '';
+        if (_input) { _input.value = ''; _input.dispatchEvent(new Event('input')); }
+        if (_clearBtn) _clearBtn.classList.add('hidden');
+        _query = '';
+        _renderCategoryChips(_categories);
+        _fetchProviders();
+      });
+    }
+    if (_scrollTopBtn) {
+      _scrollTopBtn.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      window.addEventListener('scroll', function () {
+        if (!_scrollTopBtn) return;
+        if (window.scrollY > 320) {
+          _scrollTopBtn.classList.add('visible');
+        } else {
+          _scrollTopBtn.classList.remove('visible');
+        }
+      }, { passive: true });
+    }
+  }
+
+  function _updateHeroStats(providers) {
+    if (!_heroStatProviders && !_heroStatCategories && !_heroStatVerified) return;
+    const total = providers ? providers.length : 0;
+    const verified = providers ? providers.filter(function (p) {
+      return p.is_verified || p.verified || p.badge_kind === 'verified' || p.verified_status === 'verified';
+    }).length : 0;
+    const catCount = Array.isArray(_categories) ? _categories.length : 0;
+    if (_heroStatProviders) _heroStatProviders.textContent = total > 0 ? total : '—';
+    if (_heroStatCategories) _heroStatCategories.textContent = catCount > 0 ? catCount : '—';
+    if (_heroStatVerified) _heroStatVerified.textContent = verified > 0 ? verified : '—';
   }
 
   function _completedCount(provider) {
@@ -1781,6 +1841,88 @@ const SearchPage = (() => {
     return url.toString();
   }
 
+  function _buildProviderAvatarVerificationBadge(kind) {
+    const isBlue = kind === 'blue';
+    const badge = UI.el('span', {
+      className: 'provider-search-avatar-badge ' + (isBlue ? 'is-blue' : 'is-green'),
+      title: isBlue ? 'توثيق أزرق' : 'توثيق أخضر',
+      'aria-label': isBlue ? 'توثيق أزرق' : 'توثيق أخضر',
+      'aria-hidden': 'true',
+    });
+    badge.innerHTML = [
+      '<svg viewBox="0 0 16 16" width="12" height="12" focusable="false" aria-hidden="true">',
+      '<path d="M3.5 8.4 6.4 11.1 12.4 5.2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+      '</svg>',
+    ].join('');
+    return badge;
+  }
+
+  function _providerAvatarBadgeArcLayout(count) {
+    if (count <= 1) {
+      return [{ left: '50%', bottom: '1px' }];
+    }
+    if (count === 2) {
+      return [
+        { left: '34%', bottom: '8px' },
+        { left: '66%', bottom: '8px' },
+      ];
+    }
+    if (count === 3) {
+      return [
+        { left: '18%', bottom: '12px' },
+        { left: '50%', bottom: '1px' },
+        { left: '82%', bottom: '12px' },
+      ];
+    }
+    return [
+      { left: '10%', bottom: '15px' },
+      { left: '37%', bottom: '4px' },
+      { left: '63%', bottom: '4px' },
+      { left: '90%', bottom: '15px' },
+    ];
+  }
+
+  function _buildProviderAvatarExcellenceSummary(items) {
+    const badges = Array.isArray(items) ? items.filter(item => item && typeof item === 'object') : [];
+    if (!badges.length) return null;
+
+    const wrap = UI.el('div', {
+      className: 'provider-search-avatar-excellence-badges',
+      'aria-hidden': 'true',
+    });
+    const visible = badges.slice(0, 3);
+    const nodes = [];
+
+    visible.forEach((item) => {
+      const badge = UI.el('span', {
+        className: 'provider-search-avatar-excellence-badge',
+      });
+      badge.style.setProperty('--provider-avatar-badge-color', item.color || '#b45309');
+      badge.appendChild(UI.icon(item.icon || 'sparkles', 12, '#fff'));
+      wrap.appendChild(badge);
+      nodes.push(badge);
+    });
+
+    const hiddenCount = Math.max(0, badges.length - visible.length);
+    if (hiddenCount > 0) {
+      const moreBadge = UI.el('span', {
+        className: 'provider-search-avatar-excellence-badge is-more',
+        textContent: '+' + String(hiddenCount),
+      });
+      wrap.appendChild(moreBadge);
+      nodes.push(moreBadge);
+    }
+
+    const layout = _providerAvatarBadgeArcLayout(nodes.length);
+    nodes.forEach((node, index) => {
+      const slot = layout[index] || layout[layout.length - 1];
+      node.style.setProperty('--badge-left', slot.left);
+      node.style.setProperty('--badge-bottom', slot.bottom);
+    });
+
+    return wrap;
+  }
+
   function _buildProviderMapPopupHtml(provider) {
     const providerId = String(provider?.id || '').trim();
     const name = _escapeHtml((provider?.display_name || _copy('providerFallback')).trim());
@@ -1800,7 +1942,7 @@ const SearchPage = (() => {
         }
         return url.pathname + (url.search || '');
       } catch (_) {
-        return '/providers-map/';
+        return '/search/?open_map=1';
       }
     })();
     const profileUrl = providerId
@@ -1824,6 +1966,7 @@ const SearchPage = (() => {
       imageUrl
         ? ('<img class="search-map-provider-avatar" src="' + _escapeHtml(imageUrl) + '" alt="' + name + '">')
         : '<span class="search-map-provider-avatar-fallback">👤</span>',
+      '<span class="nw-presence-dot ' + (provider?.is_online ? 'is-online' : 'is-offline') + '" aria-hidden="true"></span>',
       '</a>',
       '<div class="search-map-provider-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>' + name + '</span>' + verifiedIcons + '</div>',
       '<div class="search-map-provider-meta">',
@@ -2128,7 +2271,7 @@ const SearchPage = (() => {
     _applyStaticCopy();
     _renderCategoryChips(_categories);
     _renderProviders();
-    if (_mapModalOpen || _isProvidersMapPage) _renderMap();
+    if (_mapModalOpen) _renderMap();
   }
 
   function _applyStaticCopy() {
@@ -2149,7 +2292,14 @@ const SearchPage = (() => {
     _setText('search-map-btn-label', _copy('map'));
     _setText('search-sort-btn-label', _copy('sortResults'));
     _setText('search-open-categories-label', _copy('allCategories'));
-    _setText('search-results-title', _copy('readyProviders'));
+    // Preserve the count badge child element when updating title text
+    (function () {
+      const el = document.getElementById('search-results-title');
+      if (!el) return;
+      const badge = el.querySelector('.search-results-count-badge');
+      el.textContent = _copy('readyProviders');
+      if (badge) el.appendChild(badge);
+    }());
     _setText('search-results-note', _copy('resultsNote'));
     _setText('search-empty-text', _copy('noSearchResults'));
     _setText('category-picker-title', _copy('chooseCategoryTitle'));

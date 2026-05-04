@@ -53,6 +53,394 @@
     display: none;
   }
 
+  body.page-provider-profile-edit .pe-phone-otp-box {
+    margin-top: 12px;
+    padding: 14px;
+    border: 1px solid rgba(92, 62, 152, 0.18);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(246,242,255,0.96) 100%);
+    box-shadow: 0 12px 30px rgba(103, 58, 183, 0.08);
+  }
+
+  body.page-provider-profile-edit .pe-phone-otp-box.hidden {
+    display: none;
+  }
+
+  body.page-provider-profile-edit .pe-phone-otp-title {
+    display: block;
+    margin: 0 0 4px;
+    color: #2f2150;
+    font-size: 14px;
+    font-weight: 900;
+  }
+
+  body.page-provider-profile-edit .pe-phone-otp-note {
+    display: block;
+    margin: 0 0 10px;
+    color: #6d5a95;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  body.page-provider-profile-edit .pe-phone-otp-input {
+    text-align: center;
+    letter-spacing: 0.24em;
+    font-weight: 800;
+  }
+
+  body.page-provider-profile-edit .pe-phone-otp-status {
+    margin-top: 10px;
+    min-height: 20px;
+    color: #6d5a95;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.6;
+  }
+
+  body.page-provider-profile-edit .pe-phone-otp-status.is-error {
+    color: #c2415c;
+  }
+
+  body.page-provider-profile-edit .pe-phone-otp-status.is-success {
+    color: #0f766e;
+  }
+
+  body.page-provider-profile-edit .pe-phone-otp-status.is-info {
+    color: #5c3e98;
+  }
+
+  body.page-provider-profile-edit .pe-local-toast-stack {
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    right: 18px;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    align-items: center;
+  }
+
+  body.page-provider-profile-edit .pe-local-toast {
+    width: min(100%, 420px);
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(92, 62, 152, 0.14);
+    background: rgba(255,255,255,0.96);
+    box-shadow: 0 16px 36px rgba(34, 24, 72, 0.16);
+    color: #2f2150;
+    transform: translateY(-8px);
+    opacity: 0;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    backdrop-filter: blur(10px);
+  }
+
+  body.page-provider-profile-edit .pe-local-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  body.page-provider-profile-edit .pe-local-toast.is-success {
+    border-color: rgba(15, 118, 110, 0.18);
+  }
+
+  body.page-provider-profile-edit .pe-local-toast.is-error {
+    border-color: rgba(190, 24, 93, 0.18);
+  }
+
+  body.page-provider-profile-edit .pe-local-toast.is-info {
+    border-color: rgba(92, 62, 152, 0.18);
+  }
+
+  body.page-provider-profile-edit .pe-local-toast-title {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  body.page-provider-profile-edit .pe-local-toast-message {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.6;
+  }
+
+  body.page-provider-profile-edit .pe-additional-links-summary {
+    display: grid;
+    gap: 10px;
+  }
+
+  body.page-provider-profile-edit .pe-additional-link-chip {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(92, 62, 152, 0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,244,255,0.96) 100%);
+  }
+
+  body.page-provider-profile-edit .pe-additional-link-chip strong {
+    color: #2f2150;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  body.page-provider-profile-edit .pe-additional-link-chip span {
+    color: #6d5a95;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.6;
+    direction: ltr;
+    text-align: left;
+  }
+
+  body.page-provider-profile-edit .pe-additional-links-editor {
+    display: grid;
+    gap: 12px;
+  }
+
+  body.page-provider-profile-edit .pe-additional-links-note {
+    color: #6d5a95;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.8;
+  }
+
+  body.page-provider-profile-edit .pe-additional-links-rows {
+    display: grid;
+    gap: 10px;
+  }
+
+  body.page-provider-profile-edit .pe-additional-link-row {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px;
+    border-radius: 18px;
+    border: 1px solid rgba(92, 62, 152, 0.10);
+    background: rgba(255,255,255,0.82);
+  }
+
+  body.page-provider-profile-edit .pe-additional-links-add-btn {
+    justify-self: flex-start;
+  }
+
+  @media (max-width: 640px) {
+    body.page-provider-profile-edit .pe-additional-link-row {
+      grid-template-columns: 1fr;
+    }
+
+    body.page-provider-profile-edit .pe-additional-links-remove {
+      width: 100%;
+    }
+  }
+
+  body.page-provider-profile-edit .pe-content-manager {
+    display: grid;
+    gap: 14px;
+  }
+
+  body.page-provider-profile-edit .pe-content-card {
+    padding: 18px;
+    border-radius: 28px;
+    border: 1px solid rgba(92, 62, 152, 0.10);
+    background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,244,255,0.96) 100%);
+    box-shadow: 0 16px 34px rgba(36, 24, 76, 0.08);
+  }
+
+  body.page-provider-profile-edit .pe-content-card.is-auxiliary {
+    border-style: dashed;
+    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(250,250,252,0.98) 100%);
+  }
+
+  body.page-provider-profile-edit .pe-content-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  body.page-provider-profile-edit .pe-content-card-title {
+    margin: 0 0 4px;
+    color: #271a46;
+    font-size: 18px;
+    font-weight: 900;
+  }
+
+  body.page-provider-profile-edit .pe-content-card-subtitle {
+    margin: 0;
+    color: #6d5a95;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.8;
+  }
+
+  body.page-provider-profile-edit .pe-content-card-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(103, 58, 183, 0.08);
+    color: #5c3e98;
+    font-size: 12px;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  body.page-provider-profile-edit .pe-content-upload,
+  body.page-provider-profile-edit .pe-content-item-replace {
+    position: relative;
+    overflow: hidden;
+  }
+
+  body.page-provider-profile-edit .pe-content-upload.is-loading,
+  body.page-provider-profile-edit .pe-content-item-replace.is-loading,
+  body.page-provider-profile-edit .pe-content-item-save.is-loading,
+  body.page-provider-profile-edit .pe-content-item-delete.is-loading {
+    pointer-events: none;
+    opacity: 0.72;
+  }
+
+  body.page-provider-profile-edit .pe-content-items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  body.page-provider-profile-edit .pe-content-item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 22px;
+    border: 1px solid rgba(92, 62, 152, 0.10);
+    background: #fff;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-preview {
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(92, 62, 152, 0.10);
+    background: linear-gradient(180deg, #f8f6fc 0%, #ffffff 100%);
+    min-height: 180px;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-image,
+  body.page-provider-profile-edit .pe-content-item-video {
+    display: block;
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    background: #f4f1fb;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-doc {
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 18px;
+    text-align: center;
+    color: #5c3e98;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-doc--empty {
+    color: #8d7aaf;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-doc-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
+    background: rgba(103, 58, 183, 0.12);
+    font-size: 16px;
+    font-weight: 900;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-doc-copy {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.8;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-type {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.10);
+    color: #0f766e;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-link {
+    color: #5c3e98;
+    font-size: 12px;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-desc {
+    min-height: 84px;
+    resize: vertical;
+  }
+
+  body.page-provider-profile-edit .pe-content-item-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  body.page-provider-profile-edit .pe-content-card-empty,
+  body.page-provider-profile-edit .pe-content-empty-state {
+    padding: 18px;
+    border-radius: 24px;
+    border: 1px dashed rgba(92, 62, 152, 0.18);
+    background: rgba(255,255,255,0.92);
+    color: #6d5a95;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.9;
+  }
+
+  body.page-provider-profile-edit .pe-content-empty-state strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #2f2150;
+    font-size: 15px;
+    font-weight: 900;
+  }
+
+  @media (max-width: 767px) {
+    body.page-provider-profile-edit .pe-content-card-head,
+    body.page-provider-profile-edit .pe-content-item-meta {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+
   @keyframes pe-avatar-spin {
     to { transform: rotate(360deg); }
   }
@@ -132,57 +520,6 @@
             </button>
           </div>
         </section>
-
-        <section class="detail-card pe-workflow-card" id="pe-workflow-card" aria-live="polite">
-          <div class="pe-workflow-head">
-            <p class="pe-helper-kicker">خارطة الإجراءات</p>
-            <h3 class="pe-workflow-title">أنجز ملفك في 3 خطوات واضحة</h3>
-          </div>
-          <div class="pe-workflow-progress" id="pe-workflow-progress">
-            <button type="button" class="pe-workflow-step is-active" data-tab-target="account">
-              <span class="pe-workflow-step-index">1</span>
-              <span class="pe-workflow-step-label">الحساب</span>
-            </button>
-            <button type="button" class="pe-workflow-step" data-tab-target="general">
-              <span class="pe-workflow-step-index">2</span>
-              <span class="pe-workflow-step-label">العام</span>
-            </button>
-            <button type="button" class="pe-workflow-step" data-tab-target="extra">
-              <span class="pe-workflow-step-index">3</span>
-              <span class="pe-workflow-step-label">الإضافي</span>
-            </button>
-          </div>
-          <div class="pe-workflow-tip">
-            <strong id="pe-current-action">ابدأ بتحديث معلومات الحساب الأساسية.</strong>
-            <p id="pe-current-hint">كلما كانت بياناتك الأساسية واضحة، زادت ثقة العميل وسهُل اتخاذ القرار.</p>
-          </div>
-        </section>
-
-        <section class="detail-card pe-helper-card" aria-live="polite">
-          <p class="pe-helper-kicker">القسم الحالي</p>
-          <h2 id="pe-section-label" class="pe-helper-title">معلومات الحساب</h2>
-          <p id="pe-section-summary" class="pe-helper-desc">حدّث اسم الحساب، صفته، رقم الجوال، النبذة، المدينة، والبريد الإلكتروني من نفس الواجهة.</p>
-          <div class="pe-helper-points" id="pe-helper-points">
-            <span>احفظ كل حقل فور تعديله لضمان عدم فقدان البيانات.</span>
-            <span>استخدم عبارات واضحة ومختصرة في النبذة والعنوان.</span>
-          </div>
-        </section>
-
-        <a href="/provider-portfolio/" class="detail-card pe-portfolio-link pe-portfolio-link-no-icon">
-          <div class="pe-portfolio-copy">
-            <strong>معرض الأعمال</strong>
-            <p class="text-muted">تحكم بالمحتوى الذي يظهر للعملاء داخل الملف التعريفي</p>
-          </div>
-          <svg class="pe-portfolio-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-        </a>
-
-        <a href="/provider-services/" class="detail-card pe-portfolio-link pe-portfolio-link-no-icon">
-          <div class="pe-portfolio-copy">
-            <strong>التصنيفات والخدمات</strong>
-            <p class="text-muted">أضف تخصصاتك وفعّل استقبال الطلبات العاجلة لكل تصنيف من مكان واحد</p>
-          </div>
-          <svg class="pe-portfolio-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-        </a>
       </aside>
 
       <section class="pe-main">
@@ -203,5 +540,5 @@
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/providerProfileEditPage.js' %}?v=20260421-avataruploadfeedback"></script>
+<script src="{% static 'mobile_web/js/providerProfileEditPage.js' %}?v=20260504-subcategory-policy-readonly"></script>
 {% endblock %}

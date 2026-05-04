@@ -5,7 +5,6 @@
 'use strict';
 
 const RequestQuotePage = (() => {
-  let _regionCatalog = [];
   let _images = [];
   let _videos = [];
   let _files = [];
@@ -224,7 +223,6 @@ const RequestQuotePage = (() => {
     _setAuthState(isLoggedIn);
     if (!isLoggedIn) return;
 
-    _loadRegionCatalog();
     _loadCategories();
     _bindTextCounters();
     _bindLiveValidation();
@@ -242,28 +240,6 @@ const RequestQuotePage = (() => {
     const form = document.getElementById('rq-form');
     if (form) form.addEventListener('submit', _onSubmit);
 
-    const citySel = document.getElementById('rq-city');
-    if (citySel) citySel.addEventListener('change', _updateCityClearVisibility);
-
-    const regionSel = document.getElementById('rq-region');
-    if (regionSel) {
-      regionSel.addEventListener('change', () => {
-        _clearFieldError('rq-city');
-        _populateCitiesForRegion('');
-        _updateCityClearVisibility();
-      });
-    }
-
-    const clearCityBtn = document.getElementById('rq-city-clear');
-    if (clearCityBtn) {
-      clearCityBtn.addEventListener('click', () => {
-        const regionSel = document.getElementById('rq-region');
-        if (regionSel) regionSel.value = '';
-        if (citySel) citySel.value = '';
-        _populateCitiesForRegion('');
-        _updateCityClearVisibility();
-      });
-    }
   }
 
   function _handleLanguageChange() {
@@ -272,7 +248,6 @@ const RequestQuotePage = (() => {
     if (isLoggedIn && _ensureProviderAccess()) return;
     _setAuthState(isLoggedIn);
     if (!isLoggedIn) return;
-    _refreshRegionCityOptions();
     _renderAttachments();
     const overlay = document.getElementById('rq-submit-state');
     if (overlay && !overlay.classList.contains('hidden')) {
@@ -413,9 +388,6 @@ const RequestQuotePage = (() => {
     _setText('rq-title-hint', _copy('titleHint'));
     _setText('rq-category-label', _copy('categoryLabel'));
     _setText('rq-subcategory-label', _copy('subcategoryLabel'));
-    _setText('rq-region-label', _copy('regionLabel'));
-    _setText('rq-city-label', _copy('cityLabel'));
-    _setText('rq-city-clear', _copy('cityClear'));
     _setText('rq-deadline-label', _copy('deadlineLabel'));
     _setText('rq-details-label', _copy('detailsLabel'));
     _setPlaceholder('rq-details', _copy('detailsPlaceholder'));
@@ -446,67 +418,12 @@ const RequestQuotePage = (() => {
     _setAttr('rq-toast-close', 'aria-label', _copy('toastCloseAria'));
     _refreshSelectPlaceholder('rq-category', _copy('categoryPlaceholder'));
     _refreshSelectPlaceholder('rq-subcategory', _copy('subcategoryPlaceholder'));
-    _refreshRegionCityOptions();
   }
 
   function _refreshSelectPlaceholder(id, label) {
     const select = document.getElementById(id);
     const placeholder = select?.querySelector('option[value=""]');
     if (placeholder) placeholder.textContent = label;
-  }
-
-  async function _loadRegionCatalog() {
-    const res = await ApiClient.get('/api/providers/geo/regions-cities/');
-    if (res.ok && res.data) {
-      _regionCatalog = UI.normalizeRegionCatalog(Array.isArray(res.data) ? res.data : (res.data.results || []));
-    }
-    if (!_regionCatalog.length) {
-      _regionCatalog = UI.getRegionCatalogFallback();
-    }
-    _refreshRegionCityOptions();
-  }
-
-  function _refreshRegionCityOptions() {
-    const regionSelect = document.getElementById('rq-region');
-    const citySelect = document.getElementById('rq-city');
-    const currentRegion = regionSelect?.value || '';
-    const currentCity = citySelect?.value || '';
-    if (_regionCatalog.length) {
-      UI.populateRegionOptions(regionSelect, _regionCatalog, {
-        placeholder: _copy('regionPlaceholder'),
-        currentValue: currentRegion,
-      });
-      UI.populateCityOptions(citySelect, _regionCatalog, regionSelect?.value || '', {
-        currentValue: currentCity,
-        placeholder: _copy('cityPlaceholder'),
-        emptyPlaceholder: _copy('cityEmptyPlaceholder'),
-      });
-    } else {
-      _setText('rq-region-placeholder', _copy('regionPlaceholder'));
-      _setText('rq-city-placeholder', _copy('cityEmptyPlaceholder'));
-    }
-    _updateCityClearVisibility();
-  }
-
-  function _populateCitiesForRegion(selectedCity) {
-    UI.populateCityOptions(document.getElementById('rq-city'), _regionCatalog, document.getElementById('rq-region')?.value || '', {
-      currentValue: selectedCity || '',
-      placeholder: _copy('cityPlaceholder'),
-      emptyPlaceholder: _copy('cityEmptyPlaceholder'),
-    });
-  }
-
-  function _selectedScopedCity() {
-    const region = (document.getElementById('rq-region')?.value || '').trim();
-    const city = (document.getElementById('rq-city')?.value || '').trim();
-    return city ? UI.formatCityDisplay(city, region) : '';
-  }
-
-  function _updateCityClearVisibility() {
-    const clearBtn = document.getElementById('rq-city-clear');
-    if (!clearBtn) return;
-    const cityValue = _selectedScopedCity();
-    clearBtn.classList.toggle('hidden', cityValue.length === 0);
   }
 
   function _bindTextCounters() {
@@ -870,7 +787,7 @@ const RequestQuotePage = (() => {
   }
 
   function _clearAllFieldErrors() {
-    ['rq-title', 'rq-category', 'rq-subcategory', 'rq-details', 'rq-city', 'rq-deadline'].forEach(_clearFieldError);
+    ['rq-title', 'rq-category', 'rq-subcategory', 'rq-details', 'rq-deadline'].forEach(_clearFieldError);
   }
 
   function _focusField(id) {
@@ -936,7 +853,6 @@ const RequestQuotePage = (() => {
       title: 'rq-title',
       subcategory: 'rq-subcategory',
       description: 'rq-details',
-      city: 'rq-city',
       quote_deadline: 'rq-deadline',
     };
     let firstMessage = '';
@@ -1186,7 +1102,6 @@ const RequestQuotePage = (() => {
     const title = required.title;
     const details = required.details;
     const subcat = required.subcategory;
-    const city = _selectedScopedCity();
     const deadline = document.getElementById('rq-deadline')?.value;
 
     const fd = new FormData();
@@ -1194,7 +1109,6 @@ const RequestQuotePage = (() => {
     fd.append('title', title);
     if (details) fd.append('description', details);
     if (subcat) fd.append('subcategory', subcat);
-    if (city) fd.append('city', city);
     if (deadline) fd.append('quote_deadline', deadline);
     _appendRequestFiles(fd);
 

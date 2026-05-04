@@ -23,7 +23,6 @@ import '../widgets/promo_media_tile.dart';
 import '../widgets/platform_top_bar.dart';
 import '../widgets/provider_name_with_badges.dart';
 import '../widgets/spotlight_viewer.dart';
-import '../widgets/verified_badge_view.dart';
 import '../services/content_service.dart';
 import '../services/unread_badge_service.dart';
 import '../services/auth_service.dart';
@@ -785,6 +784,10 @@ class _HomeScreenState extends State<HomeScreen> {
           placement['target_provider_display_name'] as String? ?? 'مقدم خدمة',
       providerProfileImage:
           placement['target_provider_profile_image'] as String?,
+      isVerifiedBlue:
+        placement['target_provider_is_verified_blue'] as bool? ?? false,
+      isVerifiedGreen:
+        placement['target_provider_is_verified_green'] as bool? ?? false,
       fileType:
           placement['target_portfolio_item_file_type'] as String? ?? 'image',
       fileUrl: rawFile,
@@ -1632,26 +1635,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Positioned.fill(
-          child: PromoBannerWidget(
-            key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
-            mediaUrl: mediaUrl,
-            isVideo: banner.isVideo,
-            isActive: isActive,
-            autoplay: true,
-            loopVideo: banner.isVideo,
-            onVideoEnded: null,
-            borderRadius: 0,
-            stretchToParent: true,
-            mediaFit: BoxFit.cover,
-            mediaOverlayOpacity: 0,
-            contentPadding: EdgeInsets.zero,
-            showBackdrop: true,
-            backdropBlurSigma: 24,
-            backdropOverlayOpacity: 0.18,
-            backdropScale: 1.08,
-            fallback: _gradientPlaceholder(),
-          ),
+        PromoBannerWidget(
+          mediaUrl: mediaUrl,
+          isVideo: banner.isVideo,
+          isActive: isActive,
+          autoplay: true,
+          stretchToParent: true,
+          borderRadius: 0,
+          contentPadding: EdgeInsets.zero,
+          showBackdrop: true,
+          backdropBlurSigma: 24,
+          backdropOverlayOpacity: 0.18,
+          backdropScale: 1.08,
+          fallback: _gradientPlaceholder(),
         ),
         DecoratedBox(
           decoration: BoxDecoration(
@@ -2968,48 +2964,82 @@ class _HomeScreenState extends State<HomeScreen> {
                         : null,
                   ),
                 ),
-                if (specialist.isVerified)
-                  PositionedDirectional(
-                    bottom: -2,
-                    end: -2,
+                if (specialist.isVerifiedBlue)
+                  Positioned(
+                    top: 0,
+                    left: -6,
                     child: Container(
-                      padding: const EdgeInsets.all(2),
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.cardDark : Colors.white,
+                        color: const Color(0xFF5DA9E9),
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.cardDark
+                              : Colors.white,
+                          width: 2,
+                        ),
+                        boxShadow: AppShadows.card,
                       ),
-                      child: VerifiedBadgeView(
-                        isVerifiedBlue: specialist.isVerifiedBlue,
-                        isVerifiedGreen: specialist.isVerifiedGreen,
-                        iconSize: 14,
-                        enableTap: false,
+                      child: const Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                if (specialist.isVerifiedGreen)
+                  Positioned(
+                    top: 0,
+                    right: -6,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4CAF50),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.cardDark
+                              : Colors.white,
+                          width: 2,
+                        ),
+                        boxShadow: AppShadows.card,
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: Colors.white,
                       ),
                     ),
                   ),
                 if (specialist.excellenceBadges.isNotEmpty)
-                  PositionedDirectional(
-                    top: -4,
-                    start: -6,
+                  Positioned(
+                    top: specialist.isVerifiedBlue ? 30 : 0,
+                    left: -6,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 4,
-                      ),
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isDark
-                            ? AppColors.cardDark
+                            ? AppColors.cardDark.withValues(alpha: 0.96)
                             : AppColors.accentSurface,
-                        borderRadius: BorderRadius.circular(999),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : AppColors.accent.withValues(alpha: 0.12),
+                        ),
                         boxShadow: AppShadows.card,
                       ),
-                      child: const Text(
-                        'تميز',
-                        style: TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'Cairo',
-                          color: AppColors.accent,
-                        ),
+                      child: const Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 13,
+                        color: AppColors.accent,
                       ),
                     ),
                   ),

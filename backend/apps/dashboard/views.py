@@ -52,6 +52,7 @@ from apps.providers.models import (
     ProviderSpotlightLike,
     ProviderSpotlightItem,
     ProviderSpotlightSave,
+    SubCategory,
 )
 from apps.reviews.models import Review, ReviewModerationStatus
 from apps.reviews.services import sync_review_to_unified
@@ -178,9 +179,11 @@ from .exports import pdf_response, xlsx_response
 from .forms import (
     ACCESS_MANAGED_DASHBOARD_CODES,
     AccessProfileForm,
+    ContentCategoryForm,
     ContentDesignUploadForm,
     ContentFirstTimeForm,
     ContentFirstTimeMediaForm,
+    ContentSubCategoryForm,
     ContentReviewActionForm,
     ContentSettingsLegalForm,
     ContentSettingsLinksForm,
@@ -8507,6 +8510,12 @@ def _content_nav_items(active_key: str) -> list[dict]:
             "url": reverse("dashboard:content_settings"),
         },
         {
+            "key": "categories",
+            "label": "إدارة التصنيفات",
+            "description": "إدارة التصنيفات الرئيسية والفرعية وسياسات النطاق الجغرافي والعاجل.",
+            "url": reverse("dashboard:content_categories"),
+        },
+        {
             "key": "reviews",
             "label": "إدارة التقييم والمراجعات",
             "description": "معالجة الطلبات، البلاغات، وتعليق الإدارة.",
@@ -8556,6 +8565,58 @@ def _content_media_specs(media_field) -> str:
         size_mb = size / (1024 * 1024)
         return f"{name} - {size_mb:.2f} MB"
     return name or "ملف مرفوع"
+
+
+def _content_category_stats() -> dict:
+    return {
+        "categories": Category.objects.count(),
+        "subcategories": SubCategory.objects.count(),
+        "geo_scoped": SubCategory.objects.filter(requires_geo_scope=True).count(),
+        "urgent_enabled": SubCategory.objects.filter(allows_urgent_requests=True).count(),
+    }
+
+
+def _content_categories_queryset(search_term: str = ""):
+    queryset = Category.objects.prefetch_related(
+        Prefetch(
+            "subcategories",
+            queryset=SubCategory.objects.select_related("category").order_by("name", "id"),
+        )
+    ).order_by("name", "id")
+    if not search_term:
+        return queryset
+    return queryset.filter(
+        Q(name__icontains=search_term) | Q(subcategories__name__icontains=search_term)
+    ).distinct()
+
+
+def _content_category_form_instance(*, category: Category | None = None, data=None) -> ContentCategoryForm:
+    if data is not None:
+        return ContentCategoryForm(data)
+    initial = {}
+    if category is not None:
+        initial = {
+            "category_id": category.id,
+            "name": category.name,
+            "is_active": bool(category.is_active),
+        }
+    return ContentCategoryForm(initial=initial)
+
+
+def _content_subcategory_form_instance(*, subcategory: SubCategory | None = None, data=None) -> ContentSubCategoryForm:
+    if data is not None:
+        return ContentSubCategoryForm(data)
+    initial = {}
+    if subcategory is not None:
+        initial = {
+            "subcategory_id": subcategory.id,
+            "category": subcategory.category_id,
+            "name": subcategory.name,
+            "requires_geo_scope": bool(subcategory.requires_geo_scope),
+            "allows_urgent_requests": bool(subcategory.allows_urgent_requests),
+            "is_active": bool(subcategory.is_active),
+        }
+    return ContentSubCategoryForm(initial=initial)
 
 
 def _save_content_block(
@@ -9083,6 +9144,98 @@ def content_settings(request):
         }
     )
     return render(request, "dashboard/content_settings.html", context)
+
+
+@dashboard_staff_required
+@require_dashboard_access("content")
+def content_categories(request):
+    can_write = dashboard_allowed(request.user, "content", write=True)
+    can_manage = bool(can_write and ContentManagePolicy.evaluate(request.user).allowed)
+
+    search_term = (request.GET.get("q") or "").strip()
+    selected_category_id = (request.GET.get("category") or "").strip()
+    selected_subcategory_id = (request.GET.get("subcategory") or "").strip()
+
+    selected_category = Category.objects.filter(pk=int(selected_category_id)).first() if selected_category_id.isdigit() else None
+    selected_subcategory = (
+        SubCategory.objects.select_related("category").filter(pk=int(selected_subcategory_id)).first()
+        if selected_subcategory_id.isdigit()
+        else None
+    )
+    if selected_subcategory is not None:
+        selected_category = selected_subcategory.category
+
+    category_form = _content_category_form_instance(category=selected_category)
+    subcategory_form = _content_subcategory_form_instance(subcategory=selected_subcategory)
+
+    if request.method == "POST":
+        if not can_manage:
+            return HttpResponseForbidden("لا تملك صلاحية إدارة التصنيفات.")
+
+        action = (request.POST.get("action") or "").strip()
+        if action == "save_category":
+            category_form = _content_category_form_instance(data=request.POST)
+            if category_form.is_valid():
+                category_id = category_form.cleaned_data.get("category_id")
+                category_obj = Category.objects.filter(pk=category_id).first() if category_id else Category()
+                category_obj.name = category_form.cleaned_data["name"]
+                category_obj.is_active = bool(category_form.cleaned_data.get("is_active"))
+                category_obj.save()
+                messages.success(request, "تم حفظ التصنيف الرئيسي بنجاح.")
+                return redirect(f"{reverse('dashboard:content_categories')}?category={category_obj.id}")
+            messages.error(request, "تعذر حفظ التصنيف الرئيسي. تحقق من الحقول ثم حاول مرة أخرى.")
+        elif action == "save_subcategory":
+            subcategory_form = _content_subcategory_form_instance(data=request.POST)
+            if subcategory_form.is_valid():
+                subcategory_id = subcategory_form.cleaned_data.get("subcategory_id")
+                subcategory_obj = (
+                    SubCategory.objects.select_related("category").filter(pk=subcategory_id).first()
+                    if subcategory_id else SubCategory()
+                )
+                subcategory_obj.category = subcategory_form.cleaned_data["category"]
+                subcategory_obj.name = subcategory_form.cleaned_data["name"]
+                subcategory_obj.requires_geo_scope = bool(subcategory_form.cleaned_data.get("requires_geo_scope"))
+                subcategory_obj.allows_urgent_requests = bool(subcategory_form.cleaned_data.get("allows_urgent_requests"))
+                subcategory_obj.is_active = bool(subcategory_form.cleaned_data.get("is_active"))
+                subcategory_obj.save()
+                messages.success(request, "تم حفظ التصنيف الفرعي وسياساته بنجاح.")
+                return redirect(f"{reverse('dashboard:content_categories')}?subcategory={subcategory_obj.id}")
+            messages.error(request, "تعذر حفظ التصنيف الفرعي. تحقق من الحقول ثم حاول مرة أخرى.")
+        elif action == "toggle_category_active":
+            category_obj = get_object_or_404(Category, pk=request.POST.get("category_id"))
+            category_obj.is_active = not bool(category_obj.is_active)
+            category_obj.save(update_fields=["is_active"])
+            state_label = "تفعيل" if category_obj.is_active else "إيقاف"
+            messages.success(request, f"تم {state_label} التصنيف الرئيسي بنجاح.")
+            return redirect(f"{reverse('dashboard:content_categories')}?category={category_obj.id}")
+        elif action == "toggle_subcategory_active":
+            subcategory_obj = get_object_or_404(
+                SubCategory.objects.select_related("category"),
+                pk=request.POST.get("subcategory_id"),
+            )
+            subcategory_obj.is_active = not bool(subcategory_obj.is_active)
+            subcategory_obj.save(update_fields=["is_active"])
+            state_label = "تفعيل" if subcategory_obj.is_active else "إيقاف"
+            messages.success(request, f"تم {state_label} التصنيف الفرعي بنجاح.")
+            return redirect(f"{reverse('dashboard:content_categories')}?subcategory={subcategory_obj.id}")
+
+    context = _content_base_context("categories")
+    context.update(
+        {
+            "hero_title": "إدارة التصنيفات",
+            "hero_subtitle": "إدارة التصنيفات الرئيسية والفرعية، وتحديد ما إذا كانت الخدمة محلية تتطلب نطاقًا جغرافيًا أو تسمح بالطلبات العاجلة.",
+            "can_manage": can_manage,
+            "can_write": can_write,
+            "category_form": category_form,
+            "subcategory_form": subcategory_form,
+            "category_stats": _content_category_stats(),
+            "category_filters": {"q": search_term},
+            "category_rows": _content_categories_queryset(search_term),
+            "selected_category": selected_category,
+            "selected_subcategory": selected_subcategory,
+        }
+    )
+    return render(request, "dashboard/content_categories.html", context)
 
 
 def _content_review_queryset_for_user(user):

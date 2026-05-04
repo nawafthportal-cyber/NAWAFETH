@@ -33,8 +33,8 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(SubCategory)
 class SubCategoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "category", "is_active")
-    list_filter = ("is_active", "category")
+    list_display = ("id", "name", "category", "requires_geo_scope", "allows_urgent_requests", "is_active")
+    list_filter = ("is_active", "category", "requires_geo_scope", "allows_urgent_requests")
     search_fields = ("name", "category__name")
     ordering = ("category__name", "name")
     list_select_related = ("category",)

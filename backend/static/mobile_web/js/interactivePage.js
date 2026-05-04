@@ -8,7 +8,7 @@ const InteractivePage = (() => {
     ar: {
       pageTitle: 'نوافــذ — تفاعلي',
       gateKicker: 'شبكة تفاعلك',
-      gateTitle: 'سجّل دخولك لعرض تفاعلي',
+      gateTitle: 'سجّل دخولك لعرض تفاعلك على المنصة ',
       gateDescription: 'يلزم تسجيل الدخول للوصول إلى المتابعة، المتابعين، والمفضلة.',
       gateNote: 'تابع المهتمين بك ووسائطك المفضلة من مكان واحد.',
       gateButton: 'تسجيل الدخول',
@@ -17,6 +17,7 @@ const InteractivePage = (() => {
       summaryFollowing: 'من أتابع',
       summaryFollowers: 'متابعيني',
       summaryFavorites: 'مفضلتي',
+      summaryBlocks: 'قوائم الحظر',
       tabsKicker: 'إدارة التفاعل',
       tabsNote: 'بدّل بين الأقسام للوصول السريع إلى الأشخاص والوسائط التي تهمك.',
       followingTitle: 'من أتابع',
@@ -25,23 +26,29 @@ const InteractivePage = (() => {
       followersSubtitle: 'العملاء والأشخاص الذين يتابعون ملفك.',
       favoritesTitle: 'مفضلتي',
       favoritesSubtitle: 'الريلز والوسائط التي احتفظت بها للرجوع إليها بسرعة.',
+      blocksTitle: 'قوائم الحظر',
+      blocksSubtitle: 'الحسابات والمحتوى الذي أخفيته عن تجربتك مع إمكانية فك الحظر في أي وقت.',
       searchFollowingLabel: 'ابحث في من أتابع',
       searchFollowingPlaceholder: 'ابحث بالاسم أو المدينة…',
       searchFollowersLabel: 'ابحث في المتابعين',
       searchFollowersPlaceholder: 'ابحث بالاسم…',
       searchFavoritesLabel: 'ابحث في المفضلة',
       searchFavoritesPlaceholder: 'ابحث في المفضلة…',
+      searchBlocksLabel: 'ابحث في قوائم الحظر',
+      searchBlocksPlaceholder: 'ابحث بالحساب أو بالمحتوى المحظور…',
       densityLabel: 'كثافة العرض',
       normalDensity: 'عرض شبكي',
       compactDensity: 'عرض مدمج',
       tabFollowing: 'من أتابع',
       tabFollowers: 'متابعيني',
       tabFavorites: 'مفضلتي',
+      tabBlocks: 'قوائم الحظر',
       modeSyncError: 'يجري الآن تثبيت نوع الحساب الحالي. أعد المحاولة بعد لحظة.',
       retry: 'إعادة المحاولة',
       loadingFollowing: 'جاري تحميل المتابَعين...',
       loadingFollowers: 'جاري تحميل المتابعين...',
       loadingFavorites: 'جاري تحميل المفضلة...',
+      loadingBlocks: 'جاري تحميل قوائم الحظر...',
       sessionRefresh: 'يتم تحديث الجلسة أو نوع الحساب. أعد المحاولة بعد قليل.',
       listLoadFailed: 'تعذر تحميل القائمة',
       followingEmpty: 'لا تتابع أي مزود خدمة حتى الآن',
@@ -59,11 +66,22 @@ const InteractivePage = (() => {
       openProfile: 'فتح الملف',
       favoritesLoadFailed: 'تعذر تحميل عناصر المفضلة',
       favoritesEmpty: 'لا توجد عناصر محفوظة في المفضلة',
+      blocksLoadFailed: 'تعذر تحميل قوائم الحظر',
+      blocksEmpty: 'لا توجد حسابات أو محتويات محظورة حالياً',
+      blockedAccounts: 'الحسابات المحظورة',
+      blockedContent: 'المحتوى المحظور',
+      blockedAccountsEmpty: 'لا توجد حسابات محظورة حالياً',
+      blockedContentEmpty: 'لا يوجد محتوى محظور حالياً',
       reelsSaved: 'الريلز المحفوظة',
       mediaSaved: 'الوسائط المحفوظة',
       spotlightSource: 'أضواء',
       portfolioSource: 'معرض',
       favoriteRemoveLabel: 'إزالة من المفضلة',
+      unblockProviderAction: 'إلغاء حظر الحساب',
+      unblockContentAction: 'إلغاء حظر المحتوى',
+      unblockProviderSuccess: 'تم إلغاء حظر الحساب',
+      unblockContentSuccess: 'تم إلغاء حظر المحتوى',
+      unblockFailed: 'تعذر إلغاء الحظر حالياً',
       viewerLabel: 'مفضلتي',
       viewerOpenFailed: 'تعذر فتح العارض حالياً',
       removeConfirmTitle: 'تأكيد الإزالة',
@@ -72,6 +90,8 @@ const InteractivePage = (() => {
       confirm: 'تأكيد',
       removeFailed: 'فشل إزالة العنصر — حاول مرة أخرى',
       removedSuccess: 'تم إزالة العنصر من المفضلة',
+      blueBadgeVerified: 'توثيق أزرق',
+      greenBadgeVerified: 'توثيق أخضر',
     },
     en: {
       pageTitle: 'Nawafeth — Interactive',
@@ -85,6 +105,7 @@ const InteractivePage = (() => {
       summaryFollowing: 'Following',
       summaryFollowers: 'Followers',
       summaryFavorites: 'Favorites',
+      summaryBlocks: 'Blocked lists',
       tabsKicker: 'Interaction control',
       tabsNote: 'Switch between sections for quick access to the people and media that matter to you.',
       followingTitle: 'Following',
@@ -93,23 +114,29 @@ const InteractivePage = (() => {
       followersSubtitle: 'Clients and people following your profile.',
       favoritesTitle: 'Favorites',
       favoritesSubtitle: 'Reels and media you saved to return to quickly.',
+      blocksTitle: 'Blocked lists',
+      blocksSubtitle: 'Accounts and content you hid from your experience, with the ability to unblock at any time.',
       searchFollowingLabel: 'Search following',
       searchFollowingPlaceholder: 'Search by name or city…',
       searchFollowersLabel: 'Search followers',
       searchFollowersPlaceholder: 'Search by name…',
       searchFavoritesLabel: 'Search favorites',
       searchFavoritesPlaceholder: 'Search favorites…',
+      searchBlocksLabel: 'Search blocked lists',
+      searchBlocksPlaceholder: 'Search blocked accounts or content…',
       densityLabel: 'View density',
       normalDensity: 'Grid view',
       compactDensity: 'Compact view',
       tabFollowing: 'Following',
       tabFollowers: 'Followers',
       tabFavorites: 'Favorites',
+      tabBlocks: 'Blocked lists',
       modeSyncError: 'The current account mode is still being stabilized. Please try again shortly.',
       retry: 'Try again',
       loadingFollowing: 'Loading following...',
       loadingFollowers: 'Loading followers...',
       loadingFavorites: 'Loading favorites...',
+      loadingBlocks: 'Loading blocked lists...',
       sessionRefresh: 'The session or account mode is being refreshed. Please try again shortly.',
       listLoadFailed: 'Unable to load the list',
       followingEmpty: 'You are not following any service providers yet',
@@ -127,11 +154,22 @@ const InteractivePage = (() => {
       openProfile: 'Open profile',
       favoritesLoadFailed: 'Unable to load favorite items',
       favoritesEmpty: 'No saved items in favorites',
+      blocksLoadFailed: 'Unable to load blocked lists',
+      blocksEmpty: 'There are no blocked accounts or content right now',
+      blockedAccounts: 'Blocked accounts',
+      blockedContent: 'Blocked content',
+      blockedAccountsEmpty: 'No blocked accounts right now',
+      blockedContentEmpty: 'No blocked content right now',
       reelsSaved: 'Saved reels',
       mediaSaved: 'Saved media',
       spotlightSource: 'Spotlights',
       portfolioSource: 'Portfolio',
       favoriteRemoveLabel: 'Remove from favorites',
+      unblockProviderAction: 'Unblock account',
+      unblockContentAction: 'Unblock content',
+      unblockProviderSuccess: 'The account has been unblocked',
+      unblockContentSuccess: 'The content has been unblocked',
+      unblockFailed: 'Unable to unblock right now',
       viewerLabel: 'Favorites',
       viewerOpenFailed: 'Unable to open the viewer right now',
       removeConfirmTitle: 'Confirm removal',
@@ -140,6 +178,8 @@ const InteractivePage = (() => {
       confirm: 'Confirm',
       removeFailed: 'Failed to remove the item. Please try again.',
       removedSuccess: 'The item was removed from favorites',
+      blueBadgeVerified: 'Blue verification',
+      greenBadgeVerified: 'Green verification',
     },
   };
 
@@ -147,6 +187,8 @@ const InteractivePage = (() => {
   let _mode = 'client';
   let _isProviderMode = false;
   let _favorites = [];
+  let _blockedProviders = [];
+  let _blockedSpotlights = [];
   const _roleModes = ['client', 'provider'];
 
   async function init() {
@@ -177,6 +219,7 @@ const InteractivePage = (() => {
       const params = new URLSearchParams(window.location.search || '');
       const requested = String(params.get('tab') || '').trim().toLowerCase();
       if (requested === 'favorites') return 'favorites';
+      if (requested === 'blocks') return 'blocks';
       if (requested === 'followers' && _isProviderMode) return 'followers';
     } catch (_) {
       // no-op
@@ -233,11 +276,12 @@ const InteractivePage = (() => {
     const tabs = [{ id: 'following', label: _copy('tabFollowing'), icon: 'people' }];
     if (_isProviderMode) tabs.push({ id: 'followers', label: _copy('tabFollowers'), icon: 'person' });
     tabs.push({ id: 'favorites', label: _copy('tabFavorites'), icon: 'bookmark' });
+    tabs.push({ id: 'blocks', label: _copy('tabBlocks'), icon: 'shield' });
 
     tabs.forEach((tab, idx) => {
       const btn = UI.el('button', {
         type: 'button',
-        className: 'tab-btn interactive-tab-btn' + (idx === 0 ? ' active' : ''),
+        className: 'tab-btn interactive-tab-btn' + (((_activeTab || (idx === 0 ? tab.id : '')) === tab.id) ? ' active' : ''),
         'data-tab': tab.id,
       });
       const icon = UI.el('span', { className: 'interactive-tab-icon' });
@@ -267,7 +311,7 @@ const InteractivePage = (() => {
       btn.classList.toggle('active', (btn.dataset.tab || '') === _activeTab);
     });
 
-    ['following', 'followers', 'favorites'].forEach((name) => {
+    ['following', 'followers', 'favorites', 'blocks'].forEach((name) => {
       const panel = document.getElementById('tab-' + name);
       if (!panel) return;
       if (name === 'followers' && !_isProviderMode) {
@@ -297,6 +341,7 @@ const InteractivePage = (() => {
     await Promise.all([
       _fetchFollowing(),
       _fetchFavorites(),
+      _fetchBlocks(),
       _isProviderMode ? _fetchFollowers() : Promise.resolve(),
     ]);
   }
@@ -308,7 +353,7 @@ const InteractivePage = (() => {
       container.innerHTML = _favoritesSkeletonMarkup();
       return;
     }
-    if (targetId === 'following-list' || targetId === 'followers-list') {
+    if (targetId === 'following-list' || targetId === 'followers-list' || targetId === 'blocks-list') {
       container.innerHTML = _peopleSkeletonMarkup();
       return;
     }
@@ -701,6 +746,43 @@ const InteractivePage = (() => {
     _renderFavorites();
   }
 
+  async function _fetchBlocks() {
+    const container = document.getElementById('blocks-list');
+    if (!container) return;
+    _renderLoading(container, _copy('loadingBlocks'));
+
+    const res = await ApiClient.get(_withMode('/api/providers/me/visibility-blocks/', _mode));
+
+    if (res.status === 401) {
+      const recovered = await Auth.resolveProfile(true, _mode);
+      if (!recovered.ok && !Auth.isLoggedIn()) {
+        _showGate();
+        return;
+      }
+      _renderError(container, _copy('sessionRefresh'), _fetchBlocks);
+      return;
+    }
+
+    if (!res.ok) {
+      _renderError(container, _copy('blocksLoadFailed'), _fetchBlocks);
+      return;
+    }
+
+    const payload = res.data || {};
+    _blockedProviders = Array.isArray(payload.blocked_providers) ? payload.blocked_providers.slice() : [];
+    _blockedSpotlights = Array.isArray(payload.blocked_spotlights) ? payload.blocked_spotlights.slice() : [];
+    _renderBlocks();
+  }
+
+  function _invalidateVisibilityDependentCaches(options) {
+    if (typeof NwCache === 'undefined' || !NwCache || typeof NwCache.remove !== 'function') return;
+    NwCache.remove('home_spotlights');
+    if (options && options.providerRelated) {
+      NwCache.remove('home_providers');
+      NwCache.remove('home_featured_specialists');
+    }
+  }
+
   function _normalizeMedia(raw, source, modeContext) {
     const providerObj = raw && raw.provider ? raw.provider : null;
     const fileTypeRaw = String((raw && raw.file_type) || 'image').toLowerCase();
@@ -772,6 +854,253 @@ const InteractivePage = (() => {
     }
 
     container.appendChild(frag);
+  }
+
+  function _renderBlocks() {
+    const container = document.getElementById('blocks-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!_blockedProviders.length && !_blockedSpotlights.length) {
+      _renderEmpty(container, 'shield-off', _copy('blocksEmpty'));
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    if (_blockedProviders.length) {
+      const section = UI.el('section', { className: 'interactive-favorites-section interactive-blocked-section' });
+      section.appendChild(UI.el('div', {
+        className: 'interactive-favorites-section-title',
+        textContent: _copy('blockedAccounts'),
+      }));
+      const grid = UI.el('div', { className: 'interactive-following-grid interactive-blocked-providers-grid' });
+      _blockedProviders.forEach((provider) => {
+        grid.appendChild(_buildBlockedProviderCard(provider));
+      });
+      section.appendChild(grid);
+      fragment.appendChild(section);
+    }
+
+    if (_blockedSpotlights.length) {
+      const section = UI.el('section', { className: 'interactive-favorites-section interactive-blocked-section' });
+      section.appendChild(UI.el('div', {
+        className: 'interactive-favorites-section-title',
+        textContent: _copy('blockedContent'),
+      }));
+      const grid = UI.el('div', { className: 'interactive-favorites-grid interactive-blocked-content-grid' });
+      _blockedSpotlights.forEach((item) => {
+        grid.appendChild(_buildBlockedSpotlightCard(item));
+      });
+      section.appendChild(grid);
+      fragment.appendChild(section);
+    }
+
+    container.appendChild(fragment);
+  }
+
+  function _buildBlockedProviderCard(provider) {
+    const providerId = _toInt(provider && provider.provider_id);
+    const displayName = String(provider && provider.display_name || _copy('providerName')).trim() || _copy('providerName');
+    const card = UI.el('article', {
+      className: 'interactive-following-card interactive-person-card interactive-blocked-provider-card' + (providerId > 0 ? ' is-clickable' : ''),
+    });
+    if (providerId > 0) {
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+    }
+
+    if (providerId > 0) {
+      const openProvider = () => {
+        window.location.href = '/provider/' + encodeURIComponent(String(providerId)) + '/';
+      };
+      card.addEventListener('click', openProvider);
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openProvider();
+        }
+      });
+    }
+
+    card.appendChild(UI.el('div', { className: 'interactive-person-accent' }));
+    const header = UI.el('div', { className: 'interactive-person-head interactive-following-head' });
+    const avatarWrap = UI.el('div', { className: 'interactive-following-avatar-wrap' });
+    const avatar = UI.el('div', { className: 'interactive-following-avatar' });
+    const profileUrl = ApiClient.mediaUrl(provider && provider.profile_image || '');
+    if (profileUrl) avatar.appendChild(UI.lazyImg(profileUrl, displayName));
+    else avatar.appendChild(UI.text(displayName.charAt(0) || '؟'));
+    avatarWrap.appendChild(avatar);
+    header.appendChild(avatarWrap);
+
+    const meta = UI.el('div', { className: 'interactive-person-meta interactive-following-meta' });
+    meta.appendChild(UI.el('span', {
+      className: 'interactive-person-kicker',
+      textContent: _copy('blockedAccounts'),
+    }));
+    const nameRow = UI.el('div', { className: 'interactive-following-name-row' });
+    nameRow.appendChild(UI.el('span', {
+      className: 'interactive-following-name',
+      textContent: displayName,
+    }));
+    const verificationBadges = UI.buildVerificationBadges({
+      isVerifiedBlue: !!(provider && provider.is_verified_blue),
+      isVerifiedGreen: !!(provider && provider.is_verified_green),
+      iconSize: 10,
+      gap: '3px',
+      blueLabel: _copy('blueBadgeVerified'),
+      greenLabel: _copy('greenBadgeVerified'),
+    });
+    if (verificationBadges) nameRow.appendChild(verificationBadges);
+    meta.appendChild(nameRow);
+
+    const username = String(provider && provider.username || '').trim();
+    if (username) {
+      meta.appendChild(UI.el('p', {
+        className: 'interactive-following-handle',
+        textContent: '@' + username,
+      }));
+    }
+    meta.appendChild(UI.el('p', {
+      className: 'interactive-person-subtitle',
+      textContent: UI.formatCityDisplay(provider && (provider.city_display || provider.city), provider && provider.region) || _copy('cityUnset'),
+    }));
+    header.appendChild(meta);
+    card.appendChild(header);
+
+    const footer = UI.el('div', { className: 'interactive-person-footer interactive-blocked-footer' });
+    footer.appendChild(UI.el('span', {
+      className: 'interactive-person-footnote',
+      textContent: _copy('viewProfile'),
+    }));
+    const unblockBtn = UI.el('button', {
+      type: 'button',
+      className: 'interactive-blocked-unblock-btn',
+      textContent: _copy('unblockProviderAction'),
+    });
+    unblockBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      _unblockProvider(providerId, unblockBtn);
+    });
+    footer.appendChild(unblockBtn);
+    card.appendChild(footer);
+    return card;
+  }
+
+  function _buildBlockedSpotlightCard(item) {
+    const spotlightId = _toInt(item && item.spotlight_id);
+    const imageUrl = ApiClient.mediaUrl(item && (item.thumbnail_url || item.file_url) || '');
+    const mediaUrl = ApiClient.mediaUrl(item && item.file_url || '');
+    const isVideoCard = String(item && item.file_type || '').toLowerCase() === 'video' && !!mediaUrl;
+    const card = UI.el('article', {
+      className: 'interactive-favorite-card interactive-blocked-spotlight-card ' + (isVideoCard ? 'is-video' : 'is-image'),
+    });
+
+    const media = UI.el('div', { className: 'interactive-favorite-media ' + (isVideoCard ? 'is-video' : 'is-image') });
+    if (!isVideoCard && imageUrl) {
+      media.style.setProperty('--interactive-favorite-image', 'url("' + imageUrl.replace(/"/g, '\\"') + '")');
+    }
+
+    if (isVideoCard) {
+      const video = document.createElement('video');
+      video.className = 'interactive-favorite-thumb interactive-favorite-video';
+      video.src = mediaUrl;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.autoplay = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      video.setAttribute('muted', 'muted');
+      video.setAttribute('autoplay', 'autoplay');
+      video.setAttribute('loop', 'loop');
+      video.setAttribute('playsinline', 'playsinline');
+      if (imageUrl) video.poster = imageUrl;
+      video.addEventListener('loadedmetadata', () => {
+        const playAttempt = video.play();
+        if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+      });
+      media.appendChild(video);
+      const videoBadge = UI.el('div', { className: 'interactive-video-badge' });
+      videoBadge.innerHTML = _miniIcon('play');
+      media.appendChild(videoBadge);
+    } else if (imageUrl) {
+      const img = UI.lazyImg(imageUrl, item && item.caption || '');
+      img.classList.add('interactive-favorite-thumb', 'interactive-favorite-image');
+      media.appendChild(img);
+    } else {
+      const ph = UI.el('div', { className: 'interactive-favorite-placeholder' });
+      ph.innerHTML = _stateIcon('image');
+      media.appendChild(ph);
+    }
+
+    media.appendChild(UI.el('span', {
+      className: 'interactive-source-badge spotlight',
+      textContent: _copy('spotlightSource'),
+    }));
+
+    const bottom = UI.el('div', { className: 'interactive-favorite-bottom' });
+    bottom.appendChild(UI.el('strong', {
+      className: 'interactive-favorite-provider',
+      textContent: item && item.provider_display_name || _copy('providerName'),
+    }));
+
+    const unblockBtn = UI.el('button', {
+      type: 'button',
+      className: 'interactive-favorite-remove-btn interactive-blocked-unblock-btn',
+      'aria-label': _copy('unblockContentAction'),
+      title: _copy('unblockContentAction'),
+    });
+    unblockBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M7 17 17 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/></svg>';
+    unblockBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      _unblockSpotlight(spotlightId, unblockBtn);
+    });
+
+    bottom.appendChild(unblockBtn);
+    media.appendChild(bottom);
+    card.appendChild(media);
+
+    if (item && item.caption) {
+      card.appendChild(UI.el('div', {
+        className: 'interactive-blocked-caption',
+        textContent: item.caption,
+      }));
+    }
+
+    return card;
+  }
+
+  async function _unblockProvider(providerId, triggerBtn) {
+    if (!providerId) return;
+    if (triggerBtn) triggerBtn.disabled = true;
+    const res = await ApiClient.request(_withMode('/api/providers/' + providerId + '/block/', _mode), { method: 'DELETE' });
+    if (triggerBtn) triggerBtn.disabled = false;
+    if (!res.ok) {
+      _toast(_copy('unblockFailed'), 'error');
+      return;
+    }
+    _blockedProviders = _blockedProviders.filter((entry) => _toInt(entry.provider_id) !== providerId);
+    _invalidateVisibilityDependentCaches({ providerRelated: true });
+    _renderBlocks();
+    _toast(_copy('unblockProviderSuccess'), 'success');
+  }
+
+  async function _unblockSpotlight(spotlightId, triggerBtn) {
+    if (!spotlightId) return;
+    if (triggerBtn) triggerBtn.disabled = true;
+    const res = await ApiClient.request(_withMode('/api/providers/spotlights/' + spotlightId + '/hide/', _mode), { method: 'DELETE' });
+    if (triggerBtn) triggerBtn.disabled = false;
+    if (!res.ok) {
+      _toast(_copy('unblockFailed'), 'error');
+      return;
+    }
+    _blockedSpotlights = _blockedSpotlights.filter((entry) => _toInt(entry.spotlight_id) !== spotlightId);
+    _invalidateVisibilityDependentCaches({ providerRelated: false });
+    _renderBlocks();
+    _toast(_copy('unblockContentSuccess'), 'success');
   }
 
   function _buildFavoriteReel(item, index) {
@@ -1005,6 +1334,7 @@ const InteractivePage = (() => {
   function _tabIcon(kind) {
     if (kind === 'people') return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>';
     if (kind === 'person') return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+    if (kind === 'shield') return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 5 5v6c0 5.25 3.44 10.04 7 11 3.56-.96 7-5.75 7-11V5l-7-3zm3.59 13L14.17 16.41 12 14.24l-2.17 2.17L8.41 15 10.59 12.83 8.41 10.66l1.42-1.42L12 11.41l2.17-2.17 1.42 1.42-2.17 2.17L15.59 15z"/></svg>';
     return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5a2 2 0 0 0-2 2v16l8-3.5 8 3.5V5a2 2 0 0 0-2-2z"/></svg>';
   }
 
@@ -1013,6 +1343,7 @@ const InteractivePage = (() => {
     if (kind === 'group-off') return '<svg width="38" height="38" viewBox="0 0 24 24" fill="#C4C4CF"><path d="M10 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm4 6c2.33 0 7 1.17 7 3.5V20H3v-2.5C3 15.17 7.67 14 10 14h4zm8.19 7.19L2.81 1.81 1.39 3.22l3.2 3.2A2.99 2.99 0 0 0 4 8c0 1.66 1.34 3 3 3 .5 0 .97-.12 1.38-.34l2.12 2.12c-3.63.36-7.5 1.74-7.5 4.72V20h14.78l2 2z"/></svg>';
     if (kind === 'person-off') return '<svg width="38" height="38" viewBox="0 0 24 24" fill="#C4C4CF"><path d="M12 12c2.21 0 4-1.79 4-4 0-.9-.3-1.73-.8-2.4L8.6 12.2c.67.5 1.5.8 2.4.8zm0 2c-2.67 0-8 1.34-8 4v2h12.78l-5-5H12zM1.41 1.69 0 3.1l4.05 4.05A3.9 3.9 0 0 0 4 8c0 2.21 1.79 4 4 4 .3 0 .59-.03.87-.1L21 24l1.41-1.41z"/></svg>';
     if (kind === 'bookmark') return '<svg width="38" height="38" viewBox="0 0 24 24" fill="#C4C4CF"><path d="M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2z"/></svg>';
+    if (kind === 'shield-off') return '<svg width="38" height="38" viewBox="0 0 24 24" fill="#C4C4CF"><path d="M12 2 5 5v6c0 5.25 3.44 10.04 7 11 1.62-.44 3.19-1.65 4.45-3.31L5.31 7.55C5.11 8.56 5 9.72 5 11c0 5.25 3.44 10.04 7 11 3.56-.96 7-5.75 7-11V5l-7-3zm8.71 19.29-18-18L1.29 4.71l18 18 1.42-1.42z"/></svg>';
     return '<svg width="38" height="38" viewBox="0 0 24 24" fill="#C4C4CF"><path d="M21 5v14H3V5h18zm0-2H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg>';
   }
 
@@ -1078,6 +1409,7 @@ const InteractivePage = (() => {
     _setText('interactive-summary-following', _copy('summaryFollowing'));
     _setText('interactive-summary-followers', _copy('summaryFollowers'));
     _setText('interactive-summary-favorites', _copy('summaryFavorites'));
+    _setText('interactive-summary-blocks', _copy('summaryBlocks'));
     _setText('interactive-tabs-kicker', _copy('tabsKicker'));
     _setText('interactive-tabs-note', _copy('tabsNote'));
     _setText('interactive-panel-title-following', _copy('followingTitle'));
@@ -1086,19 +1418,25 @@ const InteractivePage = (() => {
     _setText('interactive-panel-subtitle-followers', _copy('followersSubtitle'));
     _setText('interactive-panel-title-favorites', _copy('favoritesTitle'));
     _setText('interactive-panel-subtitle-favorites', _copy('favoritesSubtitle'));
+    _setText('interactive-panel-title-blocks', _copy('blocksTitle'));
+    _setText('interactive-panel-subtitle-blocks', _copy('blocksSubtitle'));
     const searchFollowingLabel = document.getElementById('interactive-search-label-following');
     const searchFollowersLabel = document.getElementById('interactive-search-label-followers');
     const searchFavoritesLabel = document.getElementById('interactive-search-label-favorites');
+    const searchBlocksLabel = document.getElementById('interactive-search-label-blocks');
     const searchFollowingInput = document.getElementById('interactive-search-input-following');
     const searchFollowersInput = document.getElementById('interactive-search-input-followers');
     const searchFavoritesInput = document.getElementById('interactive-search-input-favorites');
+    const searchBlocksInput = document.getElementById('interactive-search-input-blocks');
     const densityGroup = document.getElementById('interactive-density-group');
     if (searchFollowingLabel) searchFollowingLabel.setAttribute('aria-label', _copy('searchFollowingLabel'));
     if (searchFollowersLabel) searchFollowersLabel.setAttribute('aria-label', _copy('searchFollowersLabel'));
     if (searchFavoritesLabel) searchFavoritesLabel.setAttribute('aria-label', _copy('searchFavoritesLabel'));
+    if (searchBlocksLabel) searchBlocksLabel.setAttribute('aria-label', _copy('searchBlocksLabel'));
     if (searchFollowingInput) searchFollowingInput.placeholder = _copy('searchFollowingPlaceholder');
     if (searchFollowersInput) searchFollowersInput.placeholder = _copy('searchFollowersPlaceholder');
     if (searchFavoritesInput) searchFavoritesInput.placeholder = _copy('searchFavoritesPlaceholder');
+    if (searchBlocksInput) searchBlocksInput.placeholder = _copy('searchBlocksPlaceholder');
     if (densityGroup) densityGroup.setAttribute('aria-label', _copy('densityLabel'));
     document.querySelectorAll('[data-density-btn="normal"]').forEach((btn) => {
       btn.setAttribute('title', _copy('normalDensity'));

@@ -3,6 +3,7 @@
 {% block body_class %}page-provider-register{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
 body.page-provider-register {
   --reg-ink: #1d1738;
@@ -573,6 +574,115 @@ body.page-provider-register #reg-type-chips .chip.active {
   box-shadow: 0 16px 28px rgba(79, 46, 152, 0.26);
 }
 
+body.page-provider-register .reg-category-groups {
+  display: grid;
+  gap: 14px;
+}
+
+body.page-provider-register .reg-category-group {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 24px;
+  border: 1px solid rgba(79, 46, 152, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 247, 255, 0.92)),
+    radial-gradient(circle at top left, rgba(78, 200, 212, 0.06), transparent 34%);
+  box-shadow: 0 18px 36px rgba(46, 30, 88, 0.08);
+}
+
+body.page-provider-register .reg-category-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body.page-provider-register .reg-category-group-title {
+  color: var(--reg-ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+body.page-provider-register .reg-category-remove {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(186, 63, 83, 0.14);
+  background: rgba(255, 241, 243, 0.94);
+  color: #a33043;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body.page-provider-register .reg-category-group-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+body.page-provider-register .reg-category-group-grid > .form-group-wide {
+  grid-column: 1 / -1;
+}
+
+body.page-provider-register .reg-subcategory-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+body.page-provider-register .reg-subcategory-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 56px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(79, 46, 152, 0.12);
+  background: rgba(255, 255, 255, 0.88);
+  color: #4f4867;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+body.page-provider-register .reg-subcategory-option input {
+  margin-top: 3px;
+  accent-color: var(--reg-brand);
+}
+
+body.page-provider-register .reg-subcategory-option span {
+  font-size: 13px;
+  line-height: 1.7;
+  font-weight: 800;
+}
+
+body.page-provider-register .reg-subcategory-empty {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px dashed rgba(79, 46, 152, 0.18);
+  background: rgba(247, 244, 255, 0.74);
+  color: #6d6783;
+  font-size: 13px;
+  line-height: 1.8;
+  font-weight: 800;
+}
+
+body.page-provider-register .reg-category-groups-footer {
+  display: grid;
+  gap: 10px;
+}
+
+body.page-provider-register #reg-add-category-group {
+  justify-self: start;
+  min-width: min(100%, 220px);
+}
+
+body.page-provider-register #reg-add-category-group:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 body.page-provider-register .category-suggest-box {
   padding: 14px;
   border: 1px dashed rgba(79, 46, 152, 0.22);
@@ -944,6 +1054,10 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
     padding-inline: 8px;
   }
 
+  body.page-provider-register .reg-category-group-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   body.page-provider-register .provider-reg-header,
   body.page-provider-register .provider-reg-hero-card,
   body.page-provider-register .provider-reg-spotlight,
@@ -1026,6 +1140,127 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
 
   body.page-provider-register .wizard-step {
     min-width: 86px;
+  }
+}
+body.page-provider-register .reg-location-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 26px;
+  border: 1px solid rgba(79, 46, 152, 0.12);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(246, 241, 255, 0.9)),
+    radial-gradient(circle at top left, rgba(78, 200, 212, 0.12), transparent 34%);
+  box-shadow: 0 18px 42px rgba(46, 30, 88, 0.08);
+}
+
+body.page-provider-register .reg-location-panel-header {
+  display: grid;
+  gap: 8px;
+}
+
+body.page-provider-register .reg-location-panel-header strong {
+  color: var(--reg-ink);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+body.page-provider-register .reg-location-panel-header p {
+  margin: 0;
+  color: #625c79;
+  font-size: 13px;
+  line-height: 1.9;
+  font-weight: 700;
+}
+
+body.page-provider-register .reg-location-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+body.page-provider-register .reg-map-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 46, 152, 0.14);
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,248,255,0.92));
+  color: var(--reg-brand-strong);
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 14px 28px rgba(46, 30, 88, 0.08);
+}
+
+body.page-provider-register .reg-map-btn:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+body.page-provider-register .reg-map-meta {
+  display: grid;
+  gap: 4px;
+}
+
+body.page-provider-register .reg-map-status,
+body.page-provider-register .reg-map-coordinates {
+  color: #6b6581;
+  font-size: 12px;
+  line-height: 1.75;
+  font-weight: 800;
+}
+
+body.page-provider-register .reg-map-status.ok {
+  color: var(--reg-success);
+}
+
+body.page-provider-register .reg-map-status.bad {
+  color: var(--reg-danger);
+}
+
+body.page-provider-register .reg-location-map-shell {
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(79, 46, 152, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+body.page-provider-register .reg-location-map {
+  width: 100%;
+  height: clamp(240px, 38vh, 320px);
+}
+
+body.page-provider-register .reg-location-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+body.page-provider-register .reg-optional-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(78, 200, 212, 0.22);
+  background: rgba(78, 200, 212, 0.1);
+  color: #146f7b;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+@media (max-width: 720px) {
+  body.page-provider-register .reg-location-meta-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.page-provider-register .reg-location-toolbar {
+    display: grid;
+  }
+
+  body.page-provider-register .reg-map-btn {
+    width: 100%;
   }
 }
 </style>
@@ -1124,15 +1359,37 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
           <textarea id="reg-bio" class="form-input" rows="3" placeholder="وصف مختصر عنك وخدماتك"></textarea>
           <p class="form-hint">اكتب وصفًا هادئًا ومباشرًا يوضح نوع القيمة التي تقدمها للعملاء.</p>
         </div>
-        <div class="form-group">
-          <label class="form-label">المنطقة</label>
-          <select id="reg-region" class="form-select" required><option value="">اختر المنطقة</option></select>
-          <p class="form-hint">اختيار المنطقة بدقة يساعد على تحسين ربطك بالطلب المناسب جغرافيًا.</p>
-        </div>
-        <div class="form-group">
-          <label class="form-label">المدينة</label>
-          <select id="reg-city" class="form-select" required><option value="">اختر المدينة</option></select>
-          <p class="form-hint">حدّد المدينة الأقرب لنطاق خدمتك أو مقر عملك الفعلي.</p>
+        <div class="form-group form-group-wide">
+          <div class="reg-location-panel">
+            <div class="reg-location-panel-header">
+              <strong>الموقع الجغرافي</strong>
+              <p>حدد موقعك من الخريطة، وسيقوم النظام باستخراج الدولة والمدينة تلقائيًا مع حفظ الإحداثيات لاستخدامها لاحقًا في تحديد موقع مزود الخدمة.</p>
+            </div>
+            <div class="reg-location-toolbar">
+              <button type="button" class="reg-map-btn" id="reg-use-current-location">استخدم موقعي الحالي</button>
+              <div class="reg-map-meta">
+                <span class="reg-map-status" id="reg-map-status">الخريطة جاهزة لتحديد موقعك.</span>
+                <span class="reg-map-coordinates" id="reg-map-coordinates">لم يتم اختيار نقطة بعد.</span>
+              </div>
+            </div>
+            <div class="reg-location-map-shell">
+              <div id="reg-location-map" class="reg-location-map" role="application" aria-label="خريطة موقع مزود الخدمة"></div>
+            </div>
+            <div class="reg-location-meta-grid">
+              <div class="form-group">
+                <label class="form-label" for="reg-country">الدولة <span class="reg-optional-badge">اختياري</span></label>
+                <input id="reg-country" type="text" class="form-input" placeholder="سيتم تعبئتها تلقائيًا" readonly>
+                <p class="form-hint">اختيارية. تُستخرج مباشرة من النقطة المحددة على الخريطة إذا اخترت موقعًا.</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="reg-city">المدينة <span class="reg-optional-badge">اختياري</span></label>
+                <input id="reg-city" type="text" class="form-input" placeholder="اختيارية. يمكنك تعديلها يدويًا حتى بعد التعبئة التلقائية">
+                <p class="form-hint" id="reg-city-hint">اختيارية. إذا تمت تعبئتها تلقائيًا يمكنك تعديلها يدويًا، وإذا لم تُقرأ يمكنك إدخالها بنفسك.</p>
+              </div>
+            </div>
+            <input id="reg-lat" type="hidden" value="">
+            <input id="reg-lng" type="hidden" value="">
+          </div>
         </div>
         <button class="btn btn-primary btn-block reg-main-btn" id="reg-next-1" type="button">التالي</button>
       </div>
@@ -1144,7 +1401,7 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
           <ul class="reg-side-list">
             <li>اسم العرض يجب أن يبدو احترافيًا عند ظهوره في القوائم والبطاقات.</li>
             <li>النبذة الأفضل هي التي تصف المجال والفائدة بدون مبالغة.</li>
-            <li>المنطقة والمدينة تساعدان على توجيه الخدمة بذكاء أكبر داخل المنصة.</li>
+            <li>الدولة والمدينة والإحداثيات ترفع دقة ظهورك وربطك بالطلبات القريبة مستقبلًا.</li>
           </ul>
         </div>
       </aside>
@@ -1170,15 +1427,13 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
         </div>
       </div>
       <div class="reg-form-layout">
-        <div class="form-group">
-          <label class="form-label">القسم الرئيسي</label>
-          <select id="reg-category" class="form-select" required><option value="">اختر القسم</option></select>
-          <p class="form-hint">ابدأ بالقسم الأوسع الذي تندرج تحته خدمتك بشكل منطقي.</p>
-        </div>
-        <div class="form-group">
-          <label class="form-label">التصنيف الفرعي</label>
-          <select id="reg-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
-          <p class="form-hint">اختر التصنيف الأكثر قربًا لطبيعة العرض الذي ستقدمه داخل المنصة.</p>
+        <div class="form-group form-group-wide">
+          <label class="form-label">الأقسام والتصنيفات الفرعية</label>
+          <div class="reg-category-groups" id="reg-category-groups"></div>
+          <div class="reg-category-groups-footer">
+            <button class="btn btn-outline" id="reg-add-category-group" type="button">إضافة قسم آخر</button>
+            <p class="form-hint">لكل قسم رئيسي يمكنك اختيار أكثر من تصنيف فرعي، ثم إضافة قسم جديد آخر إذا كنت تقدم خدمات في أكثر من مجال.</p>
+          </div>
         </div>
 
         <div class="category-suggest-box form-group-wide" id="reg-suggest-box">
@@ -1219,17 +1474,6 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
             </div>
           </div>
         </div>
-
-        <div class="form-group form-group-wide">
-          <label class="form-label">اسم الخدمة </label>
-          <input id="reg-service-title" type="text" class="form-input" placeholder="مثال: تصميم مواقع">
-          <p class="form-hint">اسم محدد ومفهوم يساعد على قراءة عرضك بسرعة داخل الملف.</p>
-        </div>
-        <div class="form-group form-group-wide">
-          <label class="form-label">وصف الخدمة</label>
-          <textarea id="reg-service-desc" class="form-input" rows="3" placeholder="وصف مختصر للخدمة"></textarea>
-          <p class="form-hint">اكتب ما الذي سيتسلمه العميل أو ما الذي يميز طريقتك في تقديم الخدمة.</p>
-        </div>
         <div class="form-row reg-actions">
           <button class="btn btn-outline btn-split" id="reg-back-2" type="button">السابق</button>
           <button class="btn btn-primary btn-split" id="reg-next-2" type="button">التالي</button>
@@ -1241,9 +1485,9 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
           <h3>التصنيف يغيّر جودة الوصول</h3>
           <p>كلما كان اختيارك أدق، أصبح الوصول للطلب المناسب أسرع وأكثر توافقًا مع طبيعة عملك.</p>
           <ul class="reg-side-list">
-            <li>اختر الأقرب للخدمة الأساسية التي تريد إبرازها أولًا.</li>
+            <li>اجمع كل التصنيفات الفرعية القريبة من عملك داخل القسم نفسه بدل الاكتفاء بخيار واحد.</li>
             <li>استخدم خانة الاقتراح عندما يكون السوق أو المجال جديدًا أو متخصصًا جدًا.</li>
-            <li>اسم الخدمة ووصفها القصير يكملان التصنيف ويمنحانك حضورًا أوضح.</li>
+            <li>إذا كنت تعمل في أكثر من مجال رئيسي، أضف قسمًا جديدًا بدل خلط كل الخدمات تحت قسم واحد.</li>
           </ul>
         </div>
       </aside>
@@ -1317,7 +1561,7 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
       </ul>
       <div class="reg-success-actions">
         <a href="/provider-dashboard/" class="btn btn-primary btn-block">الانتقال للوحة التحكم</a>
-        <a href="/profile-completion/" class="btn btn-outline btn-block">إكمال الملف التعريفي</a>
+        <a href="/provider-profile-edit/" class="btn btn-outline btn-block">إكمال الملف التعريفي</a>
       </div>
     </div>
   </div>
@@ -1339,5 +1583,6 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerRegisterPage.js' %}"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'mobile_web/js/providerRegisterPage.js' %}?v=20260503-provider-register-multi-category"></script>
 {% endblock %}

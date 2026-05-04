@@ -13,7 +13,7 @@ const PlansPage = (() => {
     {
       key: 'notifications_enabled',
       label: 'استلام التنبيهات',
-      value: (plan) => _yesNo(_capabilities(plan).notifications_enabled),
+      value: (plan, plans) => _notificationsValue(plan, plans),
     },
     {
       key: 'storage',
@@ -51,9 +51,9 @@ const PlansPage = (() => {
       value: (plan) => _safeValue(_capabilities(plan).reminders && _capabilities(plan).reminders.label),
     },
     {
-      key: 'chats_quota',
-      label: 'عدد المحادثات المباشرة',
-      value: (plan) => _quotaValue(_capabilities(plan).messaging && _capabilities(plan).messaging.direct_chat_quota),
+      key: 'spotlights_quota',
+      label: 'عدد اللمحات المتاحة',
+      value: (plan) => _quotaValue(_capabilities(plan).spotlights && _capabilities(plan).spotlights.quota),
     },
     {
       key: 'verification_blue',
@@ -207,6 +207,21 @@ const PlansPage = (() => {
 
   function _yesNo(value) {
     return _asBool(value) ? 'نعم' : '-';
+  }
+
+  function _notificationsValue(plan, plans) {
+    if (!_asBool(_capabilities(plan).notifications_enabled)) return '-';
+
+    switch (_canonicalTier(plan)) {
+      case 'pro':
+      case 'professional':
+        return 'الأساسية + الريادة + الاحترافية';
+      case 'riyadi':
+      case 'pioneer':
+        return 'الأساسية + الريادية';
+      default:
+        return 'الأساسية';
+    }
   }
 
   function _quotaValue(value) {
@@ -366,9 +381,10 @@ const PlansPage = (() => {
     `;
   }
 
-  function _buildCompareCell(plan, row) {
-    const value = row.value(plan);
-    return `<td class="subs-compare-value">${_safeText(value)}</td>`;
+  function _buildCompareCell(plan, row, plans) {
+    const value = row.value(plan, plans);
+    const className = ['subs-compare-value', row.cellClassName || ''].filter(Boolean).join(' ');
+    return `<td class="${className}">${_safeText(value)}</td>`;
   }
 
   function _buildActionCell(plan) {
@@ -389,10 +405,11 @@ const PlansPage = (() => {
 
   function _buildComparisonLayout(plans) {
     const rowsMarkup = COMPARE_ROWS.map((row) => {
+      const rowClassName = ['subs-compare-row', row.className || ''].filter(Boolean).join(' ');
       return `
-        <tr>
+        <tr class="${rowClassName}">
           <th scope="row" class="subs-compare-feature">${_safeText(row.label)}</th>
-          ${plans.map((plan) => _buildCompareCell(plan, row)).join('')}
+          ${plans.map((plan) => _buildCompareCell(plan, row, plans)).join('')}
         </tr>
       `;
     }).join('');

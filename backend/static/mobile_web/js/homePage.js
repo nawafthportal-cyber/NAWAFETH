@@ -6,7 +6,7 @@
      • GET /api/providers/list/?page_size=10
      • GET /api/promo/banners/home/
      • GET /api/promo/home-carousel/?limit=16
-     • GET /api/providers/spotlights/feed/?limit=16
+    • GET /api/providers/spotlights/feed/?limit=50
    SWR caching, auto-scroll reels, SpotlightViewer on tap.
    =================================================================== */
 'use strict';
@@ -15,21 +15,21 @@ const HomePage = (() => {
   const COPY = {
     ar: {
       pageTitle: 'نوافــذ — الرئيسية',
-      reelsKicker: 'لمحات حية',
+      reelsKicker: 'أحدث اللمحات',
       reelsTitle: 'أحدث اللمحات',
       promoKicker: 'رسالة مميزة',
       promoTitle: 'مساحة ترويجية نشطة',
       promoNote: 'إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون تشويش.',
-      categoriesKicker: 'اكتشف الخدمات',
+      categoriesKicker: 'التصنيفات',
       categoriesTitle: 'التصنيفات',
       viewAll: 'عرض الكل',
       viewAllCategoriesAria: 'عرض كل التصنيفات',
       previous: 'السابق',
       next: 'التالي',
-      providersKicker: 'ترشيحات المنصة',
+      providersKicker: 'مقدمو الخدمة',
       providersTitle: 'أبرز المختصين',
-      portfolioKicker: 'أعمال وبنرات',
-      portfolioTitle: 'البنرات والمشاريع',
+      portfolioKicker: 'خدمات ومشاريع',
+      portfolioTitle: '',
       bannersTitle: 'عروض ترويجية',
       unmute: 'إلغاء كتم الصوت',
       mute: 'كتم الصوت',
@@ -38,21 +38,21 @@ const HomePage = (() => {
     },
     en: {
       pageTitle: 'Nawafeth — Home',
-      reelsKicker: 'Live highlights',
+      reelsKicker: 'Latest spotlights',
       reelsTitle: 'Latest spotlights',
       promoKicker: 'Featured message',
       promoTitle: 'Active promo placement',
       promoNote: 'Professional promotional visibility inside the homepage without visual clutter.',
-      categoriesKicker: 'Discover services',
+      categoriesKicker: 'Categories',
       categoriesTitle: 'Categories',
       viewAll: 'View all',
       viewAllCategoriesAria: 'View all categories',
       previous: 'Previous',
       next: 'Next',
-      providersKicker: 'Platform picks',
+      providersKicker: 'Service providers',
       providersTitle: 'Featured specialists',
-      portfolioKicker: 'Works and banners',
-      portfolioTitle: 'Banners and projects',
+      portfolioKicker: 'Services and projects',
+      portfolioTitle: '',
       bannersTitle: 'Promotions',
       unmute: 'Unmute',
       mute: 'Mute',
@@ -77,6 +77,7 @@ const HomePage = (() => {
   const HOME_BANNERS_LIMIT = 16;
   const PORTFOLIO_SHOWCASE_LIMIT = 16;
   const PORTFOLIO_SHOWCASE_FETCH_LIMIT = 40;
+  const REELS_LIMIT = 50;
   const PROVIDERS_RESUME_DELAY_MS = 3000;
   const REELS_IMAGE_ROTATE_MS = 3500;
   const REELS_VIDEO_FALLBACK_ROTATE_MS = 30000;
@@ -91,6 +92,7 @@ const HomePage = (() => {
   // State
   let _isLoading = false;
   let _reelsData = [];           // keep spotlight items for SpotlightViewer
+  let _portfolioShowcaseData = [];
   let _reelsAutoTimer = null;    // sequential reels timer
   let _reelsPaused = false;      // pause while user is touching/dragging
   let _reelsBound = false;       // bind track interaction handlers once
@@ -117,8 +119,22 @@ const HomePage = (() => {
   let _categoriesPaused = false;
   let _categoriesAutoFrame = null;
   let _categoriesAutoLastTick = 0;
+  // JS ticker for element-by-element category strip
+  let _catTickTimer   = null;
+  let _catTickStep    = 0;
+  let _catTickCount   = 0;   // number of original items
+  let _catTickTrack   = null;
+  let _catTickPaused  = false;
+  // JS ticker for element-by-element providers strip
+  let _provTickTimer  = null;
+  let _provTickStep   = 0;
+  let _provTickCount  = 0;
+  let _provTickTrack  = null;
+  let _provTickPaused = false;
   let _sectionObserver = null;
   let _popupShown = false;       // only show popup once per session
+  let _sharedSpotlightHandled = false;
+  let _sharedPortfolioHandled = false;
   let _homeContent = {
     categoriesTitle: '',
     providersTitle: '',
@@ -164,6 +180,8 @@ const HomePage = (() => {
 
     // Fetch fresh data
     _loadData(!seeded);
+    _maybeOpenSharedSpotlight();
+    _maybeOpenSharedPortfolio();
     _startBannerSyncTimer();
 
 
@@ -746,10 +764,10 @@ const HomePage = (() => {
         providers_limit: '10',
         home_banners_limit: '6',
         carousel_limit: String(HOME_BANNERS_LIMIT),
-        spotlights_limit: '16',
+        spotlights_limit: String(REELS_LIMIT),
         featured_limit: String(FEATURED_SPECIALISTS_LIMIT),
         portfolio_limit: String(PORTFOLIO_SHOWCASE_FETCH_LIMIT),
-        snapshots_limit: '16',
+        snapshots_limit: String(REELS_LIMIT),
       });
       const aggregateRes = await ApiClient.get('/api/home/aggregate/?' + aggregateQuery.toString());
       if (aggregateRes && aggregateRes.ok && aggregateRes.data) {
@@ -784,11 +802,11 @@ const HomePage = (() => {
         ApiClient.get('/api/providers/list/?page_size=10'),
         ApiClient.get('/api/promo/banners/home/'),
         ApiClient.get('/api/promo/home-carousel/?limit=' + HOME_BANNERS_LIMIT),
-        ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
+        ApiClient.get('/api/providers/spotlights/feed/?limit=' + REELS_LIMIT),
         ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=' + FEATURED_SPECIALISTS_LIMIT),
         ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
         ApiClient.get('/api/providers/portfolio/feed/?limit=' + PORTFOLIO_SHOWCASE_FETCH_LIMIT),
-        ApiClient.get('/api/promo/active/?service_type=snapshots&limit=16'),
+        ApiClient.get('/api/promo/active/?service_type=snapshots&limit=' + REELS_LIMIT),
         ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
         ApiClient.get('/api/promo/active/?service_type=promo_messages&limit=1'),
       ]);
@@ -900,7 +918,7 @@ const HomePage = (() => {
       const promoSnapshotItems = promoSnapshotPlacements
         .map(_normalizeSnapshotPromoItem)
         .filter(Boolean);
-      const list = _mergeReelsLists(promoSnapshotItems, feedList, 16);
+      const list = _mergeReelsLists(promoSnapshotItems, feedList, REELS_LIMIT);
       NwCache.set(CACHE_SPOTLIGHTS, list, TTL);
       if (list.length) {
         _reelsData = list;
@@ -940,6 +958,183 @@ const HomePage = (() => {
     _isLoading = false;
   }
 
+  function _spotlightViewerOptions() {
+    return {
+      source: 'spotlight',
+      label: 'لمحة',
+      immersive: true,
+      tiktokMode: true,
+      randomizeAfterEnd: true,
+      maxSessionItems: 100,
+      randomBatchSize: 20,
+      randomFeedEndpoint: '/api/providers/spotlights/feed/',
+    };
+  }
+
+  function _resolveMode() {
+    const roleState = (typeof Auth !== 'undefined' && Auth.getRoleState)
+      ? String(Auth.getRoleState() || '').trim().toLowerCase()
+      : '';
+    return roleState.includes('provider') ? 'provider' : 'client';
+  }
+
+  function _portfolioViewerOptions() {
+    return {
+      source: 'portfolio',
+      label: _copy('portfolioKicker') || 'خدمات ومشاريع',
+      eventName: 'nw:portfolio-engagement-update',
+      immersive: true,
+      tiktokMode: true,
+      modeContext: _resolveMode(),
+    };
+  }
+
+  function _openSpotlightViewer(items, index) {
+    if (typeof SpotlightViewer === 'undefined' || !Array.isArray(items) || !items.length) return;
+    SpotlightViewer.open(items, index, _spotlightViewerOptions());
+  }
+
+  function _openPortfolioViewer(items, index) {
+    if (typeof SpotlightViewer === 'undefined' || !Array.isArray(items) || !items.length) return;
+    SpotlightViewer.open(items, index, _portfolioViewerOptions());
+  }
+
+  function _sharedSpotlightId() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const spotlightId = Number(params.get('spotlight') || 0);
+      return Number.isFinite(spotlightId) && spotlightId > 0 ? spotlightId : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function _sharedPortfolioId() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const portfolioId = Number(params.get('portfolio') || 0);
+      return Number.isFinite(portfolioId) && portfolioId > 0 ? portfolioId : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  async function _maybeOpenSharedSpotlight() {
+    if (_sharedSpotlightHandled) return;
+    const spotlightId = _sharedSpotlightId();
+    if (!spotlightId || typeof SpotlightViewer === 'undefined') return;
+    _sharedSpotlightHandled = true;
+
+    const existingIndex = _reelsData.findIndex((item) => Number(item && item.id) === spotlightId);
+    if (existingIndex >= 0) {
+      _openSpotlightViewer(_reelsData, existingIndex);
+      return;
+    }
+
+    try {
+      const res = await ApiClient.get('/api/providers/spotlights/' + encodeURIComponent(String(spotlightId)) + '/public/');
+      if (!res || !res.ok || !res.data) return;
+      _openSpotlightViewer([res.data], 0);
+    } catch (_) {
+      // no-op
+    }
+  }
+
+  async function _maybeOpenSharedPortfolio() {
+    if (_sharedPortfolioHandled) return;
+    const portfolioId = _sharedPortfolioId();
+    if (!portfolioId || typeof SpotlightViewer === 'undefined') return;
+    _sharedPortfolioHandled = true;
+
+    const existingIndex = _portfolioShowcaseData.findIndex((item) => Number(item && item.id) === portfolioId);
+    if (existingIndex >= 0) {
+      _openPortfolioViewer(_portfolioShowcaseData, existingIndex);
+      return;
+    }
+
+    try {
+      const res = await ApiClient.get('/api/providers/portfolio/' + encodeURIComponent(String(portfolioId)) + '/public/');
+      if (!res || !res.ok || !res.data) return;
+      _openPortfolioViewer([res.data], 0);
+    } catch (_) {
+      // no-op
+    }
+  }
+
+  /* ----------------------------------------------------------
+     CATEGORIES TICKER — element-by-element JS animation
+  ---------------------------------------------------------- */
+  function _stopCategoriesTicker() {
+    if (_catTickTimer)  { clearTimeout(_catTickTimer); _catTickTimer = null; }
+    if (_catTickTrack)  {
+      _catTickTrack.style.transition = 'none';
+      _catTickTrack.style.transform  = 'translateX(0)';
+      _catTickTrack = null;
+    }
+    _catTickStep  = 0;
+    _catTickCount = 0;
+  }
+
+  function _startCategoriesTicker(track, origCount) {
+    _stopCategoriesTicker();
+    if (!track || origCount <= 1) return;
+    _catTickTrack  = track;
+    _catTickCount  = origCount;
+    _catTickStep   = 0;
+    _catTickPaused = false;
+
+    const SLIDE_MS = 550;   // transition duration per step
+    const PAUSE_MS = 2000;  // time each item stays visible
+
+    // Pause animation while user hovers / touches the carousel
+    var carousel = $categoriesList && $categoriesList.closest('.categories-carousel');
+    if (carousel && !carousel._catTickBound) {
+      carousel._catTickBound = true;
+      carousel.addEventListener('mouseenter',  function () { _catTickPaused = true;  });
+      carousel.addEventListener('mouseleave',  function () { _catTickPaused = false; });
+      carousel.addEventListener('touchstart',  function () { _catTickPaused = true;  }, { passive: true });
+      carousel.addEventListener('touchend',    function () {
+        setTimeout(function () { _catTickPaused = false; }, 1200);
+      }, { passive: true });
+    }
+
+    function getItemWidthPx() {
+      const items = track.querySelectorAll('.cat-item');
+      if (!items.length) return 140;
+      const gap = parseFloat(getComputedStyle(track).gap || getComputedStyle(track).columnGap) || 10;
+      return items[0].offsetWidth + gap;
+    }
+
+    function scheduleNext(delay) { _catTickTimer = setTimeout(doTick, delay); }
+
+    function doTick() {
+      if (!_catTickTrack || _catTickTrack !== track) return;
+      if (_catTickPaused) { scheduleNext(250); return; }
+
+      _catTickStep++;
+      const px = getItemWidthPx();
+
+      track.style.transition = 'transform ' + SLIDE_MS + 'ms cubic-bezier(0.4, 0, 0.2, 1)';
+      track.style.transform  = 'translateX(-' + (_catTickStep * px) + 'px)';
+
+      if (_catTickStep >= origCount) {
+        // After sliding to the clone of item[0], snap back invisibly
+        _catTickTimer = setTimeout(function () {
+          if (!_catTickTrack || _catTickTrack !== track) return;
+          track.style.transition = 'none';
+          track.style.transform  = 'translateX(0)';
+          void track.offsetWidth; // force reflow
+          _catTickStep = 0;
+          scheduleNext(PAUSE_MS);
+        }, SLIDE_MS + 30);
+      } else {
+        scheduleNext(PAUSE_MS + SLIDE_MS);
+      }
+    }
+
+    scheduleNext(PAUSE_MS); // initial hold before first move
+  }
+
   /* ----------------------------------------------------------
      RENDER: CATEGORIES
      Flutter: horizontal ListView, 76px wide, 50×50 icon, name below
@@ -963,9 +1158,29 @@ const HomePage = (() => {
       frag.appendChild(item);
     });
     $categoriesList.textContent = '';
-    $categoriesList.appendChild(frag);
-    _initCategoriesCarousel();
-    _restartHomeAutoScrollsDeferred();
+    // Build marquee: ONE track containing originals + aria-hidden clones
+    // translateX(-50%) of the track == exactly one copy width → seamless loop
+    var track = document.createElement('div');
+    track.className = 'categories-track';
+    track.appendChild(frag); // original items
+    // Clone each item into the same track (clones are hidden from screen-readers)
+    var origItems = Array.prototype.slice.call(track.querySelectorAll('.cat-item'));
+    origItems.forEach(function (origItem) {
+      var cloneItem = origItem.cloneNode(true);
+      cloneItem.setAttribute('aria-hidden', 'true');
+      cloneItem.setAttribute('tabindex', '-1');
+      track.appendChild(cloneItem);
+    });
+    $categoriesList.appendChild(track);
+    // Activate marquee mode on carousel wrapper
+    var carousel = $categoriesList.closest('.categories-carousel');
+    if (carousel) {
+      carousel.classList.add('has-marquee');
+    }
+    // Start JS ticker (element-by-element animation)
+    _startCategoriesTicker(track, origItems.length);
+    // Start provider rotation directly; skip the old JS category auto-scroll
+    window.requestAnimationFrame(function () { _startProvidersAutoRotate(); });
   }
 
   /* ----------------------------------------------------------
@@ -1267,9 +1482,96 @@ const HomePage = (() => {
     }, 180);
   }
 
+  function _buildFeaturedSpecialistVerificationBadge(kind) {
+    const isBlue = kind === 'blue';
+    const badge = UI.el('span', {
+      className: 'featured-specialist-verified-badge ' + (isBlue ? 'is-blue' : 'is-green'),
+      title: isBlue ? 'توثيق أزرق' : 'توثيق أخضر',
+      'aria-label': isBlue ? 'توثيق أزرق' : 'توثيق أخضر',
+    });
+    badge.innerHTML = [
+      '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false">',
+      '<path d="M3.5 8.4 6.4 11.1 12.4 5.2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+      '</svg>',
+    ].join('');
+    return badge;
+  }
+
+  function _featuredSpecialistBadgeArcLayout(count) {
+    if (count <= 1) {
+      return [{ left: '50%', bottom: '1px' }];
+    }
+    if (count === 2) {
+      return [
+        { left: '34%', bottom: '8px' },
+        { left: '66%', bottom: '8px' },
+      ];
+    }
+    if (count === 3) {
+      return [
+        { left: '18%', bottom: '12px' },
+        { left: '50%', bottom: '1px' },
+        { left: '82%', bottom: '12px' },
+      ];
+    }
+    return [
+      { left: '10%', bottom: '15px' },
+      { left: '37%', bottom: '4px' },
+      { left: '63%', bottom: '4px' },
+      { left: '90%', bottom: '15px' },
+    ];
+  }
+
+  function _buildFeaturedSpecialistExcellenceSummary(items) {
+    const badges = Array.isArray(items) ? items.filter(item => item && typeof item === 'object') : [];
+    if (!badges.length) return null;
+
+    const wrap = UI.el('div', {
+      className: 'featured-specialist-excellence-badges',
+      'aria-label': 'شارات التميز',
+    });
+    const visible = badges.slice(0, 3);
+    const nodes = [];
+
+    visible.forEach((item) => {
+      const badge = UI.el('span', {
+        className: 'featured-specialist-badge',
+        title: item.name || item.code || 'شارة تميز',
+        'aria-label': item.name || item.code || 'شارة تميز',
+      });
+      badge.style.setProperty('--featured-badge-color', item.color || '#b45309');
+      badge.appendChild(UI.icon(item.icon || 'sparkles', 12, '#fff'));
+      wrap.appendChild(badge);
+      nodes.push(badge);
+    });
+
+    const hiddenCount = Math.max(0, badges.length - visible.length);
+    if (hiddenCount > 0) {
+      const moreBadge = UI.el('span', {
+        className: 'featured-specialist-badge is-more',
+        textContent: '+' + String(hiddenCount),
+        title: '+' + String(hiddenCount),
+        'aria-label': '+' + String(hiddenCount),
+      });
+      wrap.appendChild(moreBadge);
+      nodes.push(moreBadge);
+    }
+
+    const layout = _featuredSpecialistBadgeArcLayout(nodes.length);
+    nodes.forEach((node, index) => {
+      const slot = layout[index] || layout[layout.length - 1];
+      node.style.setProperty('--badge-left', slot.left);
+      node.style.setProperty('--badge-bottom', slot.bottom);
+    });
+
+    return wrap;
+  }
+
   function _startCategoriesAutoScroll() {
     _stopCategoriesAutoScroll();
     if (!$categoriesList) return;
+    // CSS marquee is active — let the animation handle scrolling
+    if ($categoriesList.closest('.categories-carousel.has-marquee')) return;
     var cards = $categoriesList.querySelectorAll('.cat-item');
     if (cards.length <= 1) return;
     if (!_hasHorizontalOverflow($categoriesList)) return;
@@ -1396,6 +1698,7 @@ const HomePage = (() => {
       redirect_url: _readBannerString(raw.redirect_url),
       is_verified_blue: !!(raw.is_verified_blue || raw.target_provider_is_verified_blue),
       is_verified_green: !!(raw.is_verified_green || raw.target_provider_is_verified_green),
+      is_online: !!(raw.is_online || raw.target_provider_is_online),
       rating_avg: _readPromoFloat(raw.rating_avg || raw.target_provider_rating_avg),
       rating_count: _readBannerInt(raw.rating_count || raw.target_provider_rating_count),
       excellence_badges: badges,
@@ -1418,18 +1721,37 @@ const HomePage = (() => {
     const cap = Math.max(1, _readBannerInt(limit) || FEATURED_SPECIALISTS_LIMIT);
     const seenProviderIds = new Set();
     const merged = [];
-
-    (Array.isArray(placements) ? placements : [])
-      .map(_normalizeFeaturedSpecialist)
-      .forEach((item) => {
-        if (!item || !item.provider_id || seenProviderIds.has(item.provider_id) || merged.length >= cap) return;
-        seenProviderIds.add(item.provider_id);
-        merged.push(item);
-      });
+    const liveProvidersById = new Map();
 
     _sortTopRatedProviders(providers)
       .map(_normalizeFeaturedSpecialist)
       .forEach((item) => {
+        if (!item || !item.provider_id || liveProvidersById.has(item.provider_id)) return;
+        liveProvidersById.set(item.provider_id, item);
+      });
+
+    (Array.isArray(placements) ? placements : [])
+      .map(_normalizeFeaturedSpecialist)
+      .forEach((item) => {
+        const liveProvider = item ? liveProvidersById.get(item.provider_id) : null;
+        const mergedItem = liveProvider ? {
+          ...item,
+          display_name: liveProvider.display_name || item.display_name,
+          profile_image: liveProvider.profile_image || item.profile_image,
+          city: liveProvider.city || item.city,
+          is_verified_blue: !!(item.is_verified_blue || liveProvider.is_verified_blue),
+          is_verified_green: !!(item.is_verified_green || liveProvider.is_verified_green),
+          is_online: !!liveProvider.is_online,
+          rating_avg: liveProvider.rating_avg,
+          rating_count: liveProvider.rating_count,
+          excellence_badges: liveProvider.excellence_badges.length ? liveProvider.excellence_badges : item.excellence_badges,
+        } : item;
+        if (!mergedItem || !mergedItem.provider_id || seenProviderIds.has(mergedItem.provider_id) || merged.length >= cap) return;
+        seenProviderIds.add(mergedItem.provider_id);
+        merged.push(mergedItem);
+      });
+
+    liveProvidersById.forEach((item) => {
         if (!item || !item.provider_id || seenProviderIds.has(item.provider_id) || merged.length >= cap) return;
         seenProviderIds.add(item.provider_id);
         merged.push(item);
@@ -1460,33 +1782,16 @@ const HomePage = (() => {
         role: 'button',
         tabindex: '0',
       });
-      const openTarget = () => {
-        if (typeof NwAnalytics !== 'undefined') {
-          NwAnalytics.track('promo.featured_specialist_click', {
-            surface: 'mobile_web.home.featured_specialists',
-            source_app: 'promo',
-            object_type: 'ProviderProfile',
-            object_id: String(item.provider_id || ''),
-            payload: {
-              rating_avg: item.rating_avg,
-              rating_count: item.rating_count,
-            },
-          });
-        }
-        const external = item.redirect_url && /^https?:\/\//i.test(item.redirect_url);
-        if (external) {
-          window.open(item.redirect_url, '_blank', 'noopener');
-          return;
-        }
-        window.location.href = providerHref;
-      };
-      card.addEventListener('click', openTarget);
-      card.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          openTarget();
-        }
-      });
+      // Store navigation target as data attributes for event delegation
+      // (cloned cards won't have JS listeners, but delegation on the track works for both)
+      const navHref = (item.redirect_url && /^https?:\/\//i.test(item.redirect_url))
+        ? item.redirect_url
+        : providerHref;
+      card.dataset.provHref    = navHref;
+      card.dataset.provExternal = (item.redirect_url && /^https?:\/\//i.test(item.redirect_url)) ? '1' : '';
+      card.dataset.provId      = String(item.provider_id || '');
+      card.dataset.provRating  = String(item.rating_avg  || '');
+      card.dataset.provRatingCount = String(item.rating_count || '');
 
       const avatarShell = UI.el('div', { className: 'featured-specialist-avatar-shell' });
       const avatarRing = UI.el('div', { className: 'featured-specialist-avatar-ring' });
@@ -1499,23 +1804,23 @@ const HomePage = (() => {
       avatarRing.appendChild(avatar);
       avatarShell.appendChild(avatarRing);
 
-      const topExcellenceItems = UI.normalizeExcellenceBadges(item.excellence_badges);
-      if (topExcellenceItems.length) {
-        avatarShell.appendChild(UI.el('span', {
-          className: 'featured-specialist-badge',
-          textContent: 'تميز',
-        }));
+      // Presence dot – featured specialists are providers.
+      if (typeof UI.presenceDot === 'function') {
+        avatarShell.appendChild(UI.presenceDot(!!item.is_online));
       }
 
-      const isVerified = !!(item.is_verified_blue || item.is_verified_green);
-      if (isVerified) {
-        const verified = UI.el('span', { className: 'featured-specialist-verified' });
-        verified.appendChild(
-          item.is_verified_blue
-            ? UI.icon('verified_blue', 16, '#2196F3')
-            : UI.icon('verified_green', 16, '#4CAF50')
-        );
-        avatarShell.appendChild(verified);
+      const topExcellenceItems = UI.normalizeExcellenceBadges(item.excellence_badges);
+      if (item.is_verified_blue) {
+        avatarShell.appendChild(_buildFeaturedSpecialistVerificationBadge('blue'));
+      }
+      if (item.is_verified_green) {
+        avatarShell.appendChild(_buildFeaturedSpecialistVerificationBadge('green'));
+      }
+      if (topExcellenceItems.length) {
+        const excellenceSummary = _buildFeaturedSpecialistExcellenceSummary(topExcellenceItems);
+        if (excellenceSummary) {
+          avatarShell.appendChild(excellenceSummary);
+        }
       }
 
       card.appendChild(avatarShell);
@@ -1529,13 +1834,6 @@ const HomePage = (() => {
         className: 'featured-specialist-name',
         textContent: displayName,
       }));
-      const verifiedBadges = UI.buildVerificationBadges({
-        isVerifiedBlue: item.is_verified_blue,
-        isVerifiedGreen: item.is_verified_green,
-        iconSize: 13,
-        gap: '3px',
-      });
-      if (verifiedBadges) nameRow.appendChild(verifiedBadges);
       card.appendChild(nameRow);
 
       const ratingNumber = Number(item.rating_avg);
@@ -1553,15 +1851,137 @@ const HomePage = (() => {
       frag.appendChild(card);
     });
     $providersList.textContent = '';
-    $providersList.appendChild(frag);
-    _startProvidersAutoRotate();
+    // Build ticker track: originals + aria-hidden clones in one flex track
+    const provTrack = document.createElement('div');
+    provTrack.className = 'prov-ticker-track';
+    provTrack.appendChild(frag);
+    const origCards = Array.prototype.slice.call(provTrack.querySelectorAll('.featured-specialist-card'));
+    origCards.forEach(function (orig) {
+      const cl = orig.cloneNode(true);
+      cl.setAttribute('aria-hidden', 'true');
+      cl.setAttribute('tabindex', '-1');
+      provTrack.appendChild(cl);
+    });
+    $providersList.appendChild(provTrack);
+    $providersList.classList.add('has-prov-ticker');
+    // Start element-by-element ticker
+    _startProvidersTicker(provTrack, origCards.length);
     _restartHomeAutoScrollsDeferred();
   }
 
+  /* ----------------------------------------------------------
+     PROVIDERS TICKER — element-by-element JS animation
+  ---------------------------------------------------------- */
+  function _stopProvidersTicker() {
+    if (_provTickTimer) { clearTimeout(_provTickTimer); _provTickTimer = null; }
+    if (_provTickTrack) {
+      _provTickTrack.style.transition = 'none';
+      _provTickTrack.style.transform  = 'translateX(0)';
+      _provTickTrack = null;
+    }
+    _provTickStep  = 0;
+    _provTickCount = 0;
+  }
+
+  function _startProvidersTicker(track, origCount) {
+    _stopProvidersTicker();
+    if (!track || origCount <= 1) return;
+    _provTickTrack  = track;
+    _provTickCount  = origCount;
+    _provTickStep   = 0;
+    _provTickPaused = false;
+
+    const SLIDE_MS = 520;   // slide duration
+    const PAUSE_MS = 2400;  // hold per card
+
+    // Event delegation — works for both original and cloned cards
+    if (!track._provDelegBound) {
+      track._provDelegBound = true;
+      track.addEventListener('click', function (e) {
+        const card = e.target.closest('.featured-specialist-card[data-prov-href]');
+        if (!card) return;
+        if (typeof NwAnalytics !== 'undefined') {
+          NwAnalytics.track('promo.featured_specialist_click', {
+            surface: 'mobile_web.home.featured_specialists',
+            source_app: 'promo',
+            object_type: 'ProviderProfile',
+            object_id: card.dataset.provId || '',
+            payload: {
+              rating_avg: card.dataset.provRating,
+              rating_count: card.dataset.provRatingCount,
+            },
+          });
+        }
+        if (card.dataset.provExternal) {
+          window.open(card.dataset.provHref, '_blank', 'noopener');
+        } else {
+          window.location.href = card.dataset.provHref;
+        }
+      });
+      track.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const card = e.target.closest('.featured-specialist-card[data-prov-href]');
+        if (!card) return;
+        e.preventDefault();
+        if (card.dataset.provExternal) {
+          window.open(card.dataset.provHref, '_blank', 'noopener');
+        } else {
+          window.location.href = card.dataset.provHref;
+        }
+      });
+    }
+
+    if ($providersList && !$providersList._provTickBound) {
+      $providersList._provTickBound = true;
+      $providersList.addEventListener('mouseenter',  () => { _provTickPaused = true;  });
+      $providersList.addEventListener('mouseleave',  () => { _provTickPaused = false; });
+      $providersList.addEventListener('touchstart',  () => { _provTickPaused = true;  }, { passive: true });
+      $providersList.addEventListener('touchend',    () => {
+        setTimeout(() => { _provTickPaused = false; }, 1400);
+      }, { passive: true });
+      $providersList.addEventListener('pointerdown', () => { _provTickPaused = true;  });
+      $providersList.addEventListener('pointerup',   () => {
+        setTimeout(() => { _provTickPaused = false; }, 1400);
+      });
+    }
+
+    function getCardWidthPx() {
+      const card = track.querySelector('.featured-specialist-card');
+      if (!card) return 172;
+      const gap = parseFloat(getComputedStyle(track).gap || getComputedStyle(track).columnGap) || 14;
+      return card.offsetWidth + gap;
+    }
+
+    function scheduleNext(delay) { _provTickTimer = setTimeout(doTick, delay); }
+
+    function doTick() {
+      if (!_provTickTrack || _provTickTrack !== track) return;
+      if (_provTickPaused) { scheduleNext(250); return; }
+
+      _provTickStep++;
+      const px = getCardWidthPx();
+
+      track.style.transition = 'transform ' + SLIDE_MS + 'ms cubic-bezier(0.4, 0, 0.2, 1)';
+      track.style.transform  = 'translateX(-' + (_provTickStep * px) + 'px)';
+
+      if (_provTickStep >= origCount) {
+        _provTickTimer = setTimeout(() => {
+          if (!_provTickTrack || _provTickTrack !== track) return;
+          track.style.transition = 'none';
+          track.style.transform  = 'translateX(0)';
+          void track.offsetWidth;
+          _provTickStep = 0;
+          scheduleNext(PAUSE_MS);
+        }, SLIDE_MS + 30);
+      } else {
+        scheduleNext(PAUSE_MS + SLIDE_MS);
+      }
+    }
+
+    scheduleNext(PAUSE_MS);
+  }
 
   function _renderProvidersEmpty() {
-    if (!$providersList) return;
-    _stopProvidersAutoRotate();
     $providersList.textContent = '';
     $providersList.appendChild(
       UI.el('div', { className: 'providers-empty' }, [
@@ -1624,8 +2044,10 @@ const HomePage = (() => {
   }
 
   function _startProvidersAutoRotate() {
-    _stopProvidersAutoRotate();
     if (!$providersList) return;
+    // Ticker mode active — do not run the old scroll-based rotation
+    if ($providersList.classList.contains('has-prov-ticker')) return;
+    _stopProvidersAutoRotate();
     const isFeaturedSpecialists = $providersList.classList.contains('featured-specialists-scroll');
     if (_isDesktopHomeGrid() && !isFeaturedSpecialists) return;
     const cards = $providersList.querySelectorAll('.featured-specialist-card');
@@ -1639,10 +2061,10 @@ const HomePage = (() => {
       const max = Math.max(0, $providersList.scrollWidth - $providersList.clientWidth);
       if (max <= 0) return;
 
-      const viewport = $providersList.clientWidth || 0;
-      const step = viewport > 0
-        ? Math.max(96, Math.min(220, Math.round(viewport * 0.42)))
-        : 110;
+      // Scroll exactly one card width at a time (element-by-element)
+      const firstCard = $providersList.querySelector('.featured-specialist-card');
+      const cardGap = parseFloat(getComputedStyle($providersList).gap) || 12;
+      const step = firstCard ? (firstCard.offsetWidth + cardGap) : 170;
       const next = current + step;
       const target = next >= max - 4 ? 0 : next;
 
@@ -1680,6 +2102,9 @@ const HomePage = (() => {
       provider_profile_image: _readBannerString(
         nested ? nested.provider_profile_image : (rawPromo.provider_profile_image || rawPromo.target_provider_profile_image)
       ),
+      is_verified_blue: !!(nested ? nested.is_verified_blue : rawPromo.is_verified_blue),
+      is_verified_green: !!(nested ? nested.is_verified_green : rawPromo.is_verified_green),
+      provider_is_online: !!(nested ? nested.provider_is_online : rawPromo.provider_is_online),
       file_type: _readBannerString(
         nested ? nested.file_type : (rawPromo.file_type || rawPromo.target_portfolio_item_file_type)
       ) || 'image',
@@ -1689,6 +2114,7 @@ const HomePage = (() => {
       redirect_url: _readBannerString(rawPromo.redirect_url),
       likes_count: _readBannerInt(nested ? nested.likes_count : 0),
       saves_count: _readBannerInt(nested ? nested.saves_count : 0),
+      comments_count: _readBannerInt(nested ? nested.comments_count : 0),
       is_liked: !!(nested && nested.is_liked),
       is_saved: !!(nested && nested.is_saved),
       source: 'portfolio',
@@ -1803,6 +2229,7 @@ const HomePage = (() => {
     const items = (Array.isArray(placements) ? placements : [])
       .map(_normalizePortfolioShowcaseItem)
       .filter(Boolean);
+    _portfolioShowcaseData = items;
     if (!items.length) {
       $portfolioShowcaseSection.style.display = '';
       _notifySectionShown($portfolioShowcaseSection);
@@ -1810,7 +2237,7 @@ const HomePage = (() => {
       $portfolioShowcaseList.appendChild(
         UI.el('div', {
           className: 'providers-empty',
-          textContent: 'لا توجد مشاريع أو بنرات حالياً',
+          textContent: 'لا توجد خدمات أو مشاريع حالياً',
         })
       );
       return;
@@ -1836,7 +2263,7 @@ const HomePage = (() => {
       }
       card.appendChild(media);
 
-      const openProvider = () => {
+      const openPortfolio = () => {
         if (typeof NwAnalytics !== 'undefined') {
           NwAnalytics.track('promo.portfolio_showcase_click', {
             surface: 'mobile_web.home.portfolio_showcase',
@@ -1850,6 +2277,10 @@ const HomePage = (() => {
             },
           });
         }
+        if (typeof SpotlightViewer !== 'undefined') {
+          _openPortfolioViewer(items, index);
+          return;
+        }
         const redirect = _readBannerString(item.redirect_url);
         if (redirect && /^https?:\/\//i.test(redirect)) {
           window.open(redirect, '_blank', 'noopener');
@@ -1861,11 +2292,11 @@ const HomePage = (() => {
         }
         window.location.href = '/search/';
       };
-      card.addEventListener('click', openProvider);
+      card.addEventListener('click', openPortfolio);
       card.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          openProvider();
+          openPortfolio();
         }
       });
       frag.appendChild(card);
@@ -2289,26 +2720,12 @@ const HomePage = (() => {
 
       // Click → open SpotlightViewer at this index
       reel.addEventListener('click', () => {
-        if (typeof SpotlightViewer !== 'undefined') {
-          SpotlightViewer.open(_reelsData, idx, {
-            source: 'spotlight',
-            label: 'لمحة',
-            immersive: true,
-            tiktokMode: true,
-          });
-        }
+        _openSpotlightViewer(_reelsData, idx);
       });
       reel.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          if (typeof SpotlightViewer !== 'undefined') {
-            SpotlightViewer.open(_reelsData, idx, {
-              source: 'spotlight',
-              label: 'لمحة',
-              immersive: true,
-              tiktokMode: true,
-            });
-          }
+          _openSpotlightViewer(_reelsData, idx);
         }
       });
 

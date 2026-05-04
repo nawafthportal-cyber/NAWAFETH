@@ -2,26 +2,44 @@
 var ProviderRegisterPage = (function () {
   var RAW_API = window.ApiClient;
   var API = window.NwApiClient;
-  var regionCatalog = [];
   var ALLOWED_PROVIDER_TYPES = ["individual", "company"];
   var currentStep = 1;
   var categories = [];
+  var categoryGroupSequence = 0;
   var providerType = "individual";
   var isSubmitting = false;
   var isSuggestionSubmitting = false;
   var toastTimer = null;
+  var locationMap = null;
+  var locationMarker = null;
+  var reverseLocationRequestId = 0;
+  var DEFAULT_LOCATION = { lat: 24.7136, lng: 46.6753, zoom: 11 };
+  var SAUDI_MAJOR_CITY_FALLBACKS = [
+    { name: "الرياض", aliases: ["الرياض", "riyadh"], bounds: { minLat: 24.20, maxLat: 25.20, minLng: 46.20, maxLng: 47.30 } },
+    { name: "جدة", aliases: ["جدة", "jeddah"], bounds: { minLat: 21.20, maxLat: 21.90, minLng: 38.90, maxLng: 39.50 } },
+    { name: "مكة المكرمة", aliases: ["مكة", "مكة المكرمة", "mecca", "makkah"], bounds: { minLat: 21.20, maxLat: 21.70, minLng: 39.50, maxLng: 40.10 } },
+    { name: "المدينة المنورة", aliases: ["المدينة", "المدينة المنورة", "medina", "madinah"], bounds: { minLat: 24.20, maxLat: 24.80, minLng: 39.30, maxLng: 39.90 } },
+    { name: "الدمام", aliases: ["الدمام", "dammam"], bounds: { minLat: 26.20, maxLat: 26.60, minLng: 49.90, maxLng: 50.30 } },
+    { name: "الخبر", aliases: ["الخبر", "khobar", "alkhobar"], bounds: { minLat: 26.20, maxLat: 26.40, minLng: 50.10, maxLng: 50.35 } },
+    { name: "الطائف", aliases: ["الطائف", "taif"], bounds: { minLat: 21.10, maxLat: 21.50, minLng: 40.20, maxLng: 40.70 } },
+    { name: "أبها", aliases: ["أبها", "ابها", "abha"], bounds: { minLat: 18.10, maxLat: 18.40, minLng: 42.30, maxLng: 42.70 } },
+    { name: "تبوك", aliases: ["تبوك", "tabuk"], bounds: { minLat: 28.20, maxLat: 28.60, minLng: 36.30, maxLng: 36.80 } },
+    { name: "بريدة", aliases: ["بريدة", "buraydah", "buraidah"], bounds: { minLat: 26.20, maxLat: 26.50, minLng: 43.80, maxLng: 44.20 } },
+    { name: "حائل", aliases: ["حائل", "hail", "ha'il"], bounds: { minLat: 27.40, maxLat: 27.70, minLng: 41.50, maxLng: 42.00 } },
+    { name: "جازان", aliases: ["جازان", "جيزان", "jazan", "jizan"], bounds: { minLat: 16.70, maxLat: 17.20, minLng: 42.40, maxLng: 43.00 } },
+  ];
   var STEP_NARRATIVES = {
     1: {
       badge: "الخطوة 1 من 3",
       title: "أساس ملفك الاحترافي",
-      hint: "ابدأ باسم عرض واضح ومنطقة دقيقة حتى يظهر ملفك للعملاء بالصورة الصحيحة.",
-      tip: "كلما كانت البيانات الأولى أوضح، أصبح ظهورك في المنصة أكثر اتساقًا وسهولة للمراجعة والاعتماد."
+      hint: "ابدأ باسم عرض واضح وموقع جغرافي دقيق حتى يظهر ملفك للعملاء بالصورة الصحيحة.",
+      tip: "كلما كانت بيانات الموقع والإحداثيات أوضح، أصبح ظهورك في المنصة أكثر اتساقًا وسهولة للمراجعة والاعتماد."
     },
     2: {
       badge: "الخطوة 2 من 3",
       title: "اختيار التصنيف المناسب",
-      hint: "حدّد القسم والتصنيف الأقرب لخدمتك حتى تصل للعميل في السياق الصحيح.",
-      tip: "إذا كانت خدمتك متخصصة جدًا، اختر الأقرب ثم استخدم اقتراح التصنيف للحفاظ على سلاسة التسجيل."
+      hint: "حدّد الأقسام الرئيسية المناسبة، واختر تحت كل قسم أكثر من تصنيف فرعي عند الحاجة.",
+      tip: "إذا كانت خدمتك متخصصة جدًا، اختر الأقرب ثم استخدم اقتراح التصنيف مع إمكانية إضافة أكثر من قسم رئيسي." 
     },
     3: {
       badge: "الخطوة 3 من 3",
@@ -64,11 +82,231 @@ var ProviderRegisterPage = (function () {
   };
 
   function init() {
-    loadRegionsAndCities();
     loadCategories();
     bindEvents();
+    initLocationMap();
+    setCityInputManualMode(true);
+    setCityHint("إذا لم تُقرأ مدينة دقيقة، سيمكنك إدخالها يدويًا.", null);
     syncProviderTypeFromDom();
     updateStepNarrative(currentStep);
+  }
+
+  function getCategoryGroupsRoot() {
+    return document.getElementById("reg-category-groups");
+  }
+
+  function getCategoryGroupCards() {
+    var root = getCategoryGroupsRoot();
+    return root ? Array.prototype.slice.call(root.querySelectorAll(".reg-category-group")) : [];
+  }
+
+  function findCategoryById(categoryId) {
+    return categories.find(function (category) {
+      return category.id === categoryId;
+    }) || null;
+  }
+
+  function getGroupId(groupEl) {
+    return groupEl ? String(groupEl.getAttribute("data-group-id") || "") : "";
+  }
+
+  function getSelectedCategoryIds(exceptGroupId) {
+    return getCategoryGroupCards().reduce(function (selected, groupEl) {
+      var groupId = getGroupId(groupEl);
+      if (exceptGroupId && groupId === String(exceptGroupId)) return selected;
+      var select = groupEl.querySelector(".reg-category-select");
+      var categoryId = select ? parseInt(select.value, 10) : NaN;
+      if (!isNaN(categoryId) && selected.indexOf(categoryId) === -1) {
+        selected.push(categoryId);
+      }
+      return selected;
+    }, []);
+  }
+
+  function findGroupByCategoryId(categoryId, exceptGroupId) {
+    if (!categoryId) return null;
+    var groups = getCategoryGroupCards();
+    for (var i = 0; i < groups.length; i += 1) {
+      var groupEl = groups[i];
+      if (exceptGroupId && getGroupId(groupEl) === String(exceptGroupId)) continue;
+      var select = groupEl.querySelector(".reg-category-select");
+      var selectedId = select ? parseInt(select.value, 10) : NaN;
+      if (!isNaN(selectedId) && selectedId === categoryId) return groupEl;
+    }
+    return null;
+  }
+
+  function collectGroupSubcategoryIds(groupEl) {
+    if (!groupEl) return [];
+    return Array.prototype.slice.call(groupEl.querySelectorAll(".reg-subcategory-checkbox:checked")).map(function (checkbox) {
+      return parseInt(checkbox.value, 10);
+    }).filter(function (subId) {
+      return !isNaN(subId);
+    });
+  }
+
+  function getSelectedSubcategoryIds() {
+    var seen = {};
+    return getCategoryGroupCards().reduce(function (allIds, groupEl) {
+      collectGroupSubcategoryIds(groupEl).forEach(function (subId) {
+        if (!seen[subId]) {
+          seen[subId] = true;
+          allIds.push(subId);
+        }
+      });
+      return allIds;
+    }, []);
+  }
+
+  function getSelectedCategoryNames() {
+    return getCategoryGroupCards().map(function (groupEl) {
+      var select = groupEl.querySelector(".reg-category-select");
+      if (!select || !String(select.value || "").trim()) return "";
+      var selectedOption = select.options[select.selectedIndex];
+      return selectedOption ? String(selectedOption.textContent || "").trim() : "";
+    }).filter(Boolean);
+  }
+
+  function getSelectedSubcategoryNames() {
+    return getCategoryGroupCards().reduce(function (names, groupEl) {
+      Array.prototype.slice.call(groupEl.querySelectorAll(".reg-subcategory-checkbox:checked")).forEach(function (checkbox) {
+        var name = String(checkbox.getAttribute("data-name") || "").trim();
+        if (name) names.push(name);
+      });
+      return names;
+    }, []);
+  }
+
+  function renderCategoryOptions(select, groupId, selectedId) {
+    if (!select) return;
+    var takenIds = getSelectedCategoryIds(groupId);
+    select.innerHTML = "";
+
+    var placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "اختر القسم";
+    select.appendChild(placeholder);
+
+    categories.forEach(function (category) {
+      if (takenIds.indexOf(category.id) !== -1 && category.id !== selectedId) return;
+      var option = document.createElement("option");
+      option.value = String(category.id);
+      option.textContent = category.name;
+      if (selectedId === category.id) option.selected = true;
+      select.appendChild(option);
+    });
+  }
+
+  function renderSubcategoryOptions(groupEl, categoryId, selectedSubcategoryIds) {
+    var list = groupEl ? groupEl.querySelector("[data-role='subcategory-list']") : null;
+    if (!list) return;
+    list.innerHTML = "";
+
+    if (!categoryId) {
+      list.innerHTML = '<p class="reg-subcategory-empty">اختر القسم الرئيسي أولًا لتظهر لك التصنيفات الفرعية المتاحة لهذا القسم.</p>';
+      return;
+    }
+
+    var category = findCategoryById(categoryId);
+    var subcategories = category && Array.isArray(category.subcategories) ? category.subcategories : [];
+    if (!subcategories.length) {
+      list.innerHTML = '<p class="reg-subcategory-empty">لا توجد تصنيفات فرعية متاحة حاليًا داخل هذا القسم.</p>';
+      return;
+    }
+
+    var selectedLookup = {};
+    (selectedSubcategoryIds || []).forEach(function (subId) {
+      selectedLookup[subId] = true;
+    });
+
+    subcategories.forEach(function (subcategory) {
+      var label = document.createElement("label");
+      label.className = "reg-subcategory-option";
+
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "reg-subcategory-checkbox";
+      checkbox.value = String(subcategory.id);
+      checkbox.checked = !!selectedLookup[subcategory.id];
+      checkbox.setAttribute("data-name", subcategory.name);
+      checkbox.setAttribute("data-category-name", category.name);
+
+      var text = document.createElement("span");
+      text.textContent = subcategory.name;
+
+      label.appendChild(checkbox);
+      label.appendChild(text);
+      list.appendChild(label);
+    });
+  }
+
+  function refreshCategoryGroup(groupEl) {
+    if (!groupEl) return;
+    var select = groupEl.querySelector(".reg-category-select");
+    if (!select) return;
+    var groupId = getGroupId(groupEl);
+    var selectedCategoryId = parseInt(select.value, 10);
+    if (isNaN(selectedCategoryId)) selectedCategoryId = null;
+    var selectedSubcategoryIds = collectGroupSubcategoryIds(groupEl);
+    renderCategoryOptions(select, groupId, selectedCategoryId);
+
+    selectedCategoryId = parseInt(select.value, 10);
+    if (isNaN(selectedCategoryId)) selectedCategoryId = null;
+    renderSubcategoryOptions(groupEl, selectedCategoryId, selectedSubcategoryIds);
+  }
+
+  function updateCategoryGroupHeadings() {
+    var groups = getCategoryGroupCards();
+    groups.forEach(function (groupEl, index) {
+      var title = groupEl.querySelector(".reg-category-group-title");
+      var removeBtn = groupEl.querySelector(".reg-category-remove");
+      if (title) title.textContent = "القسم " + (index + 1);
+      if (removeBtn) removeBtn.classList.toggle("hidden", groups.length <= 1);
+    });
+  }
+
+  function updateAddCategoryGroupState() {
+    var addBtn = document.getElementById("reg-add-category-group");
+    if (!addBtn) return;
+    addBtn.disabled = !categories.length || getCategoryGroupCards().length >= categories.length;
+  }
+
+  function refreshCategoryGroups() {
+    getCategoryGroupCards().forEach(refreshCategoryGroup);
+    updateCategoryGroupHeadings();
+    updateAddCategoryGroupState();
+  }
+
+  function createCategoryGroup() {
+    var root = getCategoryGroupsRoot();
+    if (!root) return null;
+
+    var groupEl = document.createElement("section");
+    groupEl.className = "reg-category-group";
+    groupEl.setAttribute("data-group-id", String(++categoryGroupSequence));
+    groupEl.innerHTML = [
+      '<div class="reg-category-group-head">',
+      '  <strong class="reg-category-group-title">القسم</strong>',
+      '  <button type="button" class="reg-category-remove">حذف القسم</button>',
+      '</div>',
+      '<div class="reg-category-group-grid">',
+      '  <div class="form-group">',
+      '    <label class="form-label">القسم الرئيسي</label>',
+      '    <select class="form-select reg-category-select"><option value="">اختر القسم</option></select>',
+      '    <p class="form-hint">اختر المجال الرئيسي مرة واحدة، ثم حدّد تحته كل التصنيفات الفرعية المناسبة.</p>',
+      '  </div>',
+      '  <div class="form-group form-group-wide">',
+      '    <label class="form-label">التصنيفات الفرعية</label>',
+      '    <div class="reg-subcategory-checklist" data-role="subcategory-list">',
+      '      <p class="reg-subcategory-empty">اختر القسم الرئيسي أولًا لتظهر لك التصنيفات الفرعية المتاحة لهذا القسم.</p>',
+      '    </div>',
+      '    <p class="form-hint">يمكنك اختيار أكثر من تصنيف فرعي داخل القسم نفسه.</p>',
+      '  </div>',
+      '</div>'
+    ].join("");
+    root.appendChild(groupEl);
+    refreshCategoryGroups();
+    return groupEl;
   }
 
   function normalizeProviderType(value) {
@@ -85,86 +323,293 @@ var ProviderRegisterPage = (function () {
     providerType = normalizeProviderType(activeChip ? activeChip.dataset.val : providerType);
   }
 
-  function loadRegionsAndCities() {
-    API.get("/api/providers/geo/regions-cities/").then(function (rows) {
-      regionCatalog = normalizeRegionCatalog(rows);
-      populateRegions();
-      populateCitiesForRegion("");
-    }).catch(function () {
-      regionCatalog = [];
-      populateRegions();
-      populateCitiesForRegion("");
-      showToast("تعذر تحميل المناطق والمدن حاليًا. حاول تحديث الصفحة.", "error");
-    });
+  function cleanAddressPart(value) {
+    return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
   }
 
-  function normalizeRegionCatalog(rows) {
-    if (!Array.isArray(rows)) return [];
-    return rows.map(function (row) {
-      var regionName = String((row && row.name_ar) || "").trim();
-      if (!regionName) return null;
-      var citiesRaw = Array.isArray(row.cities) ? row.cities : [];
-      var cities = citiesRaw.map(function (cityRow) {
-        var cityName = String((cityRow && cityRow.name_ar) || "").trim();
-        return cityName || null;
-      }).filter(Boolean);
-      return { region: regionName, cities: cities };
-    }).filter(Boolean);
+  function normalizeGeoLabel(value) {
+    return String(value || "")
+      .trim()
+      .replace(/^المملكة العربية السعودية[\s،,-]*/i, "")
+      .replace(/^country\s+/i, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
   }
 
-  function populateRegions() {
-    var regionSel = document.getElementById("reg-region");
-    if (!regionSel) return;
-    regionSel.innerHTML = '<option value="">اختر المنطقة</option>';
-    regionCatalog.forEach(function (entry) {
-      var o = document.createElement("option");
-      o.value = entry.region;
-      o.textContent = entry.region;
-      regionSel.appendChild(o);
-    });
+  function normalizeCoordinate(value) {
+    var parsed = Number(value);
+    if (!Number.isFinite(parsed)) return null;
+    return Number(parsed.toFixed(6));
   }
 
-  function populateCitiesForRegion(regionName) {
-    var citySel = document.getElementById("reg-city");
-    if (!citySel) return;
-    citySel.innerHTML = '<option value="">اختر المدينة</option>';
-    if (!regionName) return;
+  function buildLocationLabel(countryValue, cityValue) {
+    var country = String(countryValue || "").trim();
+    var city = String(cityValue || "").trim();
+    if (country && city) return country + " - " + city;
+    return country || city;
+  }
 
-    var found = regionCatalog.find(function (entry) {
-      return entry.region === regionName;
+  function setLocationField(id, value) {
+    var input = document.getElementById(id);
+    if (!input) return;
+    input.value = value || "";
+  }
+
+  function setCityInputManualMode(manualAllowed) {
+    var input = document.getElementById("reg-city");
+    if (!input) return;
+    input.readOnly = false;
+    input.placeholder = manualAllowed
+      ? "يمكنك تعديلها يدويًا أو تركها كما تم تعبئتها"
+      : "اختيارية وتُملأ تلقائيًا إذا كانت متاحة";
+  }
+
+  function setCityHint(message, state) {
+    var hint = document.getElementById("reg-city-hint");
+    if (!hint) return;
+    hint.textContent = message || "";
+    hint.classList.remove("ok", "bad");
+    if (state === true) hint.classList.add("ok");
+    if (state === false) hint.classList.add("bad");
+  }
+
+  function setMapStatus(message, state) {
+    var status = document.getElementById("reg-map-status");
+    if (!status) return;
+    status.textContent = message || "";
+    status.classList.remove("ok", "bad");
+    if (state === true) status.classList.add("ok");
+    if (state === false) status.classList.add("bad");
+  }
+
+  function setCoordinates(lat, lng) {
+    var latInput = document.getElementById("reg-lat");
+    var lngInput = document.getElementById("reg-lng");
+    var coords = document.getElementById("reg-map-coordinates");
+    if (latInput) latInput.value = lat == null ? "" : String(lat);
+    if (lngInput) lngInput.value = lng == null ? "" : String(lng);
+    if (!coords) return;
+    if (lat == null || lng == null) {
+      coords.textContent = "لم يتم اختيار نقطة بعد.";
+      return;
+    }
+    coords.textContent = Number(lat).toFixed(5) + " ، " + Number(lng).toFixed(5);
+  }
+
+  function ensureLocationMarker(lat, lng) {
+    if (!locationMap) return;
+    if (!locationMarker) {
+      locationMarker = L.marker([lat, lng], { draggable: true }).addTo(locationMap);
+      locationMarker.on("dragend", function () {
+        var next = locationMarker.getLatLng();
+        setMapLocation(next.lat, next.lng, { source: "drag" });
+      });
+      return;
+    }
+    locationMarker.setLatLng([lat, lng]);
+  }
+
+  function initLocationMap() {
+    var mapEl = document.getElementById("reg-location-map");
+    if (!mapEl) return;
+    if (!window.L || typeof window.L.map !== "function") {
+      setMapStatus("تعذر تحميل الخريطة. حدّث الصفحة وأعد المحاولة.", false);
+      return;
+    }
+    locationMap = L.map(mapEl, {
+      center: [DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lng],
+      zoom: DEFAULT_LOCATION.zoom,
+      scrollWheelZoom: false,
+      zoomControl: true,
     });
-    if (!found || !Array.isArray(found.cities)) return;
-    found.cities.forEach(function (cityName) {
-      var o = document.createElement("option");
-      o.value = cityName;
-      o.textContent = cityName;
-      citySel.appendChild(o);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/">OSM</a>',
+      maxZoom: 18,
+    }).addTo(locationMap);
+    locationMap.on("click", function (event) {
+      setMapLocation(event.latlng.lat, event.latlng.lng, { source: "map" });
+    });
+    window.setTimeout(function () {
+      if (locationMap) locationMap.invalidateSize();
+    }, 180);
+  }
+
+  function resolveCountryFromAddress(address) {
+    var country = cleanAddressPart((address && address.country) || (address && address.country_code) || "");
+    if (normalizeGeoLabel(country) === "السعودية") return "المملكة العربية السعودية";
+    return country;
+  }
+
+  function looksLikeNeighborhoodLabel(value) {
+    var normalized = normalizeGeoLabel(value);
+    return /^حي(?:\s|$)/.test(normalized) || /neighbou?rhood/.test(normalized);
+  }
+
+  function isSaudiCountry(value) {
+    var normalized = String(value || "").trim().toLowerCase();
+    return normalized.indexOf("السعودية") >= 0 || normalized.indexOf("saudi") >= 0;
+  }
+
+  function resolveSaudiMajorCity(address, lat, lng) {
+    var tokens = [
+      address && address.city,
+      address && address.town,
+      address && address.municipality,
+      address && address.county,
+      address && address.state,
+      address && address.state_district,
+      address && address.region,
+      address && address.province,
+    ].map(normalizeGeoLabel).filter(Boolean);
+    for (var i = 0; i < SAUDI_MAJOR_CITY_FALLBACKS.length; i += 1) {
+      var cityConfig = SAUDI_MAJOR_CITY_FALLBACKS[i];
+      for (var tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+        for (var aliasIndex = 0; aliasIndex < cityConfig.aliases.length; aliasIndex += 1) {
+          var alias = cityConfig.aliases[aliasIndex];
+          if (tokens[tokenIndex] === alias || tokens[tokenIndex].indexOf(alias) >= 0) {
+            return cityConfig.name;
+          }
+        }
+      }
+    }
+    var latValue = Number(lat);
+    var lngValue = Number(lng);
+    if (!Number.isFinite(latValue) || !Number.isFinite(lngValue)) return "";
+    for (var cityIndex = 0; cityIndex < SAUDI_MAJOR_CITY_FALLBACKS.length; cityIndex += 1) {
+      var bounds = SAUDI_MAJOR_CITY_FALLBACKS[cityIndex].bounds;
+      if (latValue >= bounds.minLat && latValue <= bounds.maxLat && lngValue >= bounds.minLng && lngValue <= bounds.maxLng) {
+        return SAUDI_MAJOR_CITY_FALLBACKS[cityIndex].name;
+      }
+    }
+    return "";
+  }
+
+  function resolveCityFromAddress(address, countryValue, lat, lng) {
+    var countryToken = normalizeGeoLabel(countryValue);
+    var candidates = [
+      address && address.city,
+      address && address.town,
+      address && address.municipality,
+      address && address.county,
+      address && address.village,
+      address && address.state_district,
+    ].map(cleanAddressPart).filter(Boolean);
+    for (var i = 0; i < candidates.length; i += 1) {
+      if (normalizeGeoLabel(candidates[i]) !== countryToken && !looksLikeNeighborhoodLabel(candidates[i])) return candidates[i];
+    }
+    if (isSaudiCountry(countryValue)) return resolveSaudiMajorCity(address, lat, lng);
+    return "";
+  }
+
+  function applyResolvedLocation(location) {
+    var country = cleanAddressPart(location && location.country);
+    var city = cleanAddressPart(location && location.city);
+    setLocationField("reg-country", country);
+    setLocationField("reg-city", city);
+    setCityInputManualMode(true);
+    setCityHint(city ? "تم تعبئة المدينة تلقائيًا من الموقع المحدد." : (country ? "لم نعثر على مدينة دقيقة لهذه النقطة. أدخل المدينة يدويًا إذا كنت تعرفها." : "إذا لم تُقرأ مدينة دقيقة، سيمكنك إدخالها يدويًا."), city ? true : null);
+    setMapStatus(country ? "تم تحديث الموقع بنجاح." : "تم تحديد النقطة، لكن تعذر استخراج الدولة.", !!country);
+  }
+
+  async function reverseGeocodeLocation(lat, lng) {
+    var params = new URLSearchParams({
+      format: "jsonv2",
+      lat: String(lat),
+      lon: String(lng),
+      zoom: "11",
+      addressdetails: "1",
+      "accept-language": "ar",
+    });
+    var response = await fetch("https://nominatim.openstreetmap.org/reverse?" + params.toString(), {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error("reverse_geocode_failed");
+    var data = await response.json();
+    var address = data && typeof data === "object" ? (data.address || {}) : {};
+    var country = resolveCountryFromAddress(address);
+    var city = resolveCityFromAddress(address, country, lat, lng);
+    return { country: country, city: city };
+  }
+
+  async function setMapLocation(lat, lng, options) {
+    var normalizedLat = normalizeCoordinate(lat);
+    var normalizedLng = normalizeCoordinate(lng);
+    if (normalizedLat === null || normalizedLng === null) {
+      setMapStatus("تعذر قراءة الإحداثيات من النقطة المحددة.", false);
+      return;
+    }
+    if (locationMap) {
+      ensureLocationMarker(normalizedLat, normalizedLng);
+      locationMap.setView([normalizedLat, normalizedLng], Math.max(locationMap.getZoom(), 13), { animate: true });
+    }
+    setCoordinates(normalizedLat, normalizedLng);
+    setMapStatus(options && options.source === "device" ? "تم التقاط موقعك الحالي. جارٍ قراءة الدولة والمدينة..." : "جارٍ قراءة الدولة والمدينة من النقطة المختارة...", null);
+    var requestId = ++reverseLocationRequestId;
+    try {
+      var resolved = await reverseGeocodeLocation(normalizedLat, normalizedLng);
+      if (requestId !== reverseLocationRequestId) return;
+      applyResolvedLocation(resolved);
+    } catch (_) {
+      if (requestId !== reverseLocationRequestId) return;
+      setLocationField("reg-country", "");
+      setLocationField("reg-city", "");
+      setMapStatus("تعذر قراءة بيانات الموقع من الخريطة.", false);
+    }
+  }
+
+  function useCurrentLocation() {
+    var button = document.getElementById("reg-use-current-location");
+    var originalText = button ? button.textContent : "";
+    if (!navigator.geolocation) {
+      setMapStatus("المتصفح لا يدعم تحديد الموقع الحالي.", false);
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.textContent = "جارٍ تحديد موقعي...";
+    }
+    setMapStatus("جارٍ التقاط موقعك الحالي...", null);
+    navigator.geolocation.getCurrentPosition(function (position) {
+      Promise.resolve(setMapLocation(position.coords.latitude, position.coords.longitude, { source: "device" }))
+        .finally(function () {
+          if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+          }
+        });
+    }, function (error) {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+      if (error && error.code === 1) {
+        setMapStatus("تم رفض صلاحية الموقع. يمكنك تحديد النقطة يدويًا من الخريطة.", false);
+        return;
+      }
+      setMapStatus("تعذر تحديد موقعك الحالي. جرّب مرة أخرى أو اختر النقطة يدويًا.", false);
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
     });
   }
 
   function loadCategories() {
     API.get("/api/providers/categories/").then(function (cats) {
       categories = cats || [];
-      var sel = document.getElementById("reg-category");
-      categories.forEach(function (c) {
-        var o = document.createElement("option");
-        o.value = c.id;
-        o.textContent = c.name;
-        sel.appendChild(o);
-      });
+      if (!getCategoryGroupCards().length) {
+        createCategoryGroup();
+      } else {
+        refreshCategoryGroups();
+      }
     }).catch(function () {
       showToast("تعذر تحميل التصنيفات حاليًا. حدّث الصفحة أو أعد المحاولة بعد قليل.", "error");
     });
   }
 
   function bindEvents() {
-    var regionSel = document.getElementById("reg-region");
-    if (regionSel) {
-      regionSel.addEventListener("change", function () {
-        var regionValue = String(regionSel.value || "").trim();
-        populateCitiesForRegion(regionValue);
-      });
-    }
+    var currentLocationBtn = document.getElementById("reg-use-current-location");
+    if (currentLocationBtn) currentLocationBtn.addEventListener("click", useCurrentLocation);
 
     var whatsappInput = document.getElementById("reg-whatsapp");
     if (whatsappInput) {
@@ -183,19 +628,48 @@ var ProviderRegisterPage = (function () {
       this.querySelectorAll(".chip").forEach(function (c) { c.classList.toggle("active", c === chip); });
     });
 
-    document.getElementById("reg-category").addEventListener("change", function () {
-      var cat = categories.find(function (c) { return c.id === parseInt(document.getElementById("reg-category").value, 10); });
-      var subSel = document.getElementById("reg-subcategory");
-      subSel.innerHTML = '<option value="">اختر التصنيف</option>';
-      if (cat && cat.subcategories) {
-        cat.subcategories.forEach(function (s) {
-          var o = document.createElement("option");
-          o.value = s.id;
-          o.textContent = s.name;
-          subSel.appendChild(o);
-        });
-      }
-    });
+    var categoryGroupsRoot = getCategoryGroupsRoot();
+    if (categoryGroupsRoot) {
+      categoryGroupsRoot.addEventListener("change", function (event) {
+        var select = event.target.closest(".reg-category-select");
+        if (!select) return;
+        var groupEl = select.closest(".reg-category-group");
+        var selectedCategoryId = parseInt(select.value, 10);
+        var duplicateGroup = findGroupByCategoryId(selectedCategoryId, getGroupId(groupEl));
+        if (!isNaN(selectedCategoryId) && duplicateGroup) {
+          select.value = "";
+          showToast("يمكن اختيار كل قسم رئيسي مرة واحدة فقط. أضف كل التصنيفات الفرعية التابعة له داخل نفس القسم.", "warning");
+        }
+        refreshCategoryGroups();
+      });
+
+      categoryGroupsRoot.addEventListener("click", function (event) {
+        var removeBtn = event.target.closest(".reg-category-remove");
+        if (!removeBtn) return;
+        var groupEl = removeBtn.closest(".reg-category-group");
+        if (!groupEl) return;
+        groupEl.remove();
+        if (!getCategoryGroupCards().length) createCategoryGroup();
+        refreshCategoryGroups();
+      });
+    }
+
+    var addCategoryGroupBtn = document.getElementById("reg-add-category-group");
+    if (addCategoryGroupBtn) {
+      addCategoryGroupBtn.addEventListener("click", function () {
+        if (!categories.length) {
+          showToast("انتظر حتى يكتمل تحميل الأقسام أولًا.", "warning");
+          return;
+        }
+        if (getCategoryGroupCards().length >= categories.length) {
+          showToast("تمت إضافة كل الأقسام الرئيسية المتاحة حاليًا.", "info");
+          return;
+        }
+        var groupEl = createCategoryGroup();
+        var select = groupEl ? groupEl.querySelector(".reg-category-select") : null;
+        if (select && typeof select.focus === "function") select.focus();
+      });
+    }
 
     document.getElementById("reg-next-1").addEventListener("click", function () { if (validateStep1()) goToStep(2); });
     document.getElementById("reg-back-2").addEventListener("click", function () { goToStep(1); });
@@ -246,12 +720,6 @@ var ProviderRegisterPage = (function () {
     return !!(form && !form.classList.contains("hidden"));
   }
 
-  function selectedOptionText(selectId) {
-    var select = document.getElementById(selectId);
-    if (!select || select.selectedIndex < 0) return "";
-    return String(select.options[select.selectedIndex].textContent || "").trim();
-  }
-
   function toggleSuggestionForm(show) {
     var form = document.getElementById("reg-suggest-form");
     if (!form) return;
@@ -260,13 +728,13 @@ var ProviderRegisterPage = (function () {
 
     var mainInput = document.getElementById("reg-suggest-main");
     var subInput = document.getElementById("reg-suggest-sub");
-    var selectedMain = selectedOptionText("reg-category");
-    var selectedSub = selectedOptionText("reg-subcategory");
-    if (mainInput && !mainInput.value.trim() && selectedMain && selectedMain !== "اختر القسم") {
-      mainInput.value = selectedMain;
+    var selectedMain = getSelectedCategoryNames();
+    var selectedSub = getSelectedSubcategoryNames();
+    if (mainInput && !mainInput.value.trim() && selectedMain.length) {
+      mainInput.value = selectedMain.join("، ");
     }
-    if (subInput && !subInput.value.trim() && selectedSub && selectedSub !== "اختر التصنيف") {
-      subInput.value = selectedSub;
+    if (subInput && !subInput.value.trim() && selectedSub.length) {
+      subInput.value = selectedSub.join("، ");
     }
     if (mainInput) mainInput.focus();
   }
@@ -278,13 +746,13 @@ var ProviderRegisterPage = (function () {
       "التصنيف الفرعي المقترح: " + subName
     ];
 
-    var selectedMain = selectedOptionText("reg-category");
-    var selectedSub = selectedOptionText("reg-subcategory");
-    if (selectedMain && selectedMain !== "اختر القسم") {
-      lines.push("القسم المختار حاليًا: " + selectedMain);
+    var selectedMain = getSelectedCategoryNames();
+    var selectedSub = getSelectedSubcategoryNames();
+    if (selectedMain.length) {
+      lines.push("الأقسام المختارة حاليًا: " + selectedMain.join("، "));
     }
-    if (selectedSub && selectedSub !== "اختر التصنيف") {
-      lines.push("التصنيف المختار حاليًا: " + selectedSub);
+    if (selectedSub.length) {
+      lines.push("التصنيفات الفرعية المختارة حاليًا: " + selectedSub.join("، "));
     }
     if (note) {
       lines.push("ملاحظات: " + note);
@@ -419,23 +887,26 @@ var ProviderRegisterPage = (function () {
       showToast("أدخل اسم العرض أولًا.", "warning");
       return false;
     }
-    if (!document.getElementById("reg-region").value) {
-      focusField("reg-region");
-      showToast("اختر المنطقة أولًا.", "warning");
-      return false;
-    }
-    if (!document.getElementById("reg-city").value) {
-      focusField("reg-city");
-      showToast("اختر المدينة أولًا.", "warning");
-      return false;
-    }
     return true;
   }
 
   function validateStep2() {
-    if (!document.getElementById("reg-subcategory").value) {
-      focusField("reg-subcategory");
-      showToast("اختر التصنيف الفرعي أولًا.", "warning");
+    var groups = getCategoryGroupCards();
+    var hasAnySelected = false;
+    for (var i = 0; i < groups.length; i += 1) {
+      var groupEl = groups[i];
+      var select = groupEl.querySelector(".reg-category-select");
+      var categoryId = select ? parseInt(select.value, 10) : NaN;
+      var selectedIds = collectGroupSubcategoryIds(groupEl);
+      if (!isNaN(categoryId) && selectedIds.length === 0) {
+        if (select && typeof select.focus === "function") select.focus();
+        showToast("اختر تصنيفًا فرعيًا واحدًا على الأقل لكل قسم رئيسي تضيفه.", "warning");
+        return false;
+      }
+      if (selectedIds.length) hasAnySelected = true;
+    }
+    if (!hasAnySelected) {
+      showToast("أضف قسمًا رئيسيًا واحدًا على الأقل، ثم اختر تحته تصنيفًا فرعيًا أو أكثر.", "warning");
       return false;
     }
     return true;
@@ -539,40 +1010,10 @@ var ProviderRegisterPage = (function () {
     }
   }
 
-  function saveInitialServiceIfNeeded(subcategoryId, serviceTitle, serviceDescription) {
-    if (!serviceTitle || !subcategoryId) {
-      return Promise.resolve(null);
-    }
-    return requestWithHardTimeout("/api/providers/me/services/", {
-      method: "POST",
-      timeout: 10000,
-      body: {
-        subcategory_id: subcategoryId,
-        title: serviceTitle,
-        description: serviceDescription
-      }
-    }, 12000).then(function (serviceRes) {
-      if (!serviceRes || !serviceRes.ok || !serviceRes.data) {
-        throw new Error(apiErrorMessage(serviceRes ? serviceRes.data : null, "تعذر حفظ الخدمة الأولى"));
-      }
-      showToast("تم حفظ الخدمة الأولى ضمن ملفك كمزود خدمة.", "success");
-      return serviceRes.data;
-    }).catch(function (err) {
-      showToast(
-        "تم إنشاء ملفك كمزود خدمة، لكن تعذر حفظ الخدمة الأولى. يمكنك إضافتها لاحقًا من لوحة المزوّد."
-        + ((err && err.message) ? ("\n" + err.message) : ""),
-        "warning"
-      );
-      return null;
-    });
-  }
-
   async function submit() {
     if (isSubmitting) return;
 
-    var subcategoryId = parseInt(document.getElementById("reg-subcategory").value, 10);
-    var serviceTitle = document.getElementById("reg-service-title").value.trim();
-    var serviceDescription = document.getElementById("reg-service-desc").value.trim();
+    var subcategoryIds = getSelectedSubcategoryIds();
 
     isSubmitting = true;
     setSubmitState(true, "جاري التسجيل...");
@@ -581,9 +1022,12 @@ var ProviderRegisterPage = (function () {
       provider_type: normalizeProviderType(providerType),
       display_name: document.getElementById("reg-display-name").value.trim(),
       bio: document.getElementById("reg-bio").value.trim(),
-      region: document.getElementById("reg-region").value,
+      country: document.getElementById("reg-country").value.trim(),
       city: document.getElementById("reg-city").value,
-      subcategory_ids: subcategoryId ? [subcategoryId] : [],
+      location_label: buildLocationLabel(document.getElementById("reg-country").value.trim(), document.getElementById("reg-city").value.trim()),
+      lat: document.getElementById("reg-lat").value || null,
+      lng: document.getElementById("reg-lng").value || null,
+      subcategory_ids: subcategoryIds,
       whatsapp: document.getElementById("reg-whatsapp").value.trim(),
       website: document.getElementById("reg-website").value.trim(),
       years_experience: parseInt(document.getElementById("reg-experience").value, 10) || 0
@@ -604,7 +1048,6 @@ var ProviderRegisterPage = (function () {
       }
       showSuccessPanel();
       showToast("تم إنشاء حساب مزود الخدمة بنجاح.", "success");
-      await saveInitialServiceIfNeeded(subcategoryId, serviceTitle, serviceDescription);
     } catch (err) {
       showToast((err && err.message) ? err.message : "فشل التسجيل", "error");
     } finally {

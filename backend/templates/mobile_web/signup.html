@@ -5,6 +5,7 @@
 {% block body_class %}page-signup{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
 body.page-signup {
   --signup-ink: #1f1738;
@@ -469,6 +470,121 @@ body.page-signup .signup-location-callout {
   padding: 14px;
 }
 
+body.page-signup .signup-map-panel {
+  gap: 14px;
+}
+
+body.page-signup .signup-map-panel .signup-soft-copy {
+  display: block;
+}
+
+body.page-signup .signup-map-toolbar {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+body.page-signup .signup-map-btn {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(77, 41, 151, 0.14);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.94));
+  color: var(--signup-brand);
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 14px 28px rgba(28, 20, 55, 0.07);
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+}
+
+body.page-signup .signup-map-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(77, 41, 151, 0.24);
+  box-shadow: 0 18px 34px rgba(28, 20, 55, 0.1);
+}
+
+body.page-signup .signup-map-btn:disabled {
+  transform: none;
+  opacity: 0.72;
+  cursor: wait;
+}
+
+body.page-signup .signup-map-meta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+body.page-signup .signup-map-status,
+body.page-signup .signup-map-coordinates {
+  color: #6f6987;
+  font-size: 12px;
+  line-height: 1.75;
+  font-weight: 800;
+}
+
+body.page-signup .signup-map-status.ok {
+  color: var(--signup-success);
+}
+
+body.page-signup .signup-map-status.bad {
+  color: #bb4257;
+}
+
+body.page-signup .signup-map-shell {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(77, 41, 151, 0.14);
+  background:
+    radial-gradient(circle at top left, rgba(73, 191, 210, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(239, 246, 255, 0.9), rgba(247, 242, 255, 0.84));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 16px 32px rgba(34, 24, 63, 0.08);
+}
+
+body.page-signup .signup-location-map {
+  width: 100%;
+  height: clamp(240px, 38vh, 320px);
+}
+
+body.page-signup .signup-location-map .leaflet-control-attribution {
+  font-size: 10px;
+}
+
+body.page-signup .signup-field-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body.page-signup .signup-optional-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(73, 191, 210, 0.24);
+  background: rgba(73, 191, 210, 0.1);
+  color: #11687f;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+body.page-signup .signup-location-input[readonly] {
+  cursor: default;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.9)),
+    linear-gradient(90deg, rgba(77, 41, 151, 0.03), rgba(73, 191, 210, 0.04));
+}
+
+body.page-signup .signup-location-input[readonly]:focus {
+  outline: none;
+}
+
 body.page-signup .signup-motion-item {
   opacity: 0;
   transform: translate3d(0, var(--signup-reveal-distance), 0) scale(0.985);
@@ -813,6 +929,10 @@ body.page-signup .signup-general-error:not(.hidden) {
     gap: 10px;
   }
 
+  body.page-signup .signup-map-toolbar {
+    justify-content: space-between;
+  }
+
   body.page-signup .signup-submit-btn {
     width: min(100%, 360px);
     min-height: 62px;
@@ -877,6 +997,17 @@ body.page-signup .signup-general-error:not(.hidden) {
   body.page-signup .signup-skip-btn {
     width: 100%;
     min-width: 0;
+  }
+
+  body.page-signup .signup-map-toolbar,
+  body.page-signup .signup-field-label {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  body.page-signup .signup-map-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -997,27 +1128,51 @@ body.page-signup .signup-general-error:not(.hidden) {
             <span class="signup-soft-icon" aria-hidden="true">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z"></path><circle cx="12" cy="11" r="2.5"></circle></svg>
             </span>
-            <div>
+            <div class="signup-soft-copy">
               <strong>الموقع</strong>
-              <p id="signup-location-callout-text">اختر المنطقة أولًا ثم المدينة.</p>
+              <p id="signup-location-callout-text">حدّد نقطة من الخريطة وسيتم تعبئة الدولة والمدينة تلقائيًا.</p>
             </div>
           </div>
 
-          <div class="auth-grid auth-grid-2 signup-location-grid signup-motion-item" style="--signup-delay: 620ms;">
-            <div class="form-group signup-region-group" id="signup-region-group">
-              <label class="form-label" for="region">المنطقة الإدارية</label>
-              <select id="region" class="form-select">
-                <option value="">اختر المنطقة</option>
-              </select>
-              <div class="form-hint" id="region-hint">اختر المنطقة أولًا.</div>
-              <div class="form-error hidden" id="err-region"></div>
+          <div class="signup-soft-panel signup-map-panel signup-motion-item" id="signup-map-panel" style="--signup-delay: 600ms;">
+            <span class="signup-soft-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18 15 6"></path><path d="m7 7 10 10"></path><path d="M5 5h14v14H5z" rx="3"></path></svg>
+            </span>
+            <div class="signup-soft-copy">
+              <strong>اختر موقعك بدقة</strong>
+              <p id="signup-location-map-text">اضغط على أي نقطة داخل الخريطة أو استخدم موقعك الحالي لتعبئة الدولة والمدينة مباشرة.</p>
+              <div class="signup-map-toolbar">
+                <button class="signup-map-btn" id="btn-use-current-location" type="button">استخدم موقعي الحالي</button>
+                <div class="signup-map-meta">
+                  <span class="signup-map-status" id="signup-map-status">الخريطة جاهزة لتحديد الموقع.</span>
+                  <span class="signup-map-coordinates" id="signup-map-coordinates">لم يتم اختيار نقطة بعد.</span>
+                </div>
+              </div>
+            </div>
+            <div class="signup-map-shell">
+              <div class="signup-location-map" id="signup-location-map" role="application" aria-label="خريطة تحديد الموقع"></div>
+            </div>
+            <input type="hidden" id="signup-latitude" value="">
+            <input type="hidden" id="signup-longitude" value="">
+          </div>
+
+          <div class="auth-grid auth-grid-2 signup-location-grid signup-motion-item" style="--signup-delay: 660ms;">
+            <div class="form-group signup-country-group" id="signup-country-group">
+              <label class="form-label signup-field-label" for="country">
+                <span>الدولة</span>
+                <span class="signup-optional-badge">اختياري</span>
+              </label>
+              <input type="text" id="country" class="form-input signup-location-input" placeholder="سيتم تعبئتها تلقائيًا من الخريطة" readonly>
+              <div class="form-hint" id="country-hint">اختيارية. حدّد نقطة على الخريطة إذا أردت تعبئتها تلقائيًا.</div>
+              <div class="form-error hidden" id="err-country"></div>
             </div>
             <div class="form-group signup-city-group" id="signup-city-group">
-              <label class="form-label" for="city">المدينة</label>
-              <select id="city" class="form-select" disabled>
-                <option value="">اختر المدينة</option>
-              </select>
-              <div class="form-hint" id="city-hint">اختر المدينة.</div>
+              <label class="form-label signup-field-label" for="city">
+                <span>المدينة</span>
+                <span class="signup-optional-badge">اختياري</span>
+              </label>
+              <input type="text" id="city" class="form-input signup-location-input" placeholder="اختيارية. يمكنك تعديلها يدويًا حتى بعد التعبئة التلقائية">
+              <div class="form-hint" id="city-hint">اختيارية. سنلتقطها تلقائيًا إذا كانت متاحة، ويمكنك تعديلها يدويًا في أي وقت.</div>
               <div class="form-error hidden" id="err-city"></div>
             </div>
           </div>
@@ -1067,5 +1222,6 @@ body.page-signup .signup-general-error:not(.hidden) {
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/signupPage.js' %}"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'mobile_web/js/signupPage.js' %}?v=20260503-signup-map-location"></script>
 {% endblock %}

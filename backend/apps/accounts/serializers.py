@@ -3,6 +3,7 @@ import re
 from rest_framework import serializers
 from .models import User
 from .phone_validation import require_phone_local05
+from apps.providers.location_formatter import resolve_country_city
 
 
 def _validate_phone_local05(value: str) -> str:
@@ -97,13 +98,16 @@ class CompleteRegistrationSerializer(serializers.Serializer):
             "invalid": "يجب الموافقة على الشروط والأحكام",
         }
     )
-    # Optional for forward compatibility with mobile payloads.
+    country = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     city = serializers.CharField(
         max_length=100,
         required=False,
         allow_blank=True,
         allow_null=True,
     )
+    location_label = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    lat = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True)
+    lng = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True)
 
     def validate_username(self, value: str) -> str:
         value = (value or "").strip()
@@ -145,11 +149,41 @@ class CompleteRegistrationSerializer(serializers.Serializer):
             raise serializers.ValidationError("يجب الموافقة على اتفاقية الاستخدام")
         return value
 
+    def validate_country(self, value: str | None):
+        if value is None:
+            return None
+        value = (value or "").strip()
+        return value or None
+
     def validate(self, attrs):
         password = (attrs.get("password") or "").strip()
         password_confirm = (attrs.get("password_confirm") or "").strip()
         if password != password_confirm:
             raise serializers.ValidationError({"password_confirm": "كلمة المرور وتأكيدها غير متطابقين"})
+
+        country, city_name, location_label = resolve_country_city(
+            attrs.get("country"),
+            attrs.get("city"),
+            attrs.get("location_label"),
+        )
+        lat = attrs.get("lat")
+        lng = attrs.get("lng")
+
+        if (lat is None) != (lng is None):
+            raise serializers.ValidationError({"location_label": "أدخل الإحداثيين معًا أو اتركهما فارغين"})
+
+        if lat is not None:
+            lat_value = float(lat)
+            if not (-90 <= lat_value <= 90):
+                raise serializers.ValidationError({"lat": "خط العرض غير صالح"})
+        if lng is not None:
+            lng_value = float(lng)
+            if not (-180 <= lng_value <= 180):
+                raise serializers.ValidationError({"lng": "خط الطول غير صالح"})
+
+        attrs["country"] = country
+        attrs["location_city"] = city_name
+        attrs["city"] = location_label
         return attrs
 
     def validate_city(self, value: str | None):

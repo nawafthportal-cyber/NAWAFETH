@@ -112,9 +112,16 @@ var ServiceDetailPage = (function () {
 
     // Provider info
     var avatar = d.provider_avatar || d.provider?.avatar || "";
-    document.getElementById("sd-provider-avatar").innerHTML = avatar
+    var sdAvatarEl = document.getElementById("sd-provider-avatar");
+    sdAvatarEl.innerHTML = avatar
       ? '<img src="' + API.mediaUrl(avatar) + '" alt="">'
       : '<div class="avatar-placeholder">' + ((d.provider_name || d.provider?.name || "؟").charAt(0)) + '</div>';
+    // Presence dot – service detail always shows a provider.
+    var sdIsOnline = !!(d.provider_is_online || d.provider?.is_online);
+    var sdDot = document.createElement('span');
+    sdDot.className = 'nw-presence-dot ' + (sdIsOnline ? 'is-online' : 'is-offline');
+    sdDot.setAttribute('aria-hidden', 'true');
+    sdAvatarEl.appendChild(sdDot);
     document.getElementById("sd-provider-name").textContent = d.provider_name || d.provider?.name || "";
     document.getElementById("sd-provider-category").textContent =
       d.category_name || d.subcategory?.category_name || d.category?.name || "";

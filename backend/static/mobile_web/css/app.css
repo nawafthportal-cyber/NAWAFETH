@@ -2473,3 +2473,51 @@ body.mobile-web-parity :where(
     padding: 72px 32px 48px;
   }
 }
+
+/* ===================================================================
+   Presence indicator dot (provider online/offline)
+   Author: presence feature, May 2026
+   Usage: container must be position:relative, then append
+          <span class="nw-presence-dot is-online|is-offline"></span>
+   =================================================================== */
+.nw-presence-dot {
+  position: absolute;
+  bottom: 0;
+  inset-inline-end: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #9ca3af;        /* offline – grey */
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  z-index: 3;
+  transform: translate(0, 0);
+}
+[dir="rtl"] .nw-presence-dot,
+.nw-presence-dot {
+  /* inset-inline-end already handles RTL/LTR alignment */
+}
+.nw-presence-dot.is-online {
+  background: #22c55e;        /* online – green */
+}
+.nw-presence-dot.is-offline {
+  background: #9ca3af;
+}
+.nw-presence-dot.size-sm { width: 9px;  height: 9px; border-width: 1.5px; }
+.nw-presence-dot.size-lg { width: 16px; height: 16px; border-width: 2.5px; }
+
+/* Ensure common avatar containers can host the dot. */
+.thread-avatar-wrap,
+.featured-specialist-avatar-shell,
+.providers-scroll .provider-avatar-shell,
+.profile-avatar-wrap,
+#peer-avatar,
+.pd-not-provider-avatar,
+.pd-avatar,
+.sd-provider-avatar,
+.sv-provider-avatar,
+.sv-side-avatar,
+.search-map-provider-avatar-link {
+  position: relative;
+}

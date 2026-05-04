@@ -196,23 +196,27 @@ var ProviderReviewsPage = (function () {
         : "لا توجد تقييمات منشورة بعد، وسيظهر السجل هنا فور وصول أول تقييم.";
     }
 
-    var breakdown = [
-      { label: "سرعة الاستجابة", val: ratingData.response_speed_avg },
-      { label: "جودة العمل", val: ratingData.quality_avg },
-      { label: "القيمة مقابل السعر", val: ratingData.cost_value_avg },
-      { label: "المصداقية", val: ratingData.credibility_avg },
-      { label: "الالتزام بالمواعيد", val: ratingData.on_time_avg }
-    ];
-    document.getElementById("rv-breakdown").innerHTML = breakdown.map(function (b) {
-      var value = parseFloat(b.val || 0);
-      var v = value.toFixed(1);
-      var percent = Math.max(0, Math.min(100, (value / 5) * 100));
-      return '<div class="rv-bar-row">' +
-        '<div class="rv-bar-copy"><strong>' + b.label + '</strong><span>' + getCriterionTone(value) + '</span></div>' +
-        '<div class="rv-bar-track"><div class="rv-bar"><div class="rv-bar-fill" style="width:' + percent + '%"></div></div></div>' +
-        '<span class="rv-bar-value">' + v + '</span>' +
-      '</div>';
-    }).join("");
+      var breakdown = [
+        { key: "response_speed", label: "سرعة الاستجابة", val: ratingData.response_speed_avg },
+        { key: "quality", label: "جودة العمل", val: ratingData.quality_avg },
+        { key: "cost_value", label: "القيمة مقابل السعر", val: ratingData.cost_value_avg },
+        { key: "credibility", label: "المصداقية", val: ratingData.credibility_avg },
+        { key: "on_time", label: "الالتزام بالمواعيد", val: ratingData.on_time_avg }
+      ].filter(function (item) {
+        return parseFloat(item.val || 0) > 0;
+      });
+      document.getElementById("rv-breakdown").innerHTML = !breakdown.length
+        ? '<div class="rv-breakdown-empty">لا تتوفر تقييمات تفصيلية على بنود التقييم حتى الآن.</div>'
+        : breakdown.map(function (b) {
+          var value = parseFloat(b.val || 0);
+          var v = value.toFixed(1);
+          var percent = Math.max(0, Math.min(100, (value / 5) * 100));
+          return '<div class="rv-bar-row">' +
+            '<div class="rv-bar-copy"><strong>' + b.label + '</strong><span>' + getCriterionHint(b.key) + '</span></div>' +
+            '<div class="rv-bar-track"><div class="rv-bar"><div class="rv-bar-fill" style="width:' + percent + '%"></div></div></div>' +
+            '<span class="rv-bar-value">' + v + '</span>' +
+          '</div>';
+        }).join("");
   }
 
   function buildStars(rating) {
@@ -284,6 +288,23 @@ var ProviderReviewsPage = (function () {
     if (value >= 3.5) return "جيد";
     if (value > 0) return "يحتاج دعم";
     return "بدون بيانات";
+  }
+
+  function getCriterionHint(key) {
+    switch (String(key || "")) {
+      case "response_speed":
+        return "سرعة الرد على استفسارات العميل";
+      case "quality":
+        return "جودة التنفيذ أو النتيجة النهائية";
+      case "cost_value":
+        return "مدى مناسبة السعر مقابل الخدمة";
+      case "credibility":
+        return "الوضوح والموثوقية في التعامل";
+      case "on_time":
+        return "الالتزام بالوقت المتفق عليه";
+      default:
+        return "";
+    }
   }
 
   function countReviewsWithReply() {

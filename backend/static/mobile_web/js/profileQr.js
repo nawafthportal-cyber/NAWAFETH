@@ -1,6 +1,16 @@
 'use strict';
 
 window.NwProfileQr = (() => {
+  function _hasProviderProfile(me) {
+    if (!me || typeof me !== 'object') return false;
+    return !!(
+      me.has_provider_profile
+      || me.is_provider
+      || me.provider_profile_id
+      || String(me.role_state || '').trim().toLowerCase() === 'provider'
+    );
+  }
+
   function buildTargetUrl(me, providerProfile) {
     const origin = window.location.origin.replace(/\/$/, '');
     if (providerProfile && providerProfile.id) {
@@ -32,8 +42,11 @@ window.NwProfileQr = (() => {
       throw new Error('تعذر تحميل بيانات الحساب');
     }
 
-    const profileRes = await ApiClient.get('/api/providers/me/profile/');
-    const providerProfile = profileRes.ok && profileRes.data ? profileRes.data : null;
+    let providerProfile = null;
+    if (_hasProviderProfile(meRes.data)) {
+      const profileRes = await ApiClient.get('/api/providers/me/profile/');
+      providerProfile = profileRes.ok && profileRes.data ? profileRes.data : null;
+    }
 
     return {
       me: meRes.data,

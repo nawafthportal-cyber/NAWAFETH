@@ -24,6 +24,7 @@ from apps.promo.services import (
     promo_min_campaign_hours,
     promo_min_campaign_message,
 )
+from apps.providers.models import Category
 from apps.support.models import SupportTeam, SupportTicketStatus
 from apps.verification.models import VerificationStatus
 
@@ -788,6 +789,73 @@ class ContentSettingsLinksForm(forms.Form):
 
     def clean_website_label(self):
         return self._clean_short("website_label", 120)
+
+
+class ContentCategoryForm(forms.Form):
+    category_id = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    name = forms.CharField(
+        label="اسم التصنيف الرئيسي",
+        max_length=100,
+        widget=forms.TextInput(
+            attrs={
+                "class": "input-control",
+                "placeholder": "مثال: الخدمات المنزلية",
+                "maxlength": 100,
+            }
+        ),
+    )
+    is_active = forms.BooleanField(
+        label="التصنيف مفعّل",
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "toggle-input"}),
+    )
+
+    def clean_name(self):
+        return " ".join((self.cleaned_data.get("name") or "").split()).strip()[:100]
+
+
+class ContentSubCategoryForm(forms.Form):
+    subcategory_id = forms.IntegerField(required=False, widget=forms.HiddenInput())
+    category = forms.ModelChoiceField(
+        label="التصنيف الرئيسي",
+        queryset=Category.objects.order_by("name", "id"),
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    name = forms.CharField(
+        label="اسم التصنيف الفرعي",
+        max_length=100,
+        widget=forms.TextInput(
+            attrs={
+                "class": "input-control",
+                "placeholder": "مثال: سباكة",
+                "maxlength": 100,
+            }
+        ),
+    )
+    requires_geo_scope = forms.BooleanField(
+        label="يتطلب نطاقًا جغرافيًا",
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={"class": "toggle-input"}),
+    )
+    allows_urgent_requests = forms.BooleanField(
+        label="يسمح بالطلبات العاجلة",
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "toggle-input"}),
+    )
+    is_active = forms.BooleanField(
+        label="التصنيف الفرعي مفعّل",
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={"class": "toggle-input"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["category"].queryset = Category.objects.order_by("name", "id")
+
+    def clean_name(self):
+        return " ".join((self.cleaned_data.get("name") or "").split()).strip()[:100]
 
 
 class ContentReviewActionForm(forms.Form):

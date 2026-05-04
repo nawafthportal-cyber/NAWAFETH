@@ -17,22 +17,24 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import User
 from apps.accounts.permissions import IsAtLeastPhoneOnly
+from apps.accounts.presence import is_online_value as _presence_is_online_value
 from apps.core.unread_badges import (
 	get_direct_messages_unread_payload,
 	invalidate_unread_badge_cache,
 )
 from apps.marketplace.models import ServiceRequest
-from apps.providers.models import ProviderProfile
+from apps.marketplace.client_relationships import provider_service_request_client_ids
+from apps.providers.models import ProviderProfile, ProviderVisibilityBlock
 from apps.extras_portal.models import PotentialClientSource, ProviderPotentialClient
 from apps.providers.location_formatter import format_city_display
-from apps.subscriptions.capabilities import direct_chat_quota_for_user
 from apps.support.models import SupportTicket, SupportTicketType, SupportPriority, SupportTicketEntrypoint
 
 from .models import Message, MessageRead, Thread, ThreadUserState, direct_thread_mode_q
 from .display import display_name_for_user
 from .pagination import MessagePagination
-from .permissions import IsRequestParticipant, IsThreadParticipant
+from .permissions import IsRequestParticipant, IsThreadParticipant, can_access_direct_thread
 from .serializers import (
 	MessageCreateSerializer,
 	MessageListSerializer,
@@ -53,6 +55,25 @@ from .views import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _blocked_provider_ids_for_user(user) -> list[int]:
+	user_id = getattr(user, "id", None)
+	if not user_id:
+		return []
+	return list(
+		ProviderVisibilityBlock.objects.filter(user=user)
+		.values_list("provider_id", flat=True)
+	)
+
+
+def _is_provider_blocked_for_user(*, user, provider_id) -> bool:
+	if not provider_id:
+		return False
+	return ProviderVisibilityBlock.objects.filter(
+		user=user,
+		provider_id=provider_id,
+	).exists()
 
 
 def _invalidate_direct_thread_badges(thread: Thread) -> None:
@@ -98,7 +119,7 @@ def _provider_direct_chat_limit_exceeded(user) -> bool:
 	provider_profile = getattr(user, "provider_profile", None)
 	if not provider_profile:
 		return False
-	return _direct_threads_count_for_user(user) >= direct_chat_quota_for_user(user)
+	return False
 
 
 def _apply_direct_thread_modes(*, thread: Thread, user_a, user_b, user_a_mode: str, user_b_mode: str) -> None:
@@ -140,9 +161,11 @@ def _find_direct_thread_for_pair(*, user_a, user_b, user_a_mode: str, user_b_mod
 
 
 def _can_access_direct_thread_for_request(thread: Thread, request) -> bool:
-	if not thread.is_participant(request.user):
-		return False
-	return thread.mode_matches_user(request.user, _validated_context_mode_from_request(request))
+	return can_access_direct_thread(
+		thread=thread,
+		user=request.user,
+		active_mode=_validated_context_mode_from_request(request),
+	)
 
 
 def _reply_restricted_detail(thread: Thread) -> str:
@@ -294,6 +317,53 @@ class MarkThreadReadView(APIView):
 # Direct messaging (no request required)
 # ────────────────────────────────────────────────
 
+class DirectShareRecipientSearchView(APIView):
+	"""Search users for in-platform spotlight sharing."""
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def get(self, request):
+		query = str(request.query_params.get("q") or "").strip()
+		if len(query) < 2:
+			return Response([], status=status.HTTP_200_OK)
+
+		blocked_provider_ids = _blocked_provider_ids_for_user(request.user)
+
+		rows = (
+			User.objects.filter(is_active=True)
+			.exclude(id=request.user.id)
+			.exclude(is_staff=True)
+			.select_related("provider_profile")
+			.filter(
+				Q(username__icontains=query)
+				| Q(first_name__icontains=query)
+				| Q(last_name__icontains=query)
+				| Q(phone__icontains=query)
+				| Q(provider_profile__display_name__icontains=query)
+			)
+			.exclude(provider_profile__id__in=blocked_provider_ids)
+			.order_by("first_name", "last_name", "username", "id")[:20]
+		)
+
+		results = []
+		for user in rows:
+			provider = getattr(user, "provider_profile", None)
+			profile_image = ""
+			if provider and getattr(provider, "profile_image", None):
+				profile_image = getattr(provider.profile_image, "url", "") or ""
+			results.append({
+				"id": user.id,
+				"username": getattr(user, "username", "") or "",
+				"name": (
+					getattr(provider, "display_name", "")
+					or display_name_for_user(user)
+				),
+				"phone": getattr(user, "phone", "") or "",
+				"provider_id": getattr(provider, "id", None),
+				"profile_image": profile_image,
+				"kind": "provider" if provider else "member",
+			})
+		return Response(results, status=status.HTTP_200_OK)
+
 class DirectThreadGetOrCreateView(APIView):
 	"""Create or get an existing direct thread between the current user and another user."""
 	permission_classes = [IsAtLeastPhoneOnly]
@@ -301,8 +371,9 @@ class DirectThreadGetOrCreateView(APIView):
 	def post(self, request):
 		provider_id = request.data.get("provider_id")
 		request_id = request.data.get("request_id")
-		if not provider_id and not request_id:
-			return Response({"error": "provider_id أو request_id مطلوب"}, status=status.HTTP_400_BAD_REQUEST)
+		recipient_user_id = request.data.get("recipient_user_id")
+		if not provider_id and not request_id and not recipient_user_id:
+			return Response({"error": "provider_id أو request_id أو recipient_user_id مطلوب"}, status=status.HTTP_400_BAD_REQUEST)
 
 		me = request.user
 		recipient_user = None
@@ -312,11 +383,27 @@ class DirectThreadGetOrCreateView(APIView):
 			provider_profile = ProviderProfile.objects.select_related("user").filter(id=provider_id).first()
 			if not provider_profile:
 				return Response({"error": "المزود غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+			if _is_provider_blocked_for_user(user=me, provider_id=provider_profile.id):
+				return Response({"error": "المزود غير موجود"}, status=status.HTTP_404_NOT_FOUND)
 			recipient_user = provider_profile.user
 			recipient_provider_profile = provider_profile
 			analytics_payload = {
 				"provider_profile_id": provider_profile.id,
 				"provider_user_id": recipient_user.id,
+			}
+		elif recipient_user_id:
+			try:
+				recipient_user_id = int(recipient_user_id)
+			except (TypeError, ValueError):
+				return Response({"error": "recipient_user_id غير صالح"}, status=status.HTTP_400_BAD_REQUEST)
+			recipient_user = User.objects.select_related("provider_profile").filter(id=recipient_user_id, is_active=True).first()
+			if not recipient_user or getattr(recipient_user, "is_staff", False):
+				return Response({"error": "المستلم غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+			recipient_provider = getattr(recipient_user, "provider_profile", None)
+			if recipient_provider and _is_provider_blocked_for_user(user=me, provider_id=recipient_provider.id):
+				return Response({"error": "المستلم غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+			analytics_payload = {
+				"recipient_user_id": recipient_user.id,
 			}
 		else:
 			try:
@@ -522,17 +609,39 @@ class MyDirectThreadsListView(APIView):
 		from django.db.models import Max
 		me = request.user
 		mode = _validated_context_mode_from_request(request)
-		threads = (
+		blocked_provider_ids = set(_blocked_provider_ids_for_user(me))
+		threads = list((
 			Thread.objects.filter(is_direct=True)
 			.filter(direct_thread_mode_q(user=me, mode=mode))
-			.select_related("participant_1", "participant_2")
+			.select_related(
+				"participant_1",
+				"participant_2",
+				"participant_1__provider_profile",
+				"participant_2__provider_profile",
+			)
 			.annotate(last_message_at=Max("messages__created_at"))
 			.order_by("-last_message_at")
+		))
+
+		provider_profile = getattr(me, "provider_profile", None) if mode == Thread.ContextMode.PROVIDER else None
+		candidate_client_ids = []
+		for thread in threads:
+			peer = thread.participant_2 if thread.participant_1_id == me.id else thread.participant_1
+			peer_provider = getattr(peer, "provider_profile", None)
+			if getattr(peer, "is_staff", False) or peer_provider:
+				continue
+			candidate_client_ids.append(peer.id)
+		service_request_client_ids = provider_service_request_client_ids(
+			provider_profile,
+			user_ids=candidate_client_ids,
 		)
 
 		result = []
 		for t in threads:
 			peer = t.participant_2 if t.participant_1_id == me.id else t.participant_1
+			peer_provider = getattr(peer, "provider_profile", None)
+			if peer_provider and peer_provider.id in blocked_provider_ids:
+				continue
 			last_msg = t.messages.order_by("-id").first()
 			unread = t.messages.exclude(sender=me).exclude(reads__user=me).count()
 			peer_message_body = ""
@@ -543,7 +652,6 @@ class MyDirectThreadsListView(APIView):
 				peer_sender_team_name = getattr(last_peer_message, "sender_team_name", "") or getattr(t, "system_sender_label", "") or ""
 
 			# Get provider profile for peer if exists
-			peer_provider = getattr(peer, "provider_profile", None)
 			peer_profile_image = ""
 			if peer_provider:
 				profile_image = getattr(peer_provider, "profile_image", None)
@@ -554,8 +662,16 @@ class MyDirectThreadsListView(APIView):
 				peer_kind = "team"
 			elif peer_provider:
 				peer_kind = "provider"
-			elif mode == "provider":
+			elif mode == Thread.ContextMode.PROVIDER and peer.id in service_request_client_ids:
 				peer_kind = "client"
+
+			# Presence (online/offline) – only exposed for provider peers.
+			peer_is_online = False
+			peer_last_seen = None
+			if peer_provider and not getattr(peer, "is_staff", False):
+				_last_seen_dt = getattr(peer, "last_seen", None)
+				peer_is_online = _presence_is_online_value(_last_seen_dt)
+				peer_last_seen = _last_seen_dt.isoformat() if _last_seen_dt else None
 
 			result.append({
 				"thread_id": t.id,
@@ -564,6 +680,8 @@ class MyDirectThreadsListView(APIView):
 				"peer_kind": peer_kind,
 				"peer_provider_id": getattr(peer_provider, "id", None),
 				"peer_profile_image": peer_profile_image,
+				"peer_is_online": peer_is_online,
+				"peer_last_seen": peer_last_seen,
 				"peer_excellence_badges": (
 					getattr(peer_provider, "excellence_badges_cache", [])
 					if peer_provider and isinstance(getattr(peer_provider, "excellence_badges_cache", []), list)

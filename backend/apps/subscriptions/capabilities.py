@@ -42,8 +42,19 @@ def _visibility_label(hours: int) -> str:
 def _banner_images_label(limit: int) -> str:
     limit = int(limit or 0)
     if limit == 1:
-        return "صورة واحدة"
-    return f"{limit} صور"
+        return "خلفية واحدة"
+    return f"{limit} خلفيات"
+
+
+def _spotlight_label(quota: int) -> str:
+    quota = int(quota or 0)
+    if quota == 1:
+        return "لمحة واحدة"
+    if quota == 2:
+        return "لمحتان"
+    if 3 <= quota <= 10:
+        return f"{quota} لمحات"
+    return f"{quota} لمحة"
 
 
 def _direct_chat_label(quota: int) -> str:
@@ -154,6 +165,9 @@ def plan_capabilities_for_plan(plan: SubscriptionPlan | None) -> dict:
     banner_images_limit = int(
         resolved_plan_int(plan, template, "banner_images_limit", default=0) or 0
     )
+    spotlight_quota = int(
+        resolved_plan_int(plan, template, "spotlight_quota", default=0) or 0
+    )
     direct_chat_quota = int(
         resolved_plan_int(plan, template, "direct_chat_quota", default=0) or 0
     )
@@ -211,6 +225,16 @@ def plan_capabilities_for_plan(plan: SubscriptionPlan | None) -> dict:
                 field_name="banner_images_label",
                 derived_default=_banner_images_label(banner_images_limit),
                 plan_overrides_source=_plan_has_value(plan, "banner_images_limit"),
+            ),
+        },
+        "spotlights": {
+            "quota": spotlight_quota,
+            "label": _resolved_capability_label(
+                plan,
+                template,
+                field_name="spotlight_label",
+                derived_default=_spotlight_label(spotlight_quota),
+                plan_overrides_source=_plan_has_value(plan, "spotlight_quota"),
             ),
         },
         "messaging": {
@@ -303,6 +327,10 @@ def provider_unsubscribed_capabilities() -> dict:
     }
     caps["banner_images"] = {
         "limit": 0,
+        "label": "غير متاح قبل تفعيل الاشتراك",
+    }
+    caps["spotlights"] = {
+        "quota": 0,
         "label": "غير متاح قبل تفعيل الاشتراك",
     }
     caps["reminders"] = {
@@ -411,6 +439,16 @@ def banner_image_limit_for_tier(value) -> int:
 def banner_image_limit_for_user(user) -> int:
     caps = plan_capabilities_for_user(user)
     return int(caps["banner_images"]["limit"])
+
+
+def spotlight_quota_for_tier(value) -> int:
+    caps = plan_capabilities_for_tier(value)
+    return int(caps["spotlights"]["quota"])
+
+
+def spotlight_quota_for_user(user) -> int:
+    caps = plan_capabilities_for_user(user)
+    return int(caps["spotlights"]["quota"])
 
 
 def direct_chat_quota_for_tier(value) -> int:

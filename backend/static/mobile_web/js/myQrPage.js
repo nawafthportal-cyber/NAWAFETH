@@ -49,6 +49,33 @@ const MyQrPage = (() => {
     },
   };
 
+  const ACTION_ICONS = {
+    copy: `
+      <span class="my-qr-action-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <rect x="9" y="9" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.8"></rect>
+          <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+      </span>`,
+    share: `
+      <span class="my-qr-action-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <circle cx="18" cy="5" r="2.2" stroke="currentColor" stroke-width="1.8"></circle>
+          <circle cx="6" cy="12" r="2.2" stroke="currentColor" stroke-width="1.8"></circle>
+          <circle cx="18" cy="19" r="2.2" stroke="currentColor" stroke-width="1.8"></circle>
+          <path d="M8 11l7.5-4.5M8 13l7.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+      </span>`,
+    open: `
+      <span class="my-qr-action-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M14 5h5v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="M10 14L19 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+          <path d="M19 13v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+        </svg>
+      </span>`,
+  };
+
   let _qrData = null;
   let _currentPayload = null;
   let _providerProfileId = null;
@@ -281,6 +308,14 @@ const MyQrPage = (() => {
     el.textContent = value;
   }
 
+  function _setActionButton(id, label, iconMarkup) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.setAttribute('aria-label', label);
+    el.setAttribute('title', label);
+    el.innerHTML = iconMarkup;
+  }
+
   function _applyStaticCopy() {
     document.title = _copy('pageTitle');
     _setText('qr-auth-title', _copy('authTitle'));
@@ -289,9 +324,9 @@ const MyQrPage = (() => {
     _setText('qr-retry', _copy('retry'));
     _setText('qr-title', _copy('qrTitle'));
     _setText('my-qr-fallback', _copy('qrImageFallback'));
-    _setText('copy-qr-link', _copy('copy'));
-    _setText('share-qr-link', _copy('share'));
-    _setText('open-qr-link', _copy('open'));
+    _setActionButton('copy-qr-link', _copy('copy'), ACTION_ICONS.copy);
+    _setActionButton('share-qr-link', _copy('share'), ACTION_ICONS.share);
+    _setActionButton('open-qr-link', _copy('open'), ACTION_ICONS.open);
     const imgEl = document.getElementById('my-qr-image');
     if (imgEl) imgEl.alt = _copy('qrImageAlt');
   }

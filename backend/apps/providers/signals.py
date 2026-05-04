@@ -1,11 +1,13 @@
 from django.db import transaction
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from apps.notifications.models import EventLog, EventType
 from apps.notifications.services import create_notification
 
+from .cache import invalidate_public_category_list_cache
 from .models import (
+    Category,
     ProviderContentComment,
     ProviderCategory,
     ProviderFollow,
@@ -15,6 +17,7 @@ from .models import (
     ProviderSpotlightItem,
     ProviderSpotlightLike,
     ProviderSpotlightSave,
+    SubCategory,
 )
 
 
@@ -278,6 +281,14 @@ def notify_provider_content_comment(sender, instance: ProviderContentComment, cr
             "spotlight_item_id": instance.spotlight_item_id,
         },
     )
+
+
+@receiver(post_save, sender=Category)
+@receiver(post_delete, sender=Category)
+@receiver(post_save, sender=SubCategory)
+@receiver(post_delete, sender=SubCategory)
+def invalidate_provider_category_catalog_cache(**kwargs):
+    invalidate_public_category_list_cache()
 
 
 @receiver(post_save, sender=ProviderCategory)

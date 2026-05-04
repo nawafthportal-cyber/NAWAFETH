@@ -2,7 +2,9 @@ import json
 from urllib.parse import urlencode
 
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.utils.text import slugify
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import TemplateView
 from django.views.generic.base import RedirectView
 
@@ -578,13 +580,33 @@ class MobileWebProviderProfileEditView(TemplateView):
     template_name = "mobile_web/provider_profile_edit.html"
 
 
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class MobileWebProviderPortfolioView(TemplateView):
     template_name = "mobile_web/provider_portfolio.html"
 
 
-class MobileWebProfileCompletionView(TemplateView):
-    template_name = "mobile_web/profile_completion.html"
+class MobileWebProfileCompletionRedirectView(RedirectView):
+    permanent = False
+    query_string = True
+    pattern_name = "provider_profile_edit"
 
 
-class MobileWebProvidersMapView(TemplateView):
-    template_name = "mobile_web/providers_map.html"
+class MobileWebProvidersMapView(RedirectView):
+    """
+    Serve the providers map through the canonical search experience.
+
+    The search page already owns the map modal and its styling/behavior. By
+    redirecting legacy /providers-map/ visits into /search/?open_map=1 we avoid
+    maintaining two diverging presentation surfaces for the same flow.
+    """
+
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        target = reverse("search")
+        query = self.request.GET.copy()
+        query["open_map"] = "1"
+        encoded = query.urlencode()
+        if encoded:
+            return f"{target}?{encoded}"
+        return f"{target}?open_map=1"

@@ -362,3 +362,10 @@ const Auth = (() => {
     getActiveAccountMode, setActiveAccountMode, resolveProfile, getProfile,
   };
 })();
+
+if (typeof window !== 'undefined') {
+  window.Auth = Auth;
+}
+if (typeof globalThis !== 'undefined') {
+  globalThis.Auth = Auth;
+}

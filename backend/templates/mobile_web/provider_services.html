@@ -49,9 +49,14 @@
           <input type="checkbox" id="svc-accepts-urgent">
           <span class="svc-urgent-copy">
             <strong>تفعيل استقبال الطلبات العاجلة لهذا التصنيف</strong>
-            <small>يطبّق هذا الإعداد على التصنيف الفرعي المحدد فقط، ويمكنك تغييره لاحقًا من نفس الشاشة.</small>
+            <small id="svc-urgent-help">يطبّق هذا الإعداد على التصنيف الفرعي المحدد فقط عند دعمه للطلبات العاجلة وفق سياسة المنصة.</small>
           </span>
         </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">سياسة نطاق الخدمة</label>
+        <div id="svc-scope-display" class="form-input" aria-live="polite">سيتم تحديد النطاق تلقائيًا وفق التصنيف الفرعي المختار.</div>
+        <small id="svc-scope-help">هذه السياسة يحددها التصنيف الفرعي نفسه، ولا يمكن تعديلها من هذه الشاشة.</small>
       </div>
       <div class="form-group">
         <label class="form-label">اسم الخدمة</label>
@@ -96,5 +101,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerServicesPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/providerServicesPage.js' %}?v=20260504-service-policy-readonly"></script>
 {% endblock %}

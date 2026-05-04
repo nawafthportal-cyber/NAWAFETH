@@ -41,7 +41,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     first_name = models.CharField(max_length=50, blank=True, null=True)
     last_name = models.CharField(max_length=50, blank=True, null=True)
+    country = models.CharField(max_length=100, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
+    lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     profile_image = models.FileField(upload_to="accounts/profile/%Y/%m/", null=True, blank=True)
     cover_image = models.FileField(upload_to="accounts/cover/%Y/%m/", null=True, blank=True)
 
@@ -51,6 +54,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(default=timezone.now)
+
+    # Last activity timestamp – used for presence (online/offline) indicator.
+    # Updated by ``apps.accounts.middleware.LastSeenMiddleware`` (throttled),
+    # and read by ``apps.accounts.presence.is_online``.
+    last_seen = models.DateTimeField(null=True, blank=True, db_index=True)
 
     # Level-3 completion (client full registration)
     terms_accepted_at = models.DateTimeField(null=True, blank=True)

@@ -8,7 +8,8 @@ from django.utils import timezone
 
 from apps.notifications.models import EventLog, EventType, Notification
 from apps.notifications.services import create_notification, delete_notifications
-from apps.providers.models import ProviderCategory, ProviderProfile
+from apps.providers.location_formatter import city_matches_scope
+from apps.providers.models import ProviderCategory, ProviderProfile, SubCategory
 from apps.subscriptions.capabilities import (
     competitive_request_delay_for_user,
     competitive_requests_enabled_for_user,
@@ -109,6 +110,51 @@ def _provider_coordinates(provider: ProviderProfile) -> tuple[float, float] | No
     return (lat, lng)
 
 
+def request_subcategory_ids(service_request: ServiceRequest) -> list[int]:
+    try:
+        ids = service_request.selected_subcategory_ids()
+    except Exception:
+        ids = []
+    if ids:
+        return ids
+    subcategory_id = getattr(service_request, "subcategory_id", None)
+    return [subcategory_id] if subcategory_id else []
+
+
+def provider_requires_geo_scope_for_request(
+    provider: ProviderProfile,
+    service_request: ServiceRequest,
+) -> bool | None:
+    subcategory_ids = request_subcategory_ids(service_request)
+    if not subcategory_ids:
+        return None
+
+    if not ProviderCategory.objects.filter(
+        provider=provider,
+        subcategory_id__in=subcategory_ids,
+    ).exists():
+        return None
+    matches = list(
+        SubCategory.objects.filter(id__in=subcategory_ids, is_active=True).values_list("requires_geo_scope", flat=True)
+    )
+    if not matches:
+        return None
+    return any(bool(flag) for flag in matches)
+
+
+def provider_matches_request_scope(provider: ProviderProfile, service_request: ServiceRequest) -> bool:
+    requires_geo_scope = provider_requires_geo_scope_for_request(provider, service_request)
+    if requires_geo_scope is None:
+        return False
+    if not requires_geo_scope:
+        return True
+    return city_matches_scope(
+        getattr(service_request, "city", "") or "",
+        provider_city=getattr(provider, "city", "") or "",
+        provider_region=getattr(provider, "region", "") or "",
+    )
+
+
 def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     radius_km = 6371.0
     phi1 = math.radians(lat1)
@@ -126,6 +172,12 @@ def provider_matches_nearest_urgent_request(provider: ProviderProfile, service_r
     dispatch_mode = (getattr(service_request, "dispatch_mode", "") or "").strip().lower()
     if dispatch_mode != DispatchMode.NEAREST:
         return True
+
+    requires_geo_scope = provider_requires_geo_scope_for_request(provider, service_request)
+    if requires_geo_scope is False:
+        return True
+    if requires_geo_scope is None:
+        return False
 
     request_coords = _request_coordinates(service_request)
     provider_coords = _provider_coordinates(provider)
@@ -186,13 +238,14 @@ def ensure_dispatch_windows_for_urgent_request(service_request: ServiceRequest, 
 
 
 def _eligible_matching_providers_queryset(service_request: ServiceRequest):
-    subcategory_ids = service_request.selected_subcategory_ids()
+    subcategory_ids = request_subcategory_ids(service_request)
     if not subcategory_ids:
         return ProviderProfile.objects.none()
 
     provider_ids = ProviderCategory.objects.filter(
         subcategory_id__in=subcategory_ids,
         accepts_urgent=True,
+        subcategory__allows_urgent_requests=True,
     ).values_list("provider_id", flat=True)
 
     providers = ProviderProfile.objects.select_related("user").filter(
@@ -200,15 +253,15 @@ def _eligible_matching_providers_queryset(service_request: ServiceRequest):
         accepts_urgent=True,
     )
 
-    city = (service_request.city or "").strip()
-    if city:
-        providers = providers.filter(city=city)
-
     return providers.distinct()
 
 
 def _eligible_matching_providers(service_request: ServiceRequest):
-    providers = list(_eligible_matching_providers_queryset(service_request))
+    providers = [
+        provider
+        for provider in _eligible_matching_providers_queryset(service_request)
+        if provider_can_access_urgent_request(provider, service_request)
+    ]
     dispatch_mode = (getattr(service_request, "dispatch_mode", "") or "").strip().lower()
     if dispatch_mode != DispatchMode.NEAREST:
         return providers
@@ -235,21 +288,16 @@ def _event_already_sent(*, user_id: int, request_id: int) -> bool:
 
 
 def _eligible_competitive_providers(service_request: ServiceRequest):
-    subcategory_ids = service_request.selected_subcategory_ids()
+    subcategory_ids = request_subcategory_ids(service_request)
     if not subcategory_ids:
-        return ProviderProfile.objects.none()
+        return []
 
     provider_ids = ProviderCategory.objects.filter(
         subcategory_id__in=subcategory_ids,
     ).values_list("provider_id", flat=True)
 
     providers = ProviderProfile.objects.select_related("user").filter(id__in=provider_ids)
-
-    city = (service_request.city or "").strip()
-    if city:
-        providers = providers.filter(city=city)
-
-    return providers.distinct()
+    return [provider for provider in providers.distinct() if provider_matches_request_scope(provider, service_request)]
 
 
 def _competitive_request_due_for_provider(*, provider: ProviderProfile, service_request: ServiceRequest, now=None) -> bool:
@@ -464,6 +512,9 @@ def provider_can_access_urgent_request(provider: ProviderProfile, service_reques
         return True
 
     now = now or timezone.now()
+
+    if not provider_matches_request_scope(provider, service_request):
+        return False
 
     if not provider_matches_nearest_urgent_request(provider, service_request):
         return False

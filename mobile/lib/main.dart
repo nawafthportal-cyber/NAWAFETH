@@ -9,6 +9,7 @@ import 'services/account_mode_service.dart';
 import 'services/local_cache_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/payment_return_service.dart';
+import 'services/presence_service.dart';
 
 // 🟣 الشاشات الرئيسية
 import 'screens/home_screen.dart';
@@ -58,6 +59,9 @@ Future<void> main() async {
   await PaymentReturnService.initialize();
   final showOnboarding = await OnboardingService.shouldShowOnboarding();
   final isLoggedIn = await AuthService.isLoggedIn();
+  if (isLoggedIn) {
+    PresenceService.start();
+  }
   runApp(NawafethApp(showOnboarding: showOnboarding, isLoggedIn: isLoggedIn));
 }
 

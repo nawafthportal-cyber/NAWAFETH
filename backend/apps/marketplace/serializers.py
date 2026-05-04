@@ -177,8 +177,25 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"subcategory_ids": "توجد تصنيفات فرعية غير صالحة"})
 
         primary_subcategory = active_subcategories[normalized_ids[0]]
+        selected_subcategories = [active_subcategories[sub_id] for sub_id in normalized_ids]
         attrs["subcategory"] = primary_subcategory
         attrs["_selected_subcategory_ids"] = normalized_ids
+
+        requires_geo_scope = any(bool(row.requires_geo_scope) for row in selected_subcategories)
+        if request_type == "urgent" and any(not bool(row.allows_urgent_requests) for row in selected_subcategories):
+            raise serializers.ValidationError(
+                {"subcategory_ids": "أحد التصنيفات المختارة لا يدعم الطلبات العاجلة."}
+            )
+
+        if requires_geo_scope and not city:
+            requester_city = normalize_city_scope(getattr(requester, "city", "") or "")
+            if requester_city:
+                city = requester_city
+                attrs["city"] = requester_city
+            elif not (request_type == "urgent" and dispatch_mode == "nearest"):
+                raise serializers.ValidationError(
+                    {"city": "هذا التصنيف يتطلب مدينة واضحة أو مدينة مسجلة في حسابك."}
+                )
 
         # City rules:
         # - urgent + nearest: optional (location-based ranking handles filtering)

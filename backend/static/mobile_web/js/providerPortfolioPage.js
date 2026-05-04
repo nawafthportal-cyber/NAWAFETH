@@ -2,11 +2,35 @@
 var ProviderPortfolioPage = (function () {
   var sections = [];
   var _profile = null;
+  var _services = [];
   var _allViewerItems = [];
   var _providerInfo = { id: 0, display_name: "مزود خدمة", profile_image: "" };
   var _statusTimer = 0;
   var _cachedApi = null;
   var SECTION_FALLBACK_TITLE = "أعمالي";
+
+  function isEmbeddedMode() {
+    try {
+      return new URLSearchParams(window.location.search).get("embedded") === "1";
+    } catch (_err) {
+      return /(?:\?|&)embedded=1(?:&|$)/.test(window.location.search || "");
+    }
+  }
+
+  function notifyEmbeddedHeight() {
+    if (!isEmbeddedMode() || window.parent === window) return;
+    var doc = document.documentElement;
+    var body = document.body;
+    var height = Math.max(
+      doc ? doc.scrollHeight || 0 : 0,
+      body ? body.scrollHeight || 0 : 0,
+      doc ? doc.offsetHeight || 0 : 0,
+      body ? body.offsetHeight || 0 : 0
+    );
+    try {
+      window.parent.postMessage({ type: "nw:portfolio-embed-height", height: height }, window.location.origin);
+    } catch (_err) {}
+  }
 
   function byId(id) {
     return document.getElementById(id);
@@ -125,10 +149,13 @@ var ProviderPortfolioPage = (function () {
   }
 
   function renderStats() {
+    var categoryCount = sections.filter(function (sec) {
+      return !sec.isAuxiliary;
+    }).length;
     var itemCount = sections.reduce(function (sum, sec) {
       return sum + (Array.isArray(sec.items) ? sec.items.length : 0);
     }, 0);
-    setText("pf-section-count", sections.length);
+    setText("pf-section-count", categoryCount);
     setText("pf-item-count", itemCount);
   }
 
@@ -191,6 +218,7 @@ var ProviderPortfolioPage = (function () {
     var name = trim(file && file.name).toLowerCase();
     if (mime.indexOf("video/") === 0 || /\.(mp4|mov|avi|webm|mkv)$/i.test(name)) return "video";
     if (mime.indexOf("image/") === 0 || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(name)) return "image";
+    if (mime === "application/pdf" || /\.pdf$/i.test(name)) return "document";
     return "";
   }
 
@@ -199,6 +227,19 @@ var ProviderPortfolioPage = (function () {
       .replace(/\.[^.]+$/, "")
       .replace(/[_-]+/g, " ")
       .replace(/\s+/g, " ")) || "عمل جديد";
+  }
+
+  function uniqueNonEmpty(values) {
+    var seen = Object.create(null);
+    var result = [];
+    (values || []).forEach(function (value) {
+      var clean = trim(value);
+      var key = clean.toLowerCase();
+      if (!clean || seen[key]) return;
+      seen[key] = true;
+      result.push(clean);
+    });
+    return result;
   }
 
   function sectionKey(title) {
@@ -283,7 +324,10 @@ var ProviderPortfolioPage = (function () {
     var sectionTitle = extractPortfolioSectionTitle(item && item.caption);
     var fileUrl = item && (item.file_url || item.file || item.url || item.image) || "";
     var fileType = trim(item && item.file_type).toLowerCase();
-    if (!fileType) fileType = /\.(mp4|mov|avi|webm|mkv)$/i.test(fileUrl) ? "video" : "image";
+    if (!fileType) {
+      if (/\.pdf$/i.test(fileUrl)) fileType = "document";
+      else fileType = /\.(mp4|mov|avi|webm|mkv)$/i.test(fileUrl) ? "video" : "image";
+    }
     return {
       id: toInt(item && item.id),
       file_type: fileType,
@@ -300,49 +344,46 @@ var ProviderPortfolioPage = (function () {
     };
   }
 
+  function getPrimaryCategoryTitles() {
+    return uniqueNonEmpty(_services.map(function (service) {
+      var sub = service && service.subcategory ? service.subcategory : {};
+      return sub.category_name || (sub.category && sub.category.name) || "";
+    }));
+  }
+
   function buildSections(profile, items) {
-    var rawSections = Array.isArray(profile && profile.content_sections) ? profile.content_sections : [];
-    var normalizedSections = [];
-    var seenTitles = Object.create(null);
-    var groupedItems = Object.create(null);
-    var i;
+    var normalizedItems = normalizePortfolioList(items).map(normalizePortfolioItem);
+    var categoryTitles = getPrimaryCategoryTitles();
+    var groupedByTitle = Object.create(null);
+    var seenCategories = Object.create(null);
 
-    for (i = 0; i < rawSections.length; i++) {
-      var section = normalizeSectionEntry(rawSections[i], i);
-      var key = sectionKey(section.title);
-      if (seenTitles[key]) continue;
-      seenTitles[key] = true;
-      normalizedSections.push(section);
-    }
+    normalizedItems.forEach(function (item) {
+      var title = trim(item.section_title) || SECTION_FALLBACK_TITLE;
+      if (!groupedByTitle[title]) groupedByTitle[title] = [];
+      groupedByTitle[title].push(item);
+    });
 
-    for (i = 0; i < items.length; i++) {
-      var normalizedItem = normalizePortfolioItem(items[i]);
-      var groupTitle = normalizedItem.section_title || SECTION_FALLBACK_TITLE;
-      if (!groupedItems[groupTitle]) groupedItems[groupTitle] = [];
-      groupedItems[groupTitle].push(normalizedItem);
-    }
-
-    var result = normalizedSections.map(function (section) {
+    var result = categoryTitles.map(function (title, index) {
+      seenCategories[sectionKey(title)] = true;
       return {
-        id: section.id,
-        title: section.title,
-        description: section.description,
-        raw: section.raw,
-        isImplicit: false,
-        items: groupedItems[section.title] || [],
+        id: buildSectionId(title, index),
+        title: title,
+        description: "يمكنك رفع صور أو فيديوهات أو ملفات PDF وربطها بهذا التصنيف مباشرة.",
+        raw: null,
+        isAuxiliary: false,
+        items: groupedByTitle[title] || [],
       };
     });
 
-    Object.keys(groupedItems).forEach(function (title) {
-      var key = sectionKey(title);
-      if (seenTitles[key]) return;
+    Object.keys(groupedByTitle).forEach(function (title) {
+      if (seenCategories[sectionKey(title)]) return;
       result.push({
-        id: buildSectionId(title, result.length),
-        title: title,
-        description: "",
+        id: buildSectionId(title || "legacy", result.length),
+        title: title || "محتوى غير مرتبط بقسم رئيسي",
+        description: "هذه العناصر لا تطابق أي تصنيف رئيسي محفوظ حاليًا.",
         raw: null,
-        isImplicit: true,
-        items: groupedItems[title],
+        isAuxiliary: true,
+        items: groupedByTitle[title],
       });
     });
 
@@ -372,7 +413,7 @@ var ProviderPortfolioPage = (function () {
     button.textContent = isBusy ? busyLabel : button.dataset.defaultLabel;
   }
 
-  function setUploadBusy(input, isBusy) {
+  function setUploadBusy(input, isBusy, busyLabel) {
     if (!input) return;
     input.disabled = !!isBusy;
     var label = input.parentElement;
@@ -381,7 +422,7 @@ var ProviderPortfolioPage = (function () {
     var text = label.querySelector(".pf-upload-label");
     if (text) {
       if (!text.dataset.defaultLabel) text.dataset.defaultLabel = trim(text.textContent);
-      text.textContent = isBusy ? "جار الرفع..." : text.dataset.defaultLabel;
+      text.textContent = isBusy ? (busyLabel || "جار الرفع...") : text.dataset.defaultLabel;
     }
   }
 
@@ -403,6 +444,12 @@ var ProviderPortfolioPage = (function () {
   async function init() {
     bindEvents();
     _bindSpotlightSync();
+    window.addEventListener("resize", notifyEmbeddedHeight);
+    window.addEventListener("message", function (event) {
+      if (event.origin !== window.location.origin) return;
+      if (!event.data || event.data.type !== "nw:portfolio-embed-parent-ready") return;
+      notifyEmbeddedHeight();
+    });
     window.addEventListener("pageshow", function (event) {
       if (event && event.persisted) {
         load(false);
@@ -421,9 +468,11 @@ var ProviderPortfolioPage = (function () {
       var responses = await Promise.all([
         rawApi.get("/api/providers/me/profile/"),
         rawApi.get("/api/providers/me/portfolio/"),
+        rawApi.get("/api/providers/me/services/"),
       ]);
       var profileResponse = responses[0];
       var portfolioResponse = responses[1];
+      var servicesResponse = responses[2];
 
       if (!profileResponse.ok) {
         throw new Error(extractApiError(profileResponse, "تعذر تحميل ملف مقدم الخدمة"));
@@ -433,6 +482,7 @@ var ProviderPortfolioPage = (function () {
       }
 
       _profile = profileResponse.data || {};
+      _services = servicesResponse && servicesResponse.ok ? normalizePortfolioList(servicesResponse.data) : [];
       _providerInfo = {
         id: toInt(_profile.id),
         display_name: trim(_profile.display_name) || "مزود خدمة",
@@ -442,6 +492,7 @@ var ProviderPortfolioPage = (function () {
       sections = buildSections(_profile, normalizePortfolioList(portfolioResponse.data));
       _buildAllViewerItems();
       render();
+      window.setTimeout(notifyEmbeddedHeight, 0);
 
       if (loading) loading.style.display = "none";
       if (content) content.style.display = "";
@@ -450,6 +501,7 @@ var ProviderPortfolioPage = (function () {
         loading.innerHTML = '<p class="text-muted">' + escapeHtml(error && error.message ? error.message : "تعذر تحميل المعرض") + '</p>';
       }
       showStatus(error && error.message ? error.message : "تعذر تحميل المعرض", "error");
+      window.setTimeout(notifyEmbeddedHeight, 0);
     }
   }
 
@@ -512,64 +564,94 @@ var ProviderPortfolioPage = (function () {
   function _updateItemBadge(itemId, data) {
     var itemNode = document.querySelector('.pf-item[data-item-id="' + itemId + '"]');
     if (!itemNode) return;
-    var stats = itemNode.querySelectorAll(".pf-item-stat");
-    if (stats[0]) {
-      stats[0].textContent = "♥ " + toInt(data.likes_count);
-      stats[0].classList.toggle("active", !!data.is_liked);
-    }
-    if (stats[1]) {
-      stats[1].textContent = "⚑ " + toInt(data.saves_count);
-      stats[1].classList.toggle("active", !!data.is_saved);
-    }
+  }
+
+  function itemTypeLabel(item) {
+    if (String(item && item.file_type || "").toLowerCase() === "video") return "فيديو";
+    if (String(item && item.file_type || "").toLowerCase() === "document") return "PDF";
+    return "صورة";
+  }
+
+  function itemTypeClass(item) {
+    var type = String(item && item.file_type || "").toLowerCase();
+    if (type === "video") return "is-video";
+    if (type === "document") return "is-document";
+    return "is-image";
+  }
+
+  function renderItemStats(item) {
+    return '<div class="pf-item-stat-list">' +
+      '<span class="pf-item-stat">إعجابات ' + toInt(item && item.likes_count) + '</span>' +
+      '<span class="pf-item-stat">حفظ ' + toInt(item && item.saves_count) + '</span>' +
+    '</div>';
+  }
+
+  function renderItemPreview(item, section, index) {
+    var src = item.file_url || item.thumbnail_url || "";
+    var mediaSrc = src ? mediaUrl(src) : "";
+    var isVideo = String(item.file_type || "").toLowerCase() === "video" || /\.(mp4|mov|avi|webm|mkv)$/i.test(src);
+    var isDocument = String(item.file_type || "").toLowerCase() === "document" || /\.pdf$/i.test(src);
+    var typeLabel = itemTypeLabel(item);
+    var typeClass = itemTypeClass(item);
+    var inner = mediaSrc
+      ? (isDocument
+        ? '<div class="pf-item-doc"><span class="pf-item-doc-icon">PDF</span><span class="pf-item-doc-copy">فتح الملف أو استبداله من هذه البطاقة</span></div>'
+        : (isVideo
+          ? '<video src="' + mediaSrc + '" class="pf-item-video" muted playsinline preload="metadata"></video>'
+          : '<img src="' + mediaSrc + '" class="pf-item-image" loading="lazy" alt="' + escapeHtml(item.description || section.title) + '">'))
+      : '<div class="pf-item-doc"><span class="pf-item-doc-copy">لا توجد معاينة متاحة</span></div>';
+    return '<div class="pf-item-preview">' +
+      '<span class="pf-item-preview-media-badge ' + typeClass + '">' + escapeHtml(typeLabel) + '</span>' +
+      '<button type="button" class="pf-item-preview-action" data-item-id="' + item.id + '" data-section-id="' + escapeHtml(section.id) + '" data-local-index="' + index + '" data-file-type="' + escapeHtml(String(item.file_type || '')) + '" data-file-url="' + escapeHtml(mediaSrc) + '">' + inner +
+        '<span class="pf-item-preview-overlay"><span class="pf-item-preview-overlay-copy"><strong>عرض سريع</strong><small>افتح العنصر بواجهة كاملة قبل التعديل</small></span><span class="pf-item-preview-overlay-cta">فتح</span></span>' +
+      '</button>' +
+    '</div>';
   }
 
   function renderSection(section) {
     var items = Array.isArray(section.items) ? section.items : [];
-    var itemCount = items.length;
-    var tagsHtml = '<div class="pf-section-tags">' +
-      '<span class="pf-section-count">' + itemCount + ' عنصر</span>' +
-      (section.isImplicit ? '<span class="pf-section-tag">مستخرج من العناصر الحالية</span>' : '<span class="pf-section-tag is-saved">قسم محفوظ في الملف</span>') +
-      '</div>';
-    var sectionDescription = section.description
-      ? escapeHtml(section.description)
-      : 'أضف وصفًا مختصرًا لهذا القسم لشرح نوع الأعمال المعروضة فيه.';
-
-    return '<section class="pf-section" data-id="' + escapeHtml(section.id) + '">' +
-      '<div class="pf-section-top">' +
-        '<div class="pf-section-copy">' +
-          '<h3>' + escapeHtml(section.title) + '</h3>' +
-          '<p class="pf-section-desc' + (section.description ? '' : ' is-empty') + '">' + sectionDescription + '</p>' +
-        '</div>' +
-        tagsHtml +
-      '</div>' +
-      '<div class="pf-section-actions">' +
-        '<label class="btn btn-secondary pf-upload-btn">' +
-          '<span class="pf-upload-label">رفع محتوى</span>' +
-          '<input type="file" accept="image/*,video/*" multiple hidden data-section="' + escapeHtml(section.id) + '">' +
-        '</label>' +
-        '<button class="btn btn-secondary pf-edit-section" data-id="' + escapeHtml(section.id) + '">تعديل القسم</button>' +
-        '<button class="btn btn-danger-outline pf-del-section" data-id="' + escapeHtml(section.id) + '">' + (itemCount ? 'حذف القسم ومحتواه' : 'حذف القسم') + '</button>' +
-      '</div>' +
-      (itemCount ? '<div class="pf-grid">' + items.map(function (item, index) {
-        var src = item.file_url || item.thumbnail_url || "";
-        var mediaSrc = src ? mediaUrl(src) : "";
-        var isVideo = String(item.file_type || "image").toLowerCase() === "video" || /\.(mp4|mov|avi|webm|mkv)$/i.test(src);
-        var mediaHtml = mediaSrc
-          ? (isVideo
-            ? '<video src="' + mediaSrc + '" class="pf-media" muted playsinline preload="metadata"></video>'
-            : '<img src="' + mediaSrc + '" class="pf-media" loading="lazy" alt="' + escapeHtml(item.description || section.title) + '">')
-          : '<div class="pf-media pf-media-empty">لا توجد معاينة</div>';
-        return '<div class="pf-item" data-item-id="' + item.id + '" data-section-id="' + escapeHtml(section.id) + '" data-local-index="' + index + '">' +
-          mediaHtml +
-          (isVideo ? '<span class="pf-video-badge">▶</span>' : '') +
-          '<div class="pf-item-overlay">' +
-            '<span class="pf-item-stat' + (item.is_liked ? ' active' : '') + '">♥ ' + toInt(item.likes_count) + '</span>' +
-            '<span class="pf-item-stat' + (item.is_saved ? ' active' : '') + '">⚑ ' + toInt(item.saves_count) + '</span>' +
+    var cardTag = section.isAuxiliary ? 'قسم إضافي' : 'قسم رئيسي';
+    return '<section class="detail-card pf-content-card' + (section.isAuxiliary ? ' is-auxiliary' : '') + '" data-id="' + escapeHtml(section.id) + '">' +
+      '<div class="pf-content-card-head">' +
+        '<div class="pf-content-card-copy">' +
+          '<div class="pf-content-card-badges">' +
+            '<span class="pf-content-card-tag' + (section.isAuxiliary ? ' is-auxiliary' : '') + '">' + cardTag + '</span>' +
+            '<span class="pf-content-card-count">' + items.length + ' ملف</span>' +
           '</div>' +
-          '<div class="pf-item-caption' + (item.description ? '' : ' is-empty') + '">' + escapeHtml(item.description || (isVideo ? 'فيديو من القسم' : 'صورة من القسم')) + '</div>' +
-          '<button class="pf-item-delete" data-section="' + escapeHtml(section.id) + '" data-item="' + item.id + '" aria-label="حذف العنصر">×</button>' +
-        '</div>';
-      }).join("") + '</div>' : '<div class="pf-section-empty">لا توجد عناصر في هذا القسم بعد. ارفع صورًا أو فيديوهات قصيرة وسيتم ربطها بهذا القسم مباشرة.</div>') +
+          '<h3 class="pf-content-card-title">' + escapeHtml(section.title) + '</h3>' +
+          '<p class="pf-content-card-subtitle">' + escapeHtml(section.description || '') + '</p>' +
+        '</div>' +
+        '<div class="pf-content-card-tools">' +
+          (!section.isAuxiliary ? ('<label class="btn btn-secondary pf-upload-btn">' +
+          '<span class="pf-upload-label">إضافة ملفات</span>' +
+          '<input type="file" accept="image/*,video/*,.pdf" multiple hidden data-section="' + escapeHtml(section.id) + '">' +
+          '</label>') : '') +
+        '</div>' +
+      '</div>' +
+      (items.length ? ('<div class="pf-content-items-grid">' + items.map(function (item, index) {
+        return '<article class="pf-item" data-item-id="' + item.id + '">' +
+          renderItemPreview(item, section, index) +
+          '<div class="pf-item-meta">' +
+            '<div class="pf-item-meta-main">' +
+              '<span class="pf-item-type ' + itemTypeClass(item) + '">' + escapeHtml(itemTypeLabel(item)) + '</span>' +
+              (item.file_url ? '<a class="pf-item-link" href="' + escapeHtml(mediaUrl(item.file_url)) + '" target="_blank" rel="noopener">فتح الملف الأصلي</a>' : '<span class="pf-item-link is-muted">المعاينة فقط</span>') +
+            '</div>' +
+            renderItemStats(item) +
+          '</div>' +
+          '<div class="pf-item-desc-wrap">' +
+            '<label class="pf-item-desc-label">وصف البطاقة</label>' +
+            '<textarea class="form-input pf-item-desc" rows="2" placeholder="اكتب وصفًا مختصرًا لهذا الملف">' + escapeHtml(item.description || '') + '</textarea>' +
+          '</div>' +
+          '<div class="pf-item-actions">' +
+            '<button type="button" class="btn btn-primary pf-item-save" data-item-id="' + item.id + '" data-category="' + escapeHtml(section.title) + '">حفظ الوصف</button>' +
+            '<label class="btn btn-secondary pf-item-replace">' +
+              '<span class="pf-upload-label">استبدال الملف</span>' +
+              '<input type="file" accept="image/*,video/*,.pdf" hidden class="pf-item-replace-input" data-item-id="' + item.id + '" data-category="' + escapeHtml(section.title) + '">' +
+            '</label>' +
+            '<button type="button" class="btn btn-danger-outline pf-item-delete" data-item="' + item.id + '">حذف</button>' +
+          '</div>' +
+        '</article>';
+      }).join('') + '</div>') : '<div class="pf-content-card-empty">لا توجد ملفات داخل هذا التصنيف بعد. ارفع أول صورة أو فيديو أو PDF للبدء.</div>') +
     '</section>';
   }
 
@@ -586,8 +668,9 @@ var ProviderPortfolioPage = (function () {
     }
 
     emptyState.style.display = "none";
-    container.innerHTML = sections.map(renderSection).join("");
+    container.innerHTML = '<div class="pf-content-manager">' + sections.map(renderSection).join("") + '</div>';
     bindItemEvents();
+    window.setTimeout(notifyEmbeddedHeight, 0);
   }
 
   function bindEvents() {
@@ -627,27 +710,34 @@ var ProviderPortfolioPage = (function () {
       });
     });
 
+    Array.prototype.forEach.call(document.querySelectorAll(".pf-item-save"), function (button) {
+      button.addEventListener("click", function () {
+        updateItemDescription(this.getAttribute("data-item-id"), this.getAttribute("data-category"), this);
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll(".pf-item-replace-input"), function (input) {
+      input.addEventListener("change", function () {
+        var file = this.files && this.files[0];
+        this.value = "";
+        if (!file) return;
+        replaceItemFile(this.getAttribute("data-item-id"), this.getAttribute("data-category"), file, this);
+      });
+    });
+
     Array.prototype.forEach.call(document.querySelectorAll(".pf-item-delete"), function (button) {
-      button.addEventListener("click", function (event) {
-        event.stopPropagation();
+      button.addEventListener("click", function () {
         deleteItem(this.getAttribute("data-item"), this);
       });
     });
 
-    Array.prototype.forEach.call(document.querySelectorAll(".pf-del-section"), function (button) {
+    Array.prototype.forEach.call(document.querySelectorAll(".pf-item-preview-action"), function (button) {
       button.addEventListener("click", function () {
-        deleteSection(this.getAttribute("data-id"), this);
-      });
-    });
-
-    Array.prototype.forEach.call(document.querySelectorAll(".pf-edit-section"), function (button) {
-      button.addEventListener("click", function () {
-        openModal(this.getAttribute("data-id"));
-      });
-    });
-
-    Array.prototype.forEach.call(document.querySelectorAll(".pf-item"), function (itemNode) {
-      itemNode.addEventListener("click", function () {
+        if (String(this.getAttribute("data-file-type") || "").toLowerCase() === "document") {
+          var fileUrl = this.getAttribute("data-file-url") || "";
+          if (fileUrl) window.open(fileUrl, "_blank", "noopener");
+          return;
+        }
         if (typeof SpotlightViewer === "undefined" || !_allViewerItems.length) return;
         var sectionId = this.getAttribute("data-section-id");
         var localIndex = parseInt(this.getAttribute("data-local-index"), 10) || 0;
@@ -682,6 +772,7 @@ var ProviderPortfolioPage = (function () {
         : "يمكنك رفع الصور والفيديوهات داخل القسم مباشرة بعد إنشائه، وسيتم ربط العناصر به تلقائيًا.";
     }
     if (modal) modal.style.display = "";
+    window.setTimeout(notifyEmbeddedHeight, 0);
   }
 
   function closeModal() {
@@ -695,6 +786,7 @@ var ProviderPortfolioPage = (function () {
     if (titleNode) titleNode.textContent = "إضافة قسم جديد";
     if (noteNode) noteNode.textContent = "يمكنك رفع الصور والفيديوهات داخل القسم مباشرة بعد إنشائه، وسيتم ربط العناصر به تلقائيًا.";
     if (modal) modal.style.display = "none";
+    window.setTimeout(notifyEmbeddedHeight, 0);
   }
 
   async function createSection() {
@@ -812,6 +904,67 @@ var ProviderPortfolioPage = (function () {
     }
   }
 
+  async function updateItemDescription(itemId, categoryTitle, button) {
+    var id = toInt(itemId);
+    var card = button && button.closest ? button.closest('.pf-item') : null;
+    var input = card ? card.querySelector('.pf-item-desc') : null;
+    if (!id || !input) return;
+    setButtonBusy(button, true, 'جار الحفظ...');
+    showStatus('جار حفظ وصف الملف...', 'info', true);
+    try {
+      var rawApi = getApi();
+      var response = await rawApi.request('/api/providers/me/portfolio/' + id + '/', {
+        method: 'PATCH',
+        body: { caption: formatCaption(categoryTitle, trim(input.value)) },
+        timeout: 15000,
+      });
+      if (!response.ok) {
+        throw new Error(extractApiError(response, 'تعذر حفظ وصف الملف'));
+      }
+      await load(false);
+      showStatus('تم حفظ وصف الملف', 'success');
+    } catch (error) {
+      showStatus(error && error.message ? error.message : 'تعذر حفظ وصف الملف', 'error');
+    } finally {
+      setButtonBusy(button, false, 'جار الحفظ...');
+    }
+  }
+
+  async function replaceItemFile(itemId, categoryTitle, file, input) {
+    var id = toInt(itemId);
+    var card = input && input.closest ? input.closest('.pf-item') : null;
+    var descInput = card ? card.querySelector('.pf-item-desc') : null;
+    var fileType = inferFileType(file);
+    if (!id || !fileType) {
+      showStatus('اختر صورة أو فيديو أو PDF مدعومًا للاستبدال', 'warning');
+      return;
+    }
+    setUploadBusy(input, true, 'جار الاستبدال...');
+    showStatus('جار استبدال الملف...', 'info', true);
+    try {
+      var rawApi = getApi();
+      var formData = new FormData();
+      formData.append('file', file);
+      formData.append('file_type', fileType);
+      formData.append('caption', formatCaption(categoryTitle, trim(descInput && descInput.value)));
+      var response = await rawApi.request('/api/providers/me/portfolio/' + id + '/', {
+        method: 'PATCH',
+        body: formData,
+        formData: true,
+        timeout: 30000,
+      });
+      if (!response.ok) {
+        throw new Error(extractApiError(response, 'تعذر استبدال الملف'));
+      }
+      await load(false);
+      showStatus('تم استبدال الملف بنجاح', 'success');
+    } catch (error) {
+      showStatus(error && error.message ? error.message : 'تعذر استبدال الملف', 'error');
+    } finally {
+      setUploadBusy(input, false, 'جار الاستبدال...');
+    }
+  }
+
   async function uploadFiles(section, files, input) {
     var validFiles = [];
     var skipped = 0;
@@ -824,12 +977,12 @@ var ProviderPortfolioPage = (function () {
     });
 
     if (!validFiles.length) {
-      showStatus("اختر صورًا أو فيديوهات مدعومة للرفع", "warning");
+      showStatus("اختر صورًا أو فيديوهات أو ملفات PDF مدعومة للرفع", "warning");
       return;
     }
 
     setUploadBusy(input, true);
-    showStatus("جار رفع المحتوى إلى قسم " + section.title + "...", "info", true);
+    showStatus("جار رفع الملفات إلى تصنيف " + section.title + "...", "info", true);
     try {
       var rawApi = getApi();
       for (var i = 0; i < validFiles.length; i++) {
@@ -837,7 +990,7 @@ var ProviderPortfolioPage = (function () {
         var formData = new FormData();
         formData.append("file", file);
         formData.append("file_type", inferFileType(file));
-        formData.append("caption", formatCaption(section.title, deriveFileLabel(file.name)));
+        formData.append("caption", formatCaption(section.title, ""));
         var response = await rawApi.request("/api/providers/me/portfolio/", {
           method: "POST",
           body: formData,
@@ -850,11 +1003,11 @@ var ProviderPortfolioPage = (function () {
 
       await load(false);
       if (uploaded && !failed && !skipped) {
-        showStatus("تم رفع " + uploaded + " عنصر/عناصر إلى القسم بنجاح", "success");
+        showStatus("تم رفع " + uploaded + " ملف/ملفات إلى التصنيف بنجاح", "success");
       } else if (uploaded) {
-        showStatus("تم رفع " + uploaded + " عنصر وتعذر رفع " + (failed + skipped) + " عنصر", "warning");
+        showStatus("تم رفع " + uploaded + " ملف وتعذر رفع " + (failed + skipped) + " ملف", "warning");
       } else {
-        showStatus("تعذر رفع العناصر المحددة", "error");
+        showStatus("تعذر رفع الملفات المحددة", "error");
       }
     } catch (error) {
       showStatus(error && error.message ? error.message : "تعذر رفع الملفات الآن", "error");
@@ -871,7 +1024,7 @@ var ProviderPortfolioPage = (function () {
     }
     if (!window.confirm("حذف هذا العنصر من معرض الأعمال؟")) return;
 
-    setButtonBusy(button, true, "...");
+    setButtonBusy(button, true, "جار الحذف...");
     showStatus("جار حذف العنصر...", "info", true);
     try {
       var rawApi = getApi();
@@ -887,7 +1040,7 @@ var ProviderPortfolioPage = (function () {
     } catch (error) {
       showStatus(error && error.message ? error.message : "تعذر حذف العنصر", "error");
     } finally {
-      setButtonBusy(button, false, "...");
+      setButtonBusy(button, false, "جار الحذف...");
     }
   }
 

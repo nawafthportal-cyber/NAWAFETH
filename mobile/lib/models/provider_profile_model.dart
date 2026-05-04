@@ -33,6 +33,8 @@ class ProviderProfileModel {
   final List<ExcellenceBadgeModel> excellenceBadges;
   final double ratingAvg;
   final int ratingCount;
+  final bool isOnline;
+  final DateTime? lastSeen;
   final String? createdAt;
 
   ProviderProfileModel({
@@ -66,6 +68,8 @@ class ProviderProfileModel {
     this.excellenceBadges = const [],
     required this.ratingAvg,
     required this.ratingCount,
+    this.isOnline = false,
+    this.lastSeen,
     this.createdAt,
   });
 
@@ -108,6 +112,10 @@ class ProviderProfileModel {
       excellenceBadges: _parseExcellenceBadges(json['excellence_badges']),
       ratingAvg: _parseDouble(json['rating_avg']) ?? 0.0,
       ratingCount: json['rating_count'] as int? ?? 0,
+      isOnline: json['is_online'] as bool? ?? false,
+      lastSeen: json['last_seen'] is String
+          ? DateTime.tryParse(json['last_seen'] as String)
+          : null,
       createdAt: json['created_at'] as String?,
     );
   }

@@ -7,6 +7,7 @@ from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
 from apps.providers.location_formatter import format_city_display
 from apps.providers.serializers import ProviderPortfolioItemSerializer, ProviderSpotlightItemSerializer
 from apps.reviews.services import provider_rating_values
+from apps.accounts.presence import is_online_value as _presence_is_online_value
 from apps.subscriptions.capabilities import (
     promotional_chat_controls_enabled_for_user,
     promotional_notification_controls_enabled_for_user,
@@ -813,6 +814,8 @@ class PromoActivePlacementSerializer(serializers.Serializer):
     target_provider_rating_avg = serializers.SerializerMethodField()
     target_provider_rating_count = serializers.SerializerMethodField()
     target_provider_excellence_badges = serializers.SerializerMethodField()
+    target_provider_is_online = serializers.SerializerMethodField()
+    target_provider_last_seen = serializers.SerializerMethodField()
     target_portfolio_item_id = serializers.IntegerField(source="target_portfolio_item.id", read_only=True)
     target_portfolio_item_file = serializers.FileField(source="target_portfolio_item.file", read_only=True)
     target_portfolio_item_file_type = serializers.CharField(source="target_portfolio_item.file_type", read_only=True)
@@ -858,6 +861,17 @@ class PromoActivePlacementSerializer(serializers.Serializer):
         provider = self._target_provider(obj)
         value = getattr(provider, "excellence_badges_cache", None)
         return value if isinstance(value, list) else []
+
+    def _target_provider_user_last_seen(self, obj):
+        provider = self._target_provider(obj)
+        return getattr(getattr(provider, "user", None), "last_seen", None)
+
+    def get_target_provider_is_online(self, obj):
+        return _presence_is_online_value(self._target_provider_user_last_seen(obj))
+
+    def get_target_provider_last_seen(self, obj):
+        ts = self._target_provider_user_last_seen(obj)
+        return ts.isoformat() if ts else None
 
     def get_portfolio_item(self, obj):
         if not isinstance(obj, dict):

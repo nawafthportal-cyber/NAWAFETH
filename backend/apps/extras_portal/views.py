@@ -31,6 +31,11 @@ from apps.extras.services import (
     extras_bundle_invoice_for_request,
     extras_bundle_payload_for_request,
 )
+from apps.marketplace.client_relationships import (
+    provider_service_request_client_ids,
+    provider_service_request_user_filter,
+    provider_service_requests_queryset,
+)
 from apps.marketplace.models import PRE_EXECUTION_REQUEST_STATUSES, RequestStatus, ServiceRequest
 from apps.messaging.models import Message, Thread
 from apps.providers.models import (
@@ -848,12 +853,11 @@ def _report_bundle_context_for_request(provider: ProviderProfile, request_id_raw
 
 
 def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end_at=None) -> dict[str, object]:
-    requests_qs = _apply_datetime_window(
-        ServiceRequest.objects.filter(provider=provider).select_related("client"),
-        "created_at",
-        start_at,
-        end_at,
-    )
+    requests_qs = provider_service_requests_queryset(
+        provider,
+        start_at=start_at,
+        end_at=end_at,
+    ).select_related("client")
     profile_view_events_qs = _apply_datetime_window(
         AnalyticsEvent.objects.filter(
             event_name="provider.profile_view",
@@ -1092,13 +1096,11 @@ def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end
 
 
 def _report_requests_queryset(provider: ProviderProfile, bundle_context: dict[str, object]):
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client")
-    return _apply_datetime_window(
-        qs,
-        "created_at",
-        bundle_context.get("start_at"),
-        bundle_context.get("end_at"),
-    )
+    return provider_service_requests_queryset(
+        provider,
+        start_at=bundle_context.get("start_at"),
+        end_at=bundle_context.get("end_at"),
+    ).select_related("client")
 
 
 def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, object]:
@@ -1467,7 +1469,11 @@ def _get_full_identity_entries(provider, option_key, start_at, end_at):
     """Return full (un-truncated) identity entries for a list-type option."""
     FULL_LIMIT = 5000
     if option_key == "service_requesters":
-        qs = _apply_datetime_window(ServiceRequest.objects.filter(provider=provider).select_related("client"), "created_at", start_at, end_at)
+        qs = provider_service_requests_queryset(
+            provider,
+            start_at=start_at,
+            end_at=end_at,
+        ).select_related("client")
         return _make_identity_entries([r.client for r in qs[:FULL_LIMIT] if getattr(r, "client", None)], limit=FULL_LIMIT)
     if option_key == "potential_clients":
         qs = _apply_datetime_window(ProviderPotentialClient.objects.filter(provider=provider).select_related("user").order_by("-created_at"), "created_at", start_at, end_at)
@@ -1634,17 +1640,17 @@ def _build_clients_dataset(provider: ProviderProfile, section_context: dict) -> 
         ProviderPotentialClient.objects.filter(provider=provider).values_list("user_id", flat=True)
     )
 
-    _scoped_request_filter = Q(requests__provider=provider)
-    if _clients_effective_at:
-        _scoped_request_filter &= Q(requests__created_at__gte=_clients_effective_at)
-    if _clients_deadline:
-        _scoped_request_filter &= Q(requests__created_at__lte=_clients_deadline)
+    _scoped_request_filter = provider_service_request_user_filter(
+        provider,
+        start_at=_clients_effective_at,
+        end_at=_clients_deadline,
+    )
 
-    _scoped_count_filter = Q(requests__provider=provider)
-    if _clients_effective_at:
-        _scoped_count_filter &= Q(requests__created_at__gte=_clients_effective_at)
-    if _clients_deadline:
-        _scoped_count_filter &= Q(requests__created_at__lte=_clients_deadline)
+    _scoped_count_filter = provider_service_request_user_filter(
+        provider,
+        start_at=_clients_effective_at,
+        end_at=_clients_deadline,
+    )
 
     _opt_historical = _portal_section_has_option(section_context, "historical_clients")
     _opt_followers = _portal_section_has_option(section_context, "all_followers")
@@ -1652,8 +1658,10 @@ def _build_clients_dataset(provider: ProviderProfile, section_context: dict) -> 
     _opt_lists = _portal_section_has_option(section_context, "platform_clients_list")
     _no_inclusion_opt = not (_opt_historical or _opt_followers or _opt_potentials or _opt_lists)
 
-    historical_user_ids = set(
-        User.objects.filter(_scoped_request_filter).values_list("id", flat=True).distinct()
+    historical_user_ids = provider_service_request_client_ids(
+        provider,
+        start_at=_clients_effective_at,
+        end_at=_clients_deadline,
     )
 
     aggregated_user_ids: set[int] = set()
@@ -1801,7 +1809,7 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
                 User.objects.filter(
                     id__in=recipient_ids,
                 ).filter(
-                    Q(requests__provider=provider)
+                    provider_service_request_user_filter(provider)
                     | Q(provider_follows__provider=provider)
                     | Q(potential_client_tags__provider=provider)
                 ).distinct()
@@ -2340,13 +2348,15 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
     statement_qs = ServiceRequest.objects.none()
     if supports_financial_statement:
         statement_qs = (
-            ServiceRequest.objects.filter(provider=provider)
+            provider_service_requests_queryset(provider)
             .select_related("client")
             .order_by("-created_at")
         )
-        statement_qs = _apply_datetime_window(
-            statement_qs, "created_at", effective_at, finance_deadline,
-        )
+        statement_qs = provider_service_requests_queryset(
+            provider,
+            start_at=effective_at,
+            end_at=finance_deadline,
+        ).select_related("client").order_by("-created_at")
     statement = list(statement_qs[:500])
 
     # Enrich statement rows with client display name
@@ -2472,8 +2482,11 @@ def portal_finance_export_xlsx(request: HttpRequest) -> HttpResponse:
         if effective_at else None
     )
 
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-created_at")
-    qs = _apply_datetime_window(qs, "created_at", effective_at, finance_deadline)
+    qs = provider_service_requests_queryset(
+        provider,
+        start_at=effective_at,
+        end_at=finance_deadline,
+    ).select_related("client").order_by("-created_at")
     qs = qs[:_limit]
 
     rows = []
@@ -2529,8 +2542,11 @@ def portal_finance_export_pdf(request: HttpRequest) -> HttpResponse:
         if effective_at else None
     )
 
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-created_at")
-    qs = _apply_datetime_window(qs, "created_at", effective_at, finance_deadline)
+    qs = provider_service_requests_queryset(
+        provider,
+        start_at=effective_at,
+        end_at=finance_deadline,
+    ).select_related("client").order_by("-created_at")
     qs = qs[:_limit]
 
     rows = []

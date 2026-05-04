@@ -498,6 +498,25 @@ const UI = (() => {
     return { show, update, hide };
   }
 
+  /**
+   * Presence indicator dot (online/offline) for provider avatars.
+   * Returns a <span> element styled by `.nw-presence-dot` rules in app.css.
+   * The element is positioned absolutely – the parent must be `position:relative`.
+   *
+   *   parent.appendChild(UI.presenceDot(provider.is_online));
+   */
+  function presenceDot(isOnline, options) {
+    const opts = options || {};
+    const cls = 'nw-presence-dot ' + (isOnline ? 'is-online' : 'is-offline')
+      + (opts.size ? ' size-' + opts.size : '');
+    const dot = el('span', {
+      className: cls,
+      'aria-hidden': 'true',
+      title: isOnline ? 'متصل' : 'غير متصل',
+    });
+    return dot;
+  }
+
   return {
     el,
     text,
@@ -516,5 +535,6 @@ const UI = (() => {
     populateRegionOptions,
     populateCityOptions,
     createSubmitOverlay,
+    presenceDot,
   };
 })();

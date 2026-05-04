@@ -22,8 +22,10 @@ FIELD_HELP_TEXTS = {
     "competitive_visibility_label": "النص الظاهر في الواجهة لوصف توقيت ظهور الطلبات التنافسية.",
     "urgent_visibility_delay_hours": "عدد الساعات قبل وصول الطلبات العاجلة لصاحب هذه الباقة.",
     "urgent_visibility_label": "النص الظاهر في الواجهة لوصف توقيت وصول الطلبات العاجلة.",
-    "banner_images_limit": "عدد صور الـ Banner المتاحة ضمن الباقة.",
-    "banner_images_label": "النص الظاهر للمستخدم لوصف عدد صور الـ Banner.",
+    "banner_images_limit": "عدد صور الخلفية التي يمكن أن تظهر خلف الصورة الشخصية للمزود ضمن الباقة.",
+    "banner_images_label": "النص الظاهر للمستخدم لوصف عدد خلفيات الملف الشخصي.",
+    "spotlight_quota": "الحد الأقصى لعدد اللمحات التي يمكن للمزود الاحتفاظ بها في نفس الوقت.",
+    "spotlight_label": "النص الظاهر للمستخدم لوصف حد اللمحات المتاحة.",
     "direct_chat_quota": "الحد العددي للمحادثات المباشرة المتاحة.",
     "direct_chat_label": "النص الظاهر للمستخدم لوصف حد المحادثات المباشرة.",
     "promotional_chat_messages_enabled": "السماح باستخدام الرسائل الدعائية داخل المحادثات.",
@@ -51,7 +53,8 @@ FIELD_PLACEHOLDERS = {
     "reminder_schedule_hours_text": "مثال: 24, 120, 240",
     "competitive_visibility_label": "مثال: بعد 24 ساعة",
     "urgent_visibility_label": "مثال: لحظياً",
-    "banner_images_label": "مثال: 3 صور",
+    "banner_images_label": "مثال: 3 خلفيات",
+    "spotlight_label": "مثال: 3 لمحات",
     "direct_chat_label": "مثال: 10 محادثات مباشرة",
     "reminder_policy_label": "مثال: أول تنبيه + إرسال ثاني تنبيه بعد اكتمال الطلب بـ 120 ساعة",
     "support_sla_label": "مثال: خلال يومين",
@@ -154,6 +157,16 @@ class SubscriptionPlanAdminForm(forms.ModelForm):
             capabilities["banner_images"]["label"],
         )
         self._set_initial_if_missing(
+            "spotlight_quota",
+            getattr(plan, "spotlight_quota", None),
+            capabilities["spotlights"]["quota"],
+        )
+        self._set_initial_if_missing(
+            "spotlight_label",
+            getattr(plan, "spotlight_label", ""),
+            capabilities["spotlights"]["label"],
+        )
+        self._set_initial_if_missing(
             "direct_chat_quota",
             getattr(plan, "direct_chat_quota", None),
             capabilities["messaging"]["direct_chat_quota"],
@@ -231,6 +244,8 @@ class SubscriptionPlanAdminForm(forms.ModelForm):
         self._configure_field_ui()
 
     def _set_initial_if_missing(self, field_name: str, current_value, fallback):
+        if field_name not in self.fields:
+            return
         if current_value not in (None, ""):
             return
         self.fields[field_name].initial = fallback
@@ -294,7 +309,7 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
         "tier",
         "period",
         "price",
-        "direct_chat_quota_display",
+        "spotlight_quota_display",
         "upload_limit_display",
         "is_active",
     )
@@ -304,7 +319,9 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
         "core_services_note",
         "normalized_tier_preview",
         "derived_request_access_preview",
+        "derived_competitive_request_access_preview",
         "derived_banner_images_preview",
+        "derived_spotlight_preview",
         "derived_direct_chat_preview",
         "derived_reminder_policy_preview",
         "derived_promotional_permissions_preview",
@@ -317,42 +334,55 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
     fieldsets = (
         ("البند الأساسي الثابت", {
             "description": "هذا البند ثابت في الواجهة ولا يُعدل من الآدمن، وهو موضح هنا فقط للتأكيد على فريق التشغيل.",
+            "classes": ("wide", "subscription-plan-fieldset", "is-core"),
             "fields": ("core_services_note",),
         }),
-        ("تعريف الباقة", {
-            "description": "عرّف هوية الباقة الأساسية: التصنيف والاسم والوصف والسعر وحالة الظهور.",
+        ("تعريف الباقة وسعر الباقة", {
+            "description": "هذا القسم يضبط اسم الباقة وتصنيفها ودوريتها وسعر الباقة كما تظهر في بطاقة الباقة والجدول المقارن.",
+            "classes": ("wide", "subscription-plan-fieldset", "is-identity"),
             "fields": (
-                ("normalized_tier_preview", "code"),
-                ("tier", "period"),
-                ("title", "price"),
+                ("title", "code"),
+                ("normalized_tier_preview", "tier"),
+                ("period", "price"),
                 "description",
                 ("is_active", "created_at"),
             ),
         }),
-        ("النصوص والعرض التجاري", {
-            "description": "هذه الحقول تتحكم في النصوص الظاهرة للمستخدم داخل صفحة الباقات والملخص.",
+        ("المحتوى الظاهر داخل بطاقة الباقة", {
+            "description": "حرر هنا الوصف ونقاط العرض المختصرة التي تظهر للمستخدم داخل بطاقة الباقة قبل جدول المقارنة.",
+            "classes": ("wide", "subscription-plan-fieldset", "is-content"),
             "fields": ("features_text", "feature_bullets_text"),
         }),
-        ("الظهور والمحادثات", {
-            "description": "اضبط الظهور في الطلبات، التنبيهات، صور الـ Banner، والمحادثات المباشرة.",
+        ("وقت استقبال الطلبات العاجلة والتنافسية", {
+            "description": "اضبط هنا النص والقيمة الفعلية للبندين: وقت استقبال الطلبات العاجلة ووقت استقبال الطلبات التنافسية.",
+            "classes": ("wide", "subscription-plan-fieldset", "is-request-access"),
             "fields": (
-                "notifications_enabled",
-                ("competitive_visibility_delay_hours", "competitive_visibility_label"),
                 ("urgent_visibility_delay_hours", "urgent_visibility_label"),
-                ("banner_images_limit", "banner_images_label"),
-                ("direct_chat_quota", "direct_chat_label"),
+                ("competitive_visibility_delay_hours", "competitive_visibility_label"),
             ),
         }),
-        ("الترويج والتذكير", {
-            "description": "اضبط صلاحيات الرسائل الدعائية ونصوص التذكير وساعاتها الفعلية.",
+        ("عدد صور شعار المنصة وعدد اللمحات المتاحة", {
+            "description": "هذا القسم يتحكم مباشرة في بندي عدد صور شعار المنصة وعدد اللمحات المتاحة كما يظهران في جدول الباقات.",
+            "classes": ("wide", "subscription-plan-fieldset", "is-promo-surfaces"),
             "fields": (
+                ("banner_images_limit", "banner_images_label"),
+                ("spotlight_quota", "spotlight_label"),
+            ),
+        }),
+        ("الإشعارات والمحادثات المباشرة والرسائل الدعائية وسياسة التذكير", {
+            "description": "ستجد هنا البنود المرتبطة بـ الإشعارات، حد المحادثات المباشرة، التحكم برسائل المحادثات والتنبيهات الدعائية، وسياسة رسائل التذكير.",
+            "classes": ("wide", "subscription-plan-fieldset", "is-messaging"),
+            "fields": (
+                "notifications_enabled",
+                ("direct_chat_quota", "direct_chat_label"),
                 ("promotional_chat_messages_enabled", "promotional_notification_messages_enabled"),
                 "reminder_schedule_hours_text",
                 "reminder_policy_label",
             ),
         }),
-        ("الدعم والتخزين", {
-            "description": "إعدادات التشغيل الداخلية المرتبطة بسرعة الدعم والسعة التخزينية وحدود الرفع.",
+        ("زمن الدعم الفني وأولوية الدعم وسعة التخزين والرفع", {
+            "description": "هذا القسم يطابق بنود زمن الدعم الفني وأولوية الدعم وسعة التخزين والرفع الظاهرة في المقارنة.",
+            "classes": ("wide", "subscription-plan-fieldset", "is-support-storage"),
             "fields": (
                 ("support_priority", "support_is_priority"),
                 ("support_sla_hours", "support_sla_label"),
@@ -360,23 +390,27 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
                 ("storage_multiplier", "storage_upload_max_mb"),
             ),
         }),
-        ("رسوم التوثيق", {
-            "description": "حدد الرسوم النهائية لكل نوع توثيق ضمن هذه الباقة. القيمة 0 تعني أن التوثيق مشمول.",
+        ("التوثيق الأزرق والأخضر", {
+            "description": "اضبط هنا رسوم التوثيق الأزرق والتوثيق الأخضر. القيمة 0 تعني أن التوثيق مشمول داخل الباقة.",
+            "classes": ("wide", "subscription-plan-fieldset", "is-verification"),
             "fields": (("verification_blue_fee", "verification_green_fee"),),
         }),
-        ("المعاينات النهائية المشتقة", {
-            "description": "هذه المعاينات تعرض النصوص النهائية كما ستظهر للمستخدم بعد تطبيق منطق الاشتقاق والـ fallback في الواجهة.",
+        ("المعاينات النهائية المطابقة لجدول الباقات", {
+            "description": "راجع هنا الصياغة النهائية لكل بند كما ستظهر للمستخدم داخل جدول المقارنة، وبالترتيب الأقرب للواجهة.",
+            "classes": ("wide", "subscription-plan-fieldset", "is-preview"),
             "fields": (
-                ("derived_request_access_preview", "derived_banner_images_preview"),
-                ("derived_direct_chat_preview", "derived_reminder_policy_preview"),
-                ("derived_promotional_permissions_preview", "derived_notifications_preview"),
-                ("derived_support_sla_preview", "derived_storage_preview"),
+                ("derived_notifications_preview", "derived_storage_preview"),
+                ("derived_request_access_preview", "derived_competitive_request_access_preview"),
+                ("derived_banner_images_preview", "derived_spotlight_preview"),
+                ("derived_direct_chat_preview", "derived_promotional_permissions_preview"),
+                ("derived_reminder_policy_preview", "derived_support_sla_preview"),
                 "derived_verification_effect_preview",
             ),
         }),
     )
 
     class Media:
+        css = {"all": ("subscriptions/css/subscription_plan_admin.css",)}
         js = ("subscriptions/js/subscription_plan_admin.js",)
 
     @admin.display(description="التصنيف الفعلي")
@@ -400,45 +434,53 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
         offer = subscription_offer_for_plan(obj)
         return self._derived_preview_message(obj, offer.get(key) or "")
 
-    @admin.display(description="معاينة استقبال الطلبات")
+    @admin.display(description="معاينة وقت استقبال الطلبات العاجلة")
     def derived_request_access_preview(self, obj):
         return self._offer_preview(obj, "request_access_label")
+
+    @admin.display(description="معاينة وقت استقبال الطلبات التنافسية")
+    def derived_competitive_request_access_preview(self, obj):
+        return self._offer_preview(obj, "competitive_request_access_label")
 
     @admin.display(description="معاينة صور الـ Banner")
     def derived_banner_images_preview(self, obj):
         return self._offer_preview(obj, "banner_images_label")
 
-    @admin.display(description="معاينة المحادثات المباشرة")
+    @admin.display(description="معاينة عدد اللمحات المتاحة")
+    def derived_spotlight_preview(self, obj):
+        return self._offer_preview(obj, "spotlights_label")
+
+    @admin.display(description="معاينة حد المحادثات المباشرة")
     def derived_direct_chat_preview(self, obj):
-        return self._offer_preview(obj, "chats_label")
+        return self._offer_preview(obj, "direct_chat_label")
 
     @admin.display(description="معاينة رسائل التذكير")
     def derived_reminder_policy_preview(self, obj):
         return self._offer_preview(obj, "reminder_policy_label")
 
-    @admin.display(description="معاينة الرسائل الدعائية")
+    @admin.display(description="معاينة التحكم برسائل المحادثات والتنبيهات الدعائية")
     def derived_promotional_permissions_preview(self, obj):
         return self._offer_preview(obj, "promotional_permissions_label")
 
-    @admin.display(description="معاينة حالة الإشعارات")
+    @admin.display(description="معاينة الإشعارات")
     def derived_notifications_preview(self, obj):
         return self._offer_preview(obj, "notifications_label")
 
-    @admin.display(description="معاينة الدعم الفني")
+    @admin.display(description="معاينة زمن الدعم الفني")
     def derived_support_sla_preview(self, obj):
         return self._offer_preview(obj, "support_sla_label")
 
-    @admin.display(description="معاينة السعة التخزينية")
+    @admin.display(description="معاينة سعة التخزين والرفع")
     def derived_storage_preview(self, obj):
         return self._offer_preview(obj, "storage_label")
 
-    @admin.display(description="معاينة أثر التوثيق")
+    @admin.display(description="معاينة التوثيق الأزرق والأخضر")
     def derived_verification_effect_preview(self, obj):
         return self._offer_preview(obj, "verification_effect_label")
 
-    @admin.display(description="حد المحادثات")
-    def direct_chat_quota_display(self, obj):
-        return plan_capabilities_for_plan(obj)["messaging"]["direct_chat_quota"]
+    @admin.display(description="حد اللمحات")
+    def spotlight_quota_display(self, obj):
+        return plan_capabilities_for_plan(obj)["spotlights"]["quota"]
 
     @admin.display(description="حد الرفع MB")
     def upload_limit_display(self, obj):

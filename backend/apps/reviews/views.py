@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from apps.marketplace.models import ServiceRequest
+from apps.messaging.api import _apply_direct_thread_modes, _find_direct_thread_for_pair
 from apps.messaging.models import Thread
 from apps.messaging.views import _active_context_mode_from_request
 from apps.providers.models import ProviderProfile
@@ -18,7 +19,7 @@ from .serializers import (
 	ProviderReviewReplySerializer,
 )
 
-from apps.accounts.permissions import IsAtLeastClient, IsAtLeastProvider
+from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider
 
 
 class CreateReviewView(APIView):
@@ -230,15 +231,16 @@ class ProviderReviewLikeToggleView(APIView):
 
 
 class ProviderReviewChatThreadView(APIView):
-	permission_classes = [IsAtLeastProvider]
+	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, review_id):
 		review = get_object_or_404(Review.objects.select_related("provider__user", "client"), id=review_id)
-		if review.provider.user_id != request.user.id:
-			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 
 		if not review.client_id:
 			return Response({"detail": "لا يوجد عميل مرتبط بهذا التقييم"}, status=status.HTTP_400_BAD_REQUEST)
+
+		if review.client_id == request.user.id:
+			return Response({"detail": "لا يمكنك محادثة نفسك"}, status=status.HTTP_400_BAD_REQUEST)
 
 		mode = _active_context_mode_from_request(request)
 		desired_mode = (
@@ -246,50 +248,31 @@ class ProviderReviewChatThreadView(APIView):
 			if mode in {Thread.ContextMode.CLIENT, Thread.ContextMode.PROVIDER}
 			else Thread.ContextMode.SHARED
 		)
-
-		candidates = list(
-			Thread.objects.filter(is_direct=True)
-			.filter(
-				Q(participant_1_id=request.user.id, participant_2_id=review.client_id)
-				| Q(participant_1_id=review.client_id, participant_2_id=request.user.id)
-			)
-			.order_by("-id")
+		recipient_mode = Thread.ContextMode.CLIENT
+		thread = _find_direct_thread_for_pair(
+			user_a=request.user,
+			user_b=review.client,
+			user_a_mode=desired_mode,
+			user_b_mode=recipient_mode,
+			legacy_context_mode=desired_mode,
 		)
-		thread = None
-		for candidate in candidates:
-			if candidate.participant_mode_for_user(request.user) != Thread.ContextMode.PROVIDER:
-				continue
-			if candidate.participant_mode_for_user(review.client) != Thread.ContextMode.CLIENT:
-				continue
-			thread = candidate
-			break
-		if thread is None:
-			for candidate in candidates:
-				if candidate.context_mode in [desired_mode, Thread.ContextMode.SHARED]:
-					thread = candidate
-					break
 
 		if thread:
-			if thread.participant_1_id == request.user.id:
-				thread.set_participant_modes(
-					participant_1_mode=Thread.ContextMode.PROVIDER,
-					participant_2_mode=Thread.ContextMode.CLIENT,
-					save=True,
-				)
-			else:
-				thread.set_participant_modes(
-					participant_1_mode=Thread.ContextMode.CLIENT,
-					participant_2_mode=Thread.ContextMode.PROVIDER,
-					save=True,
-				)
+			_apply_direct_thread_modes(
+				thread=thread,
+				user_a=request.user,
+				user_b=review.client,
+				user_a_mode=desired_mode,
+				user_b_mode=recipient_mode,
+			)
 		else:
 			thread = Thread.objects.create(
 				is_direct=True,
 				context_mode=desired_mode,
 				participant_1=request.user,
 				participant_2=review.client,
-				participant_1_mode=Thread.ContextMode.PROVIDER,
-				participant_2_mode=Thread.ContextMode.CLIENT,
+				participant_1_mode=desired_mode,
+				participant_2_mode=recipient_mode,
 			)
 
 		return Response(

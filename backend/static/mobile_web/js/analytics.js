@@ -75,11 +75,26 @@ window.NwAnalytics = (() => {
     return !authBlockedUntil || Date.now() >= authBlockedUntil;
   }
 
+  function _getCsrfToken() {
+    try {
+      const match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+      if (match && match[1]) return decodeURIComponent(match[1]);
+    } catch (_) {}
+    try {
+      const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+      return input && input.value ? String(input.value) : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   async function _authHeaders() {
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
+    const csrfToken = _getCsrfToken();
+    if (csrfToken) headers['X-CSRFToken'] = csrfToken;
     const token = await _freshAccessToken();
     if (token) headers.Authorization = 'Bearer ' + token;
     return { headers, token };
@@ -116,6 +131,7 @@ window.NwAnalytics = (() => {
         headers,
         body: JSON.stringify({ events: batch }),
         keepalive: true,
+        credentials: 'same-origin',
       });
     }).then((response) => {
       if (response && response.skipped) {
@@ -145,21 +161,35 @@ window.NwAnalytics = (() => {
     if (!buffer.length) return;
     if (!_canAttemptSend()) return;
     const batch = buffer.splice(0, buffer.length);
-    if (!navigator.sendBeacon) {
-      _restoreBatch(batch);
-      void flush();
-      return;
-    }
-    try {
-      const payload = JSON.stringify({ events: batch });
-      const blob = new Blob([payload], { type: 'application/json; charset=UTF-8' });
-      const queued = navigator.sendBeacon(endpoint, blob);
-      if (!queued) {
+    void _authHeaders().then(({ headers, token }) => {
+      if (!token) {
+        authBlockedUntil = Date.now() + AUTH_FAILURE_BACKOFF_MS;
+        lastAuthFailureStatus = 401;
         _restoreBatch(batch);
+        return null;
       }
-    } catch (_) {
+      return fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ events: batch }),
+        keepalive: true,
+        credentials: 'same-origin',
+      });
+    }).then((response) => {
+      if (!response) return;
+      if (response.status === 401 || response.status === 403 || (response.status >= 500 && response.status <= 599)) {
+        if (response.status === 401 || response.status === 403) {
+          authBlockedUntil = Date.now() + AUTH_FAILURE_BACKOFF_MS;
+          lastAuthFailureStatus = response.status;
+        }
+        _restoreBatch(batch);
+        return;
+      }
+      authBlockedUntil = 0;
+      lastAuthFailureStatus = 0;
+    }).catch(() => {
       _restoreBatch(batch);
-    }
+    });
   }
 
   function track(eventName, payload = {}, options = {}) {

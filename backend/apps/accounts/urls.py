@@ -10,6 +10,7 @@ from .views import (
     complete_registration,
     skip_completion,
     delete_account_view,
+    heartbeat_view,
     logout_view,
     me_view,
     otp_send,
@@ -41,4 +42,5 @@ urlpatterns = [
     path("me/confirm-phone-change/", confirm_phone_change_view, name="confirm_phone_change"),
     path("logout/", logout_view, name="logout"),
     path("delete/", delete_account_view, name="delete_account"),
+    path("heartbeat/", heartbeat_view, name="heartbeat"),
 ]

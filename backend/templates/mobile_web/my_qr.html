@@ -50,9 +50,33 @@
         <p id="qr-link-text" class="my-qr-link" dir="ltr"></p>
 
         <div class="my-qr-actions">
-          <button class="btn btn-outline my-qr-action-btn" id="copy-qr-link" type="button">نسخ الرابط</button>
-          <button class="btn btn-outline my-qr-action-btn" id="share-qr-link" type="button">مشاركة</button>
-          <a class="btn btn-outline my-qr-action-btn" id="open-qr-link" href="#" target="_blank" rel="noopener">فتح الرابط</a>
+          <button class="btn btn-outline my-qr-action-btn" id="copy-qr-link" type="button" aria-label="نسخ الرابط" title="نسخ الرابط">
+            <span class="my-qr-action-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <rect x="9" y="9" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.8"></rect>
+                <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+              </svg>
+            </span>
+          </button>
+          <button class="btn btn-outline my-qr-action-btn" id="share-qr-link" type="button" aria-label="مشاركة" title="مشاركة">
+            <span class="my-qr-action-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="18" cy="5" r="2.2" stroke="currentColor" stroke-width="1.8"></circle>
+                <circle cx="6" cy="12" r="2.2" stroke="currentColor" stroke-width="1.8"></circle>
+                <circle cx="18" cy="19" r="2.2" stroke="currentColor" stroke-width="1.8"></circle>
+                <path d="M8 11l7.5-4.5M8 13l7.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+              </svg>
+            </span>
+          </button>
+          <a class="btn btn-outline my-qr-action-btn" id="open-qr-link" href="#" target="_blank" rel="noopener" aria-label="فتح الرابط" title="فتح الرابط">
+            <span class="my-qr-action-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M14 5h5v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M10 14L19 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                <path d="M19 13v4a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+              </svg>
+            </span>
+          </a>
         </div>
       </div>
     </div>
@@ -61,6 +85,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/profileQr.js' %}"></script>
-<script src="{% static 'mobile_web/js/myQrPage.js' %}?v=20260502-myqr-i18n-stage1"></script>
+<script src="{% static 'mobile_web/js/profileQr.js' %}?v=20260503-myqr-provider-gate"></script>
+<script src="{% static 'mobile_web/js/myQrPage.js' %}?v=20260503-myqr-action-icons"></script>
 {% endblock %}

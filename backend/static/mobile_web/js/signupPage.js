@@ -9,24 +9,26 @@ const SignupPage = (() => {
   let _next = '/';
   let _debounce = null;
   let _usernameAvailable = null;
-  let _regionCatalog = [];
   let _skipLoading = false;
+  let _locationMap = null;
+  let _locationMarker = null;
+  let _reverseLocationRequestId = 0;
 
-  const REGION_CITY_FALLBACK = [
-    { name_ar: 'منطقة الرياض', cities: ['الرياض', 'الخرج', 'الدلم', 'الدرعية', 'الدوادمي', 'الزلفي', 'السليل', 'القويعية', 'المجمعة', 'المزاحمية', 'ثادق', 'حوطة بني تميم', 'شقراء', 'ضرما', 'عفيف', 'الأفلاج'] },
-    { name_ar: 'منطقة مكة المكرمة', cities: ['مكة المكرمة', 'جدة', 'الطائف', 'الجموم', 'رابغ', 'القنفذة', 'الليث', 'تربة', 'رنية', 'ظلم'] },
-    { name_ar: 'منطقة المدينة المنورة', cities: ['المدينة المنورة', 'ينبع', 'بدر', 'خيبر', 'العلا'] },
-    { name_ar: 'المنطقة الشرقية', cities: ['الدمام', 'الخبر', 'الظهران', 'الأحساء', 'الجبيل', 'الخفجي', 'القطيف', 'حفر الباطن'] },
-    { name_ar: 'منطقة القصيم', cities: ['بريدة', 'عنيزة', 'الرس', 'البكيرية', 'البدائع', 'المذنب'] },
-    { name_ar: 'منطقة عسير', cities: ['أبها', 'خميس مشيط', 'بيشة', 'محايل عسير', 'النماص', 'تنومة', 'سراة عبيدة'] },
-    { name_ar: 'منطقة تبوك', cities: ['تبوك', 'ضباء', 'الوجه', 'حقل', 'أملج'] },
-    { name_ar: 'منطقة حائل', cities: ['حائل'] },
-    { name_ar: 'منطقة الجوف', cities: ['سكاكا', 'القريات', 'طبرجل'] },
-    { name_ar: 'منطقة الحدود الشمالية', cities: ['عرعر', 'رفحاء', 'طريف'] },
-    { name_ar: 'منطقة نجران', cities: ['نجران', 'شرورة'] },
-    { name_ar: 'منطقة جازان', cities: ['جازان', 'صامطة', 'صبيا'] },
-    { name_ar: 'منطقة الباحة', cities: ['الباحة', 'بلجرشي', 'العرضيات'] },
-  ];
+  const DEFAULT_LOCATION = Object.freeze({ lat: 24.7136, lng: 46.6753, zoom: 11 });
+  const _SAUDI_MAJOR_CITY_FALLBACKS = Object.freeze([
+    { name: 'الرياض', aliases: ['الرياض', 'riyadh'], bounds: { minLat: 24.20, maxLat: 25.20, minLng: 46.20, maxLng: 47.30 } },
+    { name: 'جدة', aliases: ['جدة', 'jeddah'], bounds: { minLat: 21.20, maxLat: 21.90, minLng: 38.90, maxLng: 39.50 } },
+    { name: 'مكة المكرمة', aliases: ['مكة', 'مكة المكرمة', 'mecca', 'makkah'], bounds: { minLat: 21.20, maxLat: 21.70, minLng: 39.50, maxLng: 40.10 } },
+    { name: 'المدينة المنورة', aliases: ['المدينة', 'المدينة المنورة', 'medina', 'madinah'], bounds: { minLat: 24.20, maxLat: 24.80, minLng: 39.30, maxLng: 39.90 } },
+    { name: 'الدمام', aliases: ['الدمام', 'dammam'], bounds: { minLat: 26.20, maxLat: 26.60, minLng: 49.90, maxLng: 50.30 } },
+    { name: 'الخبر', aliases: ['الخبر', 'khobar', 'alkhobar'], bounds: { minLat: 26.20, maxLat: 26.40, minLng: 50.10, maxLng: 50.35 } },
+    { name: 'الطائف', aliases: ['الطائف', 'taif'], bounds: { minLat: 21.10, maxLat: 21.50, minLng: 40.20, maxLng: 40.70 } },
+    { name: 'أبها', aliases: ['أبها', 'ابها', 'abha'], bounds: { minLat: 18.10, maxLat: 18.40, minLng: 42.30, maxLng: 42.70 } },
+    { name: 'تبوك', aliases: ['تبوك', 'tabuk'], bounds: { minLat: 28.20, maxLat: 28.60, minLng: 36.30, maxLng: 36.80 } },
+    { name: 'بريدة', aliases: ['بريدة', 'buraydah', 'buraidah'], bounds: { minLat: 26.20, maxLat: 26.50, minLng: 43.80, maxLng: 44.20 } },
+    { name: 'حائل', aliases: ['حائل', 'hail', 'ha\'il'], bounds: { minLat: 27.40, maxLat: 27.70, minLng: 41.50, maxLng: 42.00 } },
+    { name: 'جازان', aliases: ['جازان', 'جيزان', 'jazan', 'jizan'], bounds: { minLat: 16.70, maxLat: 17.20, minLng: 42.40, maxLng: 43.00 } },
+  ]);
 
   function init() {
     if (!Auth.isLoggedIn()) {
@@ -40,8 +42,13 @@ const SignupPage = (() => {
       return;
     }
     _loadContent();
-    _loadRegionCatalog();
     _bindEvents();
+    _initLocationMap();
+    _setLocationLoadingState(false);
+    _setCityInputManualMode(true);
+    _updateCountryHint('اختياري. حدّد نقطة على الخريطة إذا أردت تعبئة الدولة تلقائيًا.', null);
+    _updateCityHint('', '');
+    _setLocationCalloutText('', '', { state: 'idle' });
     _initMotion();
   }
 
@@ -93,25 +100,13 @@ const SignupPage = (() => {
       });
     });
 
-    const regionSelect = document.getElementById('region');
-    if (regionSelect) {
-      regionSelect.addEventListener('change', () => {
-        _clearError('region');
+    const useCurrentLocationBtn = document.getElementById('btn-use-current-location');
+    if (useCurrentLocationBtn) {
+      useCurrentLocationBtn.addEventListener('click', () => {
+        _clearError('country');
         _clearError('city');
         _clearGeneralError();
-        _populateCityOptions(_value('region').trim());
-      });
-    }
-
-    const citySelect = document.getElementById('city');
-    if (citySelect) {
-      citySelect.addEventListener('change', () => {
-        _clearError('city');
-        _clearGeneralError();
-        _updateCityHint(_value('region').trim(), _value('city').trim());
-        _pulseElement(document.getElementById('signup-city-group'));
-        _pulseElement(document.getElementById('signup-location-callout'), 'is-updated');
-        _setLocationCalloutText(_value('region').trim(), _value('city').trim());
+        _useCurrentLocation();
       });
     }
 
@@ -161,199 +156,406 @@ const SignupPage = (() => {
     });
   }
 
-  async function _loadRegionCatalog() {
-    _setLocationLoadingState(true);
-
-    let catalog = [];
-    const res = await ApiClient.get('/api/providers/geo/regions-cities/');
-    if (res.ok && res.data) {
-      const payload = Array.isArray(res.data)
-        ? res.data
-        : Array.isArray(res.data.results)
-          ? res.data.results
-          : [];
-      catalog = _normalizeRegionCatalog(payload);
+  function _setLocationLoadingState(loading) {
+    const locationBtn = document.getElementById('btn-use-current-location');
+    const mapText = document.getElementById('signup-location-map-text');
+    if (locationBtn) locationBtn.disabled = !!loading;
+    if (mapText && loading) {
+      mapText.textContent = 'جاري تجهيز واجهة الخريطة وخدمات الموقع...';
     }
-
-    if (!catalog.length) {
-      catalog = _normalizeRegionCatalog(REGION_CITY_FALLBACK);
+    if (!loading && mapText) {
+      mapText.textContent = 'اضغط على أي نقطة داخل الخريطة أو استخدم موقعك الحالي لتعبئة الدولة والمدينة مباشرة.';
     }
-
-    _regionCatalog = catalog;
-    _renderRegionOptions();
-    _setLocationLoadingState(false);
-    _updateRegionHint(catalog.length ? 'اختر المنطقة أولًا.' : 'تعذر تحميل المناطق.', catalog.length ? null : false);
-    _setLocationCalloutText('', '');
+    _setMapStatus(loading ? 'جاري تجهيز خدمات الموقع...' : 'الخريطة جاهزة لتحديد الموقع.', null);
   }
 
-  function _normalizeRegionCatalog(items) {
-    if (!Array.isArray(items)) return [];
+  function _initLocationMap() {
+    const mapEl = document.getElementById('signup-location-map');
+    if (!mapEl) return;
 
-    return items
-      .map((item) => {
-        const rawName = _extractDisplayValue(item, ['name_ar', 'name', 'region']);
-        const cities = Array.isArray(item && item.cities)
-          ? item.cities
-              .map((city) => {
-                if (typeof city === 'string') return city.trim();
-                return _extractDisplayValue(city, ['name_ar', 'name', 'city']);
-              })
-              .filter(Boolean)
-          : [];
-        const uniqueCities = Array.from(new Set(cities));
-        if (!rawName || !uniqueCities.length) return null;
-        return {
-          value: rawName,
-          label: _regionDisplayName(rawName),
-          cities: uniqueCities,
-        };
-      })
-      .filter(Boolean)
-      .sort((left, right) => left.label.localeCompare(right.label, 'ar'));
-  }
-
-  function _extractDisplayValue(item, keys) {
-    if (!item) return '';
-    for (const key of keys) {
-      const value = typeof item === 'object' ? item[key] : '';
-      if (typeof value === 'string' && value.trim()) {
-        return value.trim();
-      }
-    }
-    return '';
-  }
-
-  function _regionDisplayName(name) {
-    return String(name || '').replace(/^منطقة\s+/, '').trim() || String(name || '').trim();
-  }
-
-  function _renderRegionOptions() {
-    const regionSelect = document.getElementById('region');
-    if (!regionSelect) return;
-
-    const currentRegion = _value('region').trim();
-    regionSelect.innerHTML = '';
-
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = 'اختر المنطقة';
-    regionSelect.appendChild(placeholder);
-
-    _regionCatalog.forEach((region) => {
-      const option = document.createElement('option');
-      option.value = region.value;
-      option.textContent = region.label;
-      regionSelect.appendChild(option);
-    });
-
-    if (_findRegion(currentRegion)) {
-      regionSelect.value = currentRegion;
-    }
-
-    _populateCityOptions(regionSelect.value, _value('city').trim());
-  }
-
-  function _populateCityOptions(regionValue, selectedCity) {
-    const citySelect = document.getElementById('city');
-    if (!citySelect) return;
-    const cityGroup = document.getElementById('signup-city-group');
-    const regionGroup = document.getElementById('signup-region-group');
-
-    const region = _findRegion(regionValue);
-    citySelect.innerHTML = '';
-
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.textContent = region ? 'اختر المدينة' : 'اختر المنطقة أولًا';
-    citySelect.appendChild(placeholder);
-    citySelect.disabled = !region;
-    if (regionGroup && regionValue) {
-      _pulseElement(regionGroup);
-    }
-
-    if (!region) {
-      _setLocationCalloutText('', '');
-      _updateCityHint('', '');
+    if (!window.L || typeof window.L.map !== 'function') {
+      _setMapStatus('تعذر تحميل الخريطة. حدّث الصفحة وأعد المحاولة.', false);
       return;
     }
 
-    region.cities.forEach((city) => {
-      const option = document.createElement('option');
-      option.value = city;
-      option.textContent = city;
-      citySelect.appendChild(option);
+    _locationMap = L.map(mapEl, {
+      center: [DEFAULT_LOCATION.lat, DEFAULT_LOCATION.lng],
+      zoom: DEFAULT_LOCATION.zoom,
+      scrollWheelZoom: false,
+      zoomControl: true,
     });
 
-    if (selectedCity && region.cities.includes(selectedCity)) {
-      citySelect.value = selectedCity;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/">OSM</a>',
+      maxZoom: 18,
+    }).addTo(_locationMap);
+
+    _locationMap.on('click', (event) => {
+      _clearError('country');
+      _clearError('city');
+      _clearGeneralError();
+      _setMapLocation(event.latlng.lat, event.latlng.lng, { source: 'map' });
+    });
+
+    window.setTimeout(() => {
+      if (_locationMap) _locationMap.invalidateSize();
+    }, 180);
+  }
+
+  function _normalizeGeoLabel(value) {
+    return String(value || '')
+      .trim()
+      .replace(/^المملكة العربية السعودية[\s،,-]*/i, '')
+      .replace(/^region\s+/i, '')
+      .replace(/\s+region$/i, '')
+      .replace(/^منطقة\s+/, '')
+      .replace(/^إمارة\s+/, '')
+      .replace(/^محافظة\s+/, '')
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+  }
+
+  function _cleanAddressPart(value) {
+    return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  }
+
+  function _setLocationField(id, value) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.value = value || '';
+  }
+
+  function _setCityInputManualMode(manualAllowed) {
+    const input = document.getElementById('city');
+    if (!input) return;
+    input.readOnly = false;
+    input.placeholder = manualAllowed
+      ? 'يمكنك تعديلها يدويًا أو تركها كما تم تعبئتها'
+      : 'اختيارية وتُملأ تلقائيًا إذا كانت متاحة';
+  }
+
+  function _setLocationCoordinates(lat, lng) {
+    const latInput = document.getElementById('signup-latitude');
+    const lngInput = document.getElementById('signup-longitude');
+    const coords = document.getElementById('signup-map-coordinates');
+
+    if (latInput) latInput.value = lat == null ? '' : String(lat);
+    if (lngInput) lngInput.value = lng == null ? '' : String(lng);
+    if (!coords) return;
+
+    if (lat == null || lng == null) {
+      coords.textContent = 'لم يتم اختيار نقطة بعد.';
+      return;
     }
 
-    _updateRegionHint('تم تحديد المنطقة.', true);
-    _updateCityHint(regionValue, citySelect.value);
-    _setLocationCalloutText(regionValue, citySelect.value);
-    _pulseElement(cityGroup);
-    _pulseElement(document.getElementById('signup-location-callout'), 'is-updated');
+    coords.textContent = Number(lat).toFixed(5) + ' ، ' + Number(lng).toFixed(5);
   }
 
-  function _findRegion(regionValue) {
-    return _regionCatalog.find((region) => region.value === regionValue) || null;
+  function _ensureLocationMarker(lat, lng) {
+    if (!_locationMap) return;
+
+    if (!_locationMarker) {
+      _locationMarker = L.marker([lat, lng], { draggable: true }).addTo(_locationMap);
+      _locationMarker.on('dragend', () => {
+        const next = _locationMarker.getLatLng();
+        _setMapLocation(next.lat, next.lng, { source: 'drag' });
+      });
+      return;
+    }
+
+    _locationMarker.setLatLng([lat, lng]);
   }
 
-  function _setLocationLoadingState(loading) {
-    const regionSelect = document.getElementById('region');
-    const citySelect = document.getElementById('city');
-    if (regionSelect) regionSelect.disabled = loading;
-    if (citySelect) {
-      citySelect.disabled = true;
-      if (loading) {
-        citySelect.innerHTML = '<option value="">جاري تحميل المدن...</option>';
+  function _normalizeCoordinate(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return null;
+    return Number(parsed.toFixed(6));
+  }
+
+  async function _useCurrentLocation() {
+    const button = document.getElementById('btn-use-current-location');
+    const originalText = button ? button.textContent : '';
+
+    if (!navigator.geolocation) {
+      _setMapStatus('المتصفح لا يدعم تحديد الموقع الحالي.', false);
+      return;
+    }
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'جارٍ تحديد موقعي...';
+    }
+    _setMapStatus('جارٍ التقاط موقعك الحالي...', null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          await _setMapLocation(position.coords.latitude, position.coords.longitude, { source: 'device' });
+        } finally {
+          if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+          }
+        }
+      },
+      (error) => {
+        if (button) {
+          button.disabled = false;
+          button.textContent = originalText;
+        }
+        if (error && error.code === 1) {
+          _setMapStatus('تم رفض صلاحية الموقع. يمكنك تحديد النقطة يدويًا من الخريطة.', false);
+          return;
+        }
+        _setMapStatus('تعذر تحديد موقعك الحالي. جرّب مرة أخرى أو اختر النقطة يدويًا.', false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  }
+
+  async function _setMapLocation(lat, lng, options = {}) {
+    const normalizedLat = _normalizeCoordinate(lat);
+    const normalizedLng = _normalizeCoordinate(lng);
+    if (normalizedLat == null || normalizedLng == null) {
+      _setMapStatus('تعذر قراءة الإحداثيات من النقطة المحددة.', false);
+      return;
+    }
+
+    if (_locationMap) {
+      _ensureLocationMarker(normalizedLat, normalizedLng);
+      _locationMap.setView([normalizedLat, normalizedLng], Math.max(_locationMap.getZoom(), 13), { animate: true });
+    }
+
+    _setLocationCoordinates(normalizedLat, normalizedLng);
+    _setMapStatus(
+      options.source === 'device'
+        ? 'تم التقاط موقعك الحالي. جارٍ قراءة الدولة والمدينة...'
+        : 'جارٍ قراءة الدولة والمدينة من النقطة المختارة...'
+    , null);
+    _updateCountryHint('جارٍ استخراج الدولة من الموقع المحدد...', null);
+    _setHintState('city-hint', 'جارٍ محاولة قراءة المدينة إن وجدت...', null);
+    _setLocationCalloutText('', '', { state: 'loading' });
+
+    const requestId = ++_reverseLocationRequestId;
+
+    try {
+      const resolved = await _reverseGeocodeLocation(normalizedLat, normalizedLng);
+      if (requestId !== _reverseLocationRequestId) return;
+      _applyResolvedLocation(resolved);
+    } catch (_) {
+      if (requestId !== _reverseLocationRequestId) return;
+      _setLocationField('country', '');
+      _setLocationField('city', '');
+      _setCityInputManualMode(true);
+      _updateCountryHint('تعذر استخراج الدولة من هذه النقطة. يمكنك تجاهلها لأن الحقل اختياري أو تجربة نقطة أخرى.', false);
+      _updateCityHint('', '');
+      _setMapStatus('تعذر قراءة بيانات الموقع من الخريطة.', false);
+      _setLocationCalloutText('', '', { state: 'error' });
+    }
+  }
+
+  async function _reverseGeocodeLocation(lat, lng) {
+    const params = new URLSearchParams({
+      format: 'jsonv2',
+      lat: String(lat),
+      lon: String(lng),
+      zoom: '11',
+      addressdetails: '1',
+      'accept-language': 'ar',
+    });
+    const response = await fetch('https://nominatim.openstreetmap.org/reverse?' + params.toString(), {
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('reverse_geocode_failed');
+    }
+
+    const data = await response.json();
+    const address = data && typeof data === 'object' ? data.address || {} : {};
+    const country = _resolveCountryFromAddress(address);
+    const city = _resolveCityFromAddress(address, country, lat, lng);
+
+    return { country, city };
+  }
+
+  function _resolveCountryFromAddress(address) {
+    const candidates = [
+      address && address.country,
+      address && address.country_code,
+    ]
+      .map(_cleanAddressPart)
+      .filter(Boolean);
+
+    const country = candidates[0] || '';
+    if (_normalizeGeoLabel(country) === 'السعودية') {
+      return 'المملكة العربية السعودية';
+    }
+
+    return country;
+  }
+
+  function _looksLikeNeighborhoodLabel(value) {
+    const normalized = _normalizeGeoLabel(value);
+    return /^حي(?:\s|$)/.test(normalized) || /neighbou?rhood/.test(normalized);
+  }
+
+  function _isSaudiCountry(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return normalized.includes('السعودية') || normalized.includes('saudi');
+  }
+
+  function _resolveSaudiMajorCity(address, lat, lng) {
+    const tokens = [
+      address && address.city,
+      address && address.town,
+      address && address.municipality,
+      address && address.county,
+      address && address.state,
+      address && address.state_district,
+      address && address.region,
+      address && address.province,
+    ]
+      .map(_normalizeGeoLabel)
+      .filter(Boolean);
+
+    for (const cityConfig of _SAUDI_MAJOR_CITY_FALLBACKS) {
+      if (tokens.some((token) => cityConfig.aliases.some((alias) => token === alias || token.includes(alias)))) {
+        return cityConfig.name;
       }
     }
-    _updateRegionHint(loading ? 'جاري تحميل المناطق...' : 'اختر المنطقة أولًا.', loading ? null : null);
-    _updateCityHint('', '');
-    _setLocationCalloutText('', '');
+
+    const latValue = Number(lat);
+    const lngValue = Number(lng);
+    if (!Number.isFinite(latValue) || !Number.isFinite(lngValue)) {
+      return '';
+    }
+
+    for (const cityConfig of _SAUDI_MAJOR_CITY_FALLBACKS) {
+      const bounds = cityConfig.bounds;
+      if (latValue >= bounds.minLat && latValue <= bounds.maxLat && lngValue >= bounds.minLng && lngValue <= bounds.maxLng) {
+        return cityConfig.name;
+      }
+    }
+
+    return '';
   }
 
-  function _setLocationCalloutText(regionValue, cityValue) {
+  function _resolveCityFromAddress(address, countryValue, lat, lng) {
+    const countryToken = _normalizeGeoLabel(countryValue);
+    const candidates = [
+      address && address.city,
+      address && address.town,
+      address && address.municipality,
+      address && address.county,
+      address && address.village,
+      address && address.state_district,
+    ]
+      .map(_cleanAddressPart)
+      .filter(Boolean);
+
+    for (const candidate of candidates) {
+      if (_normalizeGeoLabel(candidate) !== countryToken && !_looksLikeNeighborhoodLabel(candidate)) {
+        return candidate;
+      }
+    }
+
+    if (_isSaudiCountry(countryValue)) {
+      return _resolveSaudiMajorCity(address, lat, lng);
+    }
+
+    return '';
+  }
+
+  function _applyResolvedLocation(location) {
+    const country = _cleanAddressPart(location && location.country);
+    const city = _cleanAddressPart(location && location.city);
+
+    _setLocationField('country', country);
+    _setLocationField('city', city);
+    _setCityInputManualMode(true);
+
+    if (country) {
+      _updateCountryHint('تم تعبئة الدولة من الموقع المحدد.', true);
+    } else {
+      _updateCountryHint('تعذر تحديد الدولة من هذه النقطة. جرّب نقطة أخرى.', false);
+    }
+
+    _updateCityHint(country, city);
+    _setLocationCalloutText(country, city, { state: country ? 'selected' : 'error' });
+    _setMapStatus(country ? 'تم تحديث الموقع بنجاح.' : 'تم تحديد النقطة، لكن تعذر استخراج الدولة.', country ? true : false);
+
+    if (country) _pulseElement(document.getElementById('signup-country-group'));
+    if (city) _pulseElement(document.getElementById('signup-city-group'));
+    _pulseElement(document.getElementById('signup-location-callout'), 'is-updated');
+    _pulseElement(document.getElementById('signup-map-panel'));
+  }
+
+  function _setMapStatus(message, state) {
+    const status = document.getElementById('signup-map-status');
+    if (!status) return;
+    status.textContent = message || '';
+    status.classList.remove('ok');
+    status.classList.remove('bad');
+    if (state === true) status.classList.add('ok');
+    if (state === false) status.classList.add('bad');
+  }
+
+  function _setLocationCalloutText(countryValue, cityValue, options = {}) {
     const text = document.getElementById('signup-location-callout-text');
     if (!text) return;
 
-    const region = _findRegion(regionValue);
-    if (!region) {
-      text.textContent = 'اختر المنطقة أولًا ثم المدينة.';
+    if (options.state === 'loading') {
+      text.textContent = 'جارٍ تحليل موقعك وتعبئة الدولة والمدينة تلقائيًا.';
+      return;
+    }
+
+    if (options.state === 'error') {
+      text.textContent = 'تعذر قراءة الموقع من النقطة المحددة. يمكنك تجاهله لأن الحقول اختيارية أو تجربة نقطة أخرى.';
+      return;
+    }
+
+    if (!countryValue) {
+      text.textContent = 'يمكنك المتابعة بدون موقع، أو تحديد نقطة من الخريطة لتعبئة الدولة والمدينة تلقائيًا.';
       return;
     }
 
     if (!cityValue) {
-      text.textContent = 'تم تحديد ' + region.label + '. اختر المدينة الآن.';
+      text.textContent = countryValue + ' — لم نعثر على مدينة دقيقة، أدخل المدينة يدويًا إذا كنت تعرفها.';
       return;
     }
 
-    text.textContent = region.label + ' - ' + cityValue;
+    text.textContent = countryValue + ' - ' + cityValue;
   }
 
-  function _updateRegionHint(message, state) {
-    _setHintState('region-hint', message, state);
+  function _updateCountryHint(message, state) {
+    _setHintState('country-hint', message, state);
   }
 
-  function _updateCityHint(regionValue, cityValue) {
-    if (!regionValue) {
-      _setHintState('city-hint', 'اختر المدينة.', null);
-      return;
-    }
-
-    const region = _findRegion(regionValue);
-    if (!region) {
-      _setHintState('city-hint', 'تعذر تحميل المدن.', false);
+  function _updateCityHint(countryValue, cityValue) {
+    if (!countryValue) {
+      _setHintState('city-hint', 'اختيارية. يمكنك تركها فارغة أو تعبئتها من الخريطة أو يدويًا عند الحاجة.', null);
       return;
     }
 
     if (cityValue) {
-      _setHintState('city-hint', 'تم تحديد المدينة.', true);
+      _setHintState('city-hint', 'تم تعبئة المدينة تلقائيًا من الموقع المحدد.', true);
       return;
     }
 
-    _setHintState('city-hint', 'اختر مدينة من ' + region.label + '.', null);
+    _setHintState('city-hint', 'لم نعثر على مدينة دقيقة لهذه النقطة. أدخل المدينة يدويًا إذا كنت تعرفها.', null);
+  }
+
+  function _buildLocationLabel(countryValue, cityValue) {
+    const country = String(countryValue || '').trim();
+    const city = String(cityValue || '').trim();
+    if (country && city) return country + ' - ' + city;
+    return country || city;
   }
 
   function _setHintState(id, message, state) {
@@ -429,8 +631,6 @@ const SignupPage = (() => {
     const lastName = _value('last-name').trim();
     const username = _value('username').trim();
     const email = _value('email').trim();
-    const region = _value('region').trim();
-    const city = _value('city').trim();
     const password = _value('password');
     const passwordConfirm = _value('password-confirm');
     const acceptTerms = _checked('accept-terms');
@@ -440,14 +640,6 @@ const SignupPage = (() => {
     if (!lastName) valid = _setError('last-name', 'الاسم الأخير مطلوب') && false;
     if (!username) valid = _setError('username', 'اسم المستخدم مطلوب') && false;
     if (!email) valid = _setError('email', 'البريد الإلكتروني مطلوب') && false;
-    if (!region) valid = _setError('region', 'المنطقة الإدارية مطلوبة') && false;
-    if (!city) valid = _setError('city', 'المدينة مطلوبة') && false;
-    if (region && city) {
-      const selectedRegion = _findRegion(region);
-      if (!selectedRegion || !selectedRegion.cities.includes(city)) {
-        valid = _setError('city', 'المدينة المختارة لا تتبع المنطقة المحددة') && false;
-      }
-    }
     const passwordIssue = _passwordIssue(password);
     if (passwordIssue) valid = _setError('password', passwordIssue) && false;
     if (password !== passwordConfirm) valid = _setError('password-confirm', 'كلمة المرور وتأكيدها غير متطابقين') && false;
@@ -477,7 +669,11 @@ const SignupPage = (() => {
         last_name: _value('last-name').trim(),
         username: _value('username').trim(),
         email: _value('email').trim(),
+        country: _value('country').trim(),
         city: _value('city').trim(),
+        location_label: _buildLocationLabel(_value('country').trim(), _value('city').trim()),
+        lat: _value('signup-latitude').trim() || null,
+        lng: _value('signup-longitude').trim() || null,
         password: _value('password'),
         password_confirm: _value('password-confirm'),
         accept_terms: _checked('accept-terms'),
@@ -502,7 +698,11 @@ const SignupPage = (() => {
         last_name: 'last-name',
         username: 'username',
         email: 'email',
+        country: 'country',
         city: 'city',
+        location_label: 'country',
+        lat: 'country',
+        lng: 'country',
         password: 'password',
         password_confirm: 'password-confirm',
         accept_terms: 'accept-terms',
@@ -600,7 +800,7 @@ const SignupPage = (() => {
       'last-name': 'err-last-name',
       username: 'err-username',
       email: 'err-email',
-      region: 'err-region',
+      country: 'err-country',
       city: 'err-city',
       password: 'err-password',
       'password-confirm': 'err-password-confirm',
@@ -621,7 +821,7 @@ const SignupPage = (() => {
       'last-name': 'err-last-name',
       username: 'err-username',
       email: 'err-email',
-      region: 'err-region',
+      country: 'err-country',
       city: 'err-city',
       password: 'err-password',
       'password-confirm': 'err-password-confirm',
@@ -641,7 +841,7 @@ const SignupPage = (() => {
       'last-name',
       'username',
       'email',
-      'region',
+      'country',
       'city',
       'password',
       'password-confirm',

@@ -13,6 +13,7 @@ class FeaturedSpecialistModel {
   final bool isVerifiedGreen;
   final double ratingAvg;
   final int ratingCount;
+  final bool isOnline;
   final List<ExcellenceBadgeModel> excellenceBadges;
 
   const FeaturedSpecialistModel({
@@ -27,6 +28,7 @@ class FeaturedSpecialistModel {
     this.isVerifiedGreen = false,
     this.ratingAvg = 0,
     this.ratingCount = 0,
+    this.isOnline = false,
     this.excellenceBadges = const [],
   });
 
@@ -45,6 +47,7 @@ class FeaturedSpecialistModel {
       isVerifiedGreen: _parseBool(json['target_provider_is_verified_green']),
       ratingAvg: _parseDouble(json['target_provider_rating_avg']) ?? 0,
       ratingCount: _parseInt(json['target_provider_rating_count']) ?? 0,
+      isOnline: _parseBool(json['target_provider_is_online']),
       excellenceBadges: _parseExcellenceBadges(
         json['target_provider_excellence_badges'],
       ),

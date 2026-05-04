@@ -523,21 +523,6 @@ body.theme-dark.page-request-quote .success-title{ color:#EDE7F6; }
           </div>
 
           <div class="form-group rq-group">
-            <label id="rq-region-label" class="form-label rq-label" for="rq-region">المنطقة الإدارية</label>
-            <select class="form-select" id="rq-region">
-              <option id="rq-region-placeholder" value="">اختر المنطقة الإدارية</option>
-            </select>
-          </div>
-
-          <div class="form-group rq-group">
-            <label id="rq-city-label" class="form-label rq-label" for="rq-city">المدينة</label>
-            <select class="form-select" id="rq-city">
-              <option id="rq-city-placeholder" value="">اختر المنطقة أولًا ثم المدينة...</option>
-            </select>
-            <button type="button" id="rq-city-clear" class="city-clear-btn hidden">إلغاء المدينة (إرسال لجميع المدن)</button>
-          </div>
-
-          <div class="form-group rq-group">
             <label id="rq-deadline-label" class="form-label rq-label" for="rq-deadline">آخر موعد لاستلام العروض (اختياري)</label>
             <input type="date" class="form-input" id="rq-deadline" dir="ltr">
           </div>
@@ -632,7 +617,7 @@ body.theme-dark.page-request-quote .success-title{ color:#EDE7F6; }
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/requestQuotePage.js' %}?v=20260502-request-quote-i18n-stage1"></script>
+<script src="{% static 'mobile_web/js/requestQuotePage.js' %}?v=20260504-request-quote-remove-region-city"></script>
 <script>
   (function () {
     function syncRequestQuoteLanguage() {

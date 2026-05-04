@@ -569,6 +569,8 @@ const ChatDetailPage = (() => {
       avatar: _trim(thread.peer_image || thread.peer_profile_image),
       id: _toInt(thread.peer_id),
       providerId: _toInt(thread.peer_provider_id),
+      isOnline: !!thread.peer_is_online,
+      lastSeen: _trim(thread.peer_last_seen),
     };
 
     if (typeof thread.is_favorite === 'boolean') state.threadState.is_favorite = thread.is_favorite;
@@ -779,9 +781,13 @@ const ChatDetailPage = (() => {
     dom.peerAvatar.innerHTML = '';
     if (state.peer.avatar) {
       dom.peerAvatar.appendChild(UI.lazyImg(ApiClient.mediaUrl(state.peer.avatar), state.peer.name || ''));
-      return;
+    } else {
+      dom.peerAvatar.textContent = (state.peer.name || _copy('unknownUser')).trim().charAt(0) || _copy('unknownUser').charAt(0);
     }
-    dom.peerAvatar.textContent = (state.peer.name || _copy('unknownUser')).trim().charAt(0) || _copy('unknownUser').charAt(0);
+    // Presence dot – providers only.
+    if (state.peer.kind === 'provider') {
+      dom.peerAvatar.appendChild(UI.presenceDot(!!state.peer.isOnline, { size: 'lg' }));
+    }
   }
 
   function _isChatWithClient() {
@@ -1205,6 +1211,7 @@ const ChatDetailPage = (() => {
         '/service-request': _copy('serviceRequestPage'),
         '/provider-orders': _copy('providerOrdersPage'),
         '/provider': _copy('providerPage'),
+        '/provider-profile-edit': _copy('profileCompletionPage'),
         '/profile-completion': _copy('profileCompletionPage'),
         '/subscription': _copy('subscriptionPage'),
         '/chats': _copy('chatsPage'),

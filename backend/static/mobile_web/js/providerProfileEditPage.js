@@ -1,4 +1,5 @@
 "use strict";
+/* global L */
 var ProviderProfileEditPage = (function () {
   var RAW_API = window.ApiClient;
   var API = window.NwApiClient;
@@ -47,6 +48,13 @@ var ProviderProfileEditPage = (function () {
   var profile = null;
   var userProfile = null;
   var myServices = [];
+  var providerProfileRaw = null;
+  var sectionCompletionState = { percent: 30, checks: {} };
+  var categoryCatalog = [];
+  var providerSubcategoryIds = [];
+  var providerSelectedSubcategories = [];
+  var providerSubcategorySettingsById = {};
+  var categoryGroupSequence = 0;
   var initialTab = null;
   var initialFocus = null;
   var initialSection = null;
@@ -54,7 +62,27 @@ var ProviderProfileEditPage = (function () {
   var serviceMapMarker = null;
   var serviceMapCircle = null;
   var serviceLocationDraft = { lat: null, lng: null };
+  var profileLocationMap = null;
+  var profileLocationMarker = null;
+  var profileLocationDraft = { lat: null, lng: null };
+  var profileLocationRequestId = 0;
   var serviceRadiusDraft = 0;
+  var pendingPhoneOtp = { phone: "", active: false };
+  var portfolioItems = [];
+  var SAUDI_MAJOR_CITY_FALLBACKS = [
+    { name: "الرياض", aliases: ["الرياض", "riyadh"], bounds: { minLat: 24.20, maxLat: 25.20, minLng: 46.20, maxLng: 47.30 } },
+    { name: "جدة", aliases: ["جدة", "jeddah"], bounds: { minLat: 21.20, maxLat: 21.90, minLng: 38.90, maxLng: 39.50 } },
+    { name: "مكة المكرمة", aliases: ["مكة", "مكة المكرمة", "mecca", "makkah"], bounds: { minLat: 21.20, maxLat: 21.70, minLng: 39.50, maxLng: 40.10 } },
+    { name: "المدينة المنورة", aliases: ["المدينة", "المدينة المنورة", "medina", "madinah"], bounds: { minLat: 24.20, maxLat: 24.80, minLng: 39.30, maxLng: 39.90 } },
+    { name: "الدمام", aliases: ["الدمام", "dammam"], bounds: { minLat: 26.20, maxLat: 26.60, minLng: 49.90, maxLng: 50.30 } },
+    { name: "الخبر", aliases: ["الخبر", "khobar", "alkhobar"], bounds: { minLat: 26.20, maxLat: 26.40, minLng: 50.10, maxLng: 50.35 } },
+    { name: "الطائف", aliases: ["الطائف", "taif"], bounds: { minLat: 21.10, maxLat: 21.50, minLng: 40.20, maxLng: 40.70 } },
+    { name: "أبها", aliases: ["أبها", "ابها", "abha"], bounds: { minLat: 18.10, maxLat: 18.40, minLng: 42.30, maxLng: 42.70 } },
+    { name: "تبوك", aliases: ["تبوك", "tabuk"], bounds: { minLat: 28.20, maxLat: 28.60, minLng: 36.30, maxLng: 36.80 } },
+    { name: "بريدة", aliases: ["بريدة", "buraydah", "buraidah"], bounds: { minLat: 26.20, maxLat: 26.50, minLng: 43.80, maxLng: 44.20 } },
+    { name: "حائل", aliases: ["حائل", "hail", "ha'il"], bounds: { minLat: 27.40, maxLat: 27.70, minLng: 41.50, maxLng: 42.00 } },
+    { name: "جازان", aliases: ["جازان", "جيزان", "jazan", "jizan"], bounds: { minLat: 16.70, maxLat: 17.20, minLng: 42.40, maxLng: 43.00 } }
+  ];
 
   var SECTION_TITLES = {
     basic: "البيانات الأساسية",
@@ -62,7 +90,8 @@ var ProviderProfileEditPage = (function () {
     additional: "معلومات إضافية",
     contact_full: "معلومات التواصل",
     lang_loc: "اللغة ونطاق الخدمة",
-    seo: "تحسين الظهور في البحث"
+    content: "محتوى أعمالك",
+    seo: "SEO والكلمات المفتاحية"
   };
 
   var SECTION_CONFIG = {
@@ -71,42 +100,49 @@ var ProviderProfileEditPage = (function () {
       kicker: "تمت تعبئتها أثناء التسجيل الأولي",
       fields: ["fullName", "accountType", "mobilePhone", "about", "location", "accountEmail"],
       heading: "معلومات الحساب الأساسية",
-      intro: "عدّل معلومات الحساب الأساسية من مكان واحد: الاسم، الصفة، رقم الجوال، النبذة، المدينة، والبريد الإلكتروني."
+      intro: "عدّل معلومات الحساب الأساسية من مكان واحد: الاسم، الصفة، رقم الجوال، النبذة، الموقع، والبريد الإلكتروني."
     },
     service_details: {
-      tab: "account",
-      fields: ["fullName", "about", "specialization"],
-      kicker: "الانطباع الأول عن خدمتك",
+      tab: "general",
+      fields: ["serviceCategories"],
+      kicker: "قلب ملفك المهني",
       heading: "تفاصيل الخدمة",
-      intro: "حدّث الاسم الظاهر والنبذة المختصرة والوصف المساند حتى تكون خدمتك واضحة للعميل من أول نظرة."
+      intro: "أدر الأقسام الرئيسية والتصنيفات الفرعية من مكان واحد، وفعّل استقبال الطلبات العاجلة فقط للتخصصات التي تريدها بدقة."
     },
     additional: {
       tab: "extra",
-      fields: ["details", "qualification", "experiences"],
+      fields: ["additionalOverview", "details", "qualification", "experiences"],
       kicker: "وسّع عرض خبرتك",
       heading: "معلومات إضافية",
       intro: "أضف التفاصيل الموسعة والمؤهلات والخبرات العملية حتى يرى العميل قيمة خبرتك بوضوح."
     },
     contact_full: {
       tab: "extra",
-      fields: ["phone", "website", "xUrl", "snapchatUrl", "instagramUrl", "facebookUrl", "tiktokUrl", "contactEmail"],
+      fields: ["phone", "website", "linkedinUrl", "facebookUrl", "youtubeUrl", "instagramUrl", "xUrl", "snapchatUrl", "pinterestUrl", "tiktokUrl", "behanceUrl", "contactEmail", "additionalLinks"],
       kicker: "قنوات الوصول إليك",
       heading: "معلومات التواصل",
       intro: "أكمل وسائل التواصل والروابط التي تساعد العميل على الوصول إليك بسرعة وبصورة مباشرة."
     },
     lang_loc: {
       tab: "general",
-      fields: ["languages", "location", "serviceLocation", "coverageRadius"],
+      fields: ["languages", "serviceLocation", "coverageRadius"],
       kicker: "التغطية اللغوية والجغرافية",
       heading: "اللغة ونطاق الخدمة",
       intro: "حدد اللغات التي تعمل بها والمنطقة التي تغطيها حتى تظهر خدمتك للعملاء المناسبين في المواقع الصحيحة."
+    },
+    content: {
+      tab: "account",
+      mode: "summary",
+      kicker: "الصور والمحتوى الظاهر",
+      heading: "محتوى أعمالك",
+      intro: "راجع ما يظهر حاليًا من صور ومحتوى داخل ملفك العام دون مغادرة صفحة التعديل."
     },
     seo: {
       tab: "extra",
       fields: ["seoPreview", "seoTitle", "seoMetaDescription", "seoSlug", "keywords"],
       kicker: "جاهزية الصفحة للفهرسة",
-      heading: "تحسين الظهور في البحث",
-      intro: "اضبط عنوان الصفحة والوصف والرابط المخصص والكلمات المفتاحية، ثم راجع المعاينة قبل الحفظ حتى تظهر صفحتك بصورة احترافية في محركات البحث والمشاركة."
+      heading: "SEO والكلمات المفتاحية",
+      intro: "عرّف محركات البحث بنوعية خدمتك عبر العنوان والوصف والرابط المخصص والكلمات المفتاحية، ثم راجع المعاينة قبل الحفظ."
     }
   };
 
@@ -131,6 +167,60 @@ var ProviderProfileEditPage = (function () {
     return currentLang() === 'en' ? 'Excellence Badge' : 'شارة تميز';
   }
 
+  function hasTextValue(value) {
+    return typeof value === "string" && value.trim().length > 0;
+  }
+
+  function hasNonEmptyListValue(value) {
+    if (!Array.isArray(value) || !value.length) return false;
+    return value.some(function (item) {
+      if (item == null) return false;
+      if (typeof item === "string") return item.trim().length > 0;
+      if (Array.isArray(item)) return item.length > 0;
+      if (typeof item === "object") return Object.keys(item).length > 0;
+      return true;
+    });
+  }
+
+  function toSectionPercent(completion) {
+    return Math.max(0, Math.min(100, Math.round(completion * 100)));
+  }
+
+  function resolveSectionChecks() {
+    var raw = providerProfileRaw || {};
+    var socialValues = SOCIAL_FIELD_KEYS.map(function (fieldKey) {
+      return profile && profile[fieldKey];
+    }).filter(function (item) {
+      return hasTextValue(item);
+    });
+    var socialExtras = Array.isArray(profile && profile.socialExtras) ? profile.socialExtras.filter(Boolean) : [];
+    return {
+      basic: true,
+      service_details: providerSubcategoryIds.length > 0,
+      additional: hasTextValue(profile && (profile.details || profile.specialization)) || hasTextValue(profile && profile.qualification) || hasTextValue(profile && profile.experiences),
+      contact_full: hasTextValue(profile && profile.phone) || hasTextValue(profile && profile.website) || socialValues.length > 0 || socialExtras.length > 0,
+      lang_loc: hasTextValue(profile && profile.languages) && Number(profile && profile.coverageRadius || 0) > 0,
+      content: portfolioItems.length > 0 || hasTextValue(raw.profile_image) || hasTextValue(raw.cover_image) || hasNonEmptyListValue(raw.content_sections),
+      seo: hasTextValue(profile && profile.keywords) || hasTextValue(profile && profile.seoMetaDescription) || hasTextValue(profile && profile.seoSlug)
+    };
+  }
+
+  function computeSectionCompletionState() {
+    var checks = resolveSectionChecks();
+    var doneOptional = [checks.service_details, checks.additional, checks.contact_full, checks.lang_loc, checks.content, checks.seo].filter(Boolean).length;
+    sectionCompletionState = {
+      checks: checks,
+      percent: toSectionPercent(0.30 + (doneOptional * (0.70 / 6)))
+    };
+  }
+
+  function sectionCheckSvg(done) {
+    if (done) {
+      return '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#4CAF50"/><path d="M9.1 12.3l2 2 4-4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
+    return '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#c7c7cd" stroke-width="2"/></svg>';
+  }
+
   function badgeCongratsText(badge, issuedOn) {
     var resolvedName = badgeName(badge) || (currentLang() === 'en' ? 'Excellence' : 'التميز');
     if (currentLang() === 'en') {
@@ -144,19 +234,19 @@ var ProviderProfileEditPage = (function () {
   }
 
   var SECTION_LINKS = [
-    { key: "basic", label: "البيانات الأساسية", href: "/provider-profile-edit/?tab=account&focus=fullName&section=basic" },
-    { key: "service_details", label: "تفاصيل الخدمة", href: "/provider-profile-edit/?tab=account&focus=about&section=service_details" },
-    { key: "additional", label: "معلومات إضافية", href: "/provider-profile-edit/?tab=extra&focus=details&section=additional" },
-    { key: "contact_full", label: "معلومات التواصل", href: "/provider-profile-edit/?tab=extra&focus=phone&section=contact_full" },
-    { key: "lang_loc", label: "اللغة ونطاق الخدمة", href: "/provider-profile-edit/?tab=general&focus=coverageRadius&section=lang_loc" },
-    { key: "content", label: "محتوى أعمالك", href: "/provider-portfolio/?from=profile-completion&section=content" },
-    { key: "seo", label: "تحسين الظهور في البحث", href: "/provider-profile-edit/?tab=extra&focus=seoTitle&section=seo" }
+    { key: "basic", label: "البيانات الأساسية", summary: "الاسم، صفة الحساب، نبذة", icon: "person", tone: "violet", href: "/provider-profile-edit/?tab=account&focus=fullName&section=basic" },
+    { key: "service_details", label: "تفاصيل الخدمة", summary: "الأقسام الرئيسية، الفرعية، والعاجل", icon: "work", tone: "indigo", href: "/provider-profile-edit/?tab=general&focus=serviceCategories&section=service_details" },
+    { key: "additional", label: "معلومات إضافية", summary: "تفاصيل موسّعة عن خدماتك ومؤهلاتك", icon: "notes", tone: "teal", href: "/provider-profile-edit/?tab=extra&focus=details&section=additional" },
+    { key: "contact_full", label: "معلومات التواصل", summary: "روابط التواصل الاجتماعي، واتساب، موقع", icon: "phone", tone: "blue", href: "/provider-profile-edit/?tab=extra&focus=phone&section=contact_full" },
+    { key: "lang_loc", label: "اللغة ونطاق الخدمة", summary: "اللغات التي تجيدها ونطاق تقديم خدماتك", icon: "language", tone: "mint", href: "/provider-profile-edit/?tab=general&focus=coverageRadius&section=lang_loc" },
+    { key: "content", label: "محتوى أعمالك", summary: "راجع الصور وأقسام المحتوى داخل نفس الصفحة", icon: "image", tone: "rose", href: "/provider-profile-edit/?section=content" },
+    { key: "seo", label: "SEO والكلمات المفتاحية", summary: "تعريف محركات البحث بنوعية خدمتك", icon: "search", tone: "slate", href: "/provider-profile-edit/?tab=extra&focus=seoTitle&section=seo" }
   ];
 
   var TAB_META = {
     account: {
       label: "معلومات الحساب",
-      summary: "حدّث اسم الحساب، صفته، رقم الجوال، النبذة، المدينة، والبريد الإلكتروني من نفس الواجهة."
+      summary: "حدّث اسم الحساب، صفته، رقم الجوال، النبذة، الموقع، والبريد الإلكتروني من نفس الواجهة."
     },
     general: {
       label: "معلومات عامة",
@@ -186,27 +276,31 @@ var ProviderProfileEditPage = (function () {
   var SECTION_META = {
     basic: {
       label: "البيانات الأساسية",
-      summary: "حرّر معلومات الحساب الأساسية كاملة مع ربط مباشر ببيانات الحساب وملف مقدم الخدمة."
+      summary: "الاسم، صفة الحساب، نبذة"
     },
     service_details: {
       label: "تفاصيل الخدمة",
-      summary: "اضبط المعلومات التي تكوّن الانطباع الأول عن خدمتك أمام العميل داخل الصفحة."
+      summary: "الأقسام الرئيسية والتصنيفات الفرعية مع تفعيل الطلب العاجل لكل تخصص"
     },
     additional: {
       label: "معلومات إضافية",
-      summary: "أضف التفاصيل الموسعة التي تدعم قرار العميل وتوضح تخصصك بصورة أدق."
+      summary: "تفاصيل موسّعة عن خدماتك ومؤهلاتك"
     },
     contact_full: {
       label: "معلومات التواصل",
-      summary: "حدّث وسائل التواصل والروابط التي تساعد العميل على الوصول إليك بسرعة."
+      summary: "روابط التواصل الاجتماعي، واتساب، موقع"
     },
     lang_loc: {
       label: "اللغة ونطاق الخدمة",
-      summary: "راجع اللغات، المدينة، ونطاق التغطية حتى تكون خدمتك واضحة جغرافيًا."
+      summary: "اللغات التي تجيدها ونطاق تقديم خدماتك"
+    },
+    content: {
+      label: "محتوى أعمالك",
+      summary: "الصور وأقسام المحتوى الظاهرة حاليًا في ملفك"
     },
     seo: {
-      label: "تحسين الظهور في البحث",
-      summary: "حرّر عنوان الصفحة والوصف والرابط المخصص والكلمات المفتاحية مع معاينة فورية قبل الحفظ."
+      label: "SEO والكلمات المفتاحية",
+      summary: "تعريف محركات البحث بنوعية خدمتك"
     }
   };
 
@@ -217,30 +311,36 @@ var ProviderProfileEditPage = (function () {
     serviceLocation: "coordinates",
     latitude: "lat", longitude: "lng", details: "about_details",
     qualification: "qualifications", experiences: "experiences", website: "website", social: "social_links",
-    xUrl: "social_links", snapchatUrl: "social_links", instagramUrl: "social_links",
-    facebookUrl: "social_links", tiktokUrl: "social_links", contactEmail: "social_links",
+    linkedinUrl: "social_links", facebookUrl: "social_links", youtubeUrl: "social_links",
+    instagramUrl: "social_links", xUrl: "social_links", snapchatUrl: "social_links",
+    pinterestUrl: "social_links", tiktokUrl: "social_links", behanceUrl: "social_links",
+    contactEmail: "social_links", additionalLinks: "social_links",
     phone: "whatsapp", mobilePhone: "phone", accountEmail: "email", seoTitle: "seo_title", keywords: "seo_keywords", seoMetaDescription: "seo_meta_description", seoSlug: "seo_slug"
   };
 
   var TYPE_LABELS = { individual: "فرد", company: "منشأة", freelancer: "فرد" };
 
   var SOCIAL_FIELDS = [
-    { key: "xUrl", platform: "x", label: "منصة X", icon: "x", hint: "أدخل رابط الحساب أو اسم المستخدم على منصة X.", inputType: "url", inputMode: "url", placeholder: "https://x.com/username", dir: "ltr", autocomplete: "url" },
-    { key: "snapchatUrl", platform: "snapchat", label: "منصة سناب شات", icon: "snapchat", hint: "أدخل رابط الحساب أو اسم المستخدم على سناب شات.", inputType: "url", inputMode: "url", placeholder: "https://snapchat.com/add/username", dir: "ltr", autocomplete: "url" },
-    { key: "instagramUrl", platform: "instagram", label: "منصة انستقرام", icon: "instagram", hint: "أدخل رابط الحساب أو اسم المستخدم على انستقرام.", inputType: "url", inputMode: "url", placeholder: "https://instagram.com/username", dir: "ltr", autocomplete: "url" },
+    { key: "linkedinUrl", platform: "linkedin", label: "لينكدإن", icon: "linkedin", hint: "أدخل رابط الحساب أو اسم المستخدم على لينكدإن.", inputType: "url", inputMode: "url", placeholder: "https://www.linkedin.com/in/username", dir: "ltr", autocomplete: "url" },
     { key: "facebookUrl", platform: "facebook", label: "منصة فيس بوك", icon: "facebook", hint: "أدخل رابط الصفحة أو اسم المستخدم على فيس بوك.", inputType: "url", inputMode: "url", placeholder: "https://facebook.com/username", dir: "ltr", autocomplete: "url" },
+    { key: "youtubeUrl", platform: "youtube", label: "يوتيوب", icon: "youtube", hint: "أدخل رابط القناة أو اسم المستخدم على يوتيوب.", inputType: "url", inputMode: "url", placeholder: "https://www.youtube.com/@channel", dir: "ltr", autocomplete: "url" },
+    { key: "instagramUrl", platform: "instagram", label: "انستقرام", icon: "instagram", hint: "أدخل رابط الحساب أو اسم المستخدم على انستقرام.", inputType: "url", inputMode: "url", placeholder: "https://instagram.com/username", dir: "ltr", autocomplete: "url" },
+    { key: "xUrl", platform: "x", label: "منصة X", icon: "x", hint: "أدخل رابط الحساب أو اسم المستخدم على منصة X.", inputType: "url", inputMode: "url", placeholder: "https://x.com/username", dir: "ltr", autocomplete: "url" },
+    { key: "snapchatUrl", platform: "snapchat", label: "سناب شات", icon: "snapchat", hint: "أدخل رابط الحساب أو اسم المستخدم على سناب شات.", inputType: "url", inputMode: "url", placeholder: "https://snapchat.com/add/username", dir: "ltr", autocomplete: "url" },
+    { key: "pinterestUrl", platform: "pinterest", label: "بنترست", icon: "pinterest", hint: "أدخل رابط الحساب أو اسم المستخدم على بنترست.", inputType: "url", inputMode: "url", placeholder: "https://www.pinterest.com/username", dir: "ltr", autocomplete: "url" },
     { key: "tiktokUrl", platform: "tiktok", label: "منصة تيك توك", icon: "tiktok", hint: "أدخل رابط الحساب أو اسم المستخدم على تيك توك.", inputType: "url", inputMode: "url", placeholder: "https://tiktok.com/@username", dir: "ltr", autocomplete: "url" },
-    { key: "contactEmail", platform: "email", label: "البريد الإلكتروني", icon: "email", hint: "بريد التواصل المباشر الذي ترغب بإظهاره للعملاء.", inputType: "email", inputMode: "email", placeholder: "name@example.com", dir: "ltr", autocomplete: "email" }
+    { key: "behanceUrl", platform: "behance", label: "بيهانس", icon: "behance", hint: "أدخل رابط الحساب أو اسم المستخدم على بيهانس.", inputType: "url", inputMode: "url", placeholder: "https://www.behance.net/username", dir: "ltr", autocomplete: "url" },
+    { key: "contactEmail", platform: "email", label: "بريد التواصل", icon: "email", hint: "بريد التواصل الذي ترغب بإظهاره للعملاء داخل الملف العام.", inputType: "email", inputMode: "email", placeholder: "name@example.com", dir: "ltr", autocomplete: "email" }
   ];
   var SOCIAL_FIELD_KEYS = SOCIAL_FIELDS.map(function (field) { return field.key; });
-  var SOCIAL_FIELD_PLATFORMS = {
-    xUrl: "x",
-    snapchatUrl: "snapchat",
-    instagramUrl: "instagram",
-    facebookUrl: "facebook",
-    tiktokUrl: "tiktok",
-    contactEmail: "email"
-  };
+  var SOCIAL_FIELD_PLATFORMS = SOCIAL_FIELDS.reduce(function (map, field) {
+    map[field.key] = field.platform;
+    return map;
+  }, {});
+  var SOCIAL_PLATFORM_LABELS = SOCIAL_FIELDS.reduce(function (map, field) {
+    map[field.platform] = field.label;
+    return map;
+  }, {});
 
   var TABS = {
     account: [
@@ -249,36 +349,34 @@ var ProviderProfileEditPage = (function () {
         { value: "individual", label: "فرد" },
         { value: "company", label: "منشأة" }
       ] },
-      { key: "mobilePhone", label: "رقم الجوال", icon: "phone", hint: "رقم الجوال المرتبط بتسجيل الدخول. لتغييره اذهب إلى إعدادات الحساب.", readOnly: true },
+      { key: "mobilePhone", label: "رقم الجوال", icon: "phone", hint: "رقم الجوال الأساسي المرتبط بحسابك ويمكن تحديثه من هنا بعد التحقق برمز OTP." },
       { key: "about", label: "نبذة عنك", icon: "info", hint: "تعريف مختصر بك أو بجهتك كما يراه العميل.", multiline: true, wide: true },
-      { key: "location", label: "المنطقة الإدارية - المدينة", icon: "location", hint: "اختر المنطقة الإدارية ثم المدينة الأساسية التي تعمل منها.", isCity: true },
-      { key: "accountEmail", label: "البريد الإلكتروني", icon: "email", hint: "البريد الإلكتروني الأساسي المرتبط بحسابك.", inputType: "email", inputMode: "email", placeholder: "name@example.com", dir: "ltr", autocomplete: "email" }
+      { key: "location", label: "الدولة - المدينة", icon: "location", hint: "حدّد النقطة على الخريطة وسنعبئ الدولة والمدينة تلقائيًا، مع إمكانية تعديل المدينة يدويًا قبل الحفظ.", isCity: true, wide: true },
+      { key: "accountEmail", label: "البريد الإلكتروني", icon: "email", hint: "البريد الإلكتروني الأساسي المرتبط بحسابك ويمكن تحديثه من هنا.", inputType: "email", inputMode: "email", placeholder: "name@example.com", dir: "ltr", autocomplete: "email" }
     ],
     general: [
       { key: "experience", label: "سنوات الخبرة", icon: "work", hint: "أدخل رقمًا تقريبيًا يوضح خبرتك في المجال." },
+      { key: "serviceCategories", label: "الأقسام والتصنيفات الفرعية", icon: "category", hint: "اختر قسمًا رئيسيًا واحدًا في كل بطاقة، ويمكنك اختيار أكثر من تصنيف فرعي داخل كل قسم مع تفعيل الطلب العاجل من أيقونة البرق بجانبه.", categoryPickerField: true, wide: true },
       { key: "languages", label: "لغات التواصل", icon: "language", hint: "اختر اللغات التي تتواصل بها مع العملاء.", languageField: true, wide: true },
       { key: "specialization", label: "تفاصيل إضافية", icon: "category", hint: "أضف وصفًا أوسع عن مجالك أو طريقة عملك.", multiline: true, wide: true },
       { key: "serviceLocation", label: "الموقع", icon: "map_pin", hint: "اضغط على الخريطة أو اسحب المؤشر لتحديد موقعك الدقيق داخل المدينة المختارة.", mapField: true, wide: true },
       { key: "coverageRadius", label: "نطاق الخدمة", icon: "radius", hint: "اختر نصف قطر التغطية بالكيلومتر وسيظهر كنطاق دائري حول موقعك.", radiusField: true, wide: true, inputType: "number", inputMode: "numeric", min: "0", step: "1", placeholder: "مثال: 2" }
     ],
     extra: [
+      { key: "additionalOverview", label: "ملخص القسم", icon: "notes", readOnly: true, wide: true, additionalOverviewField: true },
       { key: "details", label: "شرح تفصيلي", icon: "notes", hint: "قدّم وصفًا أوسع للخدمات أو أسلوب العمل أو التخصص.", multiline: true, wide: true },
       { key: "qualification", label: "المؤهلات", icon: "school", hint: "افصل بين المؤهلات بفاصلة عند إدخال أكثر من عنصر.", wide: true },
       { key: "experiences", label: "الخبرات العملية", icon: "work", hint: "أضف خبراتك أو المشاريع المنجزة، ويفضل كتابة كل عنصر في سطر مستقل.", multiline: true, wide: true },
-      { key: "website", label: "الموقع الإلكتروني", icon: "link", hint: "أدخل الرابط الكامل إذا كان لديك موقع أو صفحة تعريفية." },
-      { key: "xUrl", platform: "x", label: "منصة X", icon: "x", hint: "أدخل رابط الحساب أو اسم المستخدم على منصة X.", inputType: "url", inputMode: "url", placeholder: "https://x.com/username", dir: "ltr", autocomplete: "url" },
-      { key: "snapchatUrl", platform: "snapchat", label: "منصة سناب شات", icon: "snapchat", hint: "أدخل رابط الحساب أو اسم المستخدم على سناب شات.", inputType: "url", inputMode: "url", placeholder: "https://snapchat.com/add/username", dir: "ltr", autocomplete: "url" },
-      { key: "instagramUrl", platform: "instagram", label: "منصة انستقرام", icon: "instagram", hint: "أدخل رابط الحساب أو اسم المستخدم على انستقرام.", inputType: "url", inputMode: "url", placeholder: "https://instagram.com/username", dir: "ltr", autocomplete: "url" },
-      { key: "facebookUrl", platform: "facebook", label: "منصة فيس بوك", icon: "facebook", hint: "أدخل رابط الصفحة أو اسم المستخدم على فيس بوك.", inputType: "url", inputMode: "url", placeholder: "https://facebook.com/username", dir: "ltr", autocomplete: "url" },
-      { key: "tiktokUrl", platform: "tiktok", label: "منصة تيك توك", icon: "tiktok", hint: "أدخل رابط الحساب أو اسم المستخدم على تيك توك.", inputType: "url", inputMode: "url", placeholder: "https://tiktok.com/@username", dir: "ltr", autocomplete: "url" },
-      { key: "contactEmail", platform: "email", label: "بريد التواصل", icon: "email", hint: "بريد التواصل الذي ترغب بإظهاره للعملاء داخل الملف العام.", inputType: "email", inputMode: "email", placeholder: "name@example.com", dir: "ltr", autocomplete: "email" },
+      { key: "website", label: "الموقع الإلكتروني", icon: "link", hint: "أدخل الرابط الكامل إذا كان لديك موقع أو صفحة تعريفية.", inputType: "url", inputMode: "url", placeholder: "https://example.com", dir: "ltr", autocomplete: "url" },
+    ].concat(SOCIAL_FIELDS).concat([
+      { key: "additionalLinks", label: "روابط إضافية", icon: "share", hint: "أضف روابط أخرى لمواقع أو منصات غير موجودة ضمن الحقول الثابتة، ويمكنك كتابة اسم مخصص لكل رابط.", wide: true, additionalLinksField: true },
       { key: "phone", label: "واتساب التواصل", icon: "phone", hint: "رقم واتساب الذي ترغب بإظهاره للعملاء داخل الملف العام.", inputType: "tel", inputMode: "numeric", maxLength: "10", placeholder: "05XXXXXXXX" },
       { key: "seoPreview", label: "معاينة النتيجة", icon: "search", readOnly: true, wide: true, seoPreviewField: true },
       { key: "seoTitle", label: "عنوان SEO", icon: "headline", hint: "العنوان الذي سيظهر في نتائج البحث وعند مشاركة الصفحة. يفضّل أن يكون واضحًا ومباشرًا.", wide: true, inputType: "text", maxLength: "160", placeholder: "مثال: مصمم واجهات وتجارب رقمية في الرياض", seoMetric: "title" },
       { key: "seoMetaDescription", label: "وصف الصفحة (Meta Description)", icon: "notes", hint: "وصف مختصر يشرح طبيعة الخدمة ويزيد من قابلية النقر من نتائج البحث.", multiline: true, wide: true, maxLength: "320", placeholder: "مثال: أقدّم تصميم واجهات وتجارب رقمية للمتاجر والمواقع مع تركيز على السرعة والتحويل.", seoMetric: "description" },
       { key: "seoSlug", label: "الرابط المخصص", icon: "link", hint: "جزء الرابط الذي يسهّل قراءة الصفحة. استخدم كلمات قصيرة وواضحة.", dir: "ltr", autocomplete: "off", maxLength: "150", placeholder: "designer-riyadh", seoMetric: "slug" },
       { key: "keywords", label: "الكلمات المفتاحية", icon: "label", hint: "اكتب كلمات أو عبارات قصيرة تفصل بينها فاصلة أو سطر جديد، مثل: تصميم واجهات، تجربة مستخدم، مواقع أعمال.", multiline: true, wide: true, maxLength: "500", placeholder: "تصميم واجهات، تجربة مستخدم، مواقع أعمال", seoMetric: "keywords" }
-    ]
+    ])
   };
   var FIELD_CONFIG = {};
   Object.keys(TABS).forEach(function (tabName) {
@@ -358,6 +456,202 @@ var ProviderProfileEditPage = (function () {
       .split(/\n|،|,/)
       .map(function (part) { return part.trim(); })
       .filter(Boolean);
+  }
+
+  function additionalEntries(value) {
+    return uniqueNonEmpty(splitEntries(value));
+  }
+
+  function countWords(value) {
+    var text = String(value || "").trim();
+    return text ? text.split(/\s+/).filter(Boolean).length : 0;
+  }
+
+  function additionalOverviewState() {
+    var detailsText = String(profile && profile.details || "").trim();
+    var qualifications = additionalEntries(profile && profile.qualification);
+    var experiences = additionalEntries(profile && profile.experiences);
+    return {
+      detailsText: detailsText,
+      detailsWords: countWords(detailsText),
+      qualificationCount: qualifications.length,
+      experienceCount: experiences.length,
+      qualifications: qualifications,
+      experiences: experiences
+    };
+  }
+
+  function additionalOverviewStatus(count, singularLabel, pluralLabel) {
+    if (!count) {
+      return {
+        tone: "empty",
+        metric: "غير مكتمل",
+        description: "لم تتم إضافة " + singularLabel + " بعد."
+      };
+    }
+    return {
+      tone: "ready",
+      metric: count + " " + (count === 1 ? singularLabel : pluralLabel),
+      description: "تمت إضافة " + (count === 1 ? singularLabel : pluralLabel) + " ويمكنك مراجعتها أو تطويرها أدناه."
+    };
+  }
+
+  function renderAdditionalTags(items, tone) {
+    if (!items.length) return '<span class="pe-empty-value">لم تتم إضافة عناصر بعد</span>';
+    return items.map(function (item) {
+      return '<span class="pe-additional-tag pe-additional-tag--' + escapeHtml(tone) + '">' + escapeHtml(item) + '</span>';
+    }).join('');
+  }
+
+  function renderAdditionalList(items, emptyText) {
+    if (!items.length) return '<span class="pe-empty-value">' + escapeHtml(emptyText) + '</span>';
+    return '<div class="pe-additional-list">' + items.map(function (item, index) {
+      return '<div class="pe-additional-list-item"><span class="pe-additional-list-index">' + String(index + 1) + '</span><span class="pe-additional-list-copy">' + escapeHtml(item) + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function renderAdditionalOverviewBody() {
+    var state = additionalOverviewState();
+    var storyStatus = state.detailsWords > 0
+      ? {
+          tone: "ready",
+          metric: state.detailsWords + " كلمة",
+          description: "تمت إضافة نبذة موسعة ويمكنك تحسين الصياغة أو تعميق التفاصيل من البطاقة التالية."
+        }
+      : {
+          tone: "empty",
+          metric: "غير مكتمل",
+          description: "أضف شرحًا يوضح أسلوبك وقيمة خدمتك قبل أن يراه العميل."
+        };
+    var qualificationStatus = additionalOverviewStatus(state.qualificationCount, "مؤهل", "مؤهلات");
+    var experienceStatus = additionalOverviewStatus(state.experienceCount, "خبرة", "خبرات");
+    return '<div class="pe-additional-overview-grid">' +
+      '<section class="pe-additional-overview-card pe-additional-overview-card--story">' +
+        '<div class="pe-additional-overview-head"><strong>الشرح التفصيلي</strong><span class="pe-additional-overview-metric is-' + storyStatus.tone + '">' + storyStatus.metric + '</span></div>' +
+        '<p>هذا الحقل يشرح للعميل كيف تعمل وما الذي يميزك عن غيرك.</p>' +
+        '<div class="pe-additional-overview-note">' + escapeHtml(storyStatus.description) + '</div>' +
+      '</section>' +
+      '<section class="pe-additional-overview-card pe-additional-overview-card--qualifications">' +
+        '<div class="pe-additional-overview-head"><strong>المؤهلات</strong><span class="pe-additional-overview-metric is-' + qualificationStatus.tone + '">' + qualificationStatus.metric + '</span></div>' +
+        '<p>أضف الشهادات والدورات والاعتمادات التي ترفع الثقة في ملفك.</p>' +
+        '<div class="pe-additional-overview-note">' + escapeHtml(qualificationStatus.description) + '</div>' +
+      '</section>' +
+      '<section class="pe-additional-overview-card pe-additional-overview-card--experience">' +
+        '<div class="pe-additional-overview-head"><strong>الخبرات العملية</strong><span class="pe-additional-overview-metric is-' + experienceStatus.tone + '">' + experienceStatus.metric + '</span></div>' +
+        '<p>هذا الجزء يعطي العميل أمثلة سريعة على أعمالك أو خبراتك السابقة.</p>' +
+        '<div class="pe-additional-overview-note">' + escapeHtml(experienceStatus.description) + '</div>' +
+      '</section>' +
+    '</div>';
+  }
+
+
+  function buildLangLocOverviewField(f) {
+    return '<article class="pe-field pe-field-wide pe-langloc-overview-field" data-key="' + f.key + '">' +
+      '<div class="pe-field-head">' +
+        '<div class="pe-field-title-wrap">' +
+          '<span class="pe-field-icon" aria-hidden="true">' + iconSvg(f.icon) + '</span>' +
+          '<div class="pe-field-copy">' +
+            '<span class="pe-field-label">مشهد التغطية</span>' +
+            '<span class="pe-field-hint">عرض سريع يربط اللغات ونقطة الخدمة ونصف القطر في صورة واحدة قبل التعديل التفصيلي.</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pe-langloc-overview-body" id="pe-langloc-overview-body">' + renderLangLocOverviewBody() + '</div>' +
+    '</article>';
+  }
+  function refreshAdditionalOverview() {
+    var container = document.getElementById('pe-additional-overview-body');
+    if (container) container.innerHTML = renderAdditionalOverviewBody();
+  }
+
+  function currentLanguagePreviewState() {
+    var languageField = document.querySelector('.pe-language-field');
+    if (!languageField) {
+      return {
+        arabic: !!(profile && profile.languageArabic),
+        english: !!(profile && profile.languageEnglish),
+        other: !!(profile && profile.languageOther),
+        otherText: String(profile && profile.languageOtherText || '').trim()
+      };
+    }
+    return collectLanguageStateFromDom();
+  }
+
+  function languagePreviewEntries() {
+    var state = currentLanguagePreviewState();
+    var values = [];
+    if (state.arabic) values.push('عربي');
+    if (state.english) values.push('انجليزي');
+    if (state.other) {
+      splitEntries(state.otherText).forEach(function (entry) {
+        values.push(entry);
+      });
+    }
+    return uniqueNonEmpty(values);
+  }
+
+  function serviceLocationPreviewLabel() {
+    return String((profile && profile.location) || '').trim() || 'غير محدد بعد';
+  }
+
+  function serviceLocationPreviewCoords() {
+    var lat = Number.isFinite(Number(serviceLocationDraft.lat)) ? serviceLocationDraft.lat : normalizeCoordinateValue(profile && profile.latitude);
+    var lng = Number.isFinite(Number(serviceLocationDraft.lng)) ? serviceLocationDraft.lng : normalizeCoordinateValue(profile && profile.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return 'لم يتم تحديد نقطة دقيقة بعد';
+    return lat.toFixed(5) + ' ، ' + lng.toFixed(5);
+  }
+
+  function renderLanguagePreviewTags(items) {
+    if (!items.length) return '<span class="pe-empty-value">لم يتم اختيار لغات بعد</span>';
+    return items.map(function (item) {
+      return '<span class="pe-langloc-tag pe-langloc-tag--language">' + escapeHtml(item) + '</span>';
+    }).join('');
+  }
+
+  function renderLangLocOverviewBody() {
+    var languageEntries = languagePreviewEntries();
+    var geoSummary = getGeoScopeSummaryData();
+    var radius = getServiceRadiusKm();
+    var locationReady = String(serviceLocationPreviewLabel() || '').trim() !== 'غير محدد بعد';
+    return '<div class="pe-langloc-hero">' +
+      '<div class="pe-langloc-hero-copy">' +
+        '<strong>صغ تغطيتك بدقة</strong>' +
+        '<span>هذا القسم يحدد كيف يراك العميل: بأي لغة، وفي أي منطقة، وما إذا كانت التصنيفات التي اخترتها محلية أو عن بُعد وفق سياسة المنصة.</span>' +
+      '</div>' +
+      '<div class="pe-langloc-hero-stats">' +
+        '<span class="pe-langloc-stat"><strong>' + languageEntries.length + '</strong><em>لغة</em></span>' +
+        '<span class="pe-langloc-stat"><strong>' + geoSummary.localNames.length + '</strong><em>محلي</em></span>' +
+        '<span class="pe-langloc-stat"><strong>' + geoSummary.remoteNames.length + '</strong><em>عن بُعد</em></span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="pe-langloc-overview-grid">' +
+      '<section class="pe-langloc-card pe-langloc-card--language">' +
+        '<div class="pe-langloc-card-head"><strong>اللغات الفعالة</strong><span>' + (languageEntries.length ? 'جاهز' : 'بحاجة ضبط') + '</span></div>' +
+        '<p>اختر اللغات التي تتواصل بها فعليًا حتى تظهر للعملاء المناسبين.</p>' +
+        '<div class="pe-langloc-tags">' + renderLanguagePreviewTags(languageEntries) + '</div>' +
+      '</section>' +
+      '<section class="pe-langloc-card pe-langloc-card--location">' +
+        '<div class="pe-langloc-card-head"><strong>نقطة الخدمة</strong><span>' + (locationReady ? 'محددة' : 'غير مكتملة') + '</span></div>' +
+        '<p>الموقع الأساسي الذي تُبنى عليه دائرة التغطية للخدمات المحلية.</p>' +
+        '<div class="pe-langloc-location-summary">' +
+          '<strong>' + escapeHtml(serviceLocationPreviewLabel()) + '</strong>' +
+          '<span>' + escapeHtml(serviceLocationPreviewCoords()) + '</span>' +
+        '</div>' +
+      '</section>' +
+      '<section class="pe-langloc-card pe-langloc-card--radius">' +
+        '<div class="pe-langloc-card-head"><strong>نطاق الخدمة</strong><span>' + radius + ' كم</span></div>' +
+        '<p>نصف القطر يطبّق على الخدمات المحلية فقط حسب سياسة التصنيف، بينما الخدمات عن بُعد لا تتأثر به.</p>' +
+        '<div class="pe-langloc-scope-mini">' +
+          '<span class="pe-langloc-tag pe-langloc-tag--local">محلي: ' + geoSummary.localNames.length + '</span>' +
+          '<span class="pe-langloc-tag pe-langloc-tag--remote">عن بُعد: ' + geoSummary.remoteNames.length + '</span>' +
+        '</div>' +
+      '</section>' +
+    '</div>';
+  }
+
+  function refreshLangLocOverview() {
+    var container = document.getElementById('pe-langloc-overview-body');
+    if (container) container.innerHTML = renderLangLocOverviewBody();
   }
 
   function normalizeLanguageLabel(value) {
@@ -454,42 +748,308 @@ var ProviderProfileEditPage = (function () {
     return String(city || "").trim();
   }
 
-  function buildLocationOptions(options, selectedValue, placeholder) {
-    return ['<option value="">' + escapeHtml(placeholder) + '</option>'].concat(
-      options.map(function (item) {
-        var value = typeof item === "string" ? item : item.nameAr;
-        var label = typeof item === "string" ? item : (item.displayName || item.nameAr);
-        return '<option value="' + escapeHtml(value) + '"' + (String(value) === String(selectedValue || "") ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
-      })
-    ).join("");
+  function buildProfileLocationLabel(country, city) {
+    var countryText = String(country || "").trim();
+    var cityText = String(city || "").trim();
+    if (countryText && cityText) return countryText + " - " + cityText;
+    return countryText || cityText;
   }
 
-  function populateLocationCityOptions(field, nextCityValue) {
-    if (!field) return;
-    var regionSelect = field.querySelector('.pe-location-region');
-    var citySelect = field.querySelector('.pe-location-city');
-    if (!regionSelect || !citySelect) return;
-    var selectedRegion = String(regionSelect.value || "").trim();
-    var regionEntry = UI && typeof UI.findRegionEntry === "function"
-      ? UI.findRegionEntry(selectedRegion)
-      : null;
-    var options = regionEntry && Array.isArray(regionEntry.cities) ? regionEntry.cities : [];
-    citySelect.innerHTML = buildLocationOptions(options, nextCityValue, 'اختر المدينة');
-    citySelect.disabled = !selectedRegion;
+  function cleanAddressPart(value) {
+    return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+  }
+
+  function normalizeGeoLabel(value) {
+    return String(value || "")
+      .trim()
+      .replace(/^المملكة العربية السعودية[\s،,-]*/i, "")
+      .replace(/^country\s+/i, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
   }
 
   function buildLocationFieldEditor() {
-    var scope = splitLocationScope(profile && profile.location, profile && profile.locationRegion);
-    var regions = Array.isArray(REGION_CATALOG) ? REGION_CATALOG : [];
-    var regionOptions = buildLocationOptions(regions, scope.region, 'اختر المنطقة الإدارية');
-    var regionEntry = UI && typeof UI.findRegionEntry === "function"
-      ? UI.findRegionEntry(scope.region)
-      : null;
-    var cityOptions = buildLocationOptions(regionEntry && Array.isArray(regionEntry.cities) ? regionEntry.cities : [], scope.city, 'اختر المدينة');
-    return '<div class="pe-location-grid">' +
-      '<select class="form-select pe-location-region" data-key="location-region">' + regionOptions + '</select>' +
-      '<select class="form-select pe-input pe-location-city" data-key="location"' + (scope.region ? '' : ' disabled') + '>' + cityOptions + '</select>' +
+    return '<div class="pe-location-editor-shell">' +
+      '<div class="pe-location-overview">' +
+        '<div class="pe-location-pill">' +
+          '<span class="pe-location-pill-label">الدولة</span>' +
+          '<strong class="pe-location-pill-value" id="pe-location-country-label">' + escapeHtml(profile.locationCountry || 'غير محددة') + '</strong>' +
+        '</div>' +
+        '<div class="pe-location-pill">' +
+          '<span class="pe-location-pill-label">المدينة</span>' +
+          '<strong class="pe-location-pill-value" id="pe-location-city-label">' + escapeHtml(profile.locationCity || 'غير محددة') + '</strong>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pe-location-caption">اختر نقطة واحدة تمثل موقعك الأساسي. هذه النقطة تُستخدم فقط للخدمات المحلية التي فعّلت لها النطاق الجغرافي.</div>' +
+      '<div class="pe-geo-scope-explainer" id="pe-location-scope-summary"></div>' +
+      '<div class="pe-profile-location-map" id="pe-profile-location-map"></div>' +
+      '<div class="pe-location-editor-meta">' +
+        '<span class="pe-location-status" id="pe-location-status">اختر نقطة من الخريطة أو استخدم موقعك الحالي.</span>' +
+        '<span class="pe-location-coords" id="pe-location-coords">لم يتم اختيار نقطة بعد.</span>' +
+      '</div>' +
+      '<div class="pe-location-inputs">' +
+        '<div class="form-group">' +
+          '<label class="form-label">الدولة</label>' +
+          '<input type="text" class="form-input pe-location-country-input" value="' + escapeHtml(profile.locationCountry || '') + '" readonly>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">المدينة</label>' +
+          '<input type="text" class="form-input pe-input pe-location-city-input" data-key="location" value="' + escapeHtml(profile.locationCity || '') + '" placeholder="يمكنك تعديل المدينة يدويًا إذا لزم الأمر">' +
+        '</div>' +
+      '</div>' +
+      '<p class="pe-location-city-hint" id="pe-location-city-hint">إذا لم تُقرأ مدينة دقيقة، يمكنك تعديلها يدويًا قبل الحفظ.</p>' +
+      '<button type="button" class="btn btn-secondary pe-location-use-current-btn">استخدام موقعي الحالي</button>' +
     '</div>';
+  }
+
+  function looksLikeNeighborhoodLabel(value) {
+    var normalized = normalizeGeoLabel(value);
+    return /^حي(?:\s|$)/.test(normalized) || /neighbou?rhood/.test(normalized);
+  }
+
+  function isSaudiCountry(value) {
+    var normalized = String(value || "").trim().toLowerCase();
+    return normalized.indexOf("السعودية") >= 0 || normalized.indexOf("saudi") >= 0;
+  }
+
+  function resolveCountryFromAddress(address) {
+    var country = cleanAddressPart((address && address.country) || (address && address.country_code) || "");
+    if (normalizeGeoLabel(country) === "السعودية") return "المملكة العربية السعودية";
+    return country;
+  }
+
+  function resolveSaudiMajorCity(address, lat, lng) {
+    var tokens = [
+      address && address.city,
+      address && address.town,
+      address && address.municipality,
+      address && address.county,
+      address && address.state,
+      address && address.state_district,
+      address && address.region,
+      address && address.province
+    ].map(normalizeGeoLabel).filter(Boolean);
+    for (var i = 0; i < SAUDI_MAJOR_CITY_FALLBACKS.length; i += 1) {
+      var cityConfig = SAUDI_MAJOR_CITY_FALLBACKS[i];
+      for (var tokenIndex = 0; tokenIndex < tokens.length; tokenIndex += 1) {
+        for (var aliasIndex = 0; aliasIndex < cityConfig.aliases.length; aliasIndex += 1) {
+          var alias = cityConfig.aliases[aliasIndex];
+          if (tokens[tokenIndex] === alias || tokens[tokenIndex].indexOf(alias) >= 0) {
+            return cityConfig.name;
+          }
+        }
+      }
+    }
+    var latValue = Number(lat);
+    var lngValue = Number(lng);
+    if (!Number.isFinite(latValue) || !Number.isFinite(lngValue)) return "";
+    for (var cityIndex = 0; cityIndex < SAUDI_MAJOR_CITY_FALLBACKS.length; cityIndex += 1) {
+      var bounds = SAUDI_MAJOR_CITY_FALLBACKS[cityIndex].bounds;
+      if (latValue >= bounds.minLat && latValue <= bounds.maxLat && lngValue >= bounds.minLng && lngValue <= bounds.maxLng) {
+        return SAUDI_MAJOR_CITY_FALLBACKS[cityIndex].name;
+      }
+    }
+    return "";
+  }
+
+  function resolveCityFromAddress(address, countryValue, lat, lng) {
+    var countryToken = normalizeGeoLabel(countryValue);
+    var candidates = [
+      address && address.city,
+      address && address.town,
+      address && address.municipality,
+      address && address.county,
+      address && address.village,
+      address && address.state_district
+    ].map(cleanAddressPart).filter(Boolean);
+    for (var i = 0; i < candidates.length; i += 1) {
+      if (normalizeGeoLabel(candidates[i]) !== countryToken && !looksLikeNeighborhoodLabel(candidates[i])) return candidates[i];
+    }
+    if (isSaudiCountry(countryValue)) return resolveSaudiMajorCity(address, lat, lng);
+    return "";
+  }
+
+  function setProfileLocationDraft(lat, lng) {
+    profileLocationDraft.lat = normalizeCoordinateValue(lat);
+    profileLocationDraft.lng = normalizeCoordinateValue(lng);
+    var coords = document.getElementById("pe-location-coords");
+    if (!coords) return;
+    if (!Number.isFinite(profileLocationDraft.lat) || !Number.isFinite(profileLocationDraft.lng)) {
+      coords.textContent = "لم يتم اختيار نقطة بعد.";
+      return;
+    }
+    coords.textContent = profileLocationDraft.lat.toFixed(5) + " ، " + profileLocationDraft.lng.toFixed(5);
+  }
+
+  function setProfileLocationStatus(message, state) {
+    var status = document.getElementById("pe-location-status");
+    if (!status) return;
+    status.textContent = message || "";
+    status.classList.remove("is-ok", "is-bad");
+    if (state === true) status.classList.add("is-ok");
+    if (state === false) status.classList.add("is-bad");
+  }
+
+  function setProfileLocationHint(message, state) {
+    var hint = document.getElementById("pe-location-city-hint");
+    if (!hint) return;
+    hint.textContent = message || "";
+    hint.classList.remove("is-ok", "is-bad");
+    if (state === true) hint.classList.add("is-ok");
+    if (state === false) hint.classList.add("is-bad");
+  }
+
+  function syncProfileLocationLabels(country, city) {
+    var countryLabel = document.getElementById("pe-location-country-label");
+    var cityLabel = document.getElementById("pe-location-city-label");
+    var countryInput = document.querySelector(".pe-location-country-input");
+    var cityInput = document.querySelector(".pe-location-city-input");
+    if (countryLabel) countryLabel.textContent = country || "غير محددة";
+    if (cityLabel) cityLabel.textContent = city || "غير محددة";
+    if (countryInput) countryInput.value = country || "";
+    if (cityInput) cityInput.value = city || "";
+  }
+
+  function applyResolvedProfileLocation(location) {
+    var country = cleanAddressPart(location && location.country);
+    var city = cleanAddressPart(location && location.city);
+    syncProfileLocationLabels(country, city);
+    setProfileLocationHint(city ? "تم تعبئة المدينة تلقائيًا من الموقع المحدد." : (country ? "لم نعثر على مدينة دقيقة. يمكنك تعديل المدينة يدويًا قبل الحفظ." : "إذا لم تُقرأ مدينة دقيقة، يمكنك تعديلها يدويًا قبل الحفظ."), city ? true : null);
+    setProfileLocationStatus(country ? "تم تحديث الموقع من الخريطة بنجاح." : "تم تحديد النقطة، لكن تعذر استخراج الدولة.", !!country);
+  }
+
+  function getProfileLocationCenter() {
+    if (Number.isFinite(profileLocationDraft.lat) && Number.isFinite(profileLocationDraft.lng)) {
+      return [profileLocationDraft.lat, profileLocationDraft.lng];
+    }
+    if (hasPreciseCoordinates()) {
+      return [Number(profile.latitude), Number(profile.longitude)];
+    }
+    return getCityCenter(profile && profile.location);
+  }
+
+  function ensureProfileLocationMarker(lat, lng) {
+    if (!profileLocationMap) return;
+    if (!profileLocationMarker) {
+      profileLocationMarker = L.marker([lat, lng], { draggable: true }).addTo(profileLocationMap);
+      profileLocationMarker.on("dragend", function () {
+        var next = profileLocationMarker.getLatLng();
+        setProfileLocationMapPoint(next.lat, next.lng, { source: "drag" });
+      });
+      return;
+    }
+    profileLocationMarker.setLatLng([lat, lng]);
+  }
+
+  function ensureProfileLocationMap() {
+    var mapEl = document.getElementById("pe-profile-location-map");
+    if (!mapEl || typeof L === "undefined") return;
+    var center = getProfileLocationCenter();
+    setProfileLocationDraft(center[0], center[1]);
+    if (!profileLocationMap) {
+      profileLocationMap = L.map(mapEl, {
+        center: center,
+        zoom: hasPreciseCoordinates() ? 13 : 11,
+        scrollWheelZoom: false,
+        zoomControl: true
+      });
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/">OSM</a>',
+        maxZoom: 18
+      }).addTo(profileLocationMap);
+      profileLocationMap.on("click", function (event) {
+        setProfileLocationMapPoint(event.latlng.lat, event.latlng.lng, { source: "map" });
+      });
+    } else {
+      profileLocationMap.invalidateSize();
+    }
+    ensureProfileLocationMarker(center[0], center[1]);
+    profileLocationMap.setView(center, hasPreciseCoordinates() ? 13 : 11, { animate: false });
+    syncProfileLocationLabels(profile.locationCountry || "", profile.locationCity || "");
+    setProfileLocationStatus(profile.location ? "الموقع الحالي محفوظ. يمكنك تغييره من الخريطة إذا لزم." : "اختر نقطة من الخريطة أو استخدم موقعك الحالي.", profile.location ? true : null);
+    setProfileLocationHint(profile.locationCity ? "يمكنك تعديل اسم المدينة يدويًا إذا رغبت." : "إذا لم تُقرأ مدينة دقيقة، يمكنك تعديلها يدويًا قبل الحفظ.", profile.locationCity ? true : null);
+  }
+
+  function reverseGeocodeProfileLocation(lat, lng) {
+    var params = new URLSearchParams({
+      format: "jsonv2",
+      lat: String(lat),
+      lon: String(lng),
+      zoom: "11",
+      addressdetails: "1",
+      "accept-language": "ar"
+    });
+    return fetch("https://nominatim.openstreetmap.org/reverse?" + params.toString(), {
+      headers: { Accept: "application/json" }
+    }).then(function (response) {
+      if (!response.ok) throw new Error("reverse_geocode_failed");
+      return response.json();
+    }).then(function (data) {
+      var address = data && typeof data === "object" ? (data.address || {}) : {};
+      var country = resolveCountryFromAddress(address);
+      var city = resolveCityFromAddress(address, country, lat, lng);
+      return { country: country, city: city };
+    });
+  }
+
+  function setProfileLocationMapPoint(lat, lng, options) {
+    var normalizedLat = normalizeCoordinateValue(lat);
+    var normalizedLng = normalizeCoordinateValue(lng);
+    if (!Number.isFinite(normalizedLat) || !Number.isFinite(normalizedLng)) {
+      setProfileLocationStatus("تعذر قراءة إحداثيات صالحة من النقطة المحددة.", false);
+      return;
+    }
+    ensureProfileLocationMap();
+    ensureProfileLocationMarker(normalizedLat, normalizedLng);
+    setProfileLocationDraft(normalizedLat, normalizedLng);
+    if (profileLocationMap) {
+      profileLocationMap.setView([normalizedLat, normalizedLng], Math.max(profileLocationMap.getZoom(), 13), { animate: true });
+    }
+    setProfileLocationStatus(options && options.source === "device" ? "تم التقاط موقعك الحالي. جارٍ قراءة الدولة والمدينة..." : "جارٍ قراءة الدولة والمدينة من النقطة المختارة...", null);
+    var requestId = ++profileLocationRequestId;
+    reverseGeocodeProfileLocation(normalizedLat, normalizedLng).then(function (resolved) {
+      if (requestId !== profileLocationRequestId) return;
+      applyResolvedProfileLocation(resolved);
+    }).catch(function () {
+      if (requestId !== profileLocationRequestId) return;
+      syncProfileLocationLabels("", "");
+      setProfileLocationHint("تعذر استخراج المدينة. يمكنك تعبئتها يدويًا قبل الحفظ.", false);
+      setProfileLocationStatus("تعذر قراءة بيانات الموقع من الخريطة.", false);
+    });
+  }
+
+  function useCurrentProfileLocation(btn) {
+    if (!navigator.geolocation) {
+      setProfileLocationStatus("المتصفح لا يدعم تحديد الموقع الحالي.", false);
+      return;
+    }
+    var originalText = btn ? btn.textContent : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "جارٍ تحديد موقعي...";
+    }
+    setProfileLocationStatus("جارٍ التقاط موقعك الحالي...", null);
+    navigator.geolocation.getCurrentPosition(function (position) {
+      Promise.resolve(setProfileLocationMapPoint(position.coords.latitude, position.coords.longitude, { source: "device" })).finally(function () {
+        if (!btn) return;
+        btn.disabled = false;
+        btn.textContent = originalText;
+      });
+    }, function (error) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+      if (error && error.code === 1) {
+        setProfileLocationStatus("تم رفض صلاحية الموقع. يمكنك اختيار النقطة يدويًا من الخريطة.", false);
+        return;
+      }
+      setProfileLocationStatus("تعذر تحديد موقعك الحالي. جرّب مرة أخرى أو اختر النقطة يدويًا.", false);
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    });
   }
 
   function getCityCenter(city) {
@@ -546,6 +1106,7 @@ var ProviderProfileEditPage = (function () {
     if (numberInput) numberInput.value = String(radius);
     if (label) label.textContent = radius + " كم";
     updateServiceRadiusPreview(radius);
+    refreshLangLocOverview();
   }
 
   function updateServiceRadiusPreview(radiusKm) {
@@ -555,12 +1116,7 @@ var ProviderProfileEditPage = (function () {
       serviceMapCircle.setRadius(radius * 1000);
       if (typeof serviceMapCircle.redraw === "function") serviceMapCircle.redraw();
     }
-    var helper = document.getElementById("pe-radius-helper");
-    if (helper) {
-      helper.textContent = radius > 0
-        ? ("سيظهر نطاق الخدمة كدائرة حول موقعك بقطر تقريبي " + (radius * 2) + " كم.")
-        : "اختر نصف قطر التغطية ليظهر كنطاق دائري حول موقعك.";
-    }
+    refreshGeoScopeSummaries();
   }
 
   function centerServiceMapOnCity(forceMarkerReset) {
@@ -626,6 +1182,10 @@ var ProviderProfileEditPage = (function () {
     if (!text) return "";
     if (text === "twitter" || text === "twitter_url" || text === "x_url") return "x";
     if (text === "fb" || text === "fb_url") return "facebook";
+    if (text === "linkedin_url" || text === "linked_in" || text === "linkedin-profile") return "linkedin";
+    if (text === "youtube_url" || text === "yt" || text === "youtube_channel") return "youtube";
+    if (text === "pin" || text === "pinterest_url") return "pinterest";
+    if (text === "behance_url") return "behance";
     if (text === "mail" || text === "mail_to" || text === "e-mail") return "email";
     return text;
   }
@@ -655,9 +1215,13 @@ var ProviderProfileEditPage = (function () {
     var url = String(normalized.url || "").trim().toLowerCase();
     if (!url) return "";
     if (url.indexOf("mailto:") === 0) return "email";
+    if (url.indexOf("linkedin.com") !== -1) return "linkedin";
+    if (url.indexOf("youtube.com") !== -1 || url.indexOf("youtu.be") !== -1) return "youtube";
     if (url.indexOf("instagram") !== -1) return "instagram";
     if (url.indexOf("snapchat") !== -1) return "snapchat";
+    if (url.indexOf("pinterest") !== -1) return "pinterest";
     if (url.indexOf("tiktok") !== -1) return "tiktok";
+    if (url.indexOf("behance") !== -1) return "behance";
     if (url.indexOf("facebook") !== -1 || url.indexOf("fb.com") !== -1) return "facebook";
     if (url.indexOf("x.com") !== -1 || url.indexOf("twitter") !== -1) return "x";
     return "";
@@ -665,11 +1229,15 @@ var ProviderProfileEditPage = (function () {
 
   function socialFieldKeyFromPlatform(platform) {
     switch (normalizeSocialPlatform(platform)) {
+      case "linkedin": return "linkedinUrl";
+      case "youtube": return "youtubeUrl";
+      case "facebook": return "facebookUrl";
+      case "instagram": return "instagramUrl";
       case "x": return "xUrl";
       case "snapchat": return "snapchatUrl";
-      case "instagram": return "instagramUrl";
-      case "facebook": return "facebookUrl";
+      case "pinterest": return "pinterestUrl";
       case "tiktok": return "tiktokUrl";
+      case "behance": return "behanceUrl";
       case "email": return "contactEmail";
       default: return "";
     }
@@ -685,11 +1253,15 @@ var ProviderProfileEditPage = (function () {
 
   function extractSocialState(items) {
     var values = {
+      linkedinUrl: "",
+      youtubeUrl: "",
+      facebookUrl: "",
+      instagramUrl: "",
       xUrl: "",
       snapchatUrl: "",
-      instagramUrl: "",
-      facebookUrl: "",
+      pinterestUrl: "",
       tiktokUrl: "",
+      behanceUrl: "",
       contactEmail: ""
     };
     var extras = [];
@@ -739,16 +1311,24 @@ var ProviderProfileEditPage = (function () {
     if (!text) return "";
 
     switch (fieldKey) {
+      case "linkedinUrl":
+        return text.match(/linkedin\.com|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://www.linkedin.com/in/" + text.replace(/^[@/]+/, ""));
+      case "youtubeUrl":
+        return text.match(/youtube\.com|youtu\.be|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://www.youtube.com/" + (text.charAt(0) === "@" ? text : ("@" + text.replace(/^[@/]+/, ""))));
+      case "facebookUrl":
+        return text.match(/facebook\.com|fb\.com|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://facebook.com/" + text.replace(/^@+/, ""));
+      case "instagramUrl":
+        return text.match(/instagram\.com|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://instagram.com/" + text.replace(/^@+/, ""));
       case "xUrl":
         return text.match(/x\.com|twitter\.com|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://x.com/" + text.replace(/^@+/, ""));
       case "snapchatUrl":
         return text.match(/snapchat\.com|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://snapchat.com/add/" + text.replace(/^@+/, ""));
-      case "instagramUrl":
-        return text.match(/instagram\.com|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://instagram.com/" + text.replace(/^@+/, ""));
-      case "facebookUrl":
-        return text.match(/facebook\.com|fb\.com|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://facebook.com/" + text.replace(/^@+/, ""));
+      case "pinterestUrl":
+        return text.match(/pinterest\.com|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://www.pinterest.com/" + text.replace(/^[@/]+/, ""));
       case "tiktokUrl":
         return text.match(/tiktok\.com|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://tiktok.com/@" + text.replace(/^@+/, ""));
+      case "behanceUrl":
+        return text.match(/behance\.net|^https?:\/\//i) ? ensureAbsoluteUrl(text) : ("https://www.behance.net/" + text.replace(/^[@/]+/, ""));
       case "contactEmail":
         return text.replace(/^mailto:/i, "").trim();
       default:
@@ -780,7 +1360,67 @@ var ProviderProfileEditPage = (function () {
     return normalized;
   }
 
-  function buildSocialLinksPayload(values) {
+  function guessSocialLinkLabel(platform, url) {
+    var normalizedPlatform = normalizeSocialPlatform(platform);
+    if (normalizedPlatform && SOCIAL_PLATFORM_LABELS[normalizedPlatform]) return SOCIAL_PLATFORM_LABELS[normalizedPlatform];
+    try {
+      var parsed = new URL(ensureAbsoluteUrl(url));
+      return parsed.hostname.replace(/^www\./i, "") || "رابط إضافي";
+    } catch (_err) {
+      return "رابط إضافي";
+    }
+  }
+
+  function buildSocialExtraItem(label, url, platform) {
+    var cleanLabel = String(label || "").trim();
+    var cleanUrl = String(url || "").trim();
+    if (!cleanLabel && !cleanUrl) return null;
+    if (!cleanUrl) {
+      throw new Error("أدخل الرابط أو احذف الصف الفارغ من الروابط الإضافية.");
+    }
+    var normalizedUrl = ensureAbsoluteUrl(cleanUrl);
+    try {
+      var parsed = new URL(normalizedUrl);
+      if (!parsed.hostname) throw new Error("invalid-url");
+    } catch (_err) {
+      throw new Error("أدخل رابطًا صحيحًا داخل الروابط الإضافية.");
+    }
+    var resolvedPlatform = normalizeSocialPlatform(platform) || detectSocialPlatform({ url: normalizedUrl });
+    return {
+      platform: resolvedPlatform || undefined,
+      label: cleanLabel || guessSocialLinkLabel(resolvedPlatform, normalizedUrl),
+      url: normalizedUrl
+    };
+  }
+
+  function sanitizeSocialExtraItems(items) {
+    var extras = [];
+    (Array.isArray(items) ? items : []).forEach(function (item) {
+      var normalized = normalizeSocialLinkObject(item);
+      if (!normalized) return;
+      try {
+        var extraItem = buildSocialExtraItem(normalized.label, normalized.url, normalized.platform);
+        if (extraItem) extras.push(extraItem);
+      } catch (_err) {}
+    });
+    return extras;
+  }
+
+  function collectAdditionalSocialItems() {
+    var field = document.querySelector('.pe-field[data-key="additionalLinks"]');
+    var rows = field ? field.querySelectorAll('.pe-additional-link-row') : [];
+    var extras = [];
+    for (var index = 0; index < rows.length; index += 1) {
+      var row = rows[index];
+      var labelInput = row.querySelector('.pe-additional-link-label');
+      var urlInput = row.querySelector('.pe-additional-link-url');
+      var extraItem = buildSocialExtraItem(labelInput && labelInput.value, urlInput && urlInput.value);
+      if (extraItem) extras.push(extraItem);
+    }
+    return extras;
+  }
+
+  function buildSocialLinksPayload(values, extrasOverride) {
     var items = [];
     SOCIAL_FIELD_KEYS.forEach(function (fieldKey) {
       var platform = SOCIAL_FIELD_PLATFORMS[fieldKey];
@@ -792,12 +1432,13 @@ var ProviderProfileEditPage = (function () {
         label: fieldConfig(fieldKey).label || ""
       });
     });
-    return items.concat(Array.isArray(profile.socialExtras) ? profile.socialExtras : []);
+    return items.concat(sanitizeSocialExtraItems(extrasOverride !== undefined ? extrasOverride : profile.socialExtras));
   }
 
   function applySocialState(state) {
     var nextState = state || extractSocialState([]);
-    profile.socialExtras = Array.isArray(nextState.extras) ? nextState.extras : [];
+    profile.socialExtras = sanitizeSocialExtraItems(nextState.extras);
+    profile.additionalLinks = profile.socialExtras.length ? String(profile.socialExtras.length) : "";
     SOCIAL_FIELD_KEYS.forEach(function (fieldKey) {
       profile[fieldKey] = String((nextState.values && nextState.values[fieldKey]) || "");
     });
@@ -946,6 +1587,257 @@ var ProviderProfileEditPage = (function () {
       result.push(clean);
     });
     return result;
+  }
+
+  function uniqueNumeric(values) {
+    var seen = {};
+    var result = [];
+    (values || []).forEach(function (value) {
+      var parsed = parseInt(value, 10);
+      if (!isFinite(parsed) || seen[parsed]) return;
+      seen[parsed] = true;
+      result.push(parsed);
+    });
+    return result;
+  }
+
+  function normalizeCategoryCatalog(items) {
+    return extractList(items).map(function (item) {
+      var categoryId = parseInt(item && item.id, 10);
+      if (!isFinite(categoryId)) return null;
+      return {
+        id: categoryId,
+        name: String(item && item.name || "").trim(),
+        subcategories: extractList(item && item.subcategories).map(function (sub) {
+          var subId = parseInt(sub && sub.id, 10);
+          if (!isFinite(subId)) return null;
+          return {
+            id: subId,
+            name: String(sub && sub.name || "").trim(),
+            category_id: categoryId,
+            category_name: String(item && item.name || "").trim(),
+            requires_geo_scope: !(sub && sub.requires_geo_scope === false),
+            allows_urgent_requests: !!(sub && sub.allows_urgent_requests)
+          };
+        }).filter(Boolean)
+      };
+    }).filter(Boolean);
+  }
+
+  function applyProviderSubcategoryState(ids, settings, selectedSubcategories) {
+    providerSubcategoryIds = uniqueNumeric(ids);
+    providerSelectedSubcategories = Array.isArray(selectedSubcategories) ? selectedSubcategories.slice() : [];
+    providerSubcategorySettingsById = {};
+    (settings || []).forEach(function (item) {
+      var subId = parseInt(item && item.subcategory_id, 10);
+      if (!isFinite(subId)) return;
+      providerSubcategorySettingsById[subId] = normalizeSubcategorySetting(item);
+    });
+  }
+
+  function normalizeSubcategorySetting(item) {
+    return {
+      accepts_urgent: !!(item && item.accepts_urgent)
+    };
+  }
+
+  function getSubcategorySetting(subcategoryId) {
+    var subId = parseInt(subcategoryId, 10);
+    if (!isFinite(subId)) {
+      return normalizeSubcategorySetting(null);
+    }
+    return normalizeSubcategorySetting(providerSubcategorySettingsById[subId]);
+  }
+
+  function setSubcategorySetting(subcategoryId, changes) {
+    var subId = parseInt(subcategoryId, 10);
+    if (!isFinite(subId)) return;
+    var current = getSubcategorySetting(subId);
+    providerSubcategorySettingsById[subId] = {
+      accepts_urgent: Object.prototype.hasOwnProperty.call(changes || {}, "accepts_urgent")
+        ? !!changes.accepts_urgent
+        : current.accepts_urgent
+    };
+  }
+
+  function findCategoryById(categoryId) {
+    var wanted = parseInt(categoryId, 10);
+    if (!isFinite(wanted)) return null;
+    for (var i = 0; i < categoryCatalog.length; i++) {
+      if (categoryCatalog[i].id === wanted) return categoryCatalog[i];
+    }
+    return null;
+  }
+
+  function findSubcategoryById(subcategoryId) {
+    var wanted = parseInt(subcategoryId, 10);
+    if (!isFinite(wanted)) return null;
+    for (var i = 0; i < categoryCatalog.length; i++) {
+      var category = categoryCatalog[i];
+      for (var j = 0; j < category.subcategories.length; j++) {
+        if (category.subcategories[j].id === wanted) {
+          return category.subcategories[j];
+        }
+      }
+    }
+    for (var k = 0; k < providerSelectedSubcategories.length; k++) {
+      var item = providerSelectedSubcategories[k] || {};
+      if (parseInt(item.id, 10) === wanted) {
+        return {
+          id: wanted,
+          name: String(item.name || "").trim(),
+          category_id: parseInt(item.category_id, 10),
+          category_name: String(item.category_name || "").trim(),
+          requires_geo_scope: !(item && item.requires_geo_scope === false),
+          allows_urgent_requests: !!(item && item.allows_urgent_requests)
+        };
+      }
+    }
+    return null;
+  }
+
+  function getSubcategoryPolicy(subcategoryId) {
+    var subcategory = findSubcategoryById(subcategoryId);
+    return {
+      requires_geo_scope: !(subcategory && subcategory.requires_geo_scope === false),
+      allows_urgent_requests: !!(subcategory && subcategory.allows_urgent_requests)
+    };
+  }
+
+  function buildCategorySummaryData(ids, settingsById) {
+    var groupsByKey = {};
+    var orderedGroups = [];
+
+    uniqueNumeric(ids).forEach(function (subId) {
+      var sub = findSubcategoryById(subId);
+      if (!sub) return;
+      var key = isFinite(sub.category_id) ? String(sub.category_id) : String(sub.category_name || "بدون قسم");
+      if (!groupsByKey[key]) {
+        groupsByKey[key] = {
+          categoryName: String(sub.category_name || "بدون قسم").trim(),
+          subcategoryNames: [],
+          urgentSubcategoryNames: []
+        };
+        orderedGroups.push(groupsByKey[key]);
+      }
+      if (sub.name) groupsByKey[key].subcategoryNames.push(sub.name);
+      var subcategorySetting = settingsById ? normalizeSubcategorySetting(settingsById[subId]) : normalizeSubcategorySetting(null);
+      if (sub.name && subcategorySetting.accepts_urgent) groupsByKey[key].urgentSubcategoryNames.push(sub.name);
+    });
+
+    return {
+      groups: orderedGroups.map(function (group) {
+        return {
+          categoryName: group.categoryName,
+          subcategoryNames: uniqueNonEmpty(group.subcategoryNames),
+          urgentSubcategoryNames: uniqueNonEmpty(group.urgentSubcategoryNames)
+        };
+      }).filter(function (group) {
+        return group.categoryName || group.subcategoryNames.length;
+      }),
+      categories: uniqueNonEmpty(orderedGroups.map(function (group) { return group.categoryName; })),
+      subcategories: uniqueNonEmpty([].concat.apply([], orderedGroups.map(function (group) { return group.subcategoryNames; })))
+    };
+  }
+
+  function getDraftOrSavedSubcategoryIds() {
+    var groupCards = getCategoryGroupCards();
+    if (groupCards.length) return collectDraftServiceCategoryIds();
+    return providerSubcategoryIds;
+  }
+
+  function buildGeoScopeSummaryData(ids, settingsById) {
+    var localNames = [];
+    var remoteNames = [];
+    uniqueNumeric(ids).forEach(function (subId) {
+      var sub = findSubcategoryById(subId);
+      if (!sub || !sub.name) return;
+      var policy = getSubcategoryPolicy(subId);
+      if (policy.requires_geo_scope === false) {
+        remoteNames.push(sub.name);
+      } else {
+        localNames.push(sub.name);
+      }
+    });
+    return {
+      localNames: uniqueNonEmpty(localNames),
+      remoteNames: uniqueNonEmpty(remoteNames)
+    };
+  }
+
+  function getGeoScopeSummaryData() {
+    return buildGeoScopeSummaryData(getDraftOrSavedSubcategoryIds(), providerSubcategorySettingsById);
+  }
+
+  function renderGeoScopeTags(names, tone) {
+    if (!Array.isArray(names) || !names.length) return '<span class="pe-empty-value">لا يوجد</span>';
+    return names.map(function (name) {
+      return '<span class="pe-scope-tag pe-scope-tag--' + escapeHtml(tone) + '">' + escapeHtml(name) + '</span>';
+    }).join('');
+  }
+
+  function renderGeoScopeSummaryHtml(summary) {
+    var data = summary || getGeoScopeSummaryData();
+    return '<div class="pe-scope-summary-grid">' +
+      '<section class="pe-scope-card pe-scope-card--local">' +
+        '<div class="pe-scope-card-head">' +
+          '<strong>الخدمات المحلية</strong>' +
+          '<span>' + data.localNames.length + ' تخصص</span>' +
+        '</div>' +
+        '<p>هذه الخدمات محلية وفق سياسة التصنيفات المحددة، لذلك تخضع لموقعك المحدد على الخريطة ولنصف القطر بالكيلومتر.</p>' +
+        '<div class="pe-scope-tags">' + renderGeoScopeTags(data.localNames, 'local') + '</div>' +
+      '</section>' +
+      '<section class="pe-scope-card pe-scope-card--remote">' +
+        '<div class="pe-scope-card-head">' +
+          '<strong>الخدمات عن بُعد</strong>' +
+          '<span>' + data.remoteNames.length + ' تخصص</span>' +
+        '</div>' +
+        '<p>هذه الخدمات مفعّلة عن بُعد وفق سياسة التصنيفات المحددة، لذلك لا تتقيّد بالمدينة أو نصف القطر.</p>' +
+        '<div class="pe-scope-tags">' + renderGeoScopeTags(data.remoteNames, 'remote') + '</div>' +
+      '</section>' +
+    '</div>';
+  }
+
+  function refreshGeoScopeSummaries() {
+    var summary = getGeoScopeSummaryData();
+    var locationSummary = document.getElementById('pe-location-scope-summary');
+    var radiusSummary = document.getElementById('pe-radius-scope-summary');
+    var helper = document.getElementById('pe-radius-helper');
+    if (locationSummary) locationSummary.innerHTML = renderGeoScopeSummaryHtml(summary);
+    if (radiusSummary) radiusSummary.innerHTML = renderGeoScopeSummaryHtml(summary);
+    if (helper) {
+      var radius = getServiceRadiusKm();
+      if (!summary.localNames.length && summary.remoteNames.length) {
+        helper.textContent = 'لا توجد حاليًا خدمات محلية مرتبطة بالخريطة. نصف القطر لن يؤثر إلا عند تفعيل تخصصات محلية.';
+      } else if (!summary.localNames.length) {
+        helper.textContent = 'اختر تخصصًا محليًا واحدًا على الأقل ليؤثر نصف القطر على نطاق ظهورك.';
+      } else if (radius > 0) {
+        helper.textContent = 'سيظهر نطاق الخدمات المحلية كدائرة حول موقعك بقطر تقريبي ' + (radius * 2) + ' كم، بينما تبقى خدمات عن بُعد خارج هذا التقييد.';
+      } else {
+        helper.textContent = 'حدّد نصف قطر التغطية ليظهر كنطاق للخدمات المحلية فقط؛ أما خدمات عن بُعد فلن تتأثر به.';
+      }
+    }
+  }
+
+  function buildSelectedCategorySummaryData() {
+    return buildCategorySummaryData(providerSubcategoryIds, providerSubcategorySettingsById);
+  }
+
+  function renderServiceCategoriesSummaryHtml(ids, settingsById) {
+    var summary = buildCategorySummaryData(ids || providerSubcategoryIds, settingsById || providerSubcategorySettingsById);
+    if (!summary.groups.length) {
+      return '<span class="pe-empty-value">لم تتم إضافة أي تصنيفات فرعية بعد</span>';
+    }
+    return summary.groups.map(function (group) {
+      var countText = group.subcategoryNames.length + ' ' + (group.subcategoryNames.length === 1 ? 'تصنيف فرعي' : 'تصنيفات فرعية');
+      return '<div class="pe-category-summary-group">' +
+        '<div class="pe-category-summary-head"><strong>' + escapeHtml(group.categoryName || 'قسم غير محدد') + '</strong><span>' + escapeHtml(countText) + '</span></div>' +
+        '<div class="pe-category-summary-tags">' + group.subcategoryNames.map(function (name) {
+          var isUrgent = group.urgentSubcategoryNames.indexOf(name) !== -1;
+          return '<span class="pe-category-summary-tag' + (isUrgent ? ' is-urgent' : '') + '">' + escapeHtml(name) + (isUrgent ? '<em>عاجل</em>' : '') + '</span>';
+        }).join('') + '</div>' +
+      '</div>';
+    }).join('');
   }
 
   function parseIsoDate(value) {
@@ -1119,6 +2011,7 @@ var ProviderProfileEditPage = (function () {
           throw new Error("فشل رفع الصورة");
         }
         var newUrl = (resp.data && resp.data.profile_image) || "";
+        if (providerProfileRaw) providerProfileRaw.profile_image = newUrl;
         var avatarImg = document.getElementById("pe-avatar-img");
         var avatarFallback = document.getElementById("pe-avatar-fallback");
         if (avatarImg && newUrl) {
@@ -1126,6 +2019,7 @@ var ProviderProfileEditPage = (function () {
           avatarImg.classList.remove("hidden");
           if (avatarFallback) avatarFallback.classList.add("hidden");
         }
+        if (isSectionFlowActive()) renderSectionLinks(initialSection);
         if (typeof NwToast !== "undefined") NwToast.success("تم تحديث الصورة بنجاح");
       }).catch(function (err) {
         alert((err && err.message) || "تعذر رفع الصورة، حاول مرة أخرى");
@@ -1163,12 +2057,27 @@ var ProviderProfileEditPage = (function () {
   function renderSectionLinks(activeKey) {
     var root = document.getElementById("pe-section-links");
     if (!root) return;
-    root.innerHTML = SECTION_LINKS.map(function (item) {
+    computeSectionCompletionState();
+    root.innerHTML = '<div class="pe-section-progress">' +
+      '<div class="pe-section-progress-head">' +
+        '<strong class="pe-section-progress-percent">' + sectionCompletionState.percent + '%</strong>' +
+        '<span class="pe-section-progress-title">نسبة اكتمال الملف</span>' +
+      '</div>' +
+      '<div class="pe-section-progress-bar"><span style="width:' + sectionCompletionState.percent + '%"></span></div>' +
+      '<p class="pe-section-progress-hint">30٪ من التسجيل الأساسي، والباقي من إكمال الأقسام أدناه.</p>' +
+    '</div>' +
+    '<div class="pe-section-links-list">' + SECTION_LINKS.map(function (item) {
       var active = item.key === activeKey;
-      return '<a class="pe-section-link' + (active ? ' is-active' : '') + '" href="' + item.href + '">' +
-        '<span class="pe-section-link-label">' + escapeHtml(item.label) + '</span>' +
+      var done = !!sectionCompletionState.checks[item.key];
+      return '<a class="pe-section-link pe-section-link--' + escapeHtml(item.tone || 'violet') + (active ? ' is-active' : '') + (done ? ' is-complete' : ' is-incomplete') + '" data-complete="' + (done ? '1' : '0') + '" href="' + item.href + '">' +
+        '<span class="pe-section-link-status">' + sectionCheckSvg(done) + '</span>' +
+        '<span class="pe-section-link-copy">' +
+          '<span class="pe-section-link-label">' + escapeHtml(item.label) + '</span>' +
+          (item.summary ? '<span class="pe-section-link-desc">' + escapeHtml(item.summary) + '</span>' : '') +
+        '</span>' +
+        '<span class="pe-section-link-icon" aria-hidden="true">' + iconSvg(item.icon || 'category') + '</span>' +
       '</a>';
-    }).join("");
+    }).join("") + '</div>';
   }
 
   function buildSummaryCard(title, value) {
@@ -1188,12 +2097,13 @@ var ProviderProfileEditPage = (function () {
     var email = userProfile && userProfile.email ? String(userProfile.email).trim() : "";
     if (username && username.charAt(0) !== "@") username = "@" + username;
 
-    var categories = uniqueNonEmpty(myServices.map(function (service) {
+    var selectedSummary = buildSelectedCategorySummaryData();
+    var categories = selectedSummary.categories.length ? selectedSummary.categories : uniqueNonEmpty(myServices.map(function (service) {
       var sub = service && service.subcategory ? service.subcategory : {};
       return sub.category_name || (sub.category && sub.category.name) || "";
     }));
 
-    var subcategories = uniqueNonEmpty(myServices.map(function (service) {
+    var subcategories = selectedSummary.subcategories.length ? selectedSummary.subcategories : uniqueNonEmpty(myServices.map(function (service) {
       var sub = service && service.subcategory ? service.subcategory : {};
       return sub.name || "";
     }));
@@ -1221,6 +2131,324 @@ var ProviderProfileEditPage = (function () {
     '</div>';
   }
 
+  function extractContentSectionTitle(caption) {
+    var text = String(caption || "").trim();
+    if (!text) return "";
+    var separators = [" | ", "|", " - ", " — ", " – "];
+    for (var i = 0; i < separators.length; i++) {
+      var separator = separators[i];
+      var index = text.indexOf(separator);
+      if (index > 0) return String(text.slice(0, index)).trim();
+    }
+    return text;
+  }
+
+  function extractContentItemDescription(caption, sectionTitle) {
+    var text = String(caption || "").trim();
+    var title = String(sectionTitle || "").trim();
+    if (!text || !title) return "";
+    var prefixes = [title + " | ", title + "|", title + " - ", title + " — ", title + " – "];
+    for (var i = 0; i < prefixes.length; i++) {
+      if (text.indexOf(prefixes[i]) === 0) return String(text.slice(prefixes[i].length)).trim();
+    }
+    return text === title ? "" : text;
+  }
+
+  function buildContentItemCaption(sectionTitle, description) {
+    var title = String(sectionTitle || "").trim();
+    var desc = String(description || "").trim();
+    if (!title) return desc;
+    return desc ? (title + " | " + desc) : title;
+  }
+
+  function normalizeContentPortfolioList(payload) {
+    return extractList(payload).map(function (item) {
+      var itemId = parseInt(item && item.id, 10);
+      if (!isFinite(itemId)) return null;
+      var sectionTitle = extractContentSectionTitle(item && item.caption);
+      return {
+        id: itemId,
+        fileType: String(item && item.file_type || "").trim().toLowerCase(),
+        fileUrl: String(item && (item.file_url || item.file) || "").trim(),
+        thumbnailUrl: String(item && (item.thumbnail_url || item.file_url || item.file) || "").trim(),
+        caption: String(item && item.caption || "").trim(),
+        sectionTitle: sectionTitle,
+        description: extractContentItemDescription(item && item.caption, sectionTitle),
+        createdAt: String(item && item.created_at || "").trim()
+      };
+    }).filter(Boolean);
+  }
+
+  function getContentCategoryNames() {
+    var selectedSummary = buildSelectedCategorySummaryData();
+    return selectedSummary.categories.length ? selectedSummary.categories : uniqueNonEmpty(myServices.map(function (service) {
+      var sub = service && service.subcategory ? service.subcategory : {};
+      return sub.category_name || (sub.category && sub.category.name) || "";
+    }));
+  }
+
+  function buildContentCardsData() {
+    var categories = getContentCategoryNames();
+    var cards = categories.map(function (name) {
+      return { key: String(name || "").trim().toLowerCase(), title: String(name || "").trim(), items: [], auxiliary: false };
+    }).filter(function (card) {
+      return !!card.title;
+    });
+    var byKey = {};
+    cards.forEach(function (card) {
+      byKey[card.key] = card;
+    });
+    var unmatched = [];
+    portfolioItems.forEach(function (item) {
+      var key = String(item.sectionTitle || "").trim().toLowerCase();
+      if (key && byKey[key]) {
+        byKey[key].items.push(item);
+      } else {
+        unmatched.push(item);
+      }
+    });
+    if (unmatched.length) {
+      cards.push({ key: "__unmatched__", title: "محتوى غير مرتبط بقسم رئيسي", items: unmatched, auxiliary: true });
+    }
+    return cards;
+  }
+
+  function contentFileTypeLabel(fileType) {
+    if (fileType === "video") return "فيديو";
+    if (fileType === "document") return "PDF";
+    return "صورة";
+  }
+
+  function buildContentItemPreview(item) {
+    var fileUrl = escapeHtml(item.fileUrl || "");
+    var previewUrl = escapeHtml(item.thumbnailUrl || item.fileUrl || "");
+    if (item.fileType === "video") {
+      return '<video class="pe-content-item-video" src="' + fileUrl + '" controls preload="metadata"></video>';
+    }
+    if (item.fileType === "document") {
+      return '<div class="pe-content-item-doc">' +
+        '<span class="pe-content-item-doc-icon" aria-hidden="true">PDF</span>' +
+        '<span class="pe-content-item-doc-copy">ملف PDF جاهز للعرض أو الاستبدال</span>' +
+      '</div>';
+    }
+    if (previewUrl) {
+      return '<img class="pe-content-item-image" src="' + previewUrl + '" alt="معاينة العنصر" loading="lazy">';
+    }
+    return '<div class="pe-content-item-doc pe-content-item-doc--empty"><span class="pe-content-item-doc-copy">لا توجد معاينة متاحة</span></div>';
+  }
+
+  function buildContentItemCard(item, categoryTitle) {
+    return '<article class="pe-content-item" data-item-id="' + item.id + '">' +
+      '<div class="pe-content-item-preview">' + buildContentItemPreview(item) + '</div>' +
+      '<div class="pe-content-item-meta">' +
+        '<span class="pe-content-item-type">' + escapeHtml(contentFileTypeLabel(item.fileType)) + '</span>' +
+        (item.fileUrl ? '<a class="pe-content-item-link" href="' + escapeHtml(item.fileUrl) + '" target="_blank" rel="noopener">فتح الملف</a>' : '') +
+      '</div>' +
+      '<textarea class="form-input pe-content-item-desc" rows="2" placeholder="اكتب وصفًا مختصرًا لهذا الملف">' + escapeHtml(item.description || "") + '</textarea>' +
+      '<div class="pe-content-item-actions">' +
+        '<button type="button" class="btn btn-primary pe-content-item-save" data-item-id="' + item.id + '" data-category="' + escapeHtml(categoryTitle) + '">حفظ الوصف</button>' +
+        '<label class="btn btn-secondary pe-content-item-replace">' +
+          '<span class="pe-content-upload-text">استبدال الملف</span>' +
+          '<input type="file" class="pe-content-item-replace-input" accept="image/*,video/*,.pdf" hidden data-item-id="' + item.id + '" data-category="' + escapeHtml(categoryTitle) + '">' +
+        '</label>' +
+        '<button type="button" class="btn btn-light pe-content-item-delete" data-item-id="' + item.id + '">حذف</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function buildContentCard(card) {
+    return '<section class="detail-card pe-content-card' + (card.auxiliary ? ' is-auxiliary' : '') + '">' +
+      '<div class="pe-content-card-head">' +
+        '<div>' +
+          '<h3 class="pe-content-card-title">' + escapeHtml(card.title) + '</h3>' +
+          '<p class="pe-content-card-subtitle">' + (card.auxiliary ? 'هذه العناصر لا تطابق أي تصنيف رئيسي محفوظ حاليًا.' : 'يمكنك رفع صور أو فيديوهات أو ملفات PDF وربطها بهذا التصنيف مباشرة.') + '</p>' +
+        '</div>' +
+        '<span class="pe-content-card-count">' + card.items.length + ' عنصر</span>' +
+      '</div>' +
+      (!card.auxiliary ? ('<label class="btn btn-secondary pe-content-upload">' +
+        '<span class="pe-content-upload-text">إضافة ملفات</span>' +
+        '<input type="file" class="pe-content-upload-input" accept="image/*,video/*,.pdf" multiple hidden data-category="' + escapeHtml(card.title) + '">' +
+      '</label>') : '') +
+      (card.items.length
+        ? ('<div class="pe-content-items-grid">' + card.items.map(function (item) { return buildContentItemCard(item, card.title); }).join('') + '</div>')
+        : '<div class="pe-content-card-empty">لا توجد ملفات داخل هذا التصنيف بعد. ارفع أول صورة أو فيديو أو PDF للبدء.</div>') +
+    '</section>';
+  }
+
+  function buildContentSummary() {
+    var cards = buildContentCardsData();
+    if (!cards.length) {
+      return '<section class="detail-card pe-content-empty-state">' +
+        '<strong>أضف التصنيفات الرئيسية أولًا</strong>' +
+        '<p>بمجرد اختيار الأقسام الرئيسية في تفاصيل الخدمة، سيظهر هنا كرت مستقل لكل قسم لتدير ملفاته من نفس الصفحة.</p>' +
+      '</section>';
+    }
+    return '<section class="pe-content-manager">' + cards.map(buildContentCard).join('') + '</section>';
+  }
+
+  function setContentFileControlBusy(input, isBusy, busyLabel) {
+    if (!input) return;
+    var label = input.closest('label');
+    var text = label ? label.querySelector('.pe-content-upload-text') : null;
+    if (label) label.classList.toggle('is-loading', !!isBusy);
+    input.disabled = !!isBusy;
+    if (text) {
+      if (!text.dataset.defaultLabel) text.dataset.defaultLabel = text.textContent;
+      text.textContent = isBusy ? busyLabel : text.dataset.defaultLabel;
+    }
+  }
+
+  function setContentButtonBusy(button, isBusy, busyLabel) {
+    if (!button) return;
+    if (!button.dataset.defaultLabel) button.dataset.defaultLabel = button.textContent;
+    button.disabled = !!isBusy;
+    button.classList.toggle('is-loading', !!isBusy);
+    button.textContent = isBusy ? busyLabel : button.dataset.defaultLabel;
+  }
+
+  function inferContentUploadType(file) {
+    var mime = String(file && file.type || '').trim().toLowerCase();
+    var name = String(file && file.name || '').trim().toLowerCase();
+    if (mime.indexOf('video/') === 0 || /\.(mp4|mov|avi|webm|mkv|m4v)$/.test(name)) return 'video';
+    if (mime.indexOf('image/') === 0 || /\.(jpg|jpeg|png|webp|gif|bmp|svg)$/.test(name)) return 'image';
+    if (mime === 'application/pdf' || /\.pdf$/.test(name)) return 'document';
+    return '';
+  }
+
+  function refreshContentSection(message, type, title) {
+    return optionalGet('/api/providers/me/portfolio/').then(function (resp) {
+      portfolioItems = resp.ok && resp.data ? normalizeContentPortfolioList(resp.data) : [];
+      renderFocusedSection('content');
+      renderSectionLinks('content');
+      if (message) showProfileToast(message, type || 'success', title || 'تم الحفظ');
+    });
+  }
+
+  function uploadContentFiles(categoryTitle, files, input) {
+    var selectedFiles = Array.prototype.slice.call(files || []);
+    if (!selectedFiles.length) return;
+    var invalid = selectedFiles.find(function (file) {
+      return !inferContentUploadType(file);
+    });
+    if (invalid) {
+      showProfileToast('الملفات المدعومة هنا هي: صورة، فيديو، أو PDF فقط.', 'error', 'نوع ملف غير مدعوم');
+      return;
+    }
+    setContentFileControlBusy(input, true, 'جار الرفع...');
+    Promise.all(selectedFiles.map(function (file) {
+      var fileType = inferContentUploadType(file);
+      var formData = new FormData();
+      formData.append('file', file);
+      formData.append('file_type', fileType);
+      formData.append('caption', buildContentItemCaption(categoryTitle, ''));
+      return safeFormRequest('/api/providers/me/portfolio/', 'POST', formData).then(function (resp) {
+        if (!resp || !resp.ok) {
+          throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر رفع بعض الملفات'));
+        }
+        return resp;
+      });
+    })).then(function () {
+      return refreshContentSection('تم رفع الملفات داخل هذا التصنيف.', 'success', 'تم الرفع');
+    }).catch(function (err) {
+      showProfileToast((err && err.message) ? err.message : 'تعذر رفع الملفات', 'error', 'فشل الرفع');
+    }).finally(function () {
+      if (input) input.value = '';
+      setContentFileControlBusy(input, false, 'جار الرفع...');
+    });
+  }
+
+  function replaceContentItemFile(itemId, categoryTitle, file, input) {
+    var fileType = inferContentUploadType(file);
+    if (!fileType) {
+      showProfileToast('الملفات المدعومة هنا هي: صورة، فيديو، أو PDF فقط.', 'error', 'نوع ملف غير مدعوم');
+      return;
+    }
+    var card = input ? input.closest('.pe-content-item') : null;
+    var descInput = card ? card.querySelector('.pe-content-item-desc') : null;
+    var formData = new FormData();
+    formData.append('file', file);
+    formData.append('file_type', fileType);
+    formData.append('caption', buildContentItemCaption(categoryTitle, descInput ? descInput.value : ''));
+    setContentFileControlBusy(input, true, 'جار الاستبدال...');
+    safeFormRequest('/api/providers/me/portfolio/' + itemId + '/', 'PATCH', formData).then(function (resp) {
+      if (!resp || !resp.ok) {
+        throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر استبدال الملف'));
+      }
+      return refreshContentSection('تم استبدال الملف بنجاح.', 'success', 'تم التحديث');
+    }).catch(function (err) {
+      showProfileToast((err && err.message) ? err.message : 'تعذر استبدال الملف', 'error', 'فشل التحديث');
+    }).finally(function () {
+      if (input) input.value = '';
+      setContentFileControlBusy(input, false, 'جار الاستبدال...');
+    });
+  }
+
+  function saveContentItemDescription(button) {
+    var card = button ? button.closest('.pe-content-item') : null;
+    var descInput = card ? card.querySelector('.pe-content-item-desc') : null;
+    var itemId = button ? button.getAttribute('data-item-id') : '';
+    var categoryTitle = button ? button.getAttribute('data-category') : '';
+    setContentButtonBusy(button, true, 'جار الحفظ...');
+    safePatch('/api/providers/me/portfolio/' + itemId + '/', {
+      caption: buildContentItemCaption(categoryTitle, descInput ? descInput.value : '')
+    }).then(function (resp) {
+      if (!resp || !resp.ok) {
+        throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر حفظ الوصف'));
+      }
+      return refreshContentSection('تم تحديث وصف الملف.', 'success', 'تم الحفظ');
+    }).catch(function (err) {
+      showProfileToast((err && err.message) ? err.message : 'تعذر حفظ الوصف', 'error', 'فشل الحفظ');
+    }).finally(function () {
+      setContentButtonBusy(button, false, 'جار الحفظ...');
+    });
+  }
+
+  function deleteContentItem(button) {
+    var itemId = button ? button.getAttribute('data-item-id') : '';
+    if (!itemId) return;
+    if (!window.confirm('سيتم حذف هذا الملف من محتوى أعمالك. هل تريد المتابعة؟')) return;
+    setContentButtonBusy(button, true, 'جار الحذف...');
+    safeDelete('/api/providers/me/portfolio/' + itemId + '/').then(function (resp) {
+      if (!resp || !resp.ok) {
+        throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر حذف الملف'));
+      }
+      return refreshContentSection('تم حذف الملف من محتوى أعمالك.', 'success', 'تم الحذف');
+    }).catch(function (err) {
+      showProfileToast((err && err.message) ? err.message : 'تعذر حذف الملف', 'error', 'فشل الحذف');
+    }).finally(function () {
+      setContentButtonBusy(button, false, 'جار الحذف...');
+    });
+  }
+
+  function initContentManager(panel) {
+    if (!panel || panel.dataset.contentManagerBound === '1') return;
+    panel.dataset.contentManagerBound = '1';
+    panel.addEventListener('click', function (event) {
+      var saveButton = event.target.closest('.pe-content-item-save');
+      if (saveButton) {
+        event.preventDefault();
+        saveContentItemDescription(saveButton);
+        return;
+      }
+      var deleteButton = event.target.closest('.pe-content-item-delete');
+      if (deleteButton) {
+        event.preventDefault();
+        deleteContentItem(deleteButton);
+      }
+    });
+    panel.addEventListener('change', function (event) {
+      var uploadInput = event.target.closest('.pe-content-upload-input');
+      if (uploadInput) {
+        uploadContentFiles(uploadInput.getAttribute('data-category') || '', uploadInput.files, uploadInput);
+        return;
+      }
+      var replaceInput = event.target.closest('.pe-content-item-replace-input');
+      if (replaceInput && replaceInput.files && replaceInput.files[0]) {
+        replaceContentItemFile(replaceInput.getAttribute('data-item-id') || '', replaceInput.getAttribute('data-category') || '', replaceInput.files[0], replaceInput);
+      }
+    });
+  }
+
   function renderStandardPanels() {
     Object.keys(TABS).forEach(function (tab) {
       var panel = document.getElementById("pe-panel-" + tab);
@@ -1237,12 +2465,19 @@ var ProviderProfileEditPage = (function () {
       if (!panel) return;
       panel.innerHTML = "";
       panel.classList.remove("active");
+      panel.setAttribute("hidden", "hidden");
     });
     if (!cfg) return;
     var targetPanel = document.getElementById("pe-panel-" + cfg.tab);
     if (!targetPanel) return;
     targetPanel.classList.add("active");
+    targetPanel.removeAttribute("hidden");
     if (cfg.mode === "summary") {
+      if (sectionKey === "content") {
+        initContentManager(targetPanel);
+        targetPanel.innerHTML = buildContentSummary();
+        return;
+      }
       targetPanel.innerHTML = buildBasicSummary();
       return;
     }
@@ -1284,6 +2519,10 @@ var ProviderProfileEditPage = (function () {
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l2.92-2.92a5 5 0 0 0-7.07-7.07L11.7 5.24"/><path d="M14 11a5 5 0 0 0-7.54-.54l-2.92 2.92a5 5 0 1 0 7.07 7.07l1.67-1.67"/></svg>';
       case "share":
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98"/><path d="M15.41 6.51L8.59 10.49"/></svg>';
+      case "linkedin":
+        return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="#0A66C2"/><path d="M8.1 10.2h2.3V18H8.1zm1.16-1.23a1.33 1.33 0 1 1 0-2.66 1.33 1.33 0 0 1 0 2.66zM12 10.2h2.2v1.07h.03c.31-.58 1.06-1.2 2.18-1.2 2.33 0 2.76 1.53 2.76 3.53V18h-2.3v-3.91c0-.93-.02-2.13-1.3-2.13-1.3 0-1.5 1.01-1.5 2.06V18H12z" fill="#fff"/></svg>';
+      case "youtube":
+        return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="4" fill="#FF0000"/><path d="M10 9.5l5 2.5-5 2.5z" fill="#fff"/></svg>';
       case "instagram":
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="5" stroke="#E1306C" stroke-width="2"/><circle cx="12" cy="12" r="4" stroke="#E1306C" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.4" fill="#E1306C"/></svg>';
       case "x":
@@ -1292,8 +2531,12 @@ var ProviderProfileEditPage = (function () {
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3c3.06 0 5.2 2.26 5.2 5.14 0 .8-.19 1.51-.56 2.16.36.56.93 1 1.73 1.34.31.13.49.43.43.77-.06.36-.34.62-.69.68-.56.09-.99.17-1.37.28-.43 1-1.12 1.82-2.02 2.38-.22.13-.49.13-.71 0-.9-.56-1.59-1.38-2.02-2.38-.38-.11-.81-.19-1.37-.28-.35-.06-.63-.32-.69-.68-.06-.34.12-.64.43-.77.8-.34 1.37-.78 1.73-1.34-.37-.65-.56-1.36-.56-2.16C6.8 5.26 8.94 3 12 3z" fill="#FFFC00" stroke="#111" stroke-width="1.2"/></svg>';
       case "facebook":
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M13.5 21v-7h2.4l.36-2.8H13.5V9.42c0-.81.23-1.36 1.39-1.36H16.4V5.56c-.26-.03-1.14-.11-2.18-.11-2.16 0-3.64 1.32-3.64 3.74v2.01H8.2V14h2.38v7h2.92z" fill="#1877F2"/></svg>';
+      case "pinterest":
+        return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="#E60023"/><path d="M12.34 17.78c-.9 0-1.75-.48-2.04-1.03l-.58 2.24-.04.13c-.1.36-.42.61-.8.61H8l1.12-4.41c-.2-.52-.32-1.18-.32-1.82 0-2.35 1.73-4.11 4.09-4.11 2.05 0 3.39 1.46 3.39 3.3 0 2.26-1 4.09-2.55 4.09-.8 0-1.4-.67-1.22-1.48.24-.97.7-2.01.7-2.71 0-.62-.33-1.14-1.01-1.14-.8 0-1.44.83-1.44 1.94 0 .71.24 1.19.24 1.19l-.98 4.15c.72.22 1.5.34 2.31.34" fill="#fff"/></svg>';
       case "tiktok":
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M14.5 3c.4 1.77 1.45 3.14 3.19 3.73v2.58a6.55 6.55 0 0 1-3.11-1v5.64a5.45 5.45 0 1 1-5.45-5.45c.3 0 .6.03.88.08v2.71a2.74 2.74 0 1 0 1.86 2.59V3h2.63z" fill="#111"/><path d="M14.5 3c.4 1.77 1.45 3.14 3.19 3.73" stroke="#25F4EE" stroke-width="1.2"/><path d="M12.64 13.88a2.74 2.74 0 1 1-2.63-3.45" stroke="#FE2C55" stroke-width="1.2"/></svg>';
+      case "behance":
+        return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="18" height="14" rx="4" fill="#1769FF"/><path d="M8.2 10.1h2.42c.98 0 1.68.55 1.68 1.44 0 .75-.42 1.18-.94 1.32v.03c.74.11 1.21.7 1.21 1.56 0 1.05-.78 1.84-2.09 1.84H8.2zm1.41 2.48h.85c.46 0 .74-.23.74-.63 0-.39-.28-.62-.74-.62h-.85zm0 2.72h1.01c.54 0 .87-.27.87-.74s-.33-.73-.87-.73H9.61zM15.18 10.37h2.84v.68h-2.84zm3.23 4.18c-.08 1.29-1.1 2.11-2.56 2.11-1.68 0-2.72-1.1-2.72-2.88 0-1.77 1.05-2.91 2.68-2.91 1.6 0 2.59 1.08 2.59 2.82v.42h-3.87c.02.86.52 1.38 1.3 1.38.56 0 .96-.24 1.08-.94zm-3.79-1.29h2.47c-.03-.77-.47-1.22-1.18-1.22-.7 0-1.18.47-1.29 1.22z" fill="#fff"/></svg>';
       case "email":
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M4 7l8 6 8-6"/></svg>';
       case "phone":
@@ -1302,6 +2545,8 @@ var ProviderProfileEditPage = (function () {
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41L11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>';
       case "search":
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+      case "image":
+        return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20"/></svg>';
       case "headline":
         return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>';
       default:
@@ -1312,6 +2557,15 @@ var ProviderProfileEditPage = (function () {
   function displayValue(value, field) {
     if (value === null || value === undefined || value === "") {
       return '<span class="pe-empty-value">لم تتم إضافة هذه المعلومة بعد</span>';
+    }
+    if (field && field.key === "details") {
+      return '<div class="pe-additional-story-copy">' + escapeHtml(value).replace(/\n/g, "<br>") + '</div>';
+    }
+    if (field && field.key === "qualification") {
+      return '<div class="pe-additional-tag-wrap">' + renderAdditionalTags(additionalEntries(value), 'qualification') + '</div>';
+    }
+    if (field && field.key === "experiences") {
+      return renderAdditionalList(additionalEntries(value), 'لم تتم إضافة خبرات عملية بعد');
     }
     if (field && field.key === "accountType") {
       return escapeHtml(TYPE_LABELS[value] || value);
@@ -1340,6 +2594,65 @@ var ProviderProfileEditPage = (function () {
       return '<a class="pe-inline-link" href="' + href + '" target="_blank" rel="noopener noreferrer">' + safeValue + '</a>';
     }
     return field && field.multiline ? safeValue.replace(/\n/g, "<br>") : safeValue;
+  }
+
+  function renderAdditionalLinksSummary() {
+    var items = sanitizeSocialExtraItems(profile && profile.socialExtras);
+    if (!items.length) return '<span class="pe-empty-value">لم تتم إضافة روابط إضافية بعد</span>';
+    return '<div class="pe-additional-links-summary">' + items.map(function (item) {
+      var label = item.label || guessSocialLinkLabel(item.platform, item.url);
+      var display = normalizeSocialDisplayValue(item.platform, item.url).replace(/^https?:\/\//i, '').replace(/\/$/, '');
+      return '<div class="pe-additional-link-chip"><strong>' + escapeHtml(label) + '</strong><span>' + escapeHtml(display) + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function buildAdditionalLinksRow(item) {
+    var normalized = normalizeSocialLinkObject(item) || { label: '', url: '' };
+    return '<div class="pe-additional-link-row">' +
+      '<input type="text" class="form-input pe-additional-link-label" placeholder="اسم المنصة أو الموقع" value="' + escapeHtml(normalized.label || '') + '">' +
+      '<input type="url" class="form-input pe-additional-link-url" placeholder="https://example.com/profile" value="' + escapeHtml(normalized.url || '') + '" dir="ltr" inputmode="url" autocomplete="url">' +
+      '<button type="button" class="btn btn-secondary pe-additional-links-remove">حذف</button>' +
+    '</div>';
+  }
+
+  function renderAdditionalLinksRows(items) {
+    var rows = sanitizeSocialExtraItems(items);
+    if (!rows.length) rows = [{ label: '', url: '' }];
+    return rows.map(function (item) {
+      return buildAdditionalLinksRow(item);
+    }).join('');
+  }
+
+  function appendAdditionalLinksRow(item) {
+    var rows = document.getElementById('pe-additional-links-rows');
+    if (!rows) return;
+    rows.insertAdjacentHTML('beforeend', buildAdditionalLinksRow(item || {}));
+  }
+
+  function buildAdditionalLinksField(f) {
+    return '<article class="pe-field pe-field-wide pe-additional-links-field" data-key="' + f.key + '">' +
+      '<div class="pe-field-head">' +
+        '<div class="pe-field-title-wrap">' +
+          '<span class="pe-field-icon" aria-hidden="true">' + iconSvg(f.icon) + '</span>' +
+          '<div class="pe-field-copy">' +
+            '<span class="pe-field-label">' + f.label + '</span>' +
+            (f.hint ? '<span class="pe-field-hint">' + escapeHtml(f.hint) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<button type="button" class="pe-edit-btn" data-key="' + f.key + '" aria-label="تحرير ' + escapeHtml(f.label) + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+      '</div>' +
+      '<div class="pe-field-display">' + renderAdditionalLinksSummary() + '</div>' +
+      '<div class="pe-field-edit" style="display:none">' +
+        '<div class="pe-additional-links-editor">' +
+          '<div class="pe-additional-links-note">أضف أي رابط إضافي تريد ظهوره في ملفك العام، مع اسم واضح يساعد العميل على فهم الوجهة.</div>' +
+          '<div class="pe-additional-links-rows" id="pe-additional-links-rows">' + renderAdditionalLinksRows(profile.socialExtras) + '</div>' +
+          '<button type="button" class="btn btn-secondary pe-additional-links-add-btn">إضافة رابط آخر</button>' +
+          '<div class="pe-field-actions">' +
+            '<button type="button" class="btn btn-primary pe-save-btn" data-key="' + f.key + '">حفظ</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</article>';
   }
 
   function buildSeoPreviewField(f) {
@@ -1447,10 +2760,11 @@ var ProviderProfileEditPage = (function () {
   function setFieldValue(key, value) {
     profile[key] = value === null || value === undefined ? "" : String(value);
     if (key === "location") {
-      var scope = splitLocationScope(profile[key], profile && profile.locationRegion);
+      var scope = splitLocationScope(profile[key], profile && (profile.locationCountry || profile.locationRegion));
+      profile.locationCountry = scope.region || profile.locationCountry || "";
       profile.locationRegion = scope.region;
       profile.locationCity = scope.city;
-      profile.location = formatLocationDisplay(scope.city, scope.region);
+      profile.location = buildProfileLocationLabel(profile.locationCountry, profile.locationCity) || String(profile[key] || "");
     }
     var field = document.querySelector('.pe-field[data-key="' + key + '"]');
     if (!field) {
@@ -1462,7 +2776,7 @@ var ProviderProfileEditPage = (function () {
     }
     var cfg = fieldConfig(key);
     var display = field.querySelector(".pe-field-display");
-    if (display) display.innerHTML = displayValue(profile[key], cfg);
+    if (display) display.innerHTML = key === 'additionalLinks' ? renderAdditionalLinksSummary() : displayValue(profile[key], cfg);
     var input = field.querySelector('.pe-input[data-key="' + key + '"]');
     if (input) input.value = profile[key];
 
@@ -1475,7 +2789,15 @@ var ProviderProfileEditPage = (function () {
       }
     }
 
+    if (key === 'additionalLinks') {
+      var rows = document.getElementById('pe-additional-links-rows');
+      if (rows) rows.innerHTML = renderAdditionalLinksRows(profile.socialExtras);
+    }
+
     if (key === "location") {
+      var countryInput = document.querySelector(".pe-location-country-input");
+      if (countryInput) countryInput.value = profile.locationCountry || "";
+      syncProfileLocationLabels(profile.locationCountry || "", profile.locationCity || "");
       var cityLabel = document.querySelector(".pe-map-city");
       if (cityLabel) cityLabel.textContent = "المنطقة الحالية: " + (profile.location || "غير محددة");
       centerServiceMapOnCity(!hasPreciseCoordinates());
@@ -1488,6 +2810,19 @@ var ProviderProfileEditPage = (function () {
     if (isSeoFieldKey(key)) {
       updateSeoFieldFeedback(key);
       updateSeoPreview();
+    }
+
+    if (key === "details" || key === "qualification" || key === "experiences") {
+      refreshAdditionalOverview();
+    }
+
+    if (key === "languages" || key === "serviceLocation" || key === "coverageRadius" || key === "location") {
+      refreshLangLocOverview();
+    }
+
+    if (isSectionFlowActive()) {
+      renderSectionLinks(initialSection);
+      updateSectionHelper((SECTION_CONFIG[initialSection] && SECTION_CONFIG[initialSection].tab) || "account");
     }
   }
 
@@ -1504,6 +2839,99 @@ var ProviderProfileEditPage = (function () {
     return safeGet(path).catch(function () {
       return { ok: false, status: 0, data: null };
     });
+  }
+
+  function safePut(path, body) {
+    if (RAW_API && typeof RAW_API.request === "function") {
+      return RAW_API.request(path, { method: "PUT", body: body });
+    }
+    if (API && typeof API.request === "function") {
+      return API.request(path, { method: "PUT", body: body }).then(function (data) {
+        return { ok: !!data, status: data ? 200 : 0, data: data };
+      });
+    }
+    return fetch(path, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken()
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(body || {})
+    }).then(function (resp) {
+      return resp.json().catch(function () { return null; }).then(function (data) {
+        return { ok: resp.ok, status: resp.status, data: data };
+      });
+    });
+  }
+
+  function safePost(path, body) {
+    if (RAW_API && typeof RAW_API.request === "function") {
+      return RAW_API.request(path, { method: "POST", body: body });
+    }
+    if (API && typeof API.request === "function") {
+      return API.request(path, { method: "POST", body: body }).then(function (data) {
+        return { ok: !!data, status: data ? 200 : 0, data: data };
+      });
+    }
+    return fetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken()
+      },
+      credentials: "same-origin",
+      body: JSON.stringify(body || {})
+    }).then(function (resp) {
+      return resp.json().catch(function () { return null; }).then(function (data) {
+        return { ok: resp.ok, status: resp.status, data: data };
+      });
+    });
+  }
+
+  function safeDelete(path) {
+    if (RAW_API && typeof RAW_API.request === "function") {
+      return RAW_API.request(path, { method: "DELETE" });
+    }
+    if (API && typeof API.request === "function") {
+      return API.request(path, { method: "DELETE" }).then(function (data) {
+        return { ok: true, status: 204, data: data || null };
+      });
+    }
+    return fetch(path, {
+      method: "DELETE",
+      headers: {
+        "X-CSRFToken": getCsrfToken()
+      },
+      credentials: "same-origin"
+    }).then(function (resp) {
+      return resp.json().catch(function () { return null; }).then(function (data) {
+        return { ok: resp.ok, status: resp.status, data: data };
+      });
+    });
+  }
+
+  function safeFormRequest(path, method, formData) {
+    if (RAW_API && typeof RAW_API.request === "function") {
+      return RAW_API.request(path, { method: method, body: formData, formData: true });
+    }
+    return fetch(path, {
+      method: method,
+      headers: {
+        "X-CSRFToken": getCsrfToken()
+      },
+      credentials: "same-origin",
+      body: formData
+    }).then(function (resp) {
+      return resp.json().catch(function () { return null; }).then(function (data) {
+        return { ok: resp.ok, status: resp.status, data: data };
+      });
+    });
+  }
+
+  function getCsrfToken() {
+    var match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : "";
   }
 
   function safePatch(path, body) {
@@ -1526,6 +2954,49 @@ var ProviderProfileEditPage = (function () {
     return fallback || "فشل العملية";
   }
 
+  function renderLocalProfileToast(message, type, title) {
+    var host = document.getElementById("pe-local-toast-stack");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "pe-local-toast-stack";
+      host.className = "pe-local-toast-stack";
+      document.body.appendChild(host);
+    }
+    var toast = document.createElement("div");
+    toast.className = "pe-local-toast is-" + String(type || "success");
+    toast.innerHTML =
+      '<span class="pe-local-toast-title"></span>' +
+      '<span class="pe-local-toast-message"></span>';
+    var titleEl = toast.querySelector(".pe-local-toast-title");
+    var messageEl = toast.querySelector(".pe-local-toast-message");
+    if (titleEl) titleEl.textContent = String(title || "تنبيه").trim();
+    if (messageEl) messageEl.textContent = String(message || "").trim();
+    host.appendChild(toast);
+    requestAnimationFrame(function () {
+      toast.classList.add("is-visible");
+    });
+    window.setTimeout(function () {
+      toast.classList.remove("is-visible");
+      window.setTimeout(function () {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 180);
+    }, 3600);
+  }
+
+  function showProfileToast(message, type, title) {
+    var text = String(message || "").trim();
+    if (!text) return;
+    if (window.Toast && typeof window.Toast.show === "function") {
+      window.Toast.show(text, {
+        type: type || "success",
+        title: title || "",
+        duration: 3600
+      });
+      return;
+    }
+    renderLocalProfileToast(text, type || "success", title || "");
+  }
+
   function sanitizePhone(value) {
     return String(value || "").replace(/[^\d]/g, "").slice(0, 10);
   }
@@ -1535,25 +3006,157 @@ var ProviderProfileEditPage = (function () {
     return /^05\d{8}$/.test(digits) ? digits : "";
   }
 
+  function getMobilePhoneOtpBox(field) {
+    return field ? field.querySelector(".pe-phone-otp-box") : null;
+  }
+
+  function setMobilePhoneOtpStatus(field, message, tone) {
+    var box = getMobilePhoneOtpBox(field);
+    var status = box ? box.querySelector(".pe-phone-otp-status") : null;
+    if (!status) return;
+    status.textContent = String(message || "").trim();
+    status.className = "pe-phone-otp-status" + (tone ? (" is-" + tone) : "");
+  }
+
+  function resetMobilePhoneOtpState(field) {
+    pendingPhoneOtp = { phone: "", active: false };
+    var box = getMobilePhoneOtpBox(field);
+    if (box) {
+      var input = box.querySelector(".pe-phone-otp-input");
+      var note = box.querySelector(".pe-phone-otp-note");
+      if (input) input.value = "";
+      if (note) note.textContent = "";
+      setMobilePhoneOtpStatus(field, "", "");
+      box.classList.add("hidden");
+    }
+    var saveBtn = field ? field.querySelector('.pe-save-btn[data-key="mobilePhone"]') : null;
+    if (saveBtn) saveBtn.textContent = "إرسال الرمز";
+  }
+
+  function ensureMobilePhoneOtpUi(field, phone) {
+    if (!field) return null;
+    var editBlock = field.querySelector(".pe-field-edit");
+    var actions = field.querySelector(".pe-field-actions");
+    if (!editBlock || !actions) return null;
+
+    var box = getMobilePhoneOtpBox(field);
+    if (!box) {
+      box = document.createElement("div");
+      box.className = "pe-phone-otp-box hidden";
+      box.innerHTML =
+        '<strong class="pe-phone-otp-title">تأكيد رقم الجوال</strong>' +
+        '<span class="pe-phone-otp-note"></span>' +
+        '<input type="tel" class="form-input pe-phone-otp-input" maxlength="4" inputmode="numeric" autocomplete="one-time-code" placeholder="XXXX">' +
+        '<div class="pe-phone-otp-status" aria-live="polite"></div>';
+      editBlock.insertBefore(box, actions);
+    }
+
+    var note = box.querySelector(".pe-phone-otp-note");
+    var input = box.querySelector(".pe-phone-otp-input");
+    if (note) note.textContent = "أرسلنا رمز التحقق إلى الرقم الجديد " + phone + " . أدخله هنا لإتمام التغيير.";
+    if (input) {
+      input.value = "";
+      input.focus();
+    }
+    box.classList.remove("hidden");
+    pendingPhoneOtp = { phone: phone, active: true };
+    var saveBtn = field.querySelector('.pe-save-btn[data-key="mobilePhone"]');
+    if (saveBtn) saveBtn.textContent = "تأكيد الرمز";
+    setMobilePhoneOtpStatus(field, "تم إرسال رمز التحقق. أدخله ثم اضغط تأكيد الرمز.", "info");
+    return box;
+  }
+
+  function saveMobilePhoneWithOtp(phone, btn, input) {
+    var field = document.querySelector('.pe-field[data-key="mobilePhone"]');
+    var otpBox = getMobilePhoneOtpBox(field);
+    var otpInput = otpBox ? otpBox.querySelector(".pe-phone-otp-input") : null;
+
+    if (pendingPhoneOtp.active && pendingPhoneOtp.phone === phone && otpBox && !otpBox.classList.contains("hidden")) {
+      var code = String(otpInput && otpInput.value || "").replace(/[^\d]/g, "").slice(0, 4);
+      if (code.length !== 4) {
+        setMobilePhoneOtpStatus(field, "أدخل رمز تحقق مكوّنًا من 4 أرقام.", "error");
+        showProfileToast("أدخل رمز تحقق مكوّنًا من 4 أرقام", "error", "رمز التحقق");
+        if (otpInput) otpInput.focus();
+        return Promise.resolve();
+      }
+
+      btn.disabled = true;
+      btn.textContent = "جاري التحقق...";
+      return safePost("/api/accounts/me/confirm-phone-change/", {
+        phone: phone,
+        code: code
+      }).then(function (resp) {
+        if (!resp || !resp.ok) {
+          throw new Error(apiErrorMessage(resp ? resp.data : null, "فشل تأكيد تغيير رقم الجوال"));
+        }
+
+        var responseData = resp.data || {};
+        var nextValue = typeof responseData.phone === "string" ? responseData.phone : phone;
+        resetMobilePhoneOtpState(field);
+        setFieldValue("mobilePhone", nextValue);
+        if (userProfile) userProfile.phone = nextValue;
+        if (input && input.value !== nextValue) input.value = nextValue;
+        if (field) setFieldEditingState(field, false);
+        showProfileToast("تم تغيير رقم الجوال بنجاح", "success", "تم الحفظ");
+      }).catch(function (err) {
+        setMobilePhoneOtpStatus(field, (err && err.message) ? err.message : "تعذر تأكيد تغيير رقم الجوال", "error");
+        showProfileToast((err && err.message) ? err.message : "تعذر تأكيد تغيير رقم الجوال", "error", "تعذر الحفظ");
+      }).finally(function () {
+        btn.disabled = false;
+        btn.textContent = pendingPhoneOtp.active ? "تأكيد الرمز" : "إرسال الرمز";
+      });
+    }
+
+    btn.disabled = true;
+    btn.textContent = "إرسال الرمز...";
+    return safePost("/api/accounts/me/request-phone-change/", { phone: phone }).then(function (resp) {
+      if (!resp || !resp.ok) {
+        throw new Error(apiErrorMessage(resp ? resp.data : null, "تعذر إرسال رمز التحقق"));
+      }
+      ensureMobilePhoneOtpUi(field, phone);
+      showProfileToast("تم إرسال رمز التحقق إلى الرقم الجديد", "info", "رمز التحقق");
+    }).catch(function (err) {
+      setMobilePhoneOtpStatus(field, (err && err.message) ? err.message : "تعذر إرسال رمز التحقق", "error");
+      showProfileToast((err && err.message) ? err.message : "تعذر إرسال رمز التحقق", "error", "تعذر الإرسال");
+    }).finally(function () {
+      btn.disabled = false;
+      btn.textContent = pendingPhoneOtp.active ? "تأكيد الرمز" : "إرسال الرمز";
+    });
+  }
+
   function loadProfile() {
     Promise.all([
       safeGet("/api/accounts/me/"),
       safeGet("/api/providers/me/profile/"),
-      optionalGet("/api/providers/me/services/")
+      optionalGet("/api/providers/me/services/"),
+      optionalGet("/api/providers/categories/"),
+      optionalGet("/api/providers/me/subcategories/"),
+      optionalGet("/api/providers/me/portfolio/")
     ]).then(function (res) {
       var userResp = res[0] || {};
       var provResp = res[1] || {};
       var servicesResp = res[2] || {};
+      var categoriesResp = res[3] || {};
+      var providerSubcategoriesResp = res[4] || {};
+      var portfolioResp = res[5] || {};
       if (!provResp.ok || !provResp.data) {
         throw new Error("provider_profile_not_found");
       }
       var user = userResp.ok && userResp.data ? userResp.data : {};
       var prov = provResp.data || {};
+      providerProfileRaw = prov;
       var languageState = extractLanguageState(prov.languages);
       var socialState = extractSocialState(prov.social_links);
-      var locationScope = splitLocationScope(prov.city_display || prov.city || "", prov.region || "");
+      var locationScope = splitLocationScope(prov.city_display || prov.city || "", prov.country || prov.region || "");
+      categoryCatalog = categoriesResp.ok ? normalizeCategoryCatalog(categoriesResp.data) : [];
+      applyProviderSubcategoryState(
+        providerSubcategoriesResp.ok && providerSubcategoriesResp.data ? providerSubcategoriesResp.data.subcategory_ids : prov.subcategory_ids,
+        providerSubcategoriesResp.ok && providerSubcategoriesResp.data ? providerSubcategoriesResp.data.subcategory_settings : [],
+        prov.selected_subcategories
+      );
       userProfile = user;
       myServices = servicesResp.ok && servicesResp.data ? extractList(servicesResp.data) : [];
+      portfolioItems = portfolioResp.ok && portfolioResp.data ? normalizeContentPortfolioList(portfolioResp.data) : [];
       profile = {
         providerId: prov.id || "",
         fullName: prov.display_name || "",
@@ -1566,7 +3169,8 @@ var ProviderProfileEditPage = (function () {
         languageEnglish: !!languageState.english,
         languageOther: !!languageState.other,
         languageOtherText: languageState.otherText || "",
-        location: formatLocationDisplay(locationScope.city, locationScope.region),
+        location: buildProfileLocationLabel(prov.country || locationScope.region, locationScope.city) || String(prov.city_display || prov.city || "").trim(),
+        locationCountry: prov.country || locationScope.region || "",
         locationRegion: locationScope.region,
         locationCity: locationScope.city,
         coverageRadius: prov.coverage_radius_km === null || prov.coverage_radius_km === undefined ? "" : String(prov.coverage_radius_km),
@@ -1577,13 +3181,18 @@ var ProviderProfileEditPage = (function () {
         experiences: Array.isArray(prov.experiences) ? prov.experiences.map(function (item) { return normalizeListEntry(item, ["title", "name", "label"]); }).filter(Boolean).join("\n") : "",
         website: prov.website || "",
         social: Array.isArray(prov.social_links) ? prov.social_links.map(function (s) { return s.url || s; }).join("\n") : "",
+        linkedinUrl: socialState.values.linkedinUrl || "",
+        youtubeUrl: socialState.values.youtubeUrl || "",
+        facebookUrl: socialState.values.facebookUrl || "",
+        instagramUrl: socialState.values.instagramUrl || "",
         xUrl: socialState.values.xUrl || "",
         snapchatUrl: socialState.values.snapchatUrl || "",
-        instagramUrl: socialState.values.instagramUrl || "",
-        facebookUrl: socialState.values.facebookUrl || "",
+        pinterestUrl: socialState.values.pinterestUrl || "",
         tiktokUrl: socialState.values.tiktokUrl || "",
+        behanceUrl: socialState.values.behanceUrl || "",
         contactEmail: socialState.values.contactEmail || "",
-        socialExtras: socialState.extras || [],
+        socialExtras: sanitizeSocialExtraItems(socialState.extras),
+        additionalLinks: socialState.extras && socialState.extras.length ? String(socialState.extras.length) : "",
         mobilePhone: user.phone || "",
         accountEmail: user.email || "",
         phone: prov.whatsapp || user.phone || "",
@@ -1592,6 +3201,7 @@ var ProviderProfileEditPage = (function () {
         seoMetaDescription: prov.seo_meta_description || "",
         seoSlug: prov.seo_slug || ""
       };
+      setProfileLocationDraft(prov.lat, prov.lng);
       serviceRadiusDraft = prov.coverage_radius_km === null || prov.coverage_radius_km === undefined
         ? 0
         : Math.max(0, parseInt(prov.coverage_radius_km, 10) || 0);
@@ -1625,13 +3235,456 @@ var ProviderProfileEditPage = (function () {
     updateSectionHelper(initialTab || "account");
   }
 
-  function buildLanguageField(f) {
-    return '<article class="pe-field pe-field-wide pe-language-field" data-key="' + f.key + '">' +
+  function buildCategoryPickerField(f) {
+    return '<article class="pe-field pe-field-wide pe-category-picker-field" data-key="' + f.key + '">' +
       '<div class="pe-field-head">' +
         '<div class="pe-field-title-wrap">' +
           '<span class="pe-field-icon" aria-hidden="true">' + iconSvg(f.icon) + '</span>' +
           '<div class="pe-field-copy">' +
             '<span class="pe-field-label">' + f.label + '</span>' +
+            (f.hint ? '<span class="pe-category-caption">' + escapeHtml(f.hint || '') + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pe-category-note-band">' +
+        '<span class="pe-category-note-icon" aria-hidden="true">' + iconSvg("work") + '</span>' +
+        '<div class="pe-category-note-copy">' +
+          '<strong>ابنِ خارطة تخصصاتك بشكل أدق</strong>' +
+          '<span>اختر القسم الرئيسي، ثم أضف التصنيفات الفرعية المناسبة، وحدد لكل تخصص هل يعمل داخل نطاقك الجغرافي فقط أم يمكن تقديمه عن بُعد، مع تفعيل الطلبات العاجلة من أيقونة البرق عند الحاجة.</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pe-category-toolbar">' +
+        '<button type="button" class="btn btn-secondary pe-category-add-btn" id="pe-category-add-group">إضافة قسم آخر</button>' +
+      '</div>' +
+      '<div class="pe-category-groups" id="pe-category-groups"></div>' +
+      '<div class="pe-field-actions">' +
+        '<button type="button" class="btn btn-primary pe-save-btn" data-key="serviceCategories">حفظ التصنيفات</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function getCategoryGroupsRoot() {
+    return document.getElementById("pe-category-groups");
+  }
+
+  function getCategoryGroupCards() {
+    return Array.prototype.slice.call(document.querySelectorAll(".pe-category-group"));
+  }
+
+  function getCategoryGroupId(groupEl) {
+    return groupEl ? String(groupEl.getAttribute("data-group-id") || "") : "";
+  }
+
+  function collectGroupSubcategoryIds(groupEl) {
+    return uniqueNumeric(Array.prototype.slice.call(groupEl.querySelectorAll(".pe-category-subcheckbox:checked")).map(function (checkbox) {
+      return checkbox.value;
+    }));
+  }
+
+  function collectDraftServiceCategoryIds() {
+    return uniqueNumeric([].concat.apply([], getCategoryGroupCards().map(function (groupEl) {
+      return collectGroupSubcategoryIds(groupEl);
+    })));
+  }
+
+  function getSelectedCategoryIds(exceptGroupId) {
+    return getCategoryGroupCards().reduce(function (allIds, groupEl) {
+      var groupId = getCategoryGroupId(groupEl);
+      if (exceptGroupId && groupId === exceptGroupId) return allIds;
+      var select = groupEl.querySelector(".pe-category-select");
+      var categoryId = parseInt(select && select.value, 10);
+      if (isFinite(categoryId)) allIds.push(categoryId);
+      return allIds;
+    }, []);
+  }
+
+  function findGroupByCategoryId(categoryId, exceptGroupId) {
+    if (!isFinite(categoryId)) return null;
+    var groups = getCategoryGroupCards();
+    for (var i = 0; i < groups.length; i++) {
+      var groupEl = groups[i];
+      if (exceptGroupId && getCategoryGroupId(groupEl) === exceptGroupId) continue;
+      var select = groupEl.querySelector(".pe-category-select");
+      if (parseInt(select && select.value, 10) === categoryId) return groupEl;
+    }
+    return null;
+  }
+
+  function renderCategoryGroupOptions(select, groupId, selectedCategoryId) {
+    if (!select) return;
+    var takenIds = getSelectedCategoryIds(groupId);
+    select.innerHTML = "";
+
+    var placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "اختر القسم";
+    select.appendChild(placeholder);
+
+    categoryCatalog.forEach(function (category) {
+      if (takenIds.indexOf(category.id) !== -1 && category.id !== selectedCategoryId) return;
+      var option = document.createElement("option");
+      option.value = String(category.id);
+      option.textContent = category.name;
+      if (selectedCategoryId === category.id) option.selected = true;
+      select.appendChild(option);
+    });
+  }
+
+  function renderCategoryGroupSubcategories(groupEl, categoryId, selectedSubcategoryIds) {
+    var list = groupEl ? groupEl.querySelector("[data-role='subcategory-list']") : null;
+    if (!list) return;
+    list.innerHTML = "";
+
+    if (!categoryId) {
+      list.innerHTML = '<p class="pe-category-empty">اختر القسم الرئيسي أولًا لتظهر التصنيفات الفرعية التابعة له.</p>';
+      return;
+    }
+
+    var category = findCategoryById(categoryId);
+    var subcategories = category && Array.isArray(category.subcategories) ? category.subcategories : [];
+    if (!subcategories.length) {
+      list.innerHTML = '<p class="pe-category-empty">لا توجد تصنيفات فرعية متاحة داخل هذا القسم حاليًا.</p>';
+      return;
+    }
+
+    var selectedLookup = {};
+    uniqueNumeric(selectedSubcategoryIds).forEach(function (subId) {
+      selectedLookup[subId] = true;
+    });
+
+    subcategories.forEach(function (subcategory) {
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "pe-category-subcheckbox";
+      checkbox.value = String(subcategory.id);
+      checkbox.checked = !!selectedLookup[subcategory.id];
+
+      var option = document.createElement("div");
+      option.className = "pe-category-option";
+      option.setAttribute("data-subcategory-id", String(subcategory.id));
+      option.innerHTML =
+        '<label class="pe-category-option-check">' +
+          '<span class="pe-category-option-control"></span>' +
+          '<span class="pe-category-option-copy">' +
+            '<strong class="pe-category-option-title"></strong>' +
+            '<span class="pe-category-option-status"></span>' +
+            '<span class="pe-category-option-scope"></span>' +
+            '<span class="pe-category-option-note">ستظهر سياسة النطاق لهذا التخصص تلقائيًا وفق إعدادات المنصة، ويمكنك فقط التحكم في استقبال الطلبات العاجلة إذا كان التصنيف يدعمها.</span>' +
+          '</span>' +
+        '</label>' +
+        '<div class="pe-category-option-actions">' +
+          '<button type="button" class="pe-category-urgent-toggle" data-subcategory-id="' + String(subcategory.id) + '">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 6 14h5l-1 8 8-13h-5l0-7z"/></svg>' +
+            '<span>عاجل</span>' +
+          '</button>' +
+        '</div>';
+
+      var control = option.querySelector(".pe-category-option-control");
+      var title = option.querySelector(".pe-category-option-title");
+      if (control) control.appendChild(checkbox);
+      if (title) title.textContent = subcategory.name;
+
+      list.appendChild(option);
+      syncCategoryOptionState(option);
+    });
+  }
+
+  function syncCategoryOptionState(optionEl) {
+    if (!optionEl) return;
+    var checkbox = optionEl.querySelector(".pe-category-subcheckbox");
+    var toggle = optionEl.querySelector(".pe-category-urgent-toggle");
+    var status = optionEl.querySelector(".pe-category-option-status");
+    var scope = optionEl.querySelector(".pe-category-option-scope");
+    var note = optionEl.querySelector(".pe-category-option-note");
+    var subId = parseInt(checkbox && checkbox.value, 10);
+    var isSelected = !!(checkbox && checkbox.checked);
+    var setting = isSelected && isFinite(subId) ? getSubcategorySetting(subId) : normalizeSubcategorySetting(null);
+    var policy = isFinite(subId) ? getSubcategoryPolicy(subId) : getSubcategoryPolicy(null);
+    var allowsUrgentRequests = !!policy.allows_urgent_requests;
+    var isUrgent = isSelected && allowsUrgentRequests && setting.accepts_urgent;
+    var requiresGeoScope = !isSelected || policy.requires_geo_scope;
+
+    optionEl.classList.toggle("is-selected", isSelected);
+    optionEl.classList.toggle("is-urgent", isUrgent);
+    optionEl.classList.toggle("is-remote", isSelected && !requiresGeoScope);
+
+    if (status) {
+      status.classList.toggle("is-urgent", isUrgent);
+      status.classList.toggle("is-normal", isSelected && !isUrgent);
+      status.textContent = isUrgent
+        ? "مفعّل للطلبات العاجلة"
+        : (isSelected ? (allowsUrgentRequests ? "استقبال عادي" : "استقبال عادي فقط") : "غير مفعّل");
+    }
+
+    if (scope) {
+      scope.classList.toggle("is-remote", isSelected && !requiresGeoScope);
+      scope.classList.toggle("is-local", isSelected && requiresGeoScope);
+      scope.textContent = !isSelected
+        ? "بدون نطاق محدد بعد"
+        : (requiresGeoScope ? "سياسة المنصة: يخضع للنطاق الجغرافي والمسافة" : "سياسة المنصة: يمكن تقديمه عن بُعد بدون تقييد المدينة");
+    }
+
+    if (note) {
+      if (!isSelected) {
+        note.textContent = "فعّل التصنيف أولًا، وستظهر سياسة النطاق تلقائيًا وفق إعدادات المنصة. يمكنك فقط تفعيل الطلبات العاجلة إذا كان هذا التصنيف يدعمها.";
+      } else if (!allowsUrgentRequests && !requiresGeoScope) {
+        note.textContent = "هذا التخصص يعمل عن بُعد وفق سياسة المنصة، ولا يدعم الطلبات العاجلة لهذا التصنيف.";
+      } else if (!allowsUrgentRequests) {
+        note.textContent = "هذا التخصص محلي وفق سياسة المنصة ويخضع لمدينتك ونطاقك، لكنه لا يدعم الطلبات العاجلة.";
+      } else if (!requiresGeoScope && isUrgent) {
+        note.textContent = "هذا التخصص يعمل عن بُعد وفق سياسة المنصة، وسيظهر أيضًا ضمن الخدمات المستعدة لاستقبال الطلبات العاجلة.";
+      } else if (!requiresGeoScope) {
+        note.textContent = "هذا التخصص يمكن تقديمه عن بُعد وفق سياسة المنصة، لذلك لن يتم تقييده بمدينتك أو نصف قطر التغطية.";
+      } else if (isUrgent) {
+        note.textContent = "هذا التخصص محلي وفق سياسة المنصة ويخضع لمدينتك ونطاقك بالكيلومتر، مع تفعيل استقبال الطلبات العاجلة له.";
+      } else {
+        note.textContent = "هذا التخصص محلي وفق سياسة المنصة ويخضع لمدينتك ونطاقك بالكيلومتر بشكل افتراضي.";
+      }
+    }
+
+    if (toggle) {
+      toggle.disabled = !isSelected || !allowsUrgentRequests;
+      toggle.classList.toggle("is-active", isUrgent);
+      toggle.setAttribute("aria-pressed", isUrgent ? "true" : "false");
+      toggle.setAttribute("title", !isSelected
+        ? "اختر التصنيف الفرعي أولًا"
+        : (!allowsUrgentRequests
+          ? "الطلبات العاجلة غير متاحة لهذا التصنيف"
+          : (isUrgent ? "إلغاء استقبال الطلبات العاجلة" : "تفعيل استقبال الطلبات العاجلة")));
+    }
+  }
+
+  function refreshCategoryGroup(groupEl) {
+    if (!groupEl) return;
+    var select = groupEl.querySelector(".pe-category-select");
+    if (!select) return;
+    var groupId = getCategoryGroupId(groupEl);
+    var selectedCategoryId = parseInt(select.value, 10);
+    if (!isFinite(selectedCategoryId)) selectedCategoryId = null;
+    var selectedSubcategoryIds = collectGroupSubcategoryIds(groupEl);
+    renderCategoryGroupOptions(select, groupId, selectedCategoryId);
+    selectedCategoryId = parseInt(select.value, 10);
+    if (!isFinite(selectedCategoryId)) selectedCategoryId = null;
+    renderCategoryGroupSubcategories(groupEl, selectedCategoryId, selectedSubcategoryIds);
+  }
+
+  function updateCategoryGroupHeadings() {
+    var groups = getCategoryGroupCards();
+    groups.forEach(function (groupEl, index) {
+      var title = groupEl.querySelector(".pe-category-group-title");
+      var removeBtn = groupEl.querySelector(".pe-category-remove");
+      if (title) title.textContent = "القسم " + (index + 1);
+      if (removeBtn) removeBtn.classList.toggle("hidden", groups.length <= 1);
+    });
+  }
+
+  function updateCategoryAddButtonState() {
+    var addBtn = document.getElementById("pe-category-add-group");
+    if (!addBtn) return;
+    addBtn.disabled = !categoryCatalog.length || getCategoryGroupCards().length >= categoryCatalog.length;
+  }
+
+  function refreshCategoryGroups() {
+    getCategoryGroupCards().forEach(refreshCategoryGroup);
+    updateCategoryGroupHeadings();
+    updateCategoryAddButtonState();
+    refreshServiceCategoriesSummary();
+    refreshGeoScopeSummaries();
+  }
+
+  function createCategoryGroup(selectedCategoryId, selectedSubcategoryIds) {
+    var root = getCategoryGroupsRoot();
+    if (!root) return null;
+
+    var groupEl = document.createElement("section");
+    groupEl.className = "pe-category-group";
+    groupEl.setAttribute("data-group-id", String(++categoryGroupSequence));
+    groupEl.innerHTML = [
+      '<div class="pe-category-group-head">',
+      '  <div class="pe-category-group-head-copy">',
+      '    <strong class="pe-category-group-title">القسم</strong>',
+      '    <span class="pe-category-group-meta">اختر قسمًا رئيسيًا واحدًا، ثم أضف تحته التصنيفات الفرعية المناسبة.</span>',
+      '  </div>',
+      '  <button type="button" class="pe-category-remove">حذف القسم</button>',
+      '</div>',
+      '<div class="pe-category-group-grid">',
+      '  <div class="form-group">',
+      '    <label class="form-label">القسم الرئيسي</label>',
+      '    <select class="form-select pe-category-select"><option value="">اختر القسم</option></select>',
+      '  </div>',
+      '  <div class="form-group form-group-wide">',
+      '    <label class="form-label">التصنيفات الفرعية</label>',
+      '    <div class="pe-category-checklist" data-role="subcategory-list">',
+      '      <p class="pe-category-empty">اختر القسم الرئيسي أولًا لتظهر التصنيفات الفرعية التابعة له.</p>',
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join("");
+    root.appendChild(groupEl);
+
+    var select = groupEl.querySelector(".pe-category-select");
+    if (select) {
+      renderCategoryGroupOptions(select, getCategoryGroupId(groupEl), isFinite(selectedCategoryId) ? selectedCategoryId : null);
+      if (isFinite(selectedCategoryId)) {
+        select.value = String(selectedCategoryId);
+        renderCategoryGroupSubcategories(groupEl, selectedCategoryId, selectedSubcategoryIds);
+      } else {
+        renderCategoryGroupSubcategories(groupEl, null, []);
+      }
+    }
+    return groupEl;
+  }
+
+  function buildCategoryGroupsFromSelection() {
+    var root = getCategoryGroupsRoot();
+    if (!root) return;
+    root.innerHTML = "";
+    categoryGroupSequence = 0;
+
+    var groupsByCategory = {};
+    providerSubcategoryIds.forEach(function (subId) {
+      var sub = findSubcategoryById(subId);
+      var categoryId = sub && isFinite(sub.category_id) ? sub.category_id : null;
+      if (!isFinite(categoryId)) return;
+      if (!groupsByCategory[categoryId]) groupsByCategory[categoryId] = [];
+      groupsByCategory[categoryId].push(subId);
+    });
+
+    var categoryIds = Object.keys(groupsByCategory).map(function (value) { return parseInt(value, 10); }).filter(function (value) { return isFinite(value); });
+    if (!categoryIds.length) {
+      createCategoryGroup(null, []);
+      refreshCategoryGroups();
+      return;
+    }
+
+    categoryIds.forEach(function (categoryId) {
+      createCategoryGroup(categoryId, groupsByCategory[categoryId]);
+    });
+    refreshCategoryGroups();
+  }
+
+  function bindCategoryPickerEvents() {
+    var root = getCategoryGroupsRoot();
+    if (!root) return;
+    buildCategoryGroupsFromSelection();
+
+    root.addEventListener("change", function (event) {
+      var subcheckbox = event.target.closest(".pe-category-subcheckbox");
+      if (subcheckbox) {
+        var optionEl = subcheckbox.closest(".pe-category-option");
+        var subId = parseInt(subcheckbox.value, 10);
+        if (!subcheckbox.checked && isFinite(subId)) {
+          providerSubcategorySettingsById[subId] = normalizeSubcategorySetting(null);
+        }
+        syncCategoryOptionState(optionEl);
+        refreshServiceCategoriesSummary();
+        return;
+      }
+
+      var select = event.target.closest(".pe-category-select");
+      if (!select) return;
+      var groupEl = select.closest(".pe-category-group");
+      var selectedCategoryId = parseInt(select.value, 10);
+      var duplicateGroup = findGroupByCategoryId(selectedCategoryId, getCategoryGroupId(groupEl));
+      if (isFinite(selectedCategoryId) && duplicateGroup) {
+        select.value = "";
+        alert("يمكن اختيار كل قسم رئيسي مرة واحدة فقط. أضف جميع التصنيفات الفرعية التابعة له داخل نفس القسم.");
+      }
+      refreshCategoryGroups();
+    });
+
+    root.addEventListener("click", function (event) {
+      var urgentToggle = event.target.closest(".pe-category-urgent-toggle");
+      if (urgentToggle) {
+        var optionEl = urgentToggle.closest(".pe-category-option");
+        var checkbox = optionEl && optionEl.querySelector(".pe-category-subcheckbox");
+        var subId = parseInt(urgentToggle.getAttribute("data-subcategory-id"), 10);
+        if (!checkbox || !checkbox.checked || !isFinite(subId) || !getSubcategoryPolicy(subId).allows_urgent_requests) return;
+        setSubcategorySetting(subId, {
+          accepts_urgent: !getSubcategorySetting(subId).accepts_urgent
+        });
+        syncCategoryOptionState(optionEl);
+        refreshServiceCategoriesSummary();
+        return;
+      }
+
+      var removeBtn = event.target.closest(".pe-category-remove");
+      if (!removeBtn) return;
+      var groupEl = removeBtn.closest(".pe-category-group");
+      if (!groupEl) return;
+      groupEl.remove();
+      if (!getCategoryGroupCards().length) createCategoryGroup(null, []);
+      refreshCategoryGroups();
+    });
+
+    var addBtn = document.getElementById("pe-category-add-group");
+    if (addBtn) {
+      addBtn.addEventListener("click", function () {
+        if (!categoryCatalog.length) {
+          alert("تعذر تحميل الأقسام حاليًا. حدّث الصفحة ثم أعد المحاولة.");
+          return;
+        }
+        if (getCategoryGroupCards().length >= categoryCatalog.length) return;
+        createCategoryGroup(null, []);
+        refreshCategoryGroups();
+      });
+    }
+  }
+
+  function collectServiceCategoryPayload() {
+    var allIds = [];
+    var hasSelection = false;
+    var groups = getCategoryGroupCards();
+
+    for (var i = 0; i < groups.length; i++) {
+      var groupEl = groups[i];
+      var select = groupEl.querySelector(".pe-category-select");
+      var categoryId = parseInt(select && select.value, 10);
+      var subcategoryIds = collectGroupSubcategoryIds(groupEl);
+      var hasCategory = isFinite(categoryId);
+      var hasSubcategories = subcategoryIds.length > 0;
+
+      if (!hasCategory && !hasSubcategories) continue;
+      if (!hasCategory) throw new Error("اختر قسمًا رئيسيًا لكل مجموعة تحتوي تصنيفات فرعية.");
+      if (!hasSubcategories) throw new Error("اختر تصنيفًا فرعيًا واحدًا على الأقل داخل كل قسم.");
+
+      hasSelection = true;
+      subcategoryIds.forEach(function (subId) {
+        if (allIds.indexOf(subId) === -1) allIds.push(subId);
+      });
+    }
+
+    if (!hasSelection) {
+      throw new Error("اختر تصنيفًا فرعيًا واحدًا على الأقل قبل الحفظ.");
+    }
+
+    return {
+      subcategory_ids: allIds,
+      subcategory_settings: allIds.map(function (subId) {
+        var setting = getSubcategorySetting(subId);
+        return {
+          subcategory_id: subId,
+          accepts_urgent: !!setting.accepts_urgent
+        };
+      })
+    };
+  }
+
+  function refreshServiceCategoriesSummary() {
+    var summary = document.getElementById("pe-category-summary");
+    if (!summary) return;
+    var draftIds = getCategoryGroupCards().length ? collectDraftServiceCategoryIds() : providerSubcategoryIds;
+    summary.innerHTML = renderServiceCategoriesSummaryHtml(draftIds, providerSubcategorySettingsById);
+  }
+
+  function buildLanguageField(f) {
+    return '<article class="pe-field pe-field-wide pe-language-field pe-langloc-field pe-langloc-field--language" data-key="' + f.key + '">' +
+      '<div class="pe-field-head">' +
+        '<div class="pe-field-title-wrap">' +
+          '<span class="pe-field-icon" aria-hidden="true">' + iconSvg(f.icon) + '</span>' +
+          '<div class="pe-field-copy">' +
+            '<span class="pe-field-label">' + f.label + '</span>' +
+            '<span class="pe-field-hint">' + escapeHtml(f.hint || '') + '</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -1653,12 +3706,13 @@ var ProviderProfileEditPage = (function () {
   }
 
   function buildServiceLocationField(f) {
-    return '<article class="pe-field pe-field-wide pe-map-field" data-key="' + f.key + '">' +
+    return '<article class="pe-field pe-field-wide pe-map-field pe-langloc-field pe-langloc-field--map" data-key="' + f.key + '">' +
       '<div class="pe-field-head">' +
         '<div class="pe-field-title-wrap">' +
           '<span class="pe-field-icon" aria-hidden="true">' + iconSvg(f.icon) + '</span>' +
           '<div class="pe-field-copy">' +
             '<span class="pe-field-label">' + f.label + '</span>' +
+            '<span class="pe-field-hint">' + escapeHtml(f.hint || '') + '</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -1677,16 +3731,18 @@ var ProviderProfileEditPage = (function () {
 
   function buildCoverageRadiusField(f) {
     var radius = getServiceRadiusKm();
-    return '<article class="pe-field pe-field-wide pe-radius-field" data-key="' + f.key + '">' +
+    return '<article class="pe-field pe-field-wide pe-radius-field pe-langloc-field pe-langloc-field--radius" data-key="' + f.key + '">' +
       '<div class="pe-field-head">' +
         '<div class="pe-field-title-wrap">' +
           '<span class="pe-field-icon" aria-hidden="true">' + iconSvg(f.icon) + '</span>' +
           '<div class="pe-field-copy">' +
             '<span class="pe-field-label">' + f.label + '</span>' +
+            '<span class="pe-field-hint">' + escapeHtml(f.hint || '') + '</span>' +
           '</div>' +
         '</div>' +
       '</div>' +
       '<div class="pe-radius-live">القيمة الحالية: <strong id="pe-radius-live-value">' + radius + ' كم</strong></div>' +
+      '<div class="pe-geo-scope-explainer pe-geo-scope-explainer--compact" id="pe-radius-scope-summary"></div>' +
       '<div class="pe-radius-controls">' +
         '<input type="range" min="0" max="100" step="1" value="' + radius + '" class="pe-radius-range" id="pe-radius-range">' +
         '<input type="number" class="form-input pe-input pe-radius-number" id="pe-radius-number" data-key="coverageRadius" min="0" step="1" value="' + radius + '" inputmode="numeric">' +
@@ -1698,7 +3754,25 @@ var ProviderProfileEditPage = (function () {
     '</article>';
   }
 
+  function buildAdditionalOverviewField(f) {
+    return '<article class="pe-field pe-field-wide pe-additional-overview-field" data-key="' + f.key + '">' +
+      '<div class="pe-field-head">' +
+        '<div class="pe-field-title-wrap">' +
+          '<span class="pe-field-icon" aria-hidden="true">' + iconSvg(f.icon) + '</span>' +
+          '<div class="pe-field-copy">' +
+            '<span class="pe-field-label">نظرة سريعة</span>' +
+            '<span class="pe-field-hint">مؤشرات مختصرة تساعدك على معرفة ما اكتمل في هذا القسم قبل التعديل على التفاصيل أدناه.</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="pe-additional-overview-body" id="pe-additional-overview-body">' + renderAdditionalOverviewBody() + '</div>' +
+    '</article>';
+  }
+
   function buildField(f) {
+    if (f.additionalOverviewField) return buildAdditionalOverviewField(f);
+    if (f.additionalLinksField) return buildAdditionalLinksField(f);
+    if (f.categoryPickerField) return buildCategoryPickerField(f);
     if (f.seoPreviewField) return buildSeoPreviewField(f);
     if (f.languageField) return buildLanguageField(f);
     if (f.mapField) return buildServiceLocationField(f);
@@ -1719,6 +3793,9 @@ var ProviderProfileEditPage = (function () {
     if (f.readOnly) classes.push("pe-field-readonly");
     if (f.wide) classes.push("pe-field-wide");
     if (f.platform) classes.push("pe-social-link-field");
+    if (f.key === "details" || f.key === "qualification" || f.key === "experiences") classes.push("pe-additional-field");
+    if (f.key === "fullName" || f.key === "accountType" || f.key === "about" || f.key === "location") classes.push("pe-basic-field");
+    if (f.isCity) classes.push("pe-location-picker-field");
     return '<article class="' + classes.join(" ") + '" data-key="' + f.key + '">' +
       '<div class="pe-field-head">' +
         '<div class="pe-field-title-wrap">' +
@@ -1731,7 +3808,6 @@ var ProviderProfileEditPage = (function () {
         (!f.readOnly ? '<button type="button" class="pe-edit-btn" data-key="' + f.key + '" aria-label="تحرير ' + escapeHtml(f.label) + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' : '') +
       '</div>' +
       '<div class="pe-field-display">' + displayValue(val, f) + '</div>' +
-      (f.key === "mobilePhone" ? '<div class="pe-field-readonly-action"><a href="/login-settings/" class="pe-inline-link">تغيير رقم الجوال ←</a></div>' : '') +
       (!f.readOnly ? '<div class="pe-field-edit" style="display:none">' +
         (f.isCity ? buildLocationFieldEditor()
           : f.isChoice ? '<select class="form-select pe-input" data-key="' + f.key + '">' + (Array.isArray(f.options) ? f.options.map(function (option) { return '<option value="' + escapeHtml(option.value) + '"' + (String(option.value) === String(val) ? ' selected' : '') + '>' + escapeHtml(option.label) + '</option>'; }).join("") : "") + '</select>'
@@ -1740,7 +3816,7 @@ var ProviderProfileEditPage = (function () {
         (f.seoMetric ? buildSeoFieldMeta(f) : '') +
         '<div class="pe-field-actions' + (f.geoAction ? ' has-secondary' : '') + '">' +
           (f.geoAction ? '<button class="btn btn-secondary pe-geo-btn" type="button" data-key="' + f.key + '">استخدام موقعي الحالي</button>' : '') +
-          '<button type="button" class="btn btn-primary pe-save-btn" data-key="' + f.key + '">حفظ</button>' +
+          '<button type="button" class="btn btn-primary pe-save-btn" data-key="' + f.key + '">' + (f.key === "mobilePhone" ? 'إرسال الرمز' : 'حفظ') + '</button>' +
         '</div>' +
       '</div>' : '') +
     '</article>';
@@ -1755,11 +3831,29 @@ var ProviderProfileEditPage = (function () {
     document.querySelectorAll(".pe-save-btn").forEach(function (btn) {
       btn.addEventListener("click", function () { saveField(this.dataset.key, this); });
     });
-    document.querySelectorAll(".pe-location-region").forEach(function (select) {
-      select.addEventListener("change", function () {
-        var field = select.closest('.pe-field[data-key="location"]');
-        populateLocationCityOptions(field, "");
+    bindCategoryPickerEvents();
+    document.querySelectorAll('.pe-additional-links-add-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        appendAdditionalLinksRow({});
       });
+    });
+    document.querySelectorAll('.pe-additional-links-rows').forEach(function (rows) {
+      rows.addEventListener('click', function (event) {
+        var removeBtn = event.target.closest('.pe-additional-links-remove');
+        if (!removeBtn) return;
+        var row = removeBtn.closest('.pe-additional-link-row');
+        if (row) row.remove();
+        if (!rows.querySelector('.pe-additional-link-row')) appendAdditionalLinksRow({});
+      });
+    });
+    document.querySelectorAll(".pe-location-city-input").forEach(function (input) {
+      input.addEventListener("input", function () {
+        syncProfileLocationLabels(profile.locationCountry || "", input.value.trim());
+        setProfileLocationHint(input.value.trim() ? "سيتم اعتماد اسم المدينة المكتوب عند الحفظ." : "إذا لم تُقرأ مدينة دقيقة، يمكنك تعديلها يدويًا قبل الحفظ.", input.value.trim() ? true : null);
+      });
+    });
+    document.querySelectorAll(".pe-location-use-current-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () { useCurrentProfileLocation(btn); });
     });
     document.querySelectorAll('.pe-input[data-key="phone"], .pe-input[data-key="mobilePhone"]').forEach(function (input) {
       input.addEventListener("input", function () {
@@ -1786,8 +3880,15 @@ var ProviderProfileEditPage = (function () {
         var chip = input.closest(".pe-language-chip");
         if (chip) chip.classList.toggle("is-selected", input.checked);
         updateLanguageOtherVisibility();
+        refreshLangLocOverview();
       });
     });
+    var languageOtherInput = document.getElementById("pe-language-other-input");
+    if (languageOtherInput) {
+      languageOtherInput.addEventListener("input", function () {
+        refreshLangLocOverview();
+      });
+    }
     var radiusRange = document.getElementById("pe-radius-range");
     var radiusNumber = document.getElementById("pe-radius-number");
     if (radiusRange) {
@@ -1810,6 +3911,8 @@ var ProviderProfileEditPage = (function () {
     updateLanguageOtherVisibility();
     syncRadiusInputs(getServiceRadiusKm());
     ensureServiceMap();
+    refreshGeoScopeSummaries();
+    refreshLangLocOverview();
     ["seoTitle", "seoMetaDescription", "seoSlug", "keywords"].forEach(function (key) {
       updateSeoFieldFeedback(key);
     });
@@ -1899,6 +4002,10 @@ var ProviderProfileEditPage = (function () {
   }
 
   function saveField(key, btn) {
+    if (key === "serviceCategories") {
+      saveServiceCategories(btn);
+      return;
+    }
     var apiKey = FIELD_MAP[key];
     if (!apiKey) return;
     var input = document.querySelector('.pe-input[data-key="' + key + '"]');
@@ -1908,17 +4015,24 @@ var ProviderProfileEditPage = (function () {
 
     if (key === "location") {
       var fieldNode = document.querySelector('.pe-field[data-key="location"]');
-      var regionInput = fieldNode ? fieldNode.querySelector('.pe-location-region') : null;
-      var cityInput = fieldNode ? fieldNode.querySelector('.pe-location-city') : null;
-      var regionValue = regionInput ? String(regionInput.value || "").trim() : "";
+      var countryInput = fieldNode ? fieldNode.querySelector('.pe-location-country-input') : null;
+      var cityInput = fieldNode ? fieldNode.querySelector('.pe-location-city-input') : null;
+      var countryValue = countryInput ? String(countryInput.value || "").trim() : "";
       var cityValue = cityInput ? String(cityInput.value || "").trim() : "";
-      if ((regionValue && !cityValue) || (!regionValue && cityValue)) {
-        alert("اختر المنطقة الإدارية والمدينة معًا");
+      if (!Number.isFinite(profileLocationDraft.lat) || !Number.isFinite(profileLocationDraft.lng)) {
+        alert("حدّد موقعك على الخريطة أولًا ثم احفظ الدولة والمدينة.");
         return;
       }
-      payload.region = regionValue || null;
+      if (!countryValue || !cityValue) {
+        alert("تأكد من تعبئة الدولة والمدينة قبل الحفظ.");
+        return;
+      }
+      payload.country = countryValue || null;
       payload.city = cityValue || null;
-      nextValue = formatLocationDisplay(cityValue, regionValue);
+      payload.location_label = buildProfileLocationLabel(countryValue, cityValue) || null;
+      payload.lat = normalizeCoordinateValue(profileLocationDraft.lat);
+      payload.lng = normalizeCoordinateValue(profileLocationDraft.lng);
+      nextValue = buildProfileLocationLabel(countryValue, cityValue);
     } else {
 
     switch (apiKey) {
@@ -1984,8 +4098,11 @@ var ProviderProfileEditPage = (function () {
       case "social_links":
         try {
           var socialValues = collectSocialFormValues(key, val);
-          payload[apiKey] = buildSocialLinksPayload(socialValues);
-          nextValue = String(socialValues[key] || "").trim();
+          var extraSocialItems = key === 'additionalLinks' ? collectAdditionalSocialItems() : profile.socialExtras;
+          payload[apiKey] = buildSocialLinksPayload(socialValues, extraSocialItems);
+          nextValue = key === 'additionalLinks'
+            ? String(extraSocialItems.length || '')
+            : String(socialValues[key] || "").trim();
         } catch (socialErr) {
           alert((socialErr && socialErr.message) ? socialErr.message : "تعذر حفظ روابط التواصل");
           return;
@@ -2059,6 +4176,11 @@ var ProviderProfileEditPage = (function () {
     }
     }
 
+    if (key === "mobilePhone") {
+      saveMobilePhoneWithOtp(nextValue, btn, input);
+      return;
+    }
+
     btn.disabled = true; btn.textContent = "جاري الحفظ...";
     var saveRequest = (key === "mobilePhone" || key === "accountEmail")
       ? safePatch("/api/accounts/me/", payload)
@@ -2092,8 +4214,28 @@ var ProviderProfileEditPage = (function () {
         updateServiceRadiusPreview(getServiceRadiusKm());
       }
       if (key === "location") {
-        profile.locationRegion = payload.region || "";
-        profile.locationCity = payload.city || "";
+        var responseLocationLabel = String(responseData.city_display || responseData.city || payload.location_label || "").trim();
+        var responseScope = splitLocationScope(responseLocationLabel, responseData.country || payload.country || "");
+        profile.locationCountry = String(responseData.country || responseScope.region || payload.country || "").trim();
+        profile.locationRegion = profile.locationCountry;
+        profile.locationCity = String(responseScope.city || payload.city || "").trim();
+        profile.location = buildProfileLocationLabel(profile.locationCountry, profile.locationCity) || responseLocationLabel;
+        profile.latitude = formatCoord(responseData.lat !== undefined ? responseData.lat : payload.lat);
+        profile.longitude = formatCoord(responseData.lng !== undefined ? responseData.lng : payload.lng);
+        setProfileLocationDraft(responseData.lat !== undefined ? responseData.lat : payload.lat, responseData.lng !== undefined ? responseData.lng : payload.lng);
+        nextValue = profile.location;
+        if (providerProfileRaw) {
+          providerProfileRaw.country = profile.locationCountry;
+          providerProfileRaw.city = nextValue;
+          providerProfileRaw.lat = responseData.lat !== undefined ? responseData.lat : payload.lat;
+          providerProfileRaw.lng = responseData.lng !== undefined ? responseData.lng : payload.lng;
+        }
+        if (serviceMap && serviceMapMarker) {
+          serviceMapMarker.setLatLng([Number(profile.latitude), Number(profile.longitude)]);
+          centerServiceMapOnCity(false);
+          updateServiceLocationDraft(profile.latitude, profile.longitude);
+          updateServiceRadiusPreview(getServiceRadiusKm());
+        }
       }
       if (key === "coverageRadius") {
         profile.coverageRadius = nextValue;
@@ -2105,6 +4247,7 @@ var ProviderProfileEditPage = (function () {
         SOCIAL_FIELD_KEYS.forEach(function (socialKey) {
           setFieldValue(socialKey, profile[socialKey] || "");
         });
+        setFieldValue('additionalLinks', profile.additionalLinks || '');
       } else {
         setFieldValue(key, nextValue);
       }
@@ -2117,6 +4260,39 @@ var ProviderProfileEditPage = (function () {
       alert((err && err.message) ? err.message : "فشل في الحفظ");
     }).finally(function () {
       btn.disabled = false; btn.textContent = "حفظ";
+    });
+  }
+
+  function saveServiceCategories(btn) {
+    var payload;
+    try {
+      payload = collectServiceCategoryPayload();
+    } catch (err) {
+      alert((err && err.message) ? err.message : "تعذر تجهيز التصنيفات للحفظ");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "جاري الحفظ...";
+    safePut("/api/providers/me/subcategories/", payload).then(function (resp) {
+      if (!resp || !resp.ok) {
+        throw new Error(apiErrorMessage(resp ? resp.data : null, "فشل في حفظ التصنيفات"));
+      }
+      var data = resp.data || {};
+      applyProviderSubcategoryState(
+        data.subcategory_ids || payload.subcategory_ids,
+        data.subcategory_settings || payload.subcategory_settings,
+        providerSelectedSubcategories
+      );
+      refreshServiceCategoriesSummary();
+      refreshGeoScopeSummaries();
+      buildCategoryGroupsFromSelection();
+      showProfileToast("تم حفظ التصنيفات بنجاح", "success", "تم الحفظ");
+    }).catch(function (err) {
+      showProfileToast((err && err.message) ? err.message : "فشل في حفظ التصنيفات", "error", "تعذر الحفظ");
+    }).finally(function () {
+      btn.disabled = false;
+      btn.textContent = "حفظ التصنيفات";
     });
   }
 
@@ -2176,11 +4352,15 @@ var ProviderProfileEditPage = (function () {
 
     closeAllEditors(fieldKey);
     setFieldEditingState(field, true);
+    if (fieldKey === "mobilePhone") resetMobilePhoneOtpState(field);
 
     field.style.boxShadow = "0 0 0 2px rgba(103,58,183,0.22)";
     setTimeout(function () { field.style.boxShadow = ""; }, 1600);
 
-    var input = field.querySelector('.pe-input[data-key="' + fieldKey + '"]');
+    var input = field.querySelector('.pe-input[data-key="' + fieldKey + '"]') || field.querySelector('.pe-field-edit input, .pe-field-edit textarea, .pe-field-edit select');
+    if (field.classList.contains("pe-location-picker-field")) {
+      ensureProfileLocationMap();
+    }
     if (input && typeof input.focus === "function") {
       input.focus();
       if (typeof input.select === "function") input.select();

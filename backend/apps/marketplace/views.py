@@ -17,7 +17,7 @@ from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied, ValidationError
 
-from apps.providers.location_formatter import city_matches_scope, provider_city_query_values
+from apps.providers.location_formatter import provider_city_query_values
 from apps.providers.models import ProviderCategory, ProviderProfile
 from apps.subscriptions.capabilities import (
 	competitive_request_delay_for_user,
@@ -43,6 +43,7 @@ from apps.marketplace.services.dispatch import (
 	clear_urgent_request_provider_notifications,
 	provider_can_access_urgent_request,
 	provider_dispatch_tier,
+	provider_matches_request_scope,
 )
 
 
@@ -100,16 +101,7 @@ def _request_subcategory_ids(service_request: ServiceRequest) -> list[int]:
 
 
 def _provider_matches_request_scope(provider: ProviderProfile, service_request: ServiceRequest) -> bool:
-	if not city_matches_scope(
-		getattr(service_request, "city", "") or "",
-		provider_city=getattr(provider, "city", "") or "",
-		provider_region=getattr(provider, "region", "") or "",
-	):
-		return False
-	return ProviderCategory.objects.filter(
-		provider=provider,
-		subcategory_id__in=_request_subcategory_ids(service_request),
-	).exists()
+	return provider_matches_request_scope(provider, service_request)
 
 
 def _provider_can_access_competitive_request(provider: ProviderProfile, service_request: ServiceRequest, *, now=None) -> bool:
@@ -167,15 +159,6 @@ def _provider_available_request_ids(provider: ProviderProfile, *, now=None) -> l
 			Q(subcategory_id__in=provider_subcategories)
 			| Q(subcategories__id__in=provider_subcategories)
 		)
-		.filter(
-			Q(
-				city__in=provider_city_query_values(
-					getattr(provider, "city", "") or "",
-					provider_region=getattr(provider, "region", "") or "",
-				)
-			)
-			| Q(city="")
-		)
 		.distinct()
 	)
 
@@ -208,7 +191,11 @@ def _provider_available_request_ids(provider: ProviderProfile, *, now=None) -> l
 		delay = competitive_request_delay_for_user(provider.user)
 		if delay.total_seconds() > 0:
 			competitive_qs = competitive_qs.filter(created_at__lte=now - delay)
-		competitive_ids = list(competitive_qs.values_list("id", flat=True))
+		competitive_ids = [
+			request_row.id
+			for request_row in competitive_qs
+			if provider_matches_request_scope(provider, request_row)
+		]
 
 	return list(dict.fromkeys([*urgent_ids, *competitive_ids]))
 

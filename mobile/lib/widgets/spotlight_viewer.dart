@@ -374,21 +374,37 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
   /// صورة مصغرة للمزود في أسفل اليسار
   Widget _buildSmallAvatar(MediaItemModel item) {
     final imageUrl = ApiClient.buildMediaUrl(item.providerProfileImage);
-    return Container(
+    return SizedBox(
       width: 28,
       height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 1.5),
-      ),
-      child: ClipOval(
-        child: imageUrl != null && imageUrl.isNotEmpty
-            ? CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                errorWidget: (_, __, ___) => _defaultAvatarIcon(14),
-              )
-            : _defaultAvatarIcon(14),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+            child: ClipOval(
+              child: imageUrl != null && imageUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => _defaultAvatarIcon(14),
+                    )
+                  : _defaultAvatarIcon(14),
+            ),
+          ),
+          ..._buildVerificationBadgeOverlays(
+            item,
+            badgeSize: 12,
+            iconSize: 7,
+            topOffset: -2,
+            horizontalOffset: -2,
+          ),
+        ],
       ),
     );
   }
@@ -447,30 +463,110 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
+          SizedBox(
             width: 48,
             height: 48,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 8,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: imageUrl != null && imageUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => _defaultAvatarIcon(24),
+                          )
+                        : _defaultAvatarIcon(24),
+                  ),
+                ),
+                ..._buildVerificationBadgeOverlays(
+                  item,
+                  badgeSize: 18,
+                  iconSize: 11,
+                  topOffset: -3,
+                  horizontalOffset: -3,
                 ),
               ],
             ),
-            child: ClipOval(
-              child: imageUrl != null && imageUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => _defaultAvatarIcon(24),
-                    )
-                  : _defaultAvatarIcon(24),
-            ),
           ),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _buildVerificationBadgeOverlays(
+    MediaItemModel item, {
+    required double badgeSize,
+    required double iconSize,
+    required double topOffset,
+    required double horizontalOffset,
+  }) {
+    final overlays = <Widget>[];
+    if (item.isVerifiedBlue) {
+      overlays.add(
+        Positioned(
+          top: topOffset,
+          left: horizontalOffset,
+          child: _buildVerificationBadgeCircle(
+            color: const Color(0xFF5DA9E9),
+            badgeSize: badgeSize,
+            iconSize: iconSize,
+          ),
+        ),
+      );
+    }
+    if (item.isVerifiedGreen) {
+      overlays.add(
+        Positioned(
+          top: topOffset,
+          right: horizontalOffset,
+          child: _buildVerificationBadgeCircle(
+            color: const Color(0xFF4CAF50),
+            badgeSize: badgeSize,
+            iconSize: iconSize,
+          ),
+        ),
+      );
+    }
+    return overlays;
+  }
+
+  Widget _buildVerificationBadgeCircle({
+    required Color color,
+    required double badgeSize,
+    required double iconSize,
+  }) {
+    return Container(
+      width: badgeSize,
+      height: badgeSize,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 1.7),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 6,
+          ),
+        ],
+      ),
+      child: Icon(
+        Icons.check_rounded,
+        size: iconSize,
+        color: Colors.white,
       ),
     );
   }

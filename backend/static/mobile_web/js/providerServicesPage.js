@@ -193,6 +193,75 @@ var ProviderServicesPage = (function () {
     });
   }
 
+  function findCategoryById(categoryId) {
+    var wanted = parseInt(categoryId, 10);
+    if (!isFinite(wanted)) return null;
+    return categories.find(function (category) {
+      return parseInt(category && category.id, 10) === wanted;
+    }) || null;
+  }
+
+  function findSubcategoryById(subcategoryId, categoryId) {
+    var wantedSubcategoryId = parseInt(subcategoryId, 10);
+    if (!isFinite(wantedSubcategoryId)) return null;
+
+    var category = findCategoryById(categoryId);
+    var scopedList = category && Array.isArray(category.subcategories) ? category.subcategories : [];
+    var scopedMatch = scopedList.find(function (subcategory) {
+      return parseInt(subcategory && subcategory.id, 10) === wantedSubcategoryId;
+    });
+    if (scopedMatch) return scopedMatch;
+
+    for (var i = 0; i < categories.length; i++) {
+      var subcategories = Array.isArray(categories[i] && categories[i].subcategories) ? categories[i].subcategories : [];
+      for (var j = 0; j < subcategories.length; j++) {
+        if (parseInt(subcategories[j] && subcategories[j].id, 10) === wantedSubcategoryId) {
+          return subcategories[j];
+        }
+      }
+    }
+    return null;
+  }
+
+  function updateServicePolicyUi(preferredUrgentValue) {
+    var categoryId = document.getElementById("svc-category").value;
+    var subcategoryId = document.getElementById("svc-subcategory").value;
+    var subcategory = findSubcategoryById(subcategoryId, categoryId);
+    var scopeDisplay = document.getElementById("svc-scope-display");
+    var scopeHelp = document.getElementById("svc-scope-help");
+    var urgentCheckbox = document.getElementById("svc-accepts-urgent");
+    var urgentHelp = document.getElementById("svc-urgent-help");
+
+    if (!scopeDisplay || !scopeHelp || !urgentCheckbox || !urgentHelp) return;
+
+    if (!subcategory) {
+      scopeDisplay.textContent = "سيتم تحديد النطاق تلقائيًا وفق التصنيف الفرعي المختار.";
+      scopeHelp.textContent = "هذه السياسة يحددها التصنيف الفرعي نفسه، ولا يمكن تعديلها من هذه الشاشة.";
+      urgentCheckbox.checked = false;
+      urgentCheckbox.disabled = true;
+      urgentHelp.textContent = "اختر تصنيفًا فرعيًا أولًا لمعرفة ما إذا كان يدعم الطلبات العاجلة.";
+      return;
+    }
+
+    var requiresGeoScope = subcategory.requires_geo_scope !== false;
+    var allowsUrgentRequests = !!subcategory.allows_urgent_requests;
+    scopeDisplay.textContent = requiresGeoScope ? "ضمن النطاق المكاني" : "عن بعد";
+    scopeHelp.textContent = requiresGeoScope
+      ? "هذا التصنيف يخضع لمدينتك ونطاق التغطية وفق سياسة المنصة."
+      : "هذا التصنيف متاح عن بُعد وفق سياسة المنصة، ولن يتأثر بنطاق المدينة أو نصف القطر.";
+
+    urgentCheckbox.disabled = !allowsUrgentRequests;
+    if (allowsUrgentRequests) {
+      if (typeof preferredUrgentValue === "boolean") {
+        urgentCheckbox.checked = preferredUrgentValue;
+      }
+      urgentHelp.textContent = "يمكنك تفعيل الطلبات العاجلة لهذا التصنيف فقط لأنه يدعمها وفق سياسة المنصة.";
+    } else {
+      urgentCheckbox.checked = false;
+      urgentHelp.textContent = "الطلبات العاجلة غير متاحة لهذا التصنيف وفق سياسة المنصة.";
+    }
+  }
+
   function render() {
     document.getElementById("ps-loading").style.display = "none";
     var list = document.getElementById("ps-list");
@@ -208,6 +277,9 @@ var ProviderServicesPage = (function () {
       var subcat = service.subcategory || {};
       var catName = subcat.category_name || (subcat.category && subcat.category.name) || "";
       var subName = subcat.name || "";
+      var scopeBadge = service.requires_geo_scope === false
+        ? '<span class="svc-urgent-badge">عن بعد</span>'
+        : '<span class="svc-urgent-badge is-muted">ضمن النطاق المكاني</span>';
       var priceUnit = {
         fixed: "ثابت",
         starting_from: "يبدأ من",
@@ -226,7 +298,7 @@ var ProviderServicesPage = (function () {
       return '<div class="service-card" data-id="' + service.id + '">' +
         '<div class="svc-header"><h3>' + (service.title || "") + '</h3><span class="badge ' + (service.is_active ? "badge-success" : "badge-muted") + '">' + (service.is_active ? "مفعلة" : "معطلة") + '</span></div>' +
         '<p class="svc-cat">' + catName + (subName ? " \u2192 " + subName : "") + '</p>' +
-        '<div class="svc-badges">' + urgentBadge + '</div>' +
+        '<div class="svc-badges">' + scopeBadge + urgentBadge + '</div>' +
         '<p class="svc-desc">' + (service.description || "").substring(0, 100) + '</p>' +
         '<div class="svc-footer"><span class="svc-price">' + priceStr + '</span><span class="svc-price-type">' + priceUnit + '</span></div>' +
         (readOnlyMode ? '<div class="svc-readonly">عرض فقط</div>' : '<div class="svc-actions"><button class="btn btn-sm btn-outline btn-edit" data-id="' + service.id + '">تعديل</button><button class="btn btn-sm btn-danger btn-delete" data-id="' + service.id + '">حذف</button></div>') +
@@ -244,16 +316,24 @@ var ProviderServicesPage = (function () {
 
     document.getElementById("svc-category").addEventListener("change", function () {
       var catId = parseInt(this.value, 10);
-      var category = categories.find(function (c) { return c.id === catId; });
+      var category = findCategoryById(catId);
       var subSel = document.getElementById("svc-subcategory");
       subSel.innerHTML = '<option value="">اختر التصنيف</option>';
-      if (!category || !Array.isArray(category.subcategories)) return;
+      if (!category || !Array.isArray(category.subcategories)) {
+        updateServicePolicyUi();
+        return;
+      }
       category.subcategories.forEach(function (sub) {
         var option = document.createElement("option");
         option.value = sub.id;
         option.textContent = sub.name;
         subSel.appendChild(option);
       });
+      updateServicePolicyUi();
+    });
+
+    document.getElementById("svc-subcategory").addEventListener("change", function () {
+      updateServicePolicyUi();
     });
 
     document.getElementById("svc-price-unit").addEventListener("change", function () {
@@ -298,6 +378,7 @@ var ProviderServicesPage = (function () {
       document.getElementById("svc-category").dispatchEvent(new Event("change"));
       setTimeout(function () {
         document.getElementById("svc-subcategory").value = sub.id || "";
+        updateServicePolicyUi(!!service.accepts_urgent);
       }, 50);
 
       document.getElementById("svc-title").value = service.title || "";
@@ -313,6 +394,7 @@ var ProviderServicesPage = (function () {
       document.getElementById("svc-active").checked = true;
       document.getElementById("svc-accepts-urgent").checked = false;
       document.getElementById("svc-price-row").style.display = "";
+      updateServicePolicyUi(false);
     }
 
     document.getElementById("svc-modal").style.display = "";

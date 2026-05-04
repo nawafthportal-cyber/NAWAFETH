@@ -1,0 +1,251 @@
+{% extends 'dashboard/_base.html' %}
+{% load static %}
+{% block title %}إدارة التصنيفات{% endblock %}
+{% block extra_head %}
+  <style>
+    .category-policy-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .category-policy-card { padding: 14px 16px; border-radius: 18px; background: linear-gradient(180deg, #fff, #f8f1ff); border: 1px solid rgba(111,29,121,.12); }
+    .category-policy-card strong { display:block; font-size: 26px; color:#5b1670; }
+    .category-policy-card span { color:#6c5979; font-size: 13px; }
+    .category-management-grid { display:grid; grid-template-columns: 1.05fr 1.35fr; gap: 18px; }
+    .category-form-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .category-form-grid .full-span { grid-column: 1 / -1; }
+    .policy-switches { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .policy-switch { display:flex; align-items:center; gap:10px; padding: 14px; border:1px solid rgba(111,29,121,.12); border-radius: 16px; background:#fff; }
+    .policy-switch input { width:18px; height:18px; accent-color:#6f1d79; }
+    .policy-switch-meta strong { display:block; color:#41114f; }
+    .policy-switch-meta span { color:#7a6788; font-size:12px; }
+    .category-record { border:1px solid rgba(111,29,121,.12); border-radius: 20px; padding: 16px; background:#fff; }
+    .category-record + .category-record { margin-top: 14px; }
+    .category-record-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 16px; margin-bottom: 12px; }
+    .category-record-head h3 { margin:0; color:#41114f; }
+    .category-record-head p { margin:4px 0 0; color:#7a6788; font-size:13px; }
+    .policy-pill { display:inline-flex; align-items:center; gap:6px; padding: 6px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .policy-pill.local { background: rgba(14,116,144,.10); color:#155e75; }
+    .policy-pill.remote { background: rgba(8,145,178,.10); color:#0e7490; }
+    .policy-pill.urgent-on { background: rgba(22,163,74,.12); color:#166534; }
+    .policy-pill.urgent-off { background: rgba(148,163,184,.18); color:#475569; }
+    .policy-pill.inactive { background: rgba(220,38,38,.12); color:#991b1b; }
+    .subcategories-table td:first-child, .subcategories-table th:first-child { width: 32%; }
+    .muted-note { color:#7a6788; font-size:13px; }
+    @media (max-width: 1100px) {
+      .category-policy-grid, .policy-switches, .category-form-grid, .category-management-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+{% endblock %}
+{% block body %}
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <p class="subtitle">{{ hero_subtitle }}</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">الرئيسية: {{ category_stats.categories }}</span>
+          <span class="pill accent">الفرعية: {{ category_stats.subcategories }}</span>
+          <span class="pill info">محلية: {{ category_stats.geo_scoped }}</span>
+          <span class="pill mint">عاجل: {{ category_stats.urgent_enabled }}</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>ملخص سياسات التصنيفات</h2>
+          </div>
+          <div class="category-policy-grid">
+            <article class="category-policy-card"><strong>{{ category_stats.categories }}</strong><span>تصنيف رئيسي داخل الكتالوج</span></article>
+            <article class="category-policy-card"><strong>{{ category_stats.subcategories }}</strong><span>تصنيف فرعي يمكن ربطه بطلبات المنصة</span></article>
+            <article class="category-policy-card"><strong>{{ category_stats.geo_scoped }}</strong><span>تصنيف فرعي يتطلب نطاقًا جغرافيًا</span></article>
+            <article class="category-policy-card"><strong>{{ category_stats.urgent_enabled }}</strong><span>تصنيف فرعي يسمح بالطلبات العاجلة</span></article>
+          </div>
+        </section>
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>إنشاء وتحرير التصنيفات</h2>
+            <div class="actions">
+              <form method="get" class="toolbar" style="margin:0;">
+                <input class="input-control" type="search" name="q" value="{{ category_filters.q }}" placeholder="ابحث باسم التصنيف الرئيسي أو الفرعي">
+                <div class="actions">
+                  <button class="primary-btn light" type="submit">بحث</button>
+                  <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}">مسح</a>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="category-management-grid">
+            <form method="post" class="form-shell">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="save_category">
+              {{ category_form.category_id }}
+              <div class="title-row" style="margin-bottom: 12px;">
+                <h3>{% if selected_category %}تعديل التصنيف الرئيسي{% else %}إضافة تصنيف رئيسي{% endif %}</h3>
+              </div>
+              <div class="category-form-grid">
+                <div class="full-span">{{ category_form.name.label_tag }}{{ category_form.name }}</div>
+                <label class="policy-switch full-span">
+                  {{ category_form.is_active }}
+                  <span class="policy-switch-meta">
+                    <strong>{{ category_form.is_active.label }}</strong>
+                    <span>إيقافه يخفيه من الواجهات دون حذف البيانات المرتبطة به.</span>
+                  </span>
+                </label>
+              </div>
+              <div class="actions" style="margin-top: 14px;">
+                <button class="primary-btn" type="submit" {% if not can_manage %}disabled{% endif %}>حفظ التصنيف الرئيسي</button>
+                <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}">تصنيف جديد</a>
+              </div>
+            </form>
+
+            <form method="post" class="form-shell">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="save_subcategory">
+              {{ subcategory_form.subcategory_id }}
+              <div class="title-row" style="margin-bottom: 12px;">
+                <h3>{% if selected_subcategory %}تعديل التصنيف الفرعي{% else %}إضافة تصنيف فرعي{% endif %}</h3>
+              </div>
+              <div class="category-form-grid">
+                <div>{{ subcategory_form.category.label_tag }}{{ subcategory_form.category }}</div>
+                <div>{{ subcategory_form.name.label_tag }}{{ subcategory_form.name }}</div>
+                <div class="full-span policy-switches">
+                  <label class="policy-switch">
+                    {{ subcategory_form.requires_geo_scope }}
+                    <span class="policy-switch-meta">
+                      <strong>{{ subcategory_form.requires_geo_scope.label }}</strong>
+                      <span>فعّله للخدمات المحلية التي يجب تنفيذها داخل مدينة أو نطاق محدد.</span>
+                    </span>
+                  </label>
+                  <label class="policy-switch">
+                    {{ subcategory_form.allows_urgent_requests }}
+                    <span class="policy-switch-meta">
+                      <strong>{{ subcategory_form.allows_urgent_requests.label }}</strong>
+                      <span>إذا كان غير مفعّل فلن يستطيع أي مزود استقبال هذا التصنيف ضمن تدفق العاجل.</span>
+                    </span>
+                  </label>
+                </div>
+                <label class="policy-switch full-span">
+                  {{ subcategory_form.is_active }}
+                  <span class="policy-switch-meta">
+                    <strong>{{ subcategory_form.is_active.label }}</strong>
+                    <span>إيقافه يخفيه من الطلبات والخدمات الجديدة مع الإبقاء على السجل التاريخي.</span>
+                  </span>
+                </label>
+              </div>
+              <p class="muted-note">السياسات هنا هي المصدر المعتمد للمنصة، وليست خيارًا حرًا لمزود الخدمة.</p>
+              <div class="actions" style="margin-top: 14px;">
+                <button class="primary-btn" type="submit" {% if not can_manage %}disabled{% endif %}>حفظ التصنيف الفرعي</button>
+                <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}">تصنيف فرعي جديد</a>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>قائمة التصنيفات الحالية</h2>
+          </div>
+          {% for category in category_rows %}
+            <article class="category-record">
+              <div class="category-record-head">
+                <div>
+                  <h3>{{ category.name }}</h3>
+                  <p>{{ category.subcategories.count }} تصنيف فرعي مرتبط بهذا القسم.</p>
+                </div>
+                <div class="actions">
+                  <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?category={{ category.id }}">تعديل الرئيسي</a>
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_category_active">
+                    <input type="hidden" name="category_id" value="{{ category.id }}">
+                    <button class="ghost-btn" type="submit" {% if not can_manage %}disabled{% endif %}>{% if category.is_active %}إيقاف{% else %}تفعيل{% endif %}</button>
+                  </form>
+                </div>
+              </div>
+
+              <div class="table-wrap">
+                <table class="dash-table subcategories-table">
+                  <thead>
+                    <tr>
+                      <th>التصنيف الفرعي</th>
+                      <th>النطاق</th>
+                      <th>الطلبات العاجلة</th>
+                      <th>الحالة</th>
+                      <th>الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for subcategory in category.subcategories.all %}
+                      <tr>
+                        <td><strong>{{ subcategory.name }}</strong></td>
+                        <td>
+                          {% if subcategory.requires_geo_scope %}
+                            <span class="policy-pill local">محلي يتطلب نطاقًا جغرافيًا</span>
+                          {% else %}
+                            <span class="policy-pill remote">يمكن تنفيذه دون تقييد جغرافي</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if subcategory.allows_urgent_requests %}
+                            <span class="policy-pill urgent-on">يسمح بالعاجل</span>
+                          {% else %}
+                            <span class="policy-pill urgent-off">غير مفعّل للعاجل</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {% if subcategory.is_active %}
+                            <span class="policy-pill urgent-on">مفعّل</span>
+                          {% else %}
+                            <span class="policy-pill inactive">متوقف</span>
+                          {% endif %}
+                        </td>
+                        <td>
+                          <div class="actions">
+                            <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?subcategory={{ subcategory.id }}">تعديل</a>
+                            <form method="post">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="toggle_subcategory_active">
+                              <input type="hidden" name="subcategory_id" value="{{ subcategory.id }}">
+                              <button class="ghost-btn" type="submit" {% if not can_manage %}disabled{% endif %}>{% if subcategory.is_active %}إيقاف{% else %}تفعيل{% endif %}</button>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    {% empty %}
+                      <tr><td colspan="5" class="empty-note">لا توجد تصنيفات فرعية مرتبطة بهذا القسم بعد.</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          {% empty %}
+            <div class="empty-note">لا توجد تصنيفات مطابقة للبحث الحالي.</div>
+          {% endfor %}
+        </section>
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          {% include 'dashboard/_sidebar_main_nav.html' %}
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="{% static 'dashboard/js/content.js' %}"></script>
+{% endblock %}

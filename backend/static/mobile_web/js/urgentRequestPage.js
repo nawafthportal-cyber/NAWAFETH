@@ -63,9 +63,9 @@ const UrgentRequestPage = (() => {
       subcategoryLabel: 'التصنيف الفرعي',
       subcategoryPlaceholder: 'اختر التصنيف الفرعي',
       dispatchAllTitle: 'إرسال للجميع',
-      dispatchAllDescription: 'لجميع المزوّدين المطابقين.',
+      dispatchAllDescription: 'لجميع المختصين المطابقين لنفس التصنيف الرئيسي والفرعي.',
       dispatchNearestTitle: 'إرسال للأقرب',
-      dispatchNearestDescription: 'اختيار مزوّد من الخريطة.',
+      dispatchNearestDescription: 'تحديد موقعك تلقائيًا ثم اختيار مزوّد قريب من الخريطة.',
       regionLabel: 'المنطقة الإدارية',
       regionPlaceholder: 'اختر المنطقة الإدارية',
       cityLabel: 'المدينة',
@@ -75,7 +75,10 @@ const UrgentRequestPage = (() => {
       openMap: 'فتح الخريطة',
       selectedProviderNone: 'لم يتم اختيار مزوّد بعد',
       selectedProviderPrompt: 'اختر مزوّدًا من الخريطة.',
-      providerWithinCity: 'ضمن المدينة المختارة',
+      providerWithinCity: 'قريب من موقعك الحالي',
+      providerOutOfCoverageNote: 'هذا المزوّد يقدّم الخدمة داخل نطاق مكاني محدد حتى {radius} كم تقريبًا، بينما موقعك الحالي يبعد {distance} كم. يمكنك إرسال الطلب، لكن قد يعتذر المزوّد لأنك خارج نطاقه المكاني.',
+      providerOutOfCoverageShort: 'خارج النطاق المكاني للمزوّد: التغطية حتى {radius} كم، وموقعك الحالي يبعد {distance} كم.',
+      providerOutOfCoverageToast: 'تم اختيار المزوّد، لكنك خارج نطاقه المكاني المحدد.',
       providerRating: 'التقييم {value}',
       providerCompleted: 'المكتملة {value}',
       providerDistance: 'المسافة {value} كم',
@@ -126,19 +129,19 @@ const UrgentRequestPage = (() => {
       audioSaved: 'تم حفظ التسجيل الصوتي',
       audioStarted: 'بدأ التسجيل الصوتي',
       audioPermissionError: 'تعذر الوصول إلى الميكروفون',
-      dispatchSummaryNearest: 'سيتم استخدام موقعك الحالي ثم عرض المزوّدين داخل المدينة المختارة لاختيار مزوّد وإرسال الطلب له مباشرة.',
-      dispatchSummaryAll: 'سيتم إرسال الطلب لجميع المزوّدين المطابقين للتصنيف، ومع اختيار المدينة سيتم تقييد الإرسال داخلها فقط.',
-      mapSubtitleWithCity: 'نتائج المدينة المختارة: {city}',
-      mapSubtitleEmpty: 'اختر مدينة أولًا ثم افتح الخريطة لعرض المزوّدين الأقرب.',
+      dispatchSummaryNearest: 'سيتم تحديد موقعك تلقائيًا ثم فتح الخريطة لعرض أقرب المزوّدين المطابقين كي تختار واحدًا منهم.',
+      dispatchSummaryAll: 'سيتم إرسال الطلب لجميع المختصين المطابقين لنفس التصنيف الرئيسي والفرعي.',
+      mapSubtitleWithCity: 'يتم ترتيب المزوّدين حسب القرب من موقعك الحالي.',
+      mapSubtitleEmpty: 'فعّل الموقع لعرض أقرب المزوّدين المطابقين على الخريطة.',
       summaryCategorySet: 'التصنيف: {value}',
       summaryCategoryEmpty: 'التصنيف: غير محدد',
       summarySubcategorySet: 'التخصص الفرعي: {value}',
       summarySubcategoryEmpty: 'اختر التصنيف الفرعي لإكمال المطابقة.',
       summaryScopeNearest: 'النطاق: إرسال للأقرب',
       summaryScopeAll: 'النطاق: إرسال للجميع',
-      summaryLocationSet: 'المدينة المحددة: {city}',
-      summaryLocationNearestEmpty: 'اختر مدينة لعرض المزوّدين على الخريطة.',
-      summaryLocationAllEmpty: 'بدون تقييد مدينة حتى الآن.',
+      summaryLocationSet: 'الموقع الحالي: {city}',
+      summaryLocationNearestEmpty: 'سيتم استخدام موقعك الحالي عند فتح الخريطة.',
+      summaryLocationAllEmpty: 'بدون تقييد مكاني إضافي.',
       summaryAttachments: 'المرفقات: {count}',
       summaryProviderSet: 'المزوّد المختار: {provider}',
       summaryProviderNearestEmpty: 'لم يتم اختيار مزوّد مباشر بعد.',
@@ -148,26 +151,27 @@ const UrgentRequestPage = (() => {
       chooseCategoryFirstToast: 'اختر التصنيف الرئيسي قبل فتح الخريطة',
       chooseSubcategoryFirstError: 'اختر التصنيف الفرعي أولًا',
       chooseSubcategoryFirstToast: 'اختر التصنيف الفرعي قبل فتح الخريطة',
-      chooseCityFirstError: 'اختر المدينة عند الإرسال للأقرب',
-      chooseCityFirstToast: 'اختر المدينة قبل فتح الخريطة',
+      chooseCityFirstError: 'فعّل الموقع لعرض الأقرب',
+      chooseCityFirstToast: 'فعّل الموقع أولًا ثم افتح الخريطة',
       enableLocationMap: 'فعّل خدمة الموقع لاستخدام اختيار الأقرب على الخريطة',
       providersFound: 'تم العثور على {count} مزوّد داخل النطاق.',
-      providersEmpty: 'لا يوجد مزوّدون مطابقون بهذه المدينة والتصنيف حاليًا.',
+      providersEmpty: 'لا يوجد مزوّدون مطابقون لهذا التصنيف بالقرب من موقعك حاليًا.',
       providersLoadError: 'تعذر تحميل المزوّدين الآن.',
       providersMapLoadError: 'تعذر تحميل المزوّدين على الخريطة',
       currentLocationPopup: 'موقعك الحالي',
       providerCountCompleted: '{count} مكتملة',
+      popupProfile: 'الملف',
       popupCall: 'اتصال',
       popupWhatsapp: 'واتس',
       popupSend: 'إرسال الطلب',
-      noProvidersSelectedCity: 'لا يوجد مزوّدون مطابقون في المدينة المختارة حاليًا.',
+      noProvidersSelectedCity: 'لا يوجد مزوّدون مطابقون بالقرب من موقعك الحالي.',
       providerCardAlt: 'صورة المزوّد',
       providerSelected: 'تم اختيار المزوّد ويمكنك الآن إرسال الطلب مباشرة له',
       validateCategory: 'اختر التصنيف الرئيسي',
       validateSubcategory: 'اختر التصنيف الفرعي',
       validateTitle: 'أدخل عنوان الطلب',
       validateDescription: 'أدخل تفاصيل الطلب',
-      validateCityNearest: 'اختر المدينة عند الإرسال للأقرب',
+      validateCityNearest: 'فعّل الموقع لاستخدام الإرسال للأقرب',
       validateProviderNearest: 'اختر مزوّدًا من الخريطة قبل الإرسال',
       enableLocationSubmit: 'فعّل خدمة الموقع لإرسال الطلب للأقرب',
       submitError: 'تعذر إرسال الطلب حاليًا',
@@ -198,9 +202,9 @@ const UrgentRequestPage = (() => {
       subcategoryLabel: 'Subcategory',
       subcategoryPlaceholder: 'Choose the subcategory',
       dispatchAllTitle: 'Send to all',
-      dispatchAllDescription: 'To all matching providers.',
+      dispatchAllDescription: 'To all specialists matching the same main and subcategory.',
       dispatchNearestTitle: 'Send to nearest',
-      dispatchNearestDescription: 'Pick one provider from the map.',
+      dispatchNearestDescription: 'Detect your location automatically, then pick one nearby provider from the map.',
       regionLabel: 'Administrative region',
       regionPlaceholder: 'Choose an administrative region',
       cityLabel: 'City',
@@ -210,7 +214,10 @@ const UrgentRequestPage = (() => {
       openMap: 'Open map',
       selectedProviderNone: 'No provider selected yet',
       selectedProviderPrompt: 'Choose a provider from the map.',
-      providerWithinCity: 'Within the selected city',
+      providerWithinCity: 'Near your current location',
+      providerOutOfCoverageNote: 'This provider serves within an approximate {radius} km coverage area, while your current location is {distance} km away. You can still send the request, but the provider may decline because you are outside the defined service area.',
+      providerOutOfCoverageShort: 'Outside the provider service area: coverage up to {radius} km and your location is {distance} km away.',
+      providerOutOfCoverageToast: 'The provider was selected, but your location is outside the provider service area.',
       providerRating: 'Rating {value}',
       providerCompleted: 'Completed {value}',
       providerDistance: 'Distance {value} km',
@@ -261,19 +268,19 @@ const UrgentRequestPage = (() => {
       audioSaved: 'Voice recording saved',
       audioStarted: 'Voice recording started',
       audioPermissionError: 'Could not access the microphone',
-      dispatchSummaryNearest: 'Your current location will be used, then providers inside the selected city will be shown so you can pick one and send the request directly.',
-      dispatchSummaryAll: 'The request will be sent to all providers matching the category, and choosing a city will limit the send within that city only.',
-      mapSubtitleWithCity: 'Results for the selected city: {city}',
-      mapSubtitleEmpty: 'Choose a city first, then open the map to view the nearest providers.',
+      dispatchSummaryNearest: 'Your current location will be detected automatically, then the map will open so you can choose one nearby matching provider.',
+      dispatchSummaryAll: 'The request will be sent to all specialists matching the same main and subcategory.',
+      mapSubtitleWithCity: 'Providers are ordered by distance from your current location.',
+      mapSubtitleEmpty: 'Enable location to view the nearest matching providers on the map.',
       summaryCategorySet: 'Category: {value}',
       summaryCategoryEmpty: 'Category: not selected',
       summarySubcategorySet: 'Subcategory: {value}',
       summarySubcategoryEmpty: 'Choose the subcategory to complete the match.',
       summaryScopeNearest: 'Scope: send to nearest',
       summaryScopeAll: 'Scope: send to all',
-      summaryLocationSet: 'Selected city: {city}',
-      summaryLocationNearestEmpty: 'Choose a city to show providers on the map.',
-      summaryLocationAllEmpty: 'No city restriction yet.',
+      summaryLocationSet: 'Current location: {city}',
+      summaryLocationNearestEmpty: 'Your current location will be used when the map opens.',
+      summaryLocationAllEmpty: 'No extra location restriction.',
       summaryAttachments: 'Attachments: {count}',
       summaryProviderSet: 'Selected provider: {provider}',
       summaryProviderNearestEmpty: 'No direct provider selected yet.',
@@ -283,26 +290,27 @@ const UrgentRequestPage = (() => {
       chooseCategoryFirstToast: 'Choose the main category before opening the map',
       chooseSubcategoryFirstError: 'Choose the subcategory first',
       chooseSubcategoryFirstToast: 'Choose the subcategory before opening the map',
-      chooseCityFirstError: 'Choose a city when sending to the nearest provider',
-      chooseCityFirstToast: 'Choose a city before opening the map',
+      chooseCityFirstError: 'Enable location to view the nearest providers',
+      chooseCityFirstToast: 'Enable location first, then open the map',
       enableLocationMap: 'Enable location services to use nearest-provider selection on the map',
       providersFound: 'Found {count} providers within range.',
-      providersEmpty: 'No providers currently match this city and category.',
+      providersEmpty: 'No providers currently match this category near your location.',
       providersLoadError: 'Could not load providers right now.',
       providersMapLoadError: 'Could not load providers on the map',
       currentLocationPopup: 'Your current location',
       providerCountCompleted: '{count} completed',
+      popupProfile: 'Profile',
       popupCall: 'Call',
       popupWhatsapp: 'WhatsApp',
       popupSend: 'Send request',
-      noProvidersSelectedCity: 'No providers currently match the selected city.',
+      noProvidersSelectedCity: 'No providers currently match near your location.',
       providerCardAlt: 'Provider image',
       providerSelected: 'The provider was selected and you can now send the request directly',
       validateCategory: 'Choose the main category',
       validateSubcategory: 'Choose the subcategory',
       validateTitle: 'Enter the request title',
       validateDescription: 'Enter the request details',
-      validateCityNearest: 'Choose a city when sending to the nearest provider',
+      validateCityNearest: 'Enable location to use send-to-nearest',
       validateProviderNearest: 'Choose a provider from the map before sending',
       enableLocationSubmit: 'Enable location services to send the request to the nearest provider',
       submitError: 'Could not send the request right now',
@@ -392,9 +400,6 @@ const UrgentRequestPage = (() => {
     setText('ur-dispatch-all-description', copy('dispatchAllDescription'));
     setText('ur-dispatch-nearest-title', copy('dispatchNearestTitle'));
     setText('ur-dispatch-nearest-description', copy('dispatchNearestDescription'));
-    setText('ur-region-label', copy('regionLabel'));
-    setText('ur-city-label', copy('cityLabel'));
-    setText('ur-city-clear', copy('cityClear'));
     setText('ur-open-map', copy('openMap'));
     setText('ur-provider-change', copy('providerChange'));
     setText('ur-provider-call', copy('providerCall'));
@@ -431,16 +436,7 @@ const UrgentRequestPage = (() => {
   }
 
   function refreshRegionCityPlaceholders() {
-    if (!state.regionCatalog.length) {
-      setText('ur-region-placeholder', copy('regionPlaceholder'));
-      setText('ur-city-placeholder', copy('cityEmptyPlaceholder'));
-      return;
-    }
-    UI.populateRegionOptions(dom['ur-region'], state.regionCatalog, {
-      placeholder: copy('regionPlaceholder'),
-      currentValue: dom['ur-region']?.value || '',
-    });
-    populateCities(dom['ur-city']?.value || '');
+    return;
   }
 
   function init() {
@@ -472,7 +468,7 @@ const UrgentRequestPage = (() => {
   }
 
   async function bootstrap() {
-    await Promise.all([loadCategories(), loadRegions()]);
+    await loadCategories();
     updateDispatchUI();
     updateSummary();
     renderAttachments();
@@ -508,44 +504,18 @@ const UrgentRequestPage = (() => {
     if (subcategory) subcategory.addEventListener('change', () => {
       clearFieldError('ur-subcategory');
       updateSummary();
+      if (getDispatchMode() === 'nearest' && dom['ur-category']?.value && dom['ur-subcategory']?.value) {
+        void openMapModal();
+      }
     });
-
-    const region = dom['ur-region'];
-    if (region) {
-      region.addEventListener('change', () => {
-        populateCities('');
-        clearFieldError('ur-city');
-        updateCityClearButton();
-        clearSelectedProvider();
-      });
-    }
-
-    const city = dom['ur-city'];
-    if (city) {
-      city.addEventListener('change', () => {
-        clearFieldError('ur-city');
-        updateCityClearButton();
-        updateDispatchUI();
-        clearSelectedProvider();
-      });
-    }
-
-    const clearCity = dom['ur-city-clear'];
-    if (clearCity) {
-      clearCity.addEventListener('click', () => {
-        if (dom['ur-region']) dom['ur-region'].value = '';
-        populateCities('');
-        if (dom['ur-city']) dom['ur-city'].value = '';
-        updateCityClearButton();
-        updateDispatchUI();
-        clearSelectedProvider();
-      });
-    }
 
     document.querySelectorAll('input[name="dispatch_mode"]').forEach((input) => {
       input.addEventListener('change', () => {
         if (input.checked && input.value === 'nearest') {
           void resolveClientLocation(false);
+          if (dom['ur-category']?.value && dom['ur-subcategory']?.value) {
+            void openMapModal();
+          }
         }
         if (input.checked && input.value === 'all') {
           clearSelectedProvider();
@@ -633,54 +603,15 @@ const UrgentRequestPage = (() => {
     updateSummary();
   }
 
-  async function loadRegions() {
-    try {
-      const res = await ApiClient.get(API.regions);
-      if (res.ok && res.data) {
-        state.regionCatalog = UI.normalizeRegionCatalog(Array.isArray(res.data) ? res.data : (res.data.results || []));
-      }
-    } catch (_) {}
-    if (!state.regionCatalog.length) {
-      state.regionCatalog = UI.getRegionCatalogFallback();
-    }
-    UI.populateRegionOptions(dom['ur-region'], state.regionCatalog, { placeholder: copy('regionPlaceholder') });
-    populateCities('');
-    updateCityClearButton();
-  }
-
-  function populateCities(selectedValue) {
-    UI.populateCityOptions(dom['ur-city'], state.regionCatalog, dom['ur-region']?.value || '', {
-      currentValue: selectedValue || '',
-      placeholder: copy('cityPlaceholder'),
-      emptyPlaceholder: copy('cityEmptyPlaceholder'),
-    });
-  }
-
   function getDispatchMode() {
     return document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'all';
   }
 
-  function getScopedCity() {
-    const region = String(dom['ur-region']?.value || '').trim();
-    const city = String(dom['ur-city']?.value || '').trim();
-    if (!city) return '';
-    return window.UI && typeof UI.formatCityDisplay === 'function'
-      ? UI.formatCityDisplay(city, region)
-      : (region ? (region + ' - ' + city) : city);
-  }
-
-  function updateCityClearButton() {
-    const hasCity = !!getScopedCity();
-    dom['ur-city-clear']?.classList.toggle('hidden', !hasCity);
-  }
-
   function updateDispatchUI() {
     const dispatch = getDispatchMode();
-    const city = getScopedCity();
     const isNearest = dispatch === 'nearest';
 
     dom['ur-open-map']?.classList.toggle('hidden', !isNearest);
-    dom['ur-city-required']?.classList.toggle('hidden', !isNearest);
 
     if (dom['ur-dispatch-summary']) {
       dom['ur-dispatch-summary'].textContent = isNearest
@@ -689,8 +620,8 @@ const UrgentRequestPage = (() => {
     }
 
     if (dom['ur-map-subtitle']) {
-      dom['ur-map-subtitle'].textContent = city
-        ? copy('mapSubtitleWithCity', { city })
+      dom['ur-map-subtitle'].textContent = state.clientLocation
+        ? copy('mapSubtitleWithCity', { city: '' })
         : copy('mapSubtitleEmpty');
     }
 
@@ -936,9 +867,11 @@ const UrgentRequestPage = (() => {
   function updateSummary() {
     const categoryName = dom['ur-category']?.selectedOptions?.[0]?.textContent?.trim() || '';
     const subcategoryName = dom['ur-subcategory']?.selectedOptions?.[0]?.textContent?.trim() || '';
-    const city = getScopedCity();
     const dispatch = getDispatchMode();
     const provider = state.selectedProvider;
+    const locationLabel = state.clientLocation
+      ? `${state.clientLocation.lat.toFixed(4)}, ${state.clientLocation.lng.toFixed(4)}`
+      : '';
 
     if (dom['ur-summary-service']) {
       dom['ur-summary-service'].textContent = categoryName ? copy('summaryCategorySet', { value: categoryName }) : copy('summaryCategoryEmpty');
@@ -952,9 +885,9 @@ const UrgentRequestPage = (() => {
       dom['ur-summary-scope'].textContent = dispatch === 'nearest' ? copy('summaryScopeNearest') : copy('summaryScopeAll');
     }
     if (dom['ur-summary-location']) {
-      dom['ur-summary-location'].textContent = city
-        ? copy('summaryLocationSet', { city })
-        : (dispatch === 'nearest' ? copy('summaryLocationNearestEmpty') : copy('summaryLocationAllEmpty'));
+      dom['ur-summary-location'].textContent = dispatch === 'nearest'
+        ? (locationLabel ? copy('summaryLocationSet', { city: locationLabel }) : copy('summaryLocationNearestEmpty'))
+        : copy('summaryLocationAllEmpty');
     }
     if (dom['ur-summary-attachments']) {
       dom['ur-summary-attachments'].textContent = copy('summaryAttachments', { count: attachmentCount() });
@@ -1024,6 +957,8 @@ const UrgentRequestPage = (() => {
             return;
           }
           state.clientLocation = { lat, lng };
+          updateDispatchUI();
+          updateSummary();
           resolve(state.clientLocation);
         },
         () => resolve(null),
@@ -1068,14 +1003,6 @@ const UrgentRequestPage = (() => {
       showToast(copy('chooseSubcategoryFirstToast'), 'warning');
       return;
     }
-    const city = getScopedCity();
-    if (!city) {
-      setFieldError('ur-city', copy('chooseCityFirstError'));
-      focusField('ur-city');
-      showToast(copy('chooseCityFirstToast'), 'warning');
-      return;
-    }
-
     dom['ur-map-modal']?.classList.add('open');
     dom['ur-map-modal']?.setAttribute('aria-hidden', 'false');
     if (dom['ur-map-status']) dom['ur-map-status'].textContent = copy('mapLoading');
@@ -1111,7 +1038,6 @@ const UrgentRequestPage = (() => {
 
   async function fetchNearbyProviders(location) {
     const params = new URLSearchParams();
-    params.set('city', getScopedCity());
     params.set('has_location', '1');
     params.set('accepts_urgent', '1');
     if (dom['ur-category']?.value) params.set('category_id', String(dom['ur-category'].value));
@@ -1155,6 +1081,41 @@ const UrgentRequestPage = (() => {
     };
   }
 
+  function selectedSubcategoryId() {
+    const rawValue = Number(dom['ur-subcategory']?.value || 0);
+    return Number.isFinite(rawValue) && rawValue > 0 ? rawValue : null;
+  }
+
+  function providerRequiresGeoScope(provider) {
+    const subcategoryId = selectedSubcategoryId();
+    const rows = Array.isArray(provider?.selected_subcategories) ? provider.selected_subcategories : [];
+    const matched = rows.find((row) => Number(row?.id) === subcategoryId);
+    return matched ? !!matched.requires_geo_scope : true;
+  }
+
+  function formatKm(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '—';
+    return Number.isInteger(number) ? String(number) : number.toFixed(1);
+  }
+
+  function isProviderOutsideCoverage(provider) {
+    const radius = Number(provider?.coverage_radius_km);
+    const distance = Number(provider?._distance);
+    if (!providerRequiresGeoScope(provider)) return false;
+    if (!Number.isFinite(radius) || radius <= 0) return false;
+    if (!Number.isFinite(distance)) return false;
+    return distance > (radius + 0.05);
+  }
+
+  function coverageWarningMessage(provider, short = false) {
+    if (!isProviderOutsideCoverage(provider)) return '';
+    return copy(short ? 'providerOutOfCoverageShort' : 'providerOutOfCoverageNote', {
+      radius: formatKm(provider.coverage_radius_km),
+      distance: formatKm(provider._distance),
+    });
+  }
+
   function renderMapProviders(location) {
     if (!state.map || typeof L === 'undefined') return;
     state.providerMarkers.forEach((marker) => state.map.removeLayer(marker));
@@ -1185,6 +1146,7 @@ const UrgentRequestPage = (() => {
   }
 
   function buildPopupHtml(provider) {
+    const coverageNote = coverageWarningMessage(provider, true);
     const inlineBadgeHtml = [
       provider.is_verified_blue
         ? '<span style="display:inline-flex;align-items:center;justify-content:center;vertical-align:middle">' + UI.icon('verified_blue', 12, '#2196F3').outerHTML + '</span>'
@@ -1202,21 +1164,29 @@ const UrgentRequestPage = (() => {
       : '<div class="ur-provider-avatar-fallback">' + escapeHtml((provider.display_name || 'P').charAt(0)) + '</div>';
     const call = provider.phone
       ? '<a class="call" href="tel:' + escapeHtml(provider.phone) + '">' + escapeHtml(copy('popupCall')) + '</a>'
-      : '<span class="call" style="opacity:.45;pointer-events:none">' + escapeHtml(copy('popupCall')) + '</span>';
+      : '<span class="call is-disabled">' + escapeHtml(copy('popupCall')) + '</span>';
     const whatsapp = provider.whatsapp_url
       ? '<a class="whatsapp" target="_blank" rel="noopener" href="' + escapeHtml(provider.whatsapp_url) + '">' + escapeHtml(copy('popupWhatsapp')) + '</a>'
-      : '<span class="whatsapp" style="opacity:.45;pointer-events:none">' + escapeHtml(copy('popupWhatsapp')) + '</span>';
+      : '<span class="whatsapp is-disabled">' + escapeHtml(copy('popupWhatsapp')) + '</span>';
     return [
       '<div class="ur-popup">',
       '<div class="ur-popup-head">',
       '<div class="ur-popup-avatar">' + image + badge + '</div>',
-      '<div><div class="ur-popup-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span>' + escapeHtml(provider.display_name) + '</span>' + inlineBadgeHtml + '</div>',
-      '<div class="ur-popup-meta">⭐ ' + formatRating(provider.rating_avg) + ' • ' + escapeHtml(copy('providerCountCompleted', { count: String(provider.completed_requests || 0) })) + '</div></div>',
+      '<div class="ur-popup-copy">',
+      '<div class="ur-popup-title-row"><div class="ur-popup-title"><span>' + escapeHtml(provider.display_name) + '</span>' + inlineBadgeHtml + '</div></div>',
+      '<div class="ur-popup-meta-chips">',
+      '<span class="ur-popup-chip">⭐ ' + formatRating(provider.rating_avg) + '</span>',
+      '<span class="ur-popup-chip">' + escapeHtml(copy('providerCountCompleted', { count: String(provider.completed_requests || 0) })) + '</span>',
       '</div>',
+      '<div class="ur-popup-meta">' + escapeHtml(provider.city_display || copy('providerWithinCity')) + '</div>',
+      '</div>',
+      '</div>',
+      coverageNote ? '<div class="ur-provider-coverage-note">' + escapeHtml(coverageNote) + '</div>' : '',
       '<div class="ur-popup-actions">',
+      '<a class="profile" href="' + escapeHtml(provider.profile_href) + '">' + escapeHtml(copy('popupProfile')) + '</a>',
       call,
       whatsapp,
-      '<button class="send" type="button" data-provider-select="' + String(provider.id) + '">' + escapeHtml(copy('popupSend')) + '</button>',
+      '<button class="send send-primary" type="button" data-provider-select="' + String(provider.id) + '">' + escapeHtml(copy('popupSend')) + '</button>',
       '</div>',
       '</div>',
     ].join('');
@@ -1243,6 +1213,7 @@ const UrgentRequestPage = (() => {
     state.nearbyProviders.forEach((provider) => {
       const card = document.createElement('div');
       card.className = 'ur-provider-card' + (state.selectedProvider?.id === provider.id ? ' selected' : '');
+      const coverageNote = coverageWarningMessage(provider, true);
 
       const inlineBadgeHtml = [
         provider.is_verified_blue
@@ -1270,6 +1241,7 @@ const UrgentRequestPage = (() => {
         '<span>' + escapeHtml(copy('providerCountCompleted', { count: String(provider.completed_requests || 0) })) + '</span>',
         '<span>' + escapeHtml(copy('providerDistance', { value: provider._distance.toFixed(1) })) + '</span>',
         '</div>',
+        coverageNote ? '<div class="ur-provider-coverage-note">' + escapeHtml(coverageNote) + '</div>' : '',
         '</div>',
         '</div>',
         '<div class="ur-provider-card-actions">',
@@ -1297,7 +1269,10 @@ const UrgentRequestPage = (() => {
     renderProviderCards();
     updateSummary();
     closeMapModal();
-    showToast(copy('providerSelected'), 'success');
+    showToast(
+      isProviderOutsideCoverage(provider) ? copy('providerOutOfCoverageToast') : copy('providerSelected'),
+      isProviderOutsideCoverage(provider) ? 'warning' : 'success'
+    );
   }
 
   function clearSelectedProvider(update = true) {
@@ -1320,6 +1295,11 @@ const UrgentRequestPage = (() => {
       if (dom['ur-provider-rating']) dom['ur-provider-rating'].textContent = copy('providerRating', { value: '—' });
       if (dom['ur-provider-completed']) dom['ur-provider-completed'].textContent = copy('providerCompleted', { value: '—' });
       if (dom['ur-provider-distance']) dom['ur-provider-distance'].textContent = copy('providerDistance', { value: '—' });
+      const warning = dom['ur-provider-coverage-warning'];
+      if (warning) {
+        warning.textContent = '';
+        warning.classList.add('hidden');
+      }
       dom['ur-provider-call']?.classList.add('hidden');
       dom['ur-provider-whatsapp']?.classList.add('hidden');
       return;
@@ -1340,10 +1320,16 @@ const UrgentRequestPage = (() => {
       dom['ur-provider-name'].style.gap = '6px';
       dom['ur-provider-name'].style.flexWrap = 'wrap';
     }
-    if (dom['ur-provider-location']) dom['ur-provider-location'].textContent = provider.city_display || getScopedCity() || copy('providerWithinCity');
+    if (dom['ur-provider-location']) dom['ur-provider-location'].textContent = provider.city_display || copy('providerWithinCity');
     if (dom['ur-provider-rating']) dom['ur-provider-rating'].textContent = copy('providerRating', { value: formatRating(provider.rating_avg) });
     if (dom['ur-provider-completed']) dom['ur-provider-completed'].textContent = copy('providerCompleted', { value: String(provider.completed_requests || 0) });
     if (dom['ur-provider-distance']) dom['ur-provider-distance'].textContent = copy('providerDistance', { value: provider._distance.toFixed(1) });
+    const warning = dom['ur-provider-coverage-warning'];
+    if (warning) {
+      const message = coverageWarningMessage(provider);
+      warning.textContent = message;
+      warning.classList.toggle('hidden', !message);
+    }
 
     const badge = dom['ur-provider-badge'];
     if (badge) {
@@ -1411,7 +1397,6 @@ const UrgentRequestPage = (() => {
     const subcategory = String(dom['ur-subcategory']?.value || '').trim();
     const title = String(dom['ur-title']?.value || '').trim();
     const description = String(dom['ur-description']?.value || '').trim();
-    const city = getScopedCity();
     const dispatch = getDispatchMode();
 
     if (!category) {
@@ -1434,11 +1419,6 @@ const UrgentRequestPage = (() => {
       focusField('ur-description');
       return copy('validateDescription');
     }
-    if (dispatch === 'nearest' && !city) {
-      setFieldError('ur-city', copy('validateCityNearest'));
-      focusField('ur-city');
-      return copy('validateCityNearest');
-    }
     if (dispatch === 'nearest' && !state.selectedProvider) {
       showToast(copy('validateProviderNearest'), 'warning');
       return copy('validateProviderNearest');
@@ -1451,12 +1431,11 @@ const UrgentRequestPage = (() => {
     const fieldMap = {
       subcategory: 'ur-subcategory',
       subcategory_ids: 'ur-subcategory',
-      city: 'ur-city',
       title: 'ur-title',
       description: 'ur-description',
-      provider: 'ur-city',
-      request_lat: 'ur-city',
-      request_lng: 'ur-city',
+      provider: 'ur-subcategory',
+      request_lat: 'ur-subcategory',
+      request_lng: 'ur-subcategory',
     };
     let first = '';
     Object.entries(fieldMap).forEach(([apiField, fieldId]) => {
@@ -1490,7 +1469,6 @@ const UrgentRequestPage = (() => {
     }
 
     const dispatch = getDispatchMode();
-    const city = getScopedCity();
     const title = String(dom['ur-title']?.value || '').trim();
     const description = String(dom['ur-description']?.value || '').trim();
     const subcategory = String(dom['ur-subcategory']?.value || '').trim();
@@ -1515,7 +1493,6 @@ const UrgentRequestPage = (() => {
       formData.append('subcategory', subcategory);
       formData.append('subcategory_ids', subcategory);
       formData.append('dispatch_mode', dispatch);
-      if (city) formData.append('city', city);
       if (dispatch === 'nearest' && location) {
         formData.append('request_lat', String(location.lat));
         formData.append('request_lng', String(location.lng));

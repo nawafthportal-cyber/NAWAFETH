@@ -10,6 +10,9 @@
     REGIONS:       "/api/providers/geo/regions-cities/",
     CREATE:        "/api/marketplace/requests/create/",
     PROVIDERS:     "/api/providers/list/",
+    providerSubcategoriesUrl: function (providerId) {
+      return "/api/providers/" + providerId + "/subcategories/";
+    },
   };
 
   /* ── State ── */
@@ -19,6 +22,9 @@
   var dispatchMode     = "all";
   var providerId       = null;
   var serviceId        = null;
+  var requestedCategoryId = null;
+  var requestedSubcategoryId = null;
+  var requestedServiceName = "";
   var fixedTargetCtx   = null;
   var nearestProvider  = null;
   var requestLat       = null;
@@ -80,7 +86,7 @@
       fixedSubcategoryLabel: "التصنيف",
       fixedCityLabel: "المدينة",
       directScopeTitle: "طلب مباشر لمزود خدمة",
-      directScopeText: "تم تحديد المزود تلقائيًا بناءً على صفحة المزود.",
+      directScopeText: "تم تحديد المزود تلقائيًا. اختر القسم والتصنيف من الخيارات التي فعّلها هذا المزود.",
       serviceIdFallback: "خدمة #{id}",
       providerFallbackName: "مزود الخدمة",
       cityGroupLabel: "المنطقة والمدينة",
@@ -214,7 +220,7 @@
       fixedSubcategoryLabel: "Subcategory",
       fixedCityLabel: "City",
       directScopeTitle: "Direct request to a provider",
-      directScopeText: "The provider was selected automatically from the provider page.",
+      directScopeText: "The provider was selected automatically. Choose the category and subcategory from this provider's enabled options.",
       serviceIdFallback: "Service #{id}",
       providerFallbackName: "the provider",
       cityGroupLabel: "Region and city",
@@ -512,7 +518,7 @@
   /* ═══════════════════════════════════════
      init()
      ═══════════════════════════════════════ */
-  function init() {
+  async function init() {
     cacheDom();
     document.addEventListener("nawafeth:languagechange", refreshLanguage);
     observeLanguageChanges();
@@ -553,7 +559,10 @@
     returnTargetUrl = resolveReturnTarget();
 
     loadDirectTargetContext();
-    loadCategories();
+    await loadCategories();
+    if (providerId) {
+      await fetchProviderAndApply();
+    }
     loadRegionCatalog();
     bindEvents();
     syncTypeUI();
@@ -662,11 +671,42 @@
   /* ═══════════════════════════════════════
      Load Data
      ═══════════════════════════════════════ */
+  function buildCategoryCatalogFromProviderSubcategories(rows) {
+    var grouped = [];
+    var groupedById = {};
+
+    (rows || []).forEach(function (row) {
+      var categoryId = parseInt(row.category_id, 10);
+      var subcategoryId = parseInt(row.id, 10);
+      if (!categoryId || !subcategoryId) return;
+
+      if (!groupedById[categoryId]) {
+        groupedById[categoryId] = {
+          id: categoryId,
+          name: row.category_name || "",
+          subcategories: [],
+        };
+        grouped.push(groupedById[categoryId]);
+      }
+
+      groupedById[categoryId].subcategories.push({
+        id: subcategoryId,
+        name: row.name || "",
+      });
+    });
+
+    return grouped;
+  }
+
   async function loadCategories() {
     try {
-      var res = await ApiClient.get(API.CATEGORIES);
+      var res = providerId
+        ? await ApiClient.get(API.providerSubcategoriesUrl(providerId))
+        : await ApiClient.get(API.CATEGORIES);
       if (res.ok && Array.isArray(res.data)) {
-        categories = res.data;
+        categories = providerId
+          ? buildCategoryCatalogFromProviderSubcategories(res.data)
+          : res.data;
         populateCategorySelect();
       }
     } catch (e) {
@@ -682,13 +722,9 @@
       o.textContent = cat.name;
       dom.category.appendChild(o);
     });
-    if (fixedTargetCtx && fixedTargetCtx.categoryId) {
-      dom.category.value = fixedTargetCtx.categoryId;
-      onCategoryChange();
-      if (fixedTargetCtx.subcategoryId) {
-        dom.subcategory.value = fixedTargetCtx.subcategoryId;
-      }
-    }
+    dom.category.value = "";
+    onCategoryChange();
+    applyRequestedCategorySelection();
   }
 
   function onCategoryChange() {
@@ -702,6 +738,54 @@
       o.textContent = s.name;
       dom.subcategory.appendChild(o);
     });
+    dom.subcategory.value = "";
+    syncFixedTargetSelectionSummary();
+  }
+
+  function syncFixedTargetSelectionSummary() {
+    if (!fixedTargetCtx) return;
+
+    var categoryId = parseInt(dom.category.value, 10);
+    var category = categories.find(function (cat) { return cat.id === categoryId; }) || null;
+    var subcategoryId = parseInt(dom.subcategory.value, 10);
+    var subcategory = null;
+
+    if (category && Array.isArray(category.subcategories)) {
+      subcategory = category.subcategories.find(function (item) { return item.id === subcategoryId; }) || null;
+    }
+
+    dom.fixedCategory.textContent = category ? category.name : "\u2014";
+    dom.fixedSubcat.textContent = subcategory ? subcategory.name : "\u2014";
+  }
+
+  function applyRequestedCategorySelection() {
+    if (!requestedCategoryId && !requestedSubcategoryId) return;
+
+    var targetCategoryId = requestedCategoryId;
+    if (!targetCategoryId && requestedSubcategoryId) {
+      categories.some(function (cat) {
+        var match = Array.isArray(cat.subcategories) && cat.subcategories.some(function (sub) {
+          return parseInt(sub.id, 10) === requestedSubcategoryId;
+        });
+        if (match) {
+          targetCategoryId = parseInt(cat.id, 10) || null;
+          return true;
+        }
+        return false;
+      });
+    }
+
+    if (targetCategoryId) {
+      dom.category.value = String(targetCategoryId);
+      onCategoryChange();
+    }
+    if (requestedSubcategoryId) {
+      var exists = Array.from(dom.subcategory.options || []).some(function (option) {
+        return String(option.value) === String(requestedSubcategoryId);
+      });
+      if (exists) dom.subcategory.value = String(requestedSubcategoryId);
+    }
+    syncFixedTargetSelectionSummary();
   }
 
   async function loadRegionCatalog() {
@@ -726,6 +810,9 @@
     var params = new URLSearchParams(window.location.search);
     var pid = params.get("provider_id") || params.get("provider");
     var sid = params.get("service_id") || params.get("service");
+    requestedCategoryId = parseInt(params.get("category_id") || params.get("category"), 10) || null;
+    requestedSubcategoryId = parseInt(params.get("subcategory_id") || params.get("subcategory"), 10) || null;
+    requestedServiceName = String(params.get("service_name") || params.get("title") || "").trim();
     if (!pid) return;
 
     providerId = parseInt(pid, 10) || null;
@@ -737,8 +824,6 @@
     } else {
       requestType = "normal";
     }
-
-    fetchProviderAndApply();
   }
 
   function normalizeReturnTarget(raw) {
@@ -809,30 +894,13 @@
       provider: prov,
       providerId: prov.id,
       providerName: prov.display_name || prov.username || ("\u0645\u0632\u0648\u062f #" + prov.id),
-      categoryId: null,
-      subcategoryId: null,
+      categoryId: requestedCategoryId,
+      subcategoryId: requestedSubcategoryId,
       city: prov.city_display || prov.city || "",
     };
 
-    if (prov.subcategory_ids && prov.subcategory_ids.length > 0) {
-      for (var ci = 0; ci < categories.length; ci++) {
-        var cat = categories[ci];
-        var subs = cat.subcategories || [];
-        for (var si = 0; si < subs.length; si++) {
-          if (prov.subcategory_ids.indexOf(subs[si].id) !== -1) {
-            fixedTargetCtx.categoryId = cat.id;
-            fixedTargetCtx.subcategoryId = subs[si].id;
-            fixedTargetCtx.categoryName = cat.name;
-            fixedTargetCtx.subcategoryName = subs[si].name;
-            break;
-          }
-        }
-        if (fixedTargetCtx.categoryId) break;
-      }
-    }
-
     dom.typeSection.classList.add("hidden");
-    dom.scopeFields.classList.add("hidden");
+    dom.scopeFields.classList.remove("hidden");
     dom.fixedTarget.classList.remove("hidden");
     dom.dispatchSection.classList.add("hidden");
     toggleDirectDesktopLayout(true);
@@ -841,24 +909,20 @@
     dom.scopeText.textContent = text("directScopeText");
     dom.fixedProvName.textContent = fixedTargetCtx.providerName;
 
-    if (serviceId) {
-      dom.fixedService.textContent = text("serviceIdFallback", { id: serviceId });
+    if (serviceId || requestedServiceName) {
+      dom.fixedService.textContent = requestedServiceName || text("serviceIdFallback", { id: serviceId });
       dom.fixedServiceRow.style.display = "";
     } else {
       dom.fixedServiceRow.style.display = "none";
     }
 
-    dom.fixedCategory.textContent = fixedTargetCtx.categoryName || "\u2014";
-    dom.fixedSubcat.textContent = fixedTargetCtx.subcategoryName || "\u2014";
+    dom.fixedCategory.textContent = "\u2014";
+    dom.fixedSubcat.textContent = "\u2014";
     dom.fixedCity.textContent = fixedTargetCtx.city || "\u2014";
-
-    if (fixedTargetCtx.categoryId) {
-      dom.category.value = fixedTargetCtx.categoryId;
-      onCategoryChange();
-      if (fixedTargetCtx.subcategoryId) {
-        dom.subcategory.value = fixedTargetCtx.subcategoryId;
-      }
-    }
+    dom.category.value = "";
+    onCategoryChange();
+    applyRequestedCategorySelection();
+    syncFixedTargetSelectionSummary();
 
     updateHeroTypeContent("normal", fixedTargetCtx.providerName);
     dom.submitText.textContent = text("submitDirect");
@@ -883,6 +947,7 @@
 
     // Category change
     dom.category.addEventListener("change", onCategoryChange);
+    dom.subcategory.addEventListener("change", syncFixedTargetSelectionSummary);
 
     // Region change
     dom.region.addEventListener("change", function () {
@@ -1505,12 +1570,10 @@
     clearErrors();
     var ok = true;
 
-    if (!fixedTargetCtx) {
-      if (!dom.subcategory.value) {
-        if (!dom.category.value) showFieldError(dom.category, dom.catError, text("validationCategory"));
-        showFieldError(dom.subcategory, dom.subError, text("validationSubcategory"));
-        ok = false;
-      }
+    if (!dom.subcategory.value) {
+      if (!dom.category.value) showFieldError(dom.category, dom.catError, text("validationCategory"));
+      showFieldError(dom.subcategory, dom.subError, text("validationSubcategory"));
+      ok = false;
     }
 
     var title = dom.reqTitle.value.trim();
@@ -1555,9 +1618,6 @@
     if (subcatVal) {
       fd.append("subcategory", subcatVal);
       fd.append("subcategory_ids", subcatVal);
-    } else if (fixedTargetCtx && fixedTargetCtx.subcategoryId) {
-      fd.append("subcategory", fixedTargetCtx.subcategoryId);
-      fd.append("subcategory_ids", fixedTargetCtx.subcategoryId);
     }
 
     fd.append("title", dom.reqTitle.value.trim());

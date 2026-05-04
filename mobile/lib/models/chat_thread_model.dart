@@ -16,6 +16,8 @@ class ChatThread {
   final String peerCityDisplay;
   final String peerProfileImage;
   final List<ExcellenceBadgeModel> peerExcellenceBadges;
+  final bool peerIsOnline;
+  final DateTime? peerLastSeen;
   final String lastMessage;
   final DateTime lastMessageAt;
   final int unreadCount;
@@ -41,6 +43,8 @@ class ChatThread {
     this.peerCityDisplay = '',
     this.peerProfileImage = '',
     this.peerExcellenceBadges = const [],
+    this.peerIsOnline = false,
+    this.peerLastSeen,
     required this.lastMessage,
     required this.lastMessageAt,
     required this.unreadCount,
@@ -66,6 +70,10 @@ class ChatThread {
       peerCityDisplay: (json['peer_city_display'] ?? '') as String,
       peerProfileImage: (json['peer_profile_image'] ?? '') as String,
       peerExcellenceBadges: _parsePeerExcellence(json['peer_excellence_badges']),
+      peerIsOnline: (json['peer_is_online'] as bool?) ?? false,
+      peerLastSeen: json['peer_last_seen'] is String
+          ? DateTime.tryParse(json['peer_last_seen'] as String)
+          : null,
       lastMessage: (json['last_message'] ?? '') as String,
       lastMessageAt: DateTime.tryParse(json['last_message_at'] ?? '') ?? DateTime.now(),
       unreadCount: (json['unread_count'] ?? 0) as int,
@@ -88,6 +96,8 @@ class ChatThread {
       'peer_profile_image': peerProfileImage,
       'peer_excellence_badges':
           peerExcellenceBadges.map((item) => item.toJson()).toList(growable: false),
+      'peer_is_online': peerIsOnline,
+      'peer_last_seen': peerLastSeen?.toIso8601String(),
       'last_message': lastMessageOverride ?? lastMessage,
       'last_message_at': lastMessageAt.toIso8601String(),
       'unread_count': unreadCount,

@@ -505,7 +505,7 @@
 {% block content %}
 <main class="page-content">
   <div class="container prf-v3-shell">
-    {% include "mobile_web/_auth_gate_unified.html" with gate_id="auth-gate" kicker="نافذتك الشخصية" title="سجّل دخولك لعرض نافذتي" description="يمكنك متابعة نشاطك وتعديل بياناتك بعد تسجيل الدخول." next_path="/profile/" note="ملفك الشخصي، إعداداتك، وأدواتك في لوحة واحدة." %}
+    {% include "mobile_web/_auth_gate_unified.html" with gate_id="auth-gate" kicker="نافذتك الشخصية" title="سجّل دخولك لعرض نافذتك المخصصة" description="يمكنك متابعة نشاطك وتعديل بياناتك بعد تسجيل الدخول." next_path="/profile/" note="ملفك الشخصي، إعداداتك، وأدواتك في لوحة واحدة." %}
 
     <div id="profile-error-state" class="auth-gate auth-gate-unified hidden">
       <p class="auth-gate-unified-kicker">تعذر تحميل البيانات</p>
@@ -616,26 +616,6 @@
             <p id="profile-head-intro">إدارة الحساب والوصول السريع إلى أدواتك من مكان واحد.</p>
             <p class="prf-v3-command-sub" id="profile-command-sub">كل ما تحتاجه لإدارة حسابك والوصول السريع إلى أدواتك في لوحة واحدة واضحة وأنيقة.</p>
  
-          </article>
-
-<article class="prf-v3-card prf-v3-actions-card">
-            <div class="prf-v3-panel-head">
-              <h2 class="prf-v3-panel-title">وصول سريع</h2>
-            </div>
-            <div class="mwx-actions-grid">
-              <a href="/orders/" class="mwx-action" id="action-orders">
-                <i><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 6h-2c0-2.21-1.79-4-4-4S8 3.79 8 6H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6-2c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2zm6 16H6V8h2v2c0 .55.45 1 1 1s1-.45 1-1V8h4v2c0 .55.45 1 1 1s1-.45 1-1V8h2v12z"/></svg></i>
-                <span id="action-orders-label">طلباتي</span>
-              </a>
-              <a href="/interactive/?tab=favorites" class="mwx-action" id="action-saved">
-                <i><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></i>
-                <span id="action-saved-label">محفوظاتي</span>
-              </a>
-              <a href="/interactive/" class="mwx-action" id="action-interactive">
-                <i><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></i>
-                <span id="action-interactive-label">تفاعلي</span>
-              </a>
-            </div>
           </article>
 
 <article class="prf-v3-card prf-v3-tools-card">

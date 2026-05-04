@@ -160,6 +160,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.accounts.middleware.LastSeenMiddleware",
     "apps.audit.middleware.ExportAuditMiddleware",
     "apps.features.middleware.SubscriptionRefreshMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",

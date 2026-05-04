@@ -1,16 +1,21 @@
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIRequestFactory
 
 from apps.accounts.models import User, UserRole
 from apps.notifications.models import EventLog, EventType, Notification
 from apps.notifications.services import create_notification
-from apps.providers.models import Category, ProviderProfile, SubCategory
+from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
 
-from .models import PRE_EXECUTION_REQUEST_STATUSES, RequestStatus, RequestType, ServiceRequest
-from .serializers import ProviderRequestDetailSerializer
+from .models import DispatchMode, PRE_EXECUTION_REQUEST_STATUSES, RequestStatus, RequestType, ServiceRequest
+from .serializers import ProviderRequestDetailSerializer, ServiceRequestCreateSerializer
 from .services.actions import execute_action
-from .services.dispatch import clear_urgent_request_provider_notifications
+from .services.dispatch import (
+    clear_urgent_request_provider_notifications,
+    provider_can_access_urgent_request,
+    provider_matches_request_scope,
+)
 
 
 class ServiceRequestStateTransitionTests(TestCase):
@@ -95,6 +100,97 @@ class ServiceRequestStateTransitionTests(TestCase):
         self.assertIsNone(service_request.provider_inputs_approved)
         self.assertIsNone(service_request.provider_inputs_decided_at)
         self.assertEqual(service_request.provider_inputs_decision_note, "")
+
+
+class ServiceRequestPolicyTests(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.client_user = User.objects.create_user(
+            phone="0501000101",
+            username="client.policy.test",
+            role_state=UserRole.CLIENT,
+        )
+        self.client_user.city = "الرياض"
+        self.client_user.save(update_fields=["city"])
+        self.provider_user = User.objects.create_user(
+            phone="0501000102",
+            username="provider.policy.test",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود سياسة",
+            bio="-",
+            city="جدة",
+            region="منطقة مكة المكرمة",
+            accepts_urgent=True,
+        )
+        self.staff_user = User.objects.create_user(
+            phone="0501000103",
+            username="staff.policy.test",
+            role_state=UserRole.STAFF,
+            is_staff=True,
+        )
+        self.category = Category.objects.create(name="صيانة")
+        self.subcategory = SubCategory.objects.create(category=self.category, name="كهرباء")
+        self.local_subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="سباكة",
+            requires_geo_scope=True,
+            allows_urgent_requests=False,
+        )
+        ProviderCategory.objects.create(
+            provider=self.provider,
+            subcategory=self.local_subcategory,
+            accepts_urgent=True,
+            requires_geo_scope=False,
+        )
+
+    def _request(self):
+        request = self.factory.post("/api/marketplace/requests/create/")
+        request.user = self.client_user
+        return request
+
+    def test_serializer_uses_requester_city_for_geo_scoped_requests(self):
+        serializer = ServiceRequestCreateSerializer(
+            data={
+                "subcategory_ids": [self.local_subcategory.id],
+                "title": "طلب سباكة",
+                "description": "تفاصيل",
+                "request_type": RequestType.COMPETITIVE,
+            },
+            context={"request": self._request()},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertIn("الرياض", serializer.validated_data["city"])
+
+    def test_serializer_rejects_urgent_for_disallowed_subcategory(self):
+        serializer = ServiceRequestCreateSerializer(
+            data={
+                "subcategory_ids": [self.local_subcategory.id],
+                "title": "طلب عاجل",
+                "description": "تفاصيل",
+                "request_type": RequestType.URGENT,
+            },
+            context={"request": self._request()},
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("subcategory_ids", serializer.errors)
+
+    def test_provider_scope_matching_uses_subcategory_policy_not_provider_relation_flag(self):
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            subcategory=self.local_subcategory,
+            title="طلب محلي",
+            description="تفاصيل",
+            request_type=RequestType.COMPETITIVE,
+            city="الرياض",
+        )
+
+        self.assertFalse(provider_matches_request_scope(self.provider, service_request))
 
     def test_urgent_cancel_replaces_provider_notification(self):
         service_request = ServiceRequest.objects.create(
@@ -468,7 +564,6 @@ class ServiceRequestStateTransitionTests(TestCase):
                 audience_mode="provider",
             ).exists()
         )
-
     def test_provider_detail_serializer_exposes_client_city_fields(self):
         self.client_user.city = "جدة"
         self.client_user.save(update_fields=["city"])
@@ -597,3 +692,75 @@ class ServiceRequestStateTransitionTests(TestCase):
 
         payload = ProviderRequestDetailSerializer(service_request).data
         self.assertEqual(payload["provider_inputs_stage"], "progress_update")
+
+
+class ProviderSubcategoryScopeTests(TestCase):
+    def setUp(self):
+        self.provider_user = User.objects.create_user(
+            phone="0502000002",
+            username="provider.scope",
+            role_state=UserRole.PROVIDER,
+        )
+        self.client_user = User.objects.create_user(
+            phone="0502000001",
+            username="client.scope",
+            role_state=UserRole.CLIENT,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود النطاق",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            lat=24.7136,
+            lng=46.6753,
+            coverage_radius_km=15,
+            accepts_urgent=True,
+        )
+        self.category = Category.objects.create(name="خدمات احترافية")
+        self.subcategory = SubCategory.objects.create(category=self.category, name="برمجة")
+
+    def test_remote_subcategory_can_access_urgent_request_outside_provider_city_and_radius(self):
+        ProviderCategory.objects.create(
+            provider=self.provider,
+            subcategory=self.subcategory,
+            accepts_urgent=True,
+            requires_geo_scope=False,
+        )
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            subcategory=self.subcategory,
+            title="طلب برمجة عاجل",
+            description="تفاصيل",
+            request_type=RequestType.URGENT,
+            dispatch_mode=DispatchMode.NEAREST,
+            status=RequestStatus.NEW,
+            city="جدة",
+            request_lat=21.5433,
+            request_lng=39.1728,
+        )
+
+        self.assertTrue(provider_can_access_urgent_request(self.provider, service_request))
+
+    def test_local_subcategory_still_respects_urgent_radius(self):
+        ProviderCategory.objects.create(
+            provider=self.provider,
+            subcategory=self.subcategory,
+            accepts_urgent=True,
+            requires_geo_scope=True,
+        )
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            subcategory=self.subcategory,
+            title="طلب محلي عاجل",
+            description="تفاصيل",
+            request_type=RequestType.URGENT,
+            dispatch_mode=DispatchMode.NEAREST,
+            status=RequestStatus.NEW,
+            city="الرياض",
+            request_lat=24.9350,
+            request_lng=46.2000,
+        )
+
+        self.assertFalse(provider_can_access_urgent_request(self.provider, service_request))

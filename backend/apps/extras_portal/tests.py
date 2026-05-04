@@ -22,7 +22,7 @@ from apps.providers.models import (
 from apps.messaging.models import Message, Thread
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestStatus, UnifiedRequestType
 
-from .views import _build_reports_dashboard_context, _latest_portal_section_context, _portal_shell_context, _report_option_card_catalog
+from .views import _build_clients_dataset, _build_reports_dashboard_context, _latest_portal_section_context, _portal_shell_context, _report_option_card_catalog
 
 
 class ReportsVisitMetricsTests(TestCase):
@@ -227,6 +227,103 @@ class ReportsVisitMetricsTests(TestCase):
         catalog = _report_option_card_catalog(self.provider, start_at=start_at, end_at=end_at)
 
         self.assertEqual(catalog["messages_count"], 1)
+
+    def test_service_requesters_stays_scoped_to_request_history_not_followers(self):
+        now = timezone.now()
+        start_at = now - timedelta(days=1)
+        end_at = now + timedelta(minutes=1)
+
+        requester_user = User.objects.create_user(
+            phone="0503000021",
+            username="report.requester",
+            role_state=UserRole.CLIENT,
+        )
+        follower_only_user = User.objects.create_user(
+            phone="0503000022",
+            username="report.follower",
+            role_state=UserRole.CLIENT,
+        )
+
+        ServiceRequest.objects.create(
+            client=requester_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب تقرير",
+            description="تفاصيل",
+            request_type=RequestType.NORMAL,
+            status=RequestStatus.CANCELLED,
+            city="الرياض",
+        )
+        from apps.providers.models import ProviderFollow
+
+        ProviderFollow.objects.create(provider=self.provider, user=follower_only_user)
+
+        catalog = _report_option_card_catalog(self.provider, start_at=start_at, end_at=end_at)
+
+        requesters_entries = catalog["option_cards_by_key"]["service_requesters"]["entries"]
+        followers_entries = catalog["option_cards_by_key"]["platform_followers"]["entries"]
+        self.assertEqual(catalog["option_cards_by_key"]["service_requesters"]["badge"], "1 عنصر")
+        self.assertEqual(catalog["option_cards_by_key"]["platform_followers"]["badge"], "1 عنصر")
+        self.assertEqual(requesters_entries[0]["primary"], "@report.requester")
+        self.assertEqual(followers_entries[0]["primary"], "@report.follower")
+
+
+class ClientsDatasetClassificationTests(TestCase):
+    def setUp(self):
+        self.provider_user = User.objects.create_user(
+            phone="0503000101",
+            username="provider.clients.dataset",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود العملاء",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.category = Category.objects.create(name="الخدمات")
+        self.subcategory = SubCategory.objects.create(category=self.category, name="استشارة")
+
+    def test_historical_clients_dataset_uses_service_requests_only(self):
+        requester_user = User.objects.create_user(
+            phone="0503000102",
+            username="dataset.requester",
+            role_state=UserRole.CLIENT,
+        )
+        follower_only_user = User.objects.create_user(
+            phone="0503000103",
+            username="dataset.follower",
+            role_state=UserRole.CLIENT,
+        )
+
+        ServiceRequest.objects.create(
+            client=requester_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب تاريخي",
+            description="تفاصيل",
+            request_type=RequestType.NORMAL,
+            status=RequestStatus.CANCELLED,
+            city="الرياض",
+        )
+        from apps.providers.models import ProviderFollow
+
+        ProviderFollow.objects.create(provider=self.provider, user=follower_only_user)
+
+        dataset = _build_clients_dataset(
+            self.provider,
+            {
+                "section_payload": {"subscription_years": 1},
+                "option_keys": ["historical_clients"],
+                "effective_at": timezone.now() - timedelta(days=30),
+            },
+        )
+
+        usernames = {row["user"].username for row in dataset["enriched_clients"]}
+        self.assertEqual(usernames, {"dataset.requester"})
 
 
 class ReportsBundleContextSelectionTests(TestCase):

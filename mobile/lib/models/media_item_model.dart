@@ -11,6 +11,8 @@ class MediaItemModel {
   final String providerDisplayName;
   final String? providerUsername;
   final String? providerProfileImage;
+  final bool isVerifiedBlue;
+  final bool isVerifiedGreen;
   final String fileType; // image, video
   final String? fileUrl;
   final String? thumbnailUrl;
@@ -32,6 +34,8 @@ class MediaItemModel {
     required this.providerDisplayName,
     this.providerUsername,
     this.providerProfileImage,
+    this.isVerifiedBlue = false,
+    this.isVerifiedGreen = false,
     required this.fileType,
     this.fileUrl,
     this.thumbnailUrl,
@@ -106,6 +110,8 @@ class MediaItemModel {
       providerDisplayName: json['provider_display_name'] as String? ?? '',
       providerUsername: json['provider_username'] as String?,
       providerProfileImage: json['provider_profile_image'] as String?,
+      isVerifiedBlue: json['is_verified_blue'] as bool? ?? false,
+      isVerifiedGreen: json['is_verified_green'] as bool? ?? false,
       fileType: json['file_type'] as String? ?? 'image',
       fileUrl: json['file_url'] as String?,
       thumbnailUrl: json['thumbnail_url'] as String?,

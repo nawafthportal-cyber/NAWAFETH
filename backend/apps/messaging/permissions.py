@@ -2,8 +2,41 @@ from rest_framework.permissions import BasePermission
 
 from apps.accounts.role_context import get_active_role
 from apps.marketplace.models import ServiceRequest
+from apps.providers.models import ProviderVisibilityBlock
 
 from .models import Thread
+
+
+def is_direct_thread_hidden_for_user(*, thread: Thread, user) -> bool:
+    if not getattr(thread, "is_direct", False):
+        return False
+    user_id = getattr(user, "id", None)
+    if not user_id:
+        return False
+
+    if thread.participant_1_id == user_id:
+        peer = getattr(thread, "participant_2", None)
+    elif thread.participant_2_id == user_id:
+        peer = getattr(thread, "participant_1", None)
+    else:
+        return False
+
+    provider_profile = getattr(peer, "provider_profile", None)
+    if not provider_profile:
+        return False
+
+    return ProviderVisibilityBlock.objects.filter(
+        user=user,
+        provider_id=provider_profile.id,
+    ).exists()
+
+
+def can_access_direct_thread(*, thread: Thread, user, active_mode: str) -> bool:
+    return bool(
+        thread.is_participant(user)
+        and thread.mode_matches_user(user, active_mode)
+        and not is_direct_thread_hidden_for_user(thread=thread, user=user)
+    )
 
 
 class IsRequestParticipant(BasePermission):
@@ -55,7 +88,11 @@ class IsThreadParticipant(BasePermission):
         active_mode = get_active_role(request, fallback="shared")
 
         if thread.is_direct:
-            return bool(thread.is_participant(request.user) and thread.mode_matches_user(request.user, active_mode))
+            return can_access_direct_thread(
+                thread=thread,
+                user=request.user,
+                active_mode=active_mode,
+            )
 
         if active_mode == "client":
             return bool(thread.request_id and thread.request and thread.request.client_id == request.user.id)

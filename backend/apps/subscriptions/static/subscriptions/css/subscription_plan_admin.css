@@ -1,0 +1,116 @@
+body.subscription-plan-admin-page .subscription-plan-admin-nav {
+  margin: 0 0 20px;
+  padding: 18px 20px;
+  border: 1px solid rgba(125, 95, 219, 0.16);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(246, 242, 255, 0.94));
+  box-shadow: 0 14px 34px rgba(76, 29, 149, 0.08);
+}
+
+body.subscription-plan-admin-page .subscription-plan-admin-nav-title {
+  margin: 0 0 12px;
+  color: #4c1d95;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+body.subscription-plan-admin-page .subscription-plan-admin-nav-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.subscription-plan-admin-page .subscription-plan-admin-nav-chip {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: rgba(124, 58, 237, 0.1);
+  color: #5b21b6;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .16s ease, background-color .16s ease;
+}
+
+body.subscription-plan-admin-page .subscription-plan-admin-nav-chip:hover {
+  background: rgba(124, 58, 237, 0.16);
+  transform: translateY(-1px);
+}
+
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset.module {
+  margin-bottom: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255,255,255,0.99), rgba(248,250,252,0.96));
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+}
+
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset > h2 {
+  margin: 0;
+  padding: 14px 18px;
+  border: 0;
+  background: linear-gradient(135deg, #226583, #4a7e97);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset .description {
+  margin: 0;
+  padding: 12px 18px 0;
+  color: #58667a;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset .form-row,
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset .form-multiline {
+  padding-inline: 18px;
+}
+
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset.is-core > h2 {
+  background: linear-gradient(135deg, #315f86, #3c809c);
+}
+
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset.is-preview > h2 {
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+}
+
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset.is-preview .readonly {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(124, 58, 237, 0.06);
+  border: 1px solid rgba(124, 58, 237, 0.12);
+}
+
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset textarea,
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset input[type="text"],
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset input[type="number"],
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset select {
+  border-radius: 12px;
+}
+
+body.subscription-plan-admin-page fieldset.subscription-plan-fieldset .help {
+  color: #7b8190;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+@media (max-width: 767px) {
+  body.subscription-plan-admin-page .subscription-plan-admin-nav {
+    padding: 14px;
+  }
+
+  body.subscription-plan-admin-page fieldset.subscription-plan-fieldset > h2 {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  body.subscription-plan-admin-page fieldset.subscription-plan-fieldset .description,
+  body.subscription-plan-admin-page fieldset.subscription-plan-fieldset .form-row,
+  body.subscription-plan-admin-page fieldset.subscription-plan-fieldset .form-multiline {
+    padding-inline: 14px;
+  }
+}

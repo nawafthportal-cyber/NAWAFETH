@@ -7,7 +7,7 @@ from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.dashboard.views import EXTRAS_REPORT_OPTIONS, _extras_report_option_groups
 from apps.extras.option_catalog import EXTRAS_REPORT_OPTIONS as CATALOG_EXTRAS_REPORT_OPTIONS
 from apps.extras_portal.models import ExtrasPortalSubscription
-from apps.providers.models import ProviderProfile
+from apps.providers.models import Category, ProviderProfile, SubCategory
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestStatus, UnifiedRequestType
 
 
@@ -131,3 +131,47 @@ class DashboardExtrasCatalogParityTests(TestCase):
 
         self.assertEqual(grouped_keys, catalog_keys)
         self.assertIn("service_orders_detail", grouped_keys)
+
+
+class DashboardContentCategoriesTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            phone="0503201001",
+            username="content.categories.staff",
+            password="pass1234",
+            role_state=UserRole.STAFF,
+        )
+        self.staff.is_staff = True
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=["is_staff", "is_superuser"])
+        self.category = Category.objects.create(name="الخدمات المنزلية")
+
+        self.client.force_login(self.staff)
+        session = self.client.session
+        session[SESSION_OTP_VERIFIED_KEY] = True
+        session.save()
+
+    def test_content_categories_page_loads(self):
+        response = self.client.get(reverse("dashboard:content_categories"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "إدارة التصنيفات")
+
+    def test_content_categories_can_create_subcategory_policy(self):
+        response = self.client.post(
+            reverse("dashboard:content_categories"),
+            {
+                "action": "save_subcategory",
+                "category": str(self.category.id),
+                "name": "سباكة",
+                "requires_geo_scope": "on",
+                "allows_urgent_requests": "on",
+                "is_active": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        subcategory = SubCategory.objects.get(category=self.category, name="سباكة")
+        self.assertTrue(subcategory.requires_geo_scope)
+        self.assertTrue(subcategory.allows_urgent_requests)
+        self.assertTrue(subcategory.is_active)

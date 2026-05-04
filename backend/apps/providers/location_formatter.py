@@ -48,6 +48,42 @@ def split_city_scope(value: str) -> tuple[str, str]:
     return _strip_region_prefix(region_part), _clean_text(city_part)
 
 
+def build_location_label(country: str, city: str = "") -> str:
+        country_part = _clean_text(country)
+        city_part = _clean_text(city)
+        if country_part and city_part:
+            return f"{country_part}{CITY_SCOPE_SEPARATOR}{city_part}"
+        return country_part or city_part
+
+
+def split_location_label(value: str) -> tuple[str, str]:
+        country_part, city_part = split_city_scope(value)
+        return _clean_text(country_part), _clean_text(city_part)
+
+
+def resolve_country_city(country: str = "", city: str = "", location_label: str = "") -> tuple[str, str, str]:
+    normalized_country = _clean_text(country)
+    normalized_city = _clean_text(city)
+    normalized_label = _clean_text(location_label)
+
+    if normalized_label:
+        label_country, label_city = split_location_label(normalized_label)
+        if label_country and not normalized_country:
+            normalized_country = label_country
+        if label_city and not normalized_city:
+            normalized_city = label_city
+
+    if normalized_city and CITY_SCOPE_SEPARATOR in normalized_city:
+        label_country, label_city = split_location_label(normalized_city)
+        if label_country and not normalized_country:
+            normalized_country = label_country
+        if label_city:
+            normalized_city = label_city
+
+    resolved_label = build_location_label(normalized_country, normalized_city)
+    return normalized_country, normalized_city, resolved_label
+
+
 def normalize_city_scope(city: str, *, region: str = "") -> str:
     normalized_region = _strip_region_prefix(region)
     scope_region, scope_city = split_city_scope(city)

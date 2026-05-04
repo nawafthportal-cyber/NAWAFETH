@@ -348,6 +348,12 @@ class HomeService {
       providerId: providerId,
       providerDisplayName: providerName.isEmpty ? 'مقدم خدمة' : providerName,
       providerProfileImage: profileImage.isEmpty ? null : profileImage,
+      isVerifiedBlue: nested == null
+        ? _readBool(placement['target_provider_is_verified_blue'])
+        : _readBool(nested['is_verified_blue']),
+      isVerifiedGreen: nested == null
+        ? _readBool(placement['target_provider_is_verified_green'])
+        : _readBool(nested['is_verified_green']),
       fileType: fileType.isEmpty ? 'image' : fileType,
       fileUrl: fileUrl,
       thumbnailUrl: thumbnailUrl.isEmpty ? null : thumbnailUrl,

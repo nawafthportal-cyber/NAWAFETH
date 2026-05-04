@@ -91,6 +91,9 @@ class SubscriptionPlan(models.Model):
     banner_images_limit = models.PositiveIntegerField(null=True, blank=True)
     banner_images_label = models.CharField(max_length=80, blank=True)
 
+    spotlight_quota = models.PositiveIntegerField(null=True, blank=True)
+    spotlight_label = models.CharField(max_length=80, blank=True)
+
     direct_chat_quota = models.PositiveIntegerField(null=True, blank=True)
     direct_chat_label = models.CharField(max_length=80, blank=True)
 
@@ -145,6 +148,7 @@ class SubscriptionPlan(models.Model):
             _banner_images_label,
             _direct_chat_label,
             _reminders_label,
+            _spotlight_label,
             _storage_label,
             _support_sla_label,
             _visibility_label,
@@ -160,6 +164,7 @@ class SubscriptionPlan(models.Model):
                 int(self.urgent_visibility_delay_hours or 0)
             ),
             "banner_images_label": _banner_images_label(int(self.banner_images_limit or 0)),
+            "spotlight_label": _spotlight_label(int(self.spotlight_quota or 0)),
             "direct_chat_label": _direct_chat_label(int(self.direct_chat_quota or 0)),
             "reminder_policy_label": _reminders_label(reminder_schedule),
             "support_sla_label": _support_sla_label(int(self.support_sla_hours or 0)),
@@ -175,6 +180,7 @@ class SubscriptionPlan(models.Model):
             "competitive_visibility_label": (self.competitive_visibility_delay_hours,),
             "urgent_visibility_label": (self.urgent_visibility_delay_hours,),
             "banner_images_label": (self.banner_images_limit,),
+            "spotlight_label": (self.spotlight_quota,),
             "direct_chat_label": (self.direct_chat_quota,),
             "reminder_policy_label": tuple(self.reminder_schedule()),
             "support_sla_label": (self.support_sla_hours,),
@@ -198,6 +204,8 @@ class SubscriptionPlan(models.Model):
                 "urgent_visibility_label",
                 "banner_images_limit",
                 "banner_images_label",
+                "spotlight_quota",
+                "spotlight_label",
                 "direct_chat_quota",
                 "direct_chat_label",
                 "reminder_schedule_hours",
