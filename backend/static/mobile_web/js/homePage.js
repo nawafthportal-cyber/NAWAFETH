@@ -1760,6 +1760,38 @@ const HomePage = (() => {
     return merged;
   }
 
+  function _bindFeaturedSpecialistCardNavigation(card) {
+    if (!card || card.dataset.provNavBound === '1') return;
+    card.dataset.provNavBound = '1';
+
+    function go() {
+      if (typeof NwAnalytics !== 'undefined') {
+        NwAnalytics.track('promo.featured_specialist_click', {
+          surface: 'mobile_web.home.featured_specialists',
+          source_app: 'promo',
+          object_type: 'ProviderProfile',
+          object_id: card.dataset.provId || '',
+          payload: {
+            rating_avg: card.dataset.provRating,
+            rating_count: card.dataset.provRatingCount,
+          },
+        });
+      }
+      if (card.dataset.provExternal) {
+        window.open(card.dataset.provHref, '_blank', 'noopener');
+      } else {
+        window.location.href = card.dataset.provHref;
+      }
+    }
+
+    card.addEventListener('click', go);
+    card.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      go();
+    });
+  }
+
   function _renderFeaturedSpecialists(placements) {
     if (!$providersList) return;
     const seenProviderIds = new Set();
@@ -1792,6 +1824,7 @@ const HomePage = (() => {
       card.dataset.provId      = String(item.provider_id || '');
       card.dataset.provRating  = String(item.rating_avg  || '');
       card.dataset.provRatingCount = String(item.rating_count || '');
+      _bindFeaturedSpecialistCardNavigation(card);
 
       const avatarShell = UI.el('div', { className: 'featured-specialist-avatar-shell' });
       const avatarRing = UI.el('div', { className: 'featured-specialist-avatar-ring' });
@@ -1850,22 +1883,33 @@ const HomePage = (() => {
       card.appendChild(meta);
       frag.appendChild(card);
     });
+    _stopProvidersTicker();
     $providersList.textContent = '';
-    // Build ticker track: originals + aria-hidden clones in one flex track
+    $providersList.classList.remove('has-prov-ticker');
+
+    // Build a track for measurement first. Only enable ticker/clones when the
+    // original cards overflow the available width; otherwise the cloned copy is
+    // visible at rest and looks like duplicated providers.
     const provTrack = document.createElement('div');
     provTrack.className = 'prov-ticker-track';
     provTrack.appendChild(frag);
-    const origCards = Array.prototype.slice.call(provTrack.querySelectorAll('.featured-specialist-card'));
-    origCards.forEach(function (orig) {
-      const cl = orig.cloneNode(true);
-      cl.setAttribute('aria-hidden', 'true');
-      cl.setAttribute('tabindex', '-1');
-      provTrack.appendChild(cl);
-    });
     $providersList.appendChild(provTrack);
-    $providersList.classList.add('has-prov-ticker');
-    // Start element-by-element ticker
-    _startProvidersTicker(provTrack, origCards.length);
+
+    const origCards = Array.prototype.slice.call(provTrack.querySelectorAll('.featured-specialist-card'));
+    const shouldTicker = origCards.length > 1
+      && provTrack.scrollWidth > (($providersList.clientWidth || 0) + 4);
+
+    if (shouldTicker) {
+      origCards.forEach(function (orig) {
+        const cl = orig.cloneNode(true);
+        cl.setAttribute('aria-hidden', 'true');
+        cl.setAttribute('tabindex', '-1');
+        provTrack.appendChild(cl);
+      });
+      $providersList.classList.add('has-prov-ticker');
+      _startProvidersTicker(provTrack, origCards.length);
+    }
+
     _restartHomeAutoScrollsDeferred();
   }
 

@@ -263,6 +263,37 @@ class ServiceRequest(models.Model):
 			)
 		self.save(update_fields=update_fields)
 
+	def release_to_pool(self) -> None:
+		if self.status not in PRE_EXECUTION_REQUEST_STATUSES:
+			raise ValidationError("لا يمكن إعادة طرح الطلب في هذه الحالة")
+
+		self.provider = None
+		self.status = RequestStatus.NEW
+		self.expected_delivery_at = None
+		self.estimated_service_amount = None
+		self.received_amount = None
+		self.remaining_amount = None
+		self.provider_inputs_approved = None
+		self.provider_inputs_decided_at = None
+		self.provider_inputs_decision_note = ""
+		self.canceled_at = None
+		self.cancel_reason = ""
+		self.save(
+			update_fields=[
+				"provider",
+				"status",
+				"expected_delivery_at",
+				"estimated_service_amount",
+				"received_amount",
+				"remaining_amount",
+				"provider_inputs_approved",
+				"provider_inputs_decided_at",
+				"provider_inputs_decision_note",
+				"canceled_at",
+				"cancel_reason",
+			]
+		)
+
 	def reopen(self) -> None:
 		if self.status != RequestStatus.CANCELLED:
 			raise ValidationError("لا يمكن إعادة فتح الطلب في هذه الحالة")

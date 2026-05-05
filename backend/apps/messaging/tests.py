@@ -7,7 +7,7 @@ from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
 from apps.providers.models import Category, ProviderProfile, ProviderVisibilityBlock, SubCategory
 from apps.subscriptions.models import Subscription, SubscriptionPlan, SubscriptionStatus
 
-from .models import Thread
+from .models import Thread, ThreadUserState
 
 
 class DirectChatQuotaConsumptionTests(TestCase):
@@ -442,6 +442,45 @@ class ProviderVisibilityMessagingTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403, response.content)
+
+    def test_deleted_conversation_is_hidden_from_current_user_direct_threads_list(self):
+        delete_response = self.client.post(
+            reverse("messaging:thread_delete", kwargs={"thread_id": self.thread_id}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(delete_response.status_code, 200, delete_response.json())
+        state = ThreadUserState.objects.get(thread_id=self.thread_id, user=self.client_user)
+        self.assertTrue(state.is_deleted)
+
+        response = self.client.get(reverse("messaging:direct_threads_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
+
+    def test_deleted_conversation_reappears_after_new_message(self):
+        self.client.post(
+            reverse("messaging:thread_delete", kwargs={"thread_id": self.thread_id}),
+            content_type="application/json",
+        )
+
+        self.client.logout()
+        self.client.force_login(self.provider_user)
+        send_response = self.client.post(
+            reverse("messaging:direct_message_send", kwargs={"thread_id": self.thread_id}) + "?mode=provider",
+            data={"body": "رد جديد"},
+            content_type="application/json",
+        )
+        self.assertEqual(send_response.status_code, 201, send_response.json())
+
+        self.client.logout()
+        self.client.force_login(self.client_user)
+        response = self.client.get(reverse("messaging:direct_threads_list"))
+
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(len(response.json()), 1)
+        state = ThreadUserState.objects.get(thread_id=self.thread_id, user=self.client_user)
+        self.assertFalse(state.is_deleted)
 
 
 class DirectThreadsClientClassificationTests(TestCase):

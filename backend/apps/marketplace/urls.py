@@ -16,6 +16,8 @@ from .api import (
     ProviderInputsDecisionView,
     RequestCancelView,
     RequestCompleteView,
+    RequestDeleteView,
+    RequestRelistView,
     RequestReopenView,
     RequestOffersListView,
     RequestStartView,
@@ -124,6 +126,16 @@ urlpatterns += [
         "requests/<int:request_id>/cancel/",
         RequestCancelView.as_view(),
         name="request_cancel",
+    ),
+    path(
+        "requests/<int:request_id>/relist/",
+        RequestRelistView.as_view(),
+        name="request_relist",
+    ),
+    path(
+        "requests/<int:request_id>/delete/",
+        RequestDeleteView.as_view(),
+        name="request_delete",
     ),
     path(
         "requests/<int:request_id>/reopen/",

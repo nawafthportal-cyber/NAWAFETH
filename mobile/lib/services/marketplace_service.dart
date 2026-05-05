@@ -412,6 +412,21 @@ class MarketplaceService {
     );
   }
 
+  /// إعادة طرح الطلب لمزودين آخرين قبل بدء التنفيذ
+  static Future<ApiResponse> relistRequest(int requestId, {String? reason}) async {
+    return ApiClient.post(
+      '/api/marketplace/requests/$requestId/relist/',
+      body: {
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+      },
+    );
+  }
+
+  /// حذف الطلب نهائياً قبل بدء التنفيذ
+  static Future<ApiResponse> deleteRequestPermanently(int requestId) async {
+    return ApiClient.delete('/api/marketplace/requests/$requestId/delete/');
+  }
+
   /// إعادة فتح طلب ملغي
   static Future<ApiResponse> reopenRequest(int requestId) async {
     return ApiClient.post('/api/marketplace/requests/$requestId/reopen/');

@@ -534,7 +534,15 @@ def provider_can_access_urgent_request(provider: ProviderProfile, service_reques
 def clear_urgent_request_provider_notifications(service_request: ServiceRequest) -> int:
     if getattr(service_request, "request_type", "") != RequestType.URGENT:
         return 0
+    return clear_request_pool_delivery_records(service_request)
 
+
+def clear_request_pool_delivery_records(
+    service_request: ServiceRequest,
+    *,
+    clear_event_logs: bool = False,
+    excluded_user_ids: list[int] | None = None,
+) -> int:
     provider_user_ids = list(
         EventLog.objects.filter(
             event_type=EventType.REQUEST_CREATED,
@@ -549,10 +557,18 @@ def clear_urgent_request_provider_notifications(service_request: ServiceRequest)
 
     provider_user_ids = list(dict.fromkeys(int(user_id) for user_id in provider_user_ids if user_id))
     if not provider_user_ids:
+        if clear_event_logs:
+            event_qs = EventLog.objects.filter(
+                event_type=EventType.REQUEST_CREATED,
+                request_id=service_request.id,
+            )
+            if excluded_user_ids:
+                event_qs = event_qs.exclude(target_user_id__in=list(dict.fromkeys(int(user_id) for user_id in excluded_user_ids if user_id)))
+            event_qs.delete()
         return 0
 
     request_url = f"/requests/{service_request.id}"
-    return delete_notifications(
+    deleted_count = delete_notifications(
         qs=Notification.objects.filter(
             user_id__in=provider_user_ids,
             audience_mode="provider",
@@ -560,3 +576,15 @@ def clear_urgent_request_provider_notifications(service_request: ServiceRequest)
             kind__in=["urgent_request", "request_created"],
         )
     )
+
+    if clear_event_logs:
+        event_qs = EventLog.objects.filter(
+            event_type=EventType.REQUEST_CREATED,
+            request_id=service_request.id,
+            target_user_id__in=provider_user_ids,
+        )
+        if excluded_user_ids:
+            event_qs = event_qs.exclude(target_user_id__in=list(dict.fromkeys(int(user_id) for user_id in excluded_user_ids if user_id)))
+        event_qs.delete()
+
+    return deleted_count

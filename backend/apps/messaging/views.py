@@ -95,9 +95,11 @@ def _unarchive_for_participants(thread: Thread):
 	participants = _thread_participant_users(thread)
 	if not participants:
 		return
-	ThreadUserState.objects.filter(thread=thread, user__in=participants, is_archived=True).update(
+	ThreadUserState.objects.filter(thread=thread, user__in=participants).update(
 		is_archived=False,
 		archived_at=None,
+		is_deleted=False,
+		deleted_at=None,
 	)
 
 

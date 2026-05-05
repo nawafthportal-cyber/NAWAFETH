@@ -6,7 +6,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Avg, Count, Exists, F, Max, OuterRef, Prefetch, Q
+from django.db.models import Avg, BooleanField, Count, Exists, F, Max, OuterRef, Prefetch, Q, Value
 from django.db.models.functions import Coalesce
 from django.db import transaction
 
@@ -27,6 +27,7 @@ from .models import (
 	ContentShareChannel,
 	ContentShareContentType,
 	ProviderContentComment,
+	ProviderContentCommentLike,
 	ProviderCoverImage,
 	ProviderFollow,
 	ProviderLike,
@@ -223,6 +224,63 @@ class MyProviderProfileView(generics.RetrieveUpdateAPIView):
 			if _is_storage_error(exc):
 				return _handle_storage_error(exc)
 			raise
+
+
+
+def _annotate_content_comment_queryset(queryset, request):
+	queryset = queryset.annotate(likes_count=Count("likes", distinct=True))
+	user = getattr(request, "user", None)
+	if user and getattr(user, "is_authenticated", False):
+		role = get_active_role(request)
+		liked_qs = ProviderContentCommentLike.objects.filter(
+			user=user,
+			comment_id=OuterRef("pk"),
+			role_context=role,
+		)
+		return queryset.annotate(is_liked=Exists(liked_qs))
+	return queryset.annotate(is_liked=Value(False, output_field=BooleanField()))
+
+
+def _create_content_comment_report_ticket(*, request, comment, reported_kind: str, label: str, content_ref: str):
+	from apps.moderation.integrations import sync_support_ticket_case
+	from apps.support.models import SupportPriority, SupportTeam, SupportTicket, SupportTicketEntrypoint, SupportTicketType
+
+	if request.user.id == comment.user_id:
+		raise ValidationError("لا يمكنك الإبلاغ عن تعليقك الخاص.")
+
+	reason = str(request.data.get("reason") or "").strip()
+	details = str(request.data.get("details") or request.data.get("description") or request.data.get("text") or "").strip()
+	reported_label = str(request.data.get("reported_label") or getattr(comment, "body", "") or "").strip()
+	if not reason and details:
+		reason = "أخرى"
+	if not reason:
+		raise ValidationError({"detail": "reason مطلوب"})
+
+	prefix = f"بلاغ تعليق على {label} (Comment#{comment.id}) {content_ref}".strip()
+	full = f"{prefix} - السبب: {reason}"
+	if details:
+		full += f" - التفاصيل: {details}"
+	if reported_label:
+		full += f" - نص التعليق: {reported_label[:120]}"
+	full = full.strip()[:300]
+
+	assigned_team = SupportTeam.objects.filter(code__iexact="content", is_active=True).first()
+	ticket = SupportTicket.objects.create(
+		requester=request.user,
+		ticket_type=SupportTicketType.COMPLAINT,
+		priority=SupportPriority.NORMAL,
+		entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
+		description=full,
+		reported_kind=reported_kind,
+		reported_object_id=str(comment.id),
+		reported_user_id=comment.user_id,
+		assigned_team=assigned_team,
+	)
+	try:
+		sync_support_ticket_case(ticket=ticket, by_user=request.user, request=request, note=f"{reported_kind}_report")
+	except Exception:
+		pass
+	return ticket
 
 
 def _provider_cover_gallery_queryset(provider):
@@ -1653,6 +1711,106 @@ class ReportPortfolioItemView(APIView):
 		return Response({"ok": True, "case_id": case.id, "case_code": case.code}, status=status.HTTP_201_CREATED)
 
 
+def _get_spotlight_comment_or_404(request, item_id: int, comment_id: int):
+	item = generics.get_object_or_404(
+		_filter_spotlight_queryset_for_user(
+			ProviderSpotlightItem.objects.select_related("provider", "provider__user").filter(provider__user__is_active=True),
+			request,
+		),
+		id=item_id,
+	)
+	comment = generics.get_object_or_404(
+		ProviderContentComment.objects.filter(spotlight_item=item, is_approved=True).select_related("user", "provider"),
+		id=comment_id,
+	)
+	return item, comment
+
+
+def _get_portfolio_comment_or_404(request, item_id: int, comment_id: int):
+	item = generics.get_object_or_404(
+		_filter_portfolio_queryset_for_user(
+			ProviderPortfolioItem.objects.select_related("provider", "provider__user").filter(provider__user__is_active=True),
+			request,
+		),
+		id=item_id,
+	)
+	comment = generics.get_object_or_404(
+		ProviderContentComment.objects.filter(portfolio_item=item, is_approved=True).select_related("user", "provider"),
+		id=comment_id,
+	)
+	return item, comment
+
+
+class LikeSpotlightCommentView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int, comment_id: int):
+		_, comment = _get_spotlight_comment_or_404(request, item_id, comment_id)
+		role = get_active_role(request)
+		ProviderContentCommentLike.objects.get_or_create(user=request.user, comment=comment, role_context=role)
+		return Response({"ok": True, "likes_count": comment.likes.count()}, status=status.HTTP_200_OK)
+
+
+class UnlikeSpotlightCommentView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int, comment_id: int):
+		_, comment = _get_spotlight_comment_or_404(request, item_id, comment_id)
+		role = get_active_role(request)
+		ProviderContentCommentLike.objects.filter(user=request.user, comment=comment, role_context=role).delete()
+		return Response({"ok": True, "likes_count": comment.likes.count()}, status=status.HTTP_200_OK)
+
+
+class ReportSpotlightCommentView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int, comment_id: int):
+		item, comment = _get_spotlight_comment_or_404(request, item_id, comment_id)
+		ticket = _create_content_comment_report_ticket(
+			request=request,
+			comment=comment,
+			reported_kind="spotlight_comment",
+			label="لمحة",
+			content_ref=f"Spotlight#{item.id}",
+		)
+		return Response({"ok": True, "ticket_id": ticket.id, "ticket_code": ticket.code}, status=status.HTTP_201_CREATED)
+
+
+class LikePortfolioCommentView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int, comment_id: int):
+		_, comment = _get_portfolio_comment_or_404(request, item_id, comment_id)
+		role = get_active_role(request)
+		ProviderContentCommentLike.objects.get_or_create(user=request.user, comment=comment, role_context=role)
+		return Response({"ok": True, "likes_count": comment.likes.count()}, status=status.HTTP_200_OK)
+
+
+class UnlikePortfolioCommentView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int, comment_id: int):
+		_, comment = _get_portfolio_comment_or_404(request, item_id, comment_id)
+		role = get_active_role(request)
+		ProviderContentCommentLike.objects.filter(user=request.user, comment=comment, role_context=role).delete()
+		return Response({"ok": True, "likes_count": comment.likes.count()}, status=status.HTTP_200_OK)
+
+
+class ReportPortfolioCommentView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int, comment_id: int):
+		item, comment = _get_portfolio_comment_or_404(request, item_id, comment_id)
+		ticket = _create_content_comment_report_ticket(
+			request=request,
+			comment=comment,
+			reported_kind="portfolio_comment",
+			label="خدمات ومشاريع",
+			content_ref=f"Portfolio#{item.id}",
+		)
+		return Response({"ok": True, "ticket_id": ticket.id, "ticket_code": ticket.code}, status=status.HTTP_201_CREATED)
+
+
 class SpotlightCommentsView(APIView):
 	permission_classes = [permissions.AllowAny]
 
@@ -1671,17 +1829,20 @@ class SpotlightCommentsView(APIView):
 		limit = max(1, min(int(limit_raw), 100)) if limit_raw.isdigit() else 25
 		replies_prefetch = Prefetch(
 			"replies",
-			queryset=ProviderContentComment.objects.filter(is_approved=True)
+			queryset=_annotate_content_comment_queryset(
+				ProviderContentComment.objects.filter(is_approved=True),
+				request,
+			)
 			.select_related("user", "user__provider_profile")
 			.order_by("created_at", "id"),
 			to_attr="prefetched_replies",
 		)
-		comments_qs = (
+		comments_qs = _annotate_content_comment_queryset((
 			ProviderContentComment.objects.filter(spotlight_item=item, is_approved=True, parent__isnull=True)
 			.select_related("user", "user__provider_profile")
 			.prefetch_related(replies_prefetch)
 			.order_by("-created_at", "-id")
-		)
+		), request)
 		rows = list(comments_qs[:limit])
 		serializer = SpotlightCommentSerializer(rows, many=True, context={"request": request})
 		return Response(
@@ -1697,6 +1858,7 @@ class SpotlightCommentsView(APIView):
 			return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
 		if not IsAtLeastPhoneOnly().has_permission(request, self):
 			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+		role = get_active_role(request)
 		item = self._get_item(request, item_id)
 		serializer = SpotlightCommentCreateSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
@@ -1708,6 +1870,7 @@ class SpotlightCommentsView(APIView):
 			user=request.user,
 			spotlight_item=item,
 			parent=parent,
+			role_context=role,
 			body=serializer.validated_data["body"],
 			is_approved=True,
 		)
@@ -1735,17 +1898,20 @@ class PortfolioCommentsView(APIView):
 		limit = max(1, min(int(limit_raw), 100)) if limit_raw.isdigit() else 25
 		replies_prefetch = Prefetch(
 			"replies",
-			queryset=ProviderContentComment.objects.filter(is_approved=True)
+			queryset=_annotate_content_comment_queryset(
+				ProviderContentComment.objects.filter(is_approved=True),
+				request,
+			)
 			.select_related("user", "user__provider_profile")
 			.order_by("created_at", "id"),
 			to_attr="prefetched_replies",
 		)
-		comments_qs = (
+		comments_qs = _annotate_content_comment_queryset((
 			ProviderContentComment.objects.filter(portfolio_item=item, is_approved=True, parent__isnull=True)
 			.select_related("user", "user__provider_profile")
 			.prefetch_related(replies_prefetch)
 			.order_by("-created_at", "-id")
-		)
+		), request)
 		rows = list(comments_qs[:limit])
 		serializer = SpotlightCommentSerializer(rows, many=True, context={"request": request})
 		return Response(
@@ -1761,6 +1927,7 @@ class PortfolioCommentsView(APIView):
 			return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
 		if not IsAtLeastPhoneOnly().has_permission(request, self):
 			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+		role = get_active_role(request)
 		item = self._get_item(request, item_id)
 		serializer = SpotlightCommentCreateSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
@@ -1772,6 +1939,7 @@ class PortfolioCommentsView(APIView):
 			user=request.user,
 			portfolio_item=item,
 			parent=parent,
+			role_context=role,
 			body=serializer.validated_data["body"],
 			is_approved=True,
 		)

@@ -54,6 +54,18 @@ from .views import (
 )
 
 
+def _deleted_thread_ids_for_user(user, thread_ids: list[int]) -> set[int]:
+	if not getattr(user, "id", None) or not thread_ids:
+		return set()
+	return set(
+		ThreadUserState.objects.filter(
+			user=user,
+			thread_id__in=thread_ids,
+			is_deleted=True,
+		).values_list("thread_id", flat=True)
+	)
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -622,6 +634,8 @@ class MyDirectThreadsListView(APIView):
 			.annotate(last_message_at=Max("messages__created_at"))
 			.order_by("-last_message_at")
 		))
+		deleted_thread_ids = _deleted_thread_ids_for_user(me, [thread.id for thread in threads])
+		threads = [thread for thread in threads if thread.id not in deleted_thread_ids]
 
 		provider_profile = getattr(me, "provider_profile", None) if mode == Thread.ContextMode.PROVIDER else None
 		candidate_client_ids = []
@@ -764,7 +778,7 @@ class MyThreadStatesListView(APIView):
 
 		thread_ids = list(Thread.objects.filter(q).values_list("id", flat=True))
 
-		states = ThreadUserState.objects.filter(user=me, thread_id__in=thread_ids)
+		states = ThreadUserState.objects.filter(user=me, thread_id__in=thread_ids, is_deleted=False)
 		return Response(ThreadUserStateSerializer(states, many=True).data, status=status.HTTP_200_OK)
 
 
@@ -836,6 +850,24 @@ class ThreadArchiveView(APIView):
 
 		obj.save(update_fields=["is_archived", "archived_at", "updated_at"])
 		return Response({"ok": True, "is_archived": obj.is_archived}, status=status.HTTP_200_OK)
+
+
+class ThreadDeleteView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly, IsThreadParticipant]
+
+	def post(self, request, thread_id: int):
+		action = (request.data.get("action") or "").strip().lower()
+		obj, _ = ThreadUserState.objects.get_or_create(thread_id=thread_id, user=request.user)
+
+		if action == "restore":
+			obj.is_deleted = False
+			obj.deleted_at = None
+		else:
+			obj.is_deleted = True
+			obj.deleted_at = timezone.now()
+
+		obj.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+		return Response({"ok": True, "is_deleted": obj.is_deleted}, status=status.HTTP_200_OK)
 
 
 class ThreadBlockView(APIView):

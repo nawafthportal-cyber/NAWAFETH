@@ -150,6 +150,7 @@ class HomeService {
               'section_title': item.sectionTitle,
               'sponsored_badge_only': item.sponsoredBadgeOnly,
               'likes_count': item.likesCount,
+              'comments_count': item.commentsCount,
               'saves_count': item.savesCount,
               'is_liked': item.isLiked,
               'is_saved': item.isSaved,

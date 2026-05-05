@@ -821,13 +821,14 @@ const SpotlightViewer = (() => {
   function _buildCommentThread(comment) {
     const thread = document.createElement('div');
     thread.className = 'sv-comment-thread';
-    thread.appendChild(_buildCommentRow(comment, { isReply: false }));
+    const currentItem = _items[_currentIndex];
+    thread.appendChild(_buildCommentRow(comment, { isReply: false, item: currentItem }));
 
     const replies = Array.isArray(comment && comment.replies) ? comment.replies : [];
     if (replies.length) {
       const repliesHost = document.createElement('div');
       repliesHost.className = 'sv-comment-replies';
-      replies.forEach((reply) => repliesHost.appendChild(_buildCommentRow(reply, { isReply: true, parentComment: comment })));
+      replies.forEach((reply) => repliesHost.appendChild(_buildCommentRow(reply, { isReply: true, parentComment: comment, item: currentItem })));
       thread.appendChild(repliesHost);
     }
     return thread;
@@ -874,6 +875,13 @@ const SpotlightViewer = (() => {
 
     const footer = document.createElement('div');
     footer.className = 'sv-comment-footer';
+    const likeBtn = document.createElement('button');
+    likeBtn.className = 'sv-comment-like-btn';
+    likeBtn.setAttribute('type', 'button');
+    _renderCommentLikeButtonState(likeBtn, comment);
+    likeBtn.addEventListener('click', () => _toggleCommentLike(options.item || _items[_currentIndex], comment, likeBtn));
+    footer.appendChild(likeBtn);
+
     if (!options.isReply && _isAuthenticated()) {
       const replyBtn = document.createElement('button');
       replyBtn.className = 'sv-comment-reply-btn';
@@ -883,13 +891,13 @@ const SpotlightViewer = (() => {
       footer.appendChild(replyBtn);
     }
 
-    if (comment && comment.is_mine) {
+    if (_isAuthenticated()) {
       const moreBtn = document.createElement('button');
       moreBtn.className = 'sv-comment-more-btn';
       moreBtn.setAttribute('type', 'button');
       moreBtn.setAttribute('aria-label', _shareCopy('commentsMoreAction'));
       moreBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg>';
-      moreBtn.addEventListener('click', (event) => _toggleCommentActionsMenu(event, comment));
+      moreBtn.addEventListener('click', (event) => _toggleCommentActionsMenu(event, options.item || _items[_currentIndex], comment));
       footer.appendChild(moreBtn);
     }
 
@@ -1004,7 +1012,7 @@ const SpotlightViewer = (() => {
       repliesHost.className = 'sv-comment-replies';
       thread.appendChild(repliesHost);
     }
-    repliesHost.appendChild(_buildCommentRow(reply, { isReply: true }));
+    repliesHost.appendChild(_buildCommentRow(reply, { isReply: true, item: _items[_currentIndex] }));
 
     const parentData = _commentReplyTarget;
     if (parentData) {
@@ -1014,7 +1022,7 @@ const SpotlightViewer = (() => {
     }
   }
 
-  function _toggleCommentActionsMenu(event, comment) {
+  function _toggleCommentActionsMenu(event, item, comment) {
     event.preventDefault();
     event.stopPropagation();
     const trigger = event.currentTarget;
@@ -1027,21 +1035,33 @@ const SpotlightViewer = (() => {
     menu.className = 'sv-comment-actions-menu';
     menu.dataset.commentId = String(comment.id);
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'sv-comment-actions-item is-danger';
-    deleteBtn.setAttribute('type', 'button');
-    deleteBtn.textContent = _shareCopy('commentsDeleteAction');
-    deleteBtn.addEventListener('click', () => {
-      _closeCommentActionsMenu();
-      _openConfirmSheet({
-        title: _shareCopy('commentsDeleteConfirmTitle'),
-        body: _shareCopy('commentsDeleteConfirmBody'),
-        confirmLabel: _shareCopy('commentsDeleteConfirm'),
-        destructive: true,
-        onConfirm: () => _deleteComment(comment),
+    if (comment && comment.is_mine) {
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'sv-comment-actions-item is-danger';
+      deleteBtn.setAttribute('type', 'button');
+      deleteBtn.textContent = _shareCopy('commentsDeleteAction');
+      deleteBtn.addEventListener('click', () => {
+        _closeCommentActionsMenu();
+        _openConfirmSheet({
+          title: _shareCopy('commentsDeleteConfirmTitle'),
+          body: _shareCopy('commentsDeleteConfirmBody'),
+          confirmLabel: _shareCopy('commentsDeleteConfirm'),
+          destructive: true,
+          onConfirm: () => _deleteComment(comment),
+        });
       });
-    });
-    menu.appendChild(deleteBtn);
+      menu.appendChild(deleteBtn);
+    } else {
+      const reportBtn = document.createElement('button');
+      reportBtn.className = 'sv-comment-actions-item';
+      reportBtn.setAttribute('type', 'button');
+      reportBtn.textContent = _shareCopy('commentsReportAction');
+      reportBtn.addEventListener('click', () => {
+        _closeCommentActionsMenu();
+        _openCommentReportSheet(item, comment);
+      });
+      menu.appendChild(reportBtn);
+    }
 
     document.body.appendChild(menu);
     const rect = trigger.getBoundingClientRect();
@@ -1077,6 +1097,151 @@ const SpotlightViewer = (() => {
     }
     _closeDialogSheet();
     _showToast(_shareCopy('commentsDeleted'));
+  }
+
+  function _renderCommentLikeButtonState(button, comment) {
+    if (!button) return;
+    const count = Math.max(0, Number(comment && comment.likes_count) || 0);
+    const isLiked = !!(comment && comment.is_liked);
+    button.classList.toggle('is-active', isLiked);
+    button.setAttribute('aria-label', isLiked ? _shareCopy('commentsUnlikeAction') : _shareCopy('commentsLikeAction'));
+    button.textContent = (isLiked ? '♥ ' : '♡ ') + String(count);
+  }
+
+  async function _toggleCommentLike(item, comment, button) {
+    if (!_isAuthenticated()) {
+      _redirectToLogin();
+      return;
+    }
+    if (!item || !comment || !comment.id || !button || button.disabled) return;
+    const wasLiked = !!comment.is_liked;
+    const previousCount = Math.max(0, Number(comment.likes_count) || 0);
+    comment.is_liked = !wasLiked;
+    comment.likes_count = Math.max(0, previousCount + (wasLiked ? -1 : 1));
+    button.disabled = true;
+    _renderCommentLikeButtonState(button, comment);
+    try {
+      const endpoint = _withMode(
+        _contentDetailPath(item, 'comments/' + encodeURIComponent(String(comment.id)) + '/' + (wasLiked ? 'unlike/' : 'like/')),
+        _options.modeContext || 'client'
+      );
+      const response = await ApiClient.request(endpoint, { method: 'POST' });
+      if (!response || !response.ok) throw new Error('comment_like_failed');
+      if (response.data && Number.isFinite(Number(response.data.likes_count))) {
+        comment.likes_count = Math.max(0, Number(response.data.likes_count) || 0);
+      }
+      _renderCommentLikeButtonState(button, comment);
+    } catch (_) {
+      comment.is_liked = wasLiked;
+      comment.likes_count = previousCount;
+      _renderCommentLikeButtonState(button, comment);
+      _showToast(_shareCopy('commentsLikeFailed'));
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function _openCommentReportSheet(item, comment) {
+    if (!_isAuthenticated()) {
+      _redirectToLogin();
+      return;
+    }
+    _closeDialogSheet();
+    const sheet = document.createElement('div');
+    sheet.className = 'sv-dialog-sheet';
+    const backdrop = document.createElement('button');
+    backdrop.className = 'sv-dialog-backdrop';
+    backdrop.setAttribute('type', 'button');
+    backdrop.addEventListener('click', () => _closeDialogSheet());
+    sheet.appendChild(backdrop);
+
+    const card = document.createElement('div');
+    card.className = 'sv-dialog-card';
+
+    const title = document.createElement('h3');
+    title.className = 'sv-dialog-title';
+    title.textContent = _shareCopy('commentsReportTitle');
+    const subtitle = document.createElement('p');
+    subtitle.className = 'sv-dialog-subtitle';
+    subtitle.textContent = _shareCopy('commentsReportSubtitle');
+    card.appendChild(title);
+    card.appendChild(subtitle);
+
+    const label = document.createElement('label');
+    label.className = 'sv-dialog-label';
+    label.textContent = _shareCopy('reportReasonLabel');
+    const select = document.createElement('select');
+    select.className = 'sv-dialog-select';
+    [
+      _shareCopy('reportReasonInappropriate'),
+      _shareCopy('reportReasonSpam'),
+      _shareCopy('reportReasonViolence'),
+      _shareCopy('reportReasonCopyright'),
+      _shareCopy('reportReasonOther'),
+    ].forEach((reason) => {
+      const option = document.createElement('option');
+      option.value = reason;
+      option.textContent = reason;
+      select.appendChild(option);
+    });
+    card.appendChild(label);
+    card.appendChild(select);
+
+    const detailsLabel = document.createElement('label');
+    detailsLabel.className = 'sv-dialog-label';
+    detailsLabel.textContent = _shareCopy('reportDetailsLabel');
+    const textarea = document.createElement('textarea');
+    textarea.className = 'sv-dialog-textarea';
+    textarea.placeholder = _shareCopy('reportDetailsPlaceholder');
+    textarea.maxLength = 500;
+    card.appendChild(detailsLabel);
+    card.appendChild(textarea);
+
+    const actions = document.createElement('div');
+    actions.className = 'sv-dialog-actions';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'sv-dialog-btn is-secondary';
+    cancelBtn.setAttribute('type', 'button');
+    cancelBtn.textContent = _shareCopy('cancelAction');
+    cancelBtn.addEventListener('click', () => _closeDialogSheet());
+    const submitBtn = document.createElement('button');
+    submitBtn.className = 'sv-dialog-btn is-primary';
+    submitBtn.setAttribute('type', 'button');
+    submitBtn.textContent = _shareCopy('reportSubmit');
+    submitBtn.addEventListener('click', () => _submitCommentReport(item, comment, select.value, textarea.value));
+    actions.appendChild(cancelBtn);
+    actions.appendChild(submitBtn);
+    card.appendChild(actions);
+
+    sheet.appendChild(card);
+    document.body.appendChild(sheet);
+    _dialogSheet = sheet;
+    requestAnimationFrame(() => sheet.classList.add('is-visible'));
+  }
+
+  async function _submitCommentReport(item, comment, reason, details) {
+    if (_reportSubmitInFlight) return;
+    _reportSubmitInFlight = true;
+    try {
+      const response = await ApiClient.request(
+        _withMode(_contentDetailPath(item, 'comments/' + encodeURIComponent(String(comment.id)) + '/report/'), _options.modeContext || 'client'),
+        {
+          method: 'POST',
+          body: {
+            reason: String(reason || '').trim() || _shareCopy('reportReasonOther'),
+            details: String(details || '').trim(),
+            reported_label: String(comment && comment.body || '').trim(),
+          },
+        }
+      );
+      if (!response || !response.ok) throw new Error('comment_report_failed');
+      _showToast(_shareCopy('commentsReportSuccess'));
+      _closeDialogSheet();
+    } catch (_) {
+      _showToast(_shareCopy('commentsReportFailed'));
+    } finally {
+      _reportSubmitInFlight = false;
+    }
   }
 
   function _removeCommentFromSheet(comment) {
@@ -1214,14 +1379,22 @@ const SpotlightViewer = (() => {
       commentsReplyAdded: isEnglish ? 'Your reply has been posted.' : 'تم نشر الرد.',
       commentsClose: isEnglish ? 'Close comments' : 'إغلاق التعليقات',
       commentsReplyAction: isEnglish ? 'Reply' : 'رد',
+      commentsLikeAction: isEnglish ? 'Like' : 'إعجاب',
+      commentsUnlikeAction: isEnglish ? 'Unlike' : 'إلغاء الإعجاب',
       commentsCancelReply: isEnglish ? 'Cancel reply' : 'إلغاء الرد',
       commentsReplyingTo: isEnglish ? 'Replying to' : 'الرد على',
       commentsDeleteAction: isEnglish ? 'Delete comment' : 'حذف التعليق',
+      commentsReportAction: isEnglish ? 'Report comment' : 'الإبلاغ عن التعليق',
       commentsDeleteConfirmTitle: isEnglish ? 'Delete this comment?' : 'حذف هذا التعليق؟',
       commentsDeleteConfirmBody: isEnglish ? 'This will remove the comment and its replies permanently.' : 'سيؤدي ذلك إلى حذف التعليق وردوده نهائيًا.',
       commentsDeleteConfirm: isEnglish ? 'Delete' : 'حذف',
       commentsDeleteFailed: isEnglish ? 'Could not delete the comment right now.' : 'تعذر حذف التعليق حالياً.',
       commentsDeleted: isEnglish ? 'Comment deleted.' : 'تم حذف التعليق.',
+      commentsLikeFailed: isEnglish ? 'Could not update the comment like right now.' : 'تعذر تحديث الإعجاب بالتعليق حالياً.',
+      commentsReportTitle: isEnglish ? 'Report comment' : 'الإبلاغ عن التعليق',
+      commentsReportSubtitle: isEnglish ? 'This report goes to the content management team with a clear comment label.' : 'سيصل هذا البلاغ إلى فريق إدارة المحتوى مع توضيح أنه بلاغ على تعليق.',
+      commentsReportSuccess: isEnglish ? 'Comment report sent to the content team.' : 'تم إرسال بلاغ التعليق إلى فريق المحتوى.',
+      commentsReportFailed: isEnglish ? 'Could not send the comment report right now.' : 'تعذر إرسال بلاغ التعليق حالياً.',
       commentsOptionsAction: isEnglish ? 'Comment options' : 'خيارات التعليق',
       commentsMoreAction: isEnglish ? 'More' : 'المزيد',
       shareTitle: isEnglish ? 'Share content' : 'مشاركة المحتوى',

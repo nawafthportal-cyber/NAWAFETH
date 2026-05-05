@@ -32,25 +32,37 @@ const ChatDetailPage = (() => {
       sendMessage: 'إرسال الرسالة',
       optionsTitle: 'خيارات الرسائل',
       markRead: 'اجعلها مقروءة',
-      addFavorite: 'إضافة للمفضلة',
-      removeFavorite: 'إزالة من المفضلة',
+      markUnread: 'اجعلها غير مقروءة',
+      favoriteCategory: 'مفضلة',
+      favoriteCategoryMeta: 'محادثة مهمة - تواصل غير مكتمل',
+      importantConversation: 'محادثة مهمة',
+      incompleteConversation: 'تواصل غير مكتمل',
+      clearFavorite: 'إزالة من المفضلة',
+      clientCategory: 'تمييز عميل',
+      clientCategoryMeta: 'محتمل أو حالي أو سابق',
+      clearClientCategory: 'إزالة التمييز',
       blockMember: 'حظر العضو',
+      blockProvider: 'حظر مقدم الخدمة',
       unblockMember: 'إلغاء الحظر',
-      reportMessages: 'الإبلاغ عن الرسائل',
-      archiveMessages: 'أرشفة الرسائل',
-      unarchiveMessages: 'إلغاء الأرشفة',
-      reportTitle: 'إبلاغ عن الرسائل',
-      reportReasonLabel: 'سبب الإبلاغ',
+      reportMessages: 'الشكاوى والبلاغات',
+      reportMember: 'الإبلاغ عن العضو',
+      reportProvider: 'الإبلاغ عن مقدم الخدمة',
+      deleteConversation: 'حذف المحادثة',
+      reportTitle: 'الشكاوى والبلاغات',
+      reportReasonLabel: 'سبب البلاغ',
       reportReasonEmpty: 'اختر السبب',
       reportReasonAbuse: 'إساءة',
       reportReasonFraud: 'احتيال',
       reportReasonInappropriate: 'محتوى غير لائق',
-      reportReasonSpam: 'سبام',
       reportReasonOther: 'أخرى',
-      reportDetailsLabel: 'تفاصيل إضافية (اختياري)',
+      reportDetailsLabel: 'تفاصيل الشكوى (300 حرف)',
       reportDetailsPlaceholder: 'اكتب التفاصيل هنا...',
+      reportAttachments: 'المرفقات',
+      reportAddAttachment: 'إضافة مرفق',
+      removeAttachment: 'إزالة',
       reportCancel: 'إلغاء',
-      reportSend: 'إرسال البلاغ',
+      reportSend: 'إرسال',
+      backOption: 'الرجوع',
       close: 'إغلاق',
       automatedFrom: 'رسائل آلية من {label}',
       automatedDirectFrom: 'رسائل آلية مباشرة من {label}',
@@ -102,6 +114,7 @@ const ChatDetailPage = (() => {
       sendMessageFailed: 'تعذر إرسال الرسالة',
       removeAttachment: 'إزالة',
       messagesMarkedRead: 'تم تمييز الرسائل كمقروءة',
+      messagesMarkedUnread: 'تم تمييز المحادثة كغير مقروءة',
       connected: 'متصل',
       reconnecting: 'جاري إعادة الاتصال...',
       limitedConnection: 'اتصال محدود (تحديث تلقائي)',
@@ -145,9 +158,17 @@ const ChatDetailPage = (() => {
       blockUpdateFailed: 'تعذر تحديث حالة الحظر',
       blockAddedSuccess: 'تم حظر العضو',
       blockRemovedSuccess: 'تم إلغاء الحظر',
+      favoriteLabelUpdateFailed: 'تعذر تحديث تصنيف المفضلة',
+      favoriteLabelUpdatedSuccess: 'تم تحديث تصنيف المفضلة',
+      clientLabelUpdateFailed: 'تعذر تحديث تمييز العميل',
+      clientLabelUpdatedSuccess: 'تم تحديث تمييز العميل',
+      deleteConversationConfirm: 'هل تريد حذف هذه المحادثة من قائمتك؟ ستعود تلقائياً عند وصول رسالة جديدة.',
+      deleteConversationFailed: 'تعذر حذف المحادثة',
+      deleteConversationSuccess: 'تم حذف المحادثة من قائمتك',
       chooseReportReason: 'اختر سبب الإبلاغ أولاً',
       reportSubmitFailed: 'تعذر إرسال البلاغ',
       reportSubmitSuccess: 'تم إرسال البلاغ بنجاح',
+      reportAttachmentUploadFailed: 'تم إرسال البلاغ لكن تعذر رفع بعض المرفقات',
       today: 'اليوم',
       yesterday: 'أمس',
     },
@@ -178,25 +199,37 @@ const ChatDetailPage = (() => {
       sendMessage: 'Send message',
       optionsTitle: 'Message options',
       markRead: 'Mark as read',
-      addFavorite: 'Add to favorites',
-      removeFavorite: 'Remove from favorites',
+      markUnread: 'Mark as unread',
+      favoriteCategory: 'Favorite',
+      favoriteCategoryMeta: 'Important conversation - Incomplete contact',
+      importantConversation: 'Important conversation',
+      incompleteConversation: 'Incomplete contact',
+      clearFavorite: 'Remove from favorites',
+      clientCategory: 'Classify client',
+      clientCategoryMeta: 'Potential, current, or past',
+      clearClientCategory: 'Clear classification',
       blockMember: 'Block member',
+      blockProvider: 'Block provider',
       unblockMember: 'Unblock member',
-      reportMessages: 'Report messages',
-      archiveMessages: 'Archive messages',
-      unarchiveMessages: 'Remove archive',
-      reportTitle: 'Report messages',
+      reportMessages: 'Complaints and reports',
+      reportMember: 'Report member',
+      reportProvider: 'Report provider',
+      deleteConversation: 'Delete conversation',
+      reportTitle: 'Complaints and reports',
       reportReasonLabel: 'Report reason',
       reportReasonEmpty: 'Choose a reason',
       reportReasonAbuse: 'Abuse',
       reportReasonFraud: 'Fraud',
       reportReasonInappropriate: 'Inappropriate content',
-      reportReasonSpam: 'Spam',
       reportReasonOther: 'Other',
-      reportDetailsLabel: 'Additional details (optional)',
+      reportDetailsLabel: 'Complaint details (300 chars)',
       reportDetailsPlaceholder: 'Write the details here...',
+      reportAttachments: 'Attachments',
+      reportAddAttachment: 'Add attachment',
+      removeAttachment: 'Remove',
       reportCancel: 'Cancel',
-      reportSend: 'Send report',
+      reportSend: 'Send',
+      backOption: 'Back',
       close: 'Close',
       automatedFrom: 'Automated messages from {label}',
       automatedDirectFrom: 'Direct automated messages from {label}',
@@ -248,6 +281,7 @@ const ChatDetailPage = (() => {
       sendMessageFailed: 'Unable to send the message',
       removeAttachment: 'Remove',
       messagesMarkedRead: 'Messages marked as read',
+      messagesMarkedUnread: 'Conversation marked as unread',
       connected: 'Connected',
       reconnecting: 'Reconnecting...',
       limitedConnection: 'Limited connection (auto refresh)',
@@ -291,9 +325,17 @@ const ChatDetailPage = (() => {
       blockUpdateFailed: 'Unable to update block state',
       blockAddedSuccess: 'Member blocked',
       blockRemovedSuccess: 'Block removed',
+      favoriteLabelUpdateFailed: 'Unable to update favorite label',
+      favoriteLabelUpdatedSuccess: 'Favorite label updated',
+      clientLabelUpdateFailed: 'Unable to update client classification',
+      clientLabelUpdatedSuccess: 'Client classification updated',
+      deleteConversationConfirm: 'Delete this conversation from your list? It will return automatically when a new message arrives.',
+      deleteConversationFailed: 'Unable to delete the conversation',
+      deleteConversationSuccess: 'Conversation deleted from your list',
       chooseReportReason: 'Choose a report reason first',
       reportSubmitFailed: 'Unable to send the report',
       reportSubmitSuccess: 'Report sent successfully',
+      reportAttachmentUploadFailed: 'The report was sent, but some attachments failed to upload',
       today: 'Today',
       yesterday: 'Yesterday',
     },
@@ -334,12 +376,15 @@ const ChatDetailPage = (() => {
       client_label: '',
       is_archived: false,
       is_blocked: false,
+      is_deleted: false,
       blocked_by_other: false,
       reply_restricted_to_me: false,
       reply_restriction_reason: '',
       system_sender_label: '',
       is_system_thread: false,
     },
+    optionsView: 'root',
+    reportAttachments: [],
   };
 
   const WS_MAX_RECONNECT_ATTEMPTS = 6;
@@ -408,9 +453,8 @@ const ChatDetailPage = (() => {
     dom.btnClientRequests = document.getElementById('btn-client-requests');
     dom.btnSendServiceRequest = document.getElementById('btn-send-service-request');
     dom.btnClientRequestsCard = document.getElementById('btn-client-requests-card');
-    dom.actionFavorite = document.getElementById('chat-action-favorite');
-    dom.actionBlock = document.getElementById('chat-action-block');
-    dom.actionArchive = document.getElementById('chat-action-archive');
+    dom.optionsTitle = document.getElementById('chat-options-title');
+    dom.optionsList = document.getElementById('chat-options-list');
 
     dom.sheetBackdrop = document.getElementById('chat-sheet-backdrop');
     dom.optionsSheet = document.getElementById('chat-options-sheet');
@@ -418,6 +462,9 @@ const ChatDetailPage = (() => {
     dom.reportDialog = document.getElementById('chat-report-dialog');
     dom.reportReason = document.getElementById('chat-report-reason');
     dom.reportDetails = document.getElementById('chat-report-details');
+    dom.reportFiles = document.getElementById('chat-report-files');
+    dom.reportFileInput = document.getElementById('chat-report-file-input');
+    dom.btnReportAttach = document.getElementById('btn-report-attach');
     dom.btnReportCancel = document.getElementById('btn-report-cancel');
     dom.btnReportSend = document.getElementById('btn-report-send');
     dom.clientRequestsBackdrop = document.getElementById('chat-client-requests-backdrop');
@@ -458,11 +505,11 @@ const ChatDetailPage = (() => {
     _setText('messages-empty-text', copy.noMessages);
     _setText('messages-empty-subtext', copy.noMessagesHint);
     _setText('chat-options-title', copy.optionsTitle);
-    _setText('chat-action-read-label', copy.markRead);
-    _setText('chat-action-report-label', copy.reportMessages);
     _setText('chat-report-title', copy.reportTitle);
     _setText('chat-report-reason-label', copy.reportReasonLabel);
     _setText('chat-report-details-label', copy.reportDetailsLabel);
+    _setText('chat-report-attachments-label', copy.reportAttachments);
+    _setText('btn-report-attach', copy.reportAddAttachment);
     _setText('btn-report-cancel', copy.reportCancel);
     _setText('btn-report-send', copy.reportSend);
     _setText('chat-client-requests-title', copy.clientRequests);
@@ -470,7 +517,6 @@ const ChatDetailPage = (() => {
     _setText('chat-report-reason-abuse', copy.reportReasonAbuse);
     _setText('chat-report-reason-fraud', copy.reportReasonFraud);
     _setText('chat-report-reason-inappropriate', copy.reportReasonInappropriate);
-    _setText('chat-report-reason-spam', copy.reportReasonSpam);
     _setText('chat-report-reason-other', copy.reportReasonOther);
     _setAttr('msg-input', 'placeholder', copy.messagePlaceholder);
     _setAttr('chat-report-details', 'placeholder', copy.reportDetailsPlaceholder);
@@ -531,6 +577,8 @@ const ChatDetailPage = (() => {
     dom.reportBackdrop?.addEventListener('click', _closeReportDialog);
     dom.btnReportCancel?.addEventListener('click', _closeReportDialog);
     dom.btnReportSend?.addEventListener('click', _submitReport);
+    dom.btnReportAttach?.addEventListener('click', () => dom.reportFileInput?.click());
+    dom.reportFileInput?.addEventListener('change', _handleReportFilesSelected);
     dom.clientRequestsBackdrop?.addEventListener('click', _closeClientRequestsSheet);
     dom.btnClientRequestsClose?.addEventListener('click', _closeClientRequestsSheet);
 
@@ -616,6 +664,7 @@ const ChatDetailPage = (() => {
       client_label: _trim(res.data.client_label),
       is_archived: !!res.data.is_archived,
       is_blocked: !!res.data.is_blocked,
+      is_deleted: !!res.data.is_deleted,
       blocked_by_other: !!res.data.blocked_by_other,
       reply_restricted_to_me: !!res.data.reply_restricted_to_me,
       reply_restriction_reason: _trim(res.data.reply_restriction_reason),
@@ -931,18 +980,8 @@ const ChatDetailPage = (() => {
       _setAutoDirection(dom.favoriteIndicator, dom.favoriteIndicator.textContent);
     }
     if (dom.composerNote) dom.composerNote.textContent = _composerNote();
-
-    if (dom.actionFavorite) {
-      const label = dom.actionFavorite.querySelector('span');
-      if (label) label.textContent = isFavorite ? _copy('removeFavorite') : _copy('addFavorite');
-    }
-    if (dom.actionArchive) {
-      const label = dom.actionArchive.querySelector('span');
-      if (label) label.textContent = state.threadState.is_archived ? _copy('unarchiveMessages') : _copy('archiveMessages');
-    }
-    if (dom.actionBlock) {
-      const label = dom.actionBlock.querySelector('span');
-      if (label) label.textContent = state.threadState.is_blocked ? _copy('unblockMember') : _copy('blockMember');
+    if (dom.optionsSheet && dom.optionsSheet.classList.contains('open')) {
+      _renderCurrentOptionsView();
     }
 
     if (state.threadState.blocked_by_other) {
@@ -1879,8 +1918,128 @@ const ChatDetailPage = (() => {
     if (changed) _renderMessages();
   }
 
+  function _sheetIconSvg(kind) {
+    const icons = {
+      unread: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 7H5V5h14v2zm0 4H5V9h14v2zm-6 4H5v-2h8v2zm8 4-4-4h3V5h2v10h3l-4 4z"/></svg>',
+      favorite: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>',
+      client: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.79 2.99-4S17.66 3 16 3s-3 1.79-3 4 1.34 4 3 4zm-8 0c1.66 0 2.99-1.79 2.99-4S9.66 3 8 3 5 4.79 5 7s1.34 4 3 4zm0 2c-2.33 0-7 1.17-7 3.5V21h14v-4.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.98 1.97 3.45V21h6v-4.5c0-2.33-4.67-3.5-7-3.5z"/></svg>',
+      block: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm7.05 6.95L8.95 19.05a8 8 0 0110.1-10.1zM4.95 15.05L15.05 4.95a8 8 0 01-10.1 10.1z"/></svg>',
+      report: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16l4-4h10a2 2 0 002-2V8l-6-6zm1 7V3.5L19.5 9H15z"/></svg>',
+      delete: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 7h12l-1 14H7L6 7zm3-4h6l1 2h4v2H4V5h4l1-2z"/></svg>',
+      back: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>',
+    };
+    return icons[kind] || icons.report;
+  }
+
+  function _isClientChatOptionsContext() {
+    return !state.account.isProviderMode;
+  }
+
+  function _reportActionLabel() {
+    return _isClientChatOptionsContext() && state.peer.kind === 'provider'
+      ? _copy('reportProvider')
+      : _copy('reportMember');
+  }
+
+  function _blockActionLabel() {
+    return _isClientChatOptionsContext() && state.peer.kind === 'provider'
+      ? _copy('blockProvider')
+      : _copy('blockMember');
+  }
+
+  function _buildSheetOption(option) {
+    const button = UI.el('button', {
+      className: 'chat-sheet-option' + (option.danger ? ' is-danger' : ''),
+      type: 'button',
+    });
+    button.setAttribute('data-chat-action', option.action);
+
+    const copyWrap = UI.el('span', { className: 'chat-sheet-option-copy' });
+    copyWrap.appendChild(UI.el('span', {
+      className: 'chat-sheet-option-title',
+      textContent: option.label,
+    }));
+    if (option.meta) {
+      copyWrap.appendChild(UI.el('span', {
+        className: 'chat-sheet-option-meta',
+        textContent: option.meta,
+      }));
+    }
+    button.appendChild(copyWrap);
+
+    const icon = UI.el('span', { className: 'chat-sheet-option-icon' });
+    icon.innerHTML = _sheetIconSvg(option.icon);
+    button.appendChild(icon);
+    return button;
+  }
+
+  function _renderOptions(items, title) {
+    if (dom.optionsTitle && title) dom.optionsTitle.textContent = title;
+    if (!dom.optionsList) return;
+    dom.optionsList.innerHTML = '';
+    items.forEach((item) => dom.optionsList.appendChild(_buildSheetOption(item)));
+  }
+
+  function _renderOptionsRoot() {
+    state.optionsView = 'root';
+    const items = [
+      { action: 'unread', label: _copy('markUnread'), icon: 'unread' },
+    ];
+
+    if (_canShowProviderClientActions() && !_isAutoPlatformThread()) {
+      items.push({
+        action: 'client-label-menu',
+        label: _copy('clientCategory'),
+        meta: _copy('clientCategoryMeta'),
+        icon: 'client',
+      });
+    } else {
+      items.push({
+        action: 'favorite-label-menu',
+        label: _copy('favoriteCategory'),
+        meta: _copy('favoriteCategoryMeta'),
+        icon: 'favorite',
+      });
+    }
+
+    items.push(
+      { action: 'block', label: state.threadState.is_blocked ? _copy('unblockMember') : _blockActionLabel(), icon: 'block' },
+      { action: 'report', label: _reportActionLabel(), icon: 'report' },
+      { action: 'delete', label: _copy('deleteConversation'), icon: 'delete', danger: true },
+    );
+    _renderOptions(items, _copy('optionsTitle'));
+  }
+
+  function _renderFavoriteLabelOptions() {
+    state.optionsView = 'favorite-labels';
+    _renderOptions([
+      { action: 'favorite-label:important_conversation', label: _copy('importantConversation'), icon: 'favorite' },
+      { action: 'favorite-label:incomplete_contact', label: _copy('incompleteConversation'), icon: 'favorite' },
+      { action: 'favorite-label:clear', label: _copy('clearFavorite'), icon: 'delete', danger: true },
+      { action: 'back-options', label: _copy('backOption'), icon: 'back' },
+    ], _copy('favoriteCategory'));
+  }
+
+  function _renderClientLabelOptions() {
+    state.optionsView = 'client-labels';
+    _renderOptions([
+      { action: 'client-label:potential', label: _copy('potentialClient'), icon: 'client' },
+      { action: 'client-label:current', label: _copy('currentClient'), icon: 'client' },
+      { action: 'client-label:past', label: _copy('pastClient'), icon: 'client' },
+      { action: 'client-label:clear', label: _copy('clearClientCategory'), icon: 'delete', danger: true },
+      { action: 'back-options', label: _copy('backOption'), icon: 'back' },
+    ], _copy('clientCategory'));
+  }
+
+  function _renderCurrentOptionsView() {
+    if (state.optionsView === 'favorite-labels') return _renderFavoriteLabelOptions();
+    if (state.optionsView === 'client-labels') return _renderClientLabelOptions();
+    _renderOptionsRoot();
+  }
+
   function _openOptionsSheet() {
     if (_isAutoPlatformThread()) return;
+    _renderOptionsRoot();
     dom.sheetBackdrop?.classList.remove('hidden');
     dom.optionsSheet?.classList.remove('hidden');
     requestAnimationFrame(() => {
@@ -2090,21 +2249,13 @@ const ChatDetailPage = (() => {
   }
 
   function _closeOptionsSheet() {
+    state.optionsView = 'root';
     dom.sheetBackdrop?.classList.remove('open');
     dom.optionsSheet?.classList.remove('open');
     setTimeout(() => {
       dom.sheetBackdrop?.classList.add('hidden');
       dom.optionsSheet?.classList.add('hidden');
     }, 180);
-  }
-
-  function _openReportDialog() {
-    dom.reportBackdrop?.classList.remove('hidden');
-    dom.reportDialog?.classList.remove('hidden');
-    requestAnimationFrame(() => {
-      dom.reportBackdrop?.classList.add('open');
-      dom.reportDialog?.classList.add('open');
-    });
   }
 
   function _closeReportDialog() {
@@ -2114,15 +2265,82 @@ const ChatDetailPage = (() => {
       dom.reportBackdrop?.classList.add('hidden');
       dom.reportDialog?.classList.add('hidden');
     }, 160);
+    _resetReportDialog();
+  }
+
+  function _handleReportFilesSelected() {
+    const files = Array.from(dom.reportFileInput?.files || []);
+    if (!files.length) return;
+    state.reportAttachments = state.reportAttachments.concat(files);
+    if (dom.reportFileInput) dom.reportFileInput.value = '';
+    _renderReportFiles();
+  }
+
+  function _renderReportFiles() {
+    if (!dom.reportFiles) return;
+    dom.reportFiles.innerHTML = '';
+    dom.reportFiles.classList.toggle('hidden', state.reportAttachments.length === 0);
+    state.reportAttachments.forEach((file, index) => {
+      const row = UI.el('div', { className: 'chat-report-file-item' });
+      row.appendChild(UI.el('span', {
+        className: 'chat-report-file-name',
+        textContent: file.name || _copy('attachmentFallback'),
+      }));
+      const removeBtn = UI.el('button', {
+        className: 'chat-report-file-remove',
+        type: 'button',
+        textContent: _copy('removeAttachment'),
+      });
+      removeBtn.addEventListener('click', () => {
+        state.reportAttachments.splice(index, 1);
+        _renderReportFiles();
+      });
+      row.appendChild(removeBtn);
+      dom.reportFiles.appendChild(row);
+    });
+  }
+
+  function _resetReportDialog() {
+    if (dom.reportReason) dom.reportReason.value = '';
+    if (dom.reportDetails) dom.reportDetails.value = '';
+    state.reportAttachments = [];
+    if (dom.reportFileInput) dom.reportFileInput.value = '';
+    _renderReportFiles();
+  }
+
+  function _openReportDialog() {
+    const title = _copy('reportTitle');
+    _setText('chat-report-title', title);
+    _setText('chat-report-reason-label', _copy('reportReasonLabel'));
+    _setText('chat-report-details-label', _copy('reportDetailsLabel'));
+    _setText('chat-report-attachments-label', _copy('reportAttachments'));
+    _setAttr('chat-report-dialog', 'aria-label', _reportActionLabel());
+    dom.reportBackdrop?.classList.remove('hidden');
+    dom.reportDialog?.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      dom.reportBackdrop?.classList.add('open');
+      dom.reportDialog?.classList.add('open');
+    });
   }
 
   function _handleChatAction(action) {
+    if (action === 'back-options') return _renderOptionsRoot();
+    if (action === 'favorite-label-menu') return _renderFavoriteLabelOptions();
+    if (action === 'client-label-menu') return _renderClientLabelOptions();
+
     _closeOptionsSheet();
-    if (action === 'read') return _markRead(true);
-    if (action === 'favorite') return _toggleFavorite();
+    if (action === 'unread') return _markUnread(true);
     if (action === 'block') return _toggleBlock();
-    if (action === 'archive') return _toggleArchive();
-    if (action === 'report') _openReportDialog();
+    if (action === 'report') return _openReportDialog();
+    if (action === 'delete') return _deleteConversation();
+    if (action.indexOf('favorite-label:') === 0) {
+      const label = action.split(':')[1];
+      return label === 'clear' ? _clearFavoriteLabel() : _setFavoriteLabel(label);
+    }
+    if (action.indexOf('client-label:') === 0) {
+      const label = action.split(':')[1];
+      return _setClientLabel(label === 'clear' ? '' : label);
+    }
   }
 
   function _favoriteLabelDisplay() {
@@ -2131,6 +2349,66 @@ const ChatDetailPage = (() => {
     if (normalized === 'important_conversation') return _copy('favoriteIndicator');
     if (normalized === 'incomplete_contact') return _copy('incompleteContact');
     return _trim(state.threadState.favorite_label);
+  }
+
+  async function _markUnread(withToast) {
+    const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/unread/', {
+      method: 'POST',
+    });
+    if (!res.ok) return;
+    window.dispatchEvent(new Event('nw:badge-refresh'));
+    if (withToast) _showToast(_copy('messagesMarkedUnread'), 'success');
+  }
+
+  async function _setFavoriteLabel(label) {
+    const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/favorite-label/', {
+      method: 'POST',
+      body: { label },
+    });
+    if (!res.ok) return _showToast(_extractError(res, _copy('favoriteLabelUpdateFailed')), 'error');
+    state.threadState.favorite_label = _trim(res.data?.favorite_label);
+    state.threadState.is_favorite = !!res.data?.is_favorite;
+    _renderPeer();
+    _renderThreadState();
+    _showToast(_copy('favoriteLabelUpdatedSuccess'), 'success');
+  }
+
+  async function _clearFavoriteLabel() {
+    const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/favorite/', {
+      method: 'POST',
+      body: { action: 'remove' },
+    });
+    if (!res.ok) return _showToast(_extractError(res, _copy('favoriteLabelUpdateFailed')), 'error');
+    state.threadState.favorite_label = _trim(res.data?.favorite_label);
+    state.threadState.is_favorite = !!res.data?.is_favorite;
+    _renderPeer();
+    _renderThreadState();
+    _showToast(_copy('favoriteLabelUpdatedSuccess'), 'success');
+  }
+
+  async function _setClientLabel(label) {
+    const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/client-label/', {
+      method: 'POST',
+      body: { label },
+    });
+    if (!res.ok) return _showToast(_extractError(res, _copy('clientLabelUpdateFailed')), 'error');
+    state.threadState.client_label = _trim(res.data?.client_label);
+    _renderPeer();
+    _renderThreadState();
+    _showToast(_copy('clientLabelUpdatedSuccess'), 'success');
+  }
+
+  async function _deleteConversation() {
+    if (!window.confirm(_copy('deleteConversationConfirm'))) return;
+    const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/delete/', {
+      method: 'POST',
+    });
+    if (!res.ok) return _showToast(_extractError(res, _copy('deleteConversationFailed')), 'error');
+    state.threadState.is_deleted = !!res.data?.is_deleted;
+    _showToast(_copy('deleteConversationSuccess'), 'success');
+    window.setTimeout(() => {
+      window.location.href = '/chats/?mode=' + encodeURIComponent(_activeMode());
+    }, 250);
   }
 
   function _clientLabelDisplay() {
@@ -2205,10 +2483,27 @@ const ChatDetailPage = (() => {
 
     if (!res.ok) return _showToast(_extractError(res, _copy('reportSubmitFailed')), 'error');
 
+    let attachmentUploadFailed = false;
+    const ticketId = _toInt(res.data?.ticket_id);
+    if (ticketId && state.reportAttachments.length) {
+      for (const file of state.reportAttachments) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const uploadRes = await ApiClient.request('/api/support/tickets/' + ticketId + '/attachments/', {
+          method: 'POST',
+          body: formData,
+          formData: true,
+        });
+        if (!uploadRes.ok) attachmentUploadFailed = true;
+      }
+    }
+
     _closeReportDialog();
-    if (dom.reportReason) dom.reportReason.value = '';
-    if (dom.reportDetails) dom.reportDetails.value = '';
-    _showToast(_copy('reportSubmitSuccess'), 'success');
+    _resetReportDialog();
+    _showToast(
+      attachmentUploadFailed ? _copy('reportAttachmentUploadFailed') : _copy('reportSubmitSuccess'),
+      attachmentUploadFailed ? 'error' : 'success'
+    );
   }
 
   function _showToast(message, type) {

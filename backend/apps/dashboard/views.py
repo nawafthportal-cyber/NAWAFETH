@@ -41,6 +41,7 @@ from apps.notifications.models import DeviceToken
 from apps.providers.location_formatter import format_city_display
 from apps.providers.models import (
     Category,
+    ProviderContentComment,
     ProviderCategory,
     ProviderFollow,
     ProviderLike,
@@ -9269,7 +9270,9 @@ def _content_ticket_target_info(ticket: SupportTicket | None) -> dict:
         "review": ("reviews", "review", "التقييم"),
         "message": ("messaging", "message", "الرسالة"),
         "thread": ("messaging", "thread", "المحادثة"),
+        "portfolio_comment": ("providers", "providercontentcomment", "تعليق على خدمات ومشاريع"),
         "portfolio_item": ("providers", "providerportfolioitem", "محتوى المعرض"),
+        "spotlight_comment": ("providers", "providercontentcomment", "تعليق على لمحة"),
         "spotlight_item": ("providers", "providerspotlightitem", "محتوى الواجهة"),
         "service": ("providers", "providerservice", "الخدمة"),
     }
@@ -9558,6 +9561,19 @@ def _content_delete_reported_target(*, ticket: SupportTicket, request, note: str
             note=note or "content_dashboard_delete",
         )
         item.delete()
+    elif kind == "portfolio_comment":
+        comment = ProviderContentComment.objects.select_related("provider", "user", "portfolio_item").filter(id=object_pk).first()
+        if comment is None:
+            raise ValueError("تعليق خدمات ومشاريع غير موجود.")
+        record_content_action_case(
+            item=comment,
+            content_kind="portfolio_comment",
+            action_name="delete",
+            by_user=request.user,
+            request=request,
+            note=note or "content_dashboard_delete_comment",
+        )
+        comment.delete()
     elif kind == "spotlight_item":
         item = ProviderSpotlightItem.objects.select_related("provider", "provider__user").filter(id=object_pk).first()
         if item is None:
@@ -9571,6 +9587,19 @@ def _content_delete_reported_target(*, ticket: SupportTicket, request, note: str
             note=note or "content_dashboard_delete",
         )
         item.delete()
+    elif kind == "spotlight_comment":
+        comment = ProviderContentComment.objects.select_related("provider", "user", "spotlight_item").filter(id=object_pk).first()
+        if comment is None:
+            raise ValueError("تعليق اللمحة غير موجود.")
+        record_content_action_case(
+            item=comment,
+            content_kind="spotlight_comment",
+            action_name="delete",
+            by_user=request.user,
+            request=request,
+            note=note or "content_dashboard_delete_comment",
+        )
+        comment.delete()
     elif kind == "service":
         service = ProviderService.objects.select_related("provider", "provider__user").filter(id=object_pk).first()
         if service is None:

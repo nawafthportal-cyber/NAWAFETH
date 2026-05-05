@@ -79,9 +79,11 @@ def create_message(thread: Thread, sender_id: int, body: str):
 
     # Unarchive for participants when a new message arrives
     if t and participant_ids:
-        ThreadUserState.objects.filter(thread_id=t.id, user_id__in=participant_ids, is_archived=True).update(
+        ThreadUserState.objects.filter(thread_id=t.id, user_id__in=participant_ids).update(
             is_archived=False,
             archived_at=None,
+            is_deleted=False,
+            deleted_at=None,
         )
     return msg
 
@@ -323,9 +325,11 @@ def _create_message_for_thread(thread_id: int, sender_id: int, body: str) -> Mes
     msg = Message.objects.create(thread=thread, sender_id=sender_id, body=body)
 
     if participant_ids:
-        ThreadUserState.objects.filter(thread_id=thread.id, user_id__in=participant_ids, is_archived=True).update(
+        ThreadUserState.objects.filter(thread_id=thread.id, user_id__in=participant_ids).update(
             is_archived=False,
             archived_at=None,
+            is_deleted=False,
+            deleted_at=None,
         )
 
     return msg

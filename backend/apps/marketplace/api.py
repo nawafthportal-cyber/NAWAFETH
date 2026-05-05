@@ -61,6 +61,9 @@ from .serializers import (
 )
 
 from .services.actions import execute_action
+from .services.actions import hard_delete_request
+from .services.actions import relist_request_to_pool
+from .services.actions import request_is_before_execution
 from .services.dispatch import (
 	clear_urgent_request_provider_notifications,
 	dispatch_due_competitive_request_notifications,
@@ -729,69 +732,27 @@ class ProviderAssignedRequestRejectView(APIView):
 			if sr.provider_id != provider.id:
 				return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 
-			if sr.request_type == RequestType.COMPETITIVE:
-				return Response({"detail": "هذا الطلب تنافسي ويتم التعامل معه عبر العروض"}, status=status.HTTP_400_BAD_REQUEST)
-
 			if sr.status not in (
 				RequestStatus.NEW,
 				RequestStatus.PROVIDER_ACCEPTED,
 				RequestStatus.AWAITING_CLIENT_APPROVAL,
 			):
 				return Response({"detail": "لا يمكن رفض الطلب في هذه الحالة"}, status=status.HTTP_400_BAD_REQUEST)
+			if not request_is_before_execution(sr):
+				return Response({"detail": "لا يمكن إعادة طرح الطلب بعد بدء التنفيذ"}, status=status.HTTP_400_BAD_REQUEST)
 
-			old = sr.status
-			if sr.request_type == RequestType.URGENT:
-				# Return urgent request to the shared pool for eligible providers.
-				sr.provider = None
-				sr.status = RequestStatus.NEW
-				sr.expected_delivery_at = None
-				sr.estimated_service_amount = None
-				sr.received_amount = None
-				sr.remaining_amount = None
-				sr.provider_inputs_approved = None
-				sr.provider_inputs_decided_at = None
-				sr.provider_inputs_decision_note = ""
-				sr.canceled_at = None
-				sr.cancel_reason = ""
-				sr.save(
-					update_fields=[
-						"provider",
-						"status",
-						"expected_delivery_at",
-						"estimated_service_amount",
-						"received_amount",
-						"remaining_amount",
-						"provider_inputs_approved",
-						"provider_inputs_decided_at",
-						"provider_inputs_decision_note",
-						"canceled_at",
-						"cancel_reason",
-					]
-				)
-			else:
-				sr.status = RequestStatus.CANCELLED
-				sr.canceled_at = canceled_at
-				sr.cancel_reason = cancel_reason
-				sr.save(update_fields=["status", "canceled_at", "cancel_reason"])
-			RequestStatusLog.objects.create(
-				request=sr,
+			previous_provider_user_id = getattr(provider, "user_id", None)
+			relist_request_to_pool(
+				sr=sr,
 				actor=request.user,
-				from_status=old,
-				to_status=sr.status,
 				note=(
 					note
 					or (
-						f"اعتذار مزود الخدمة عن الطلب العاجل: {cancel_reason}"
-						if sr.request_type == RequestType.URGENT
-						else f"إلغاء من المزود: {cancel_reason}"
+						f"اعتذار مزود الخدمة عن الطلب قبل التنفيذ: {cancel_reason}"
 					)
 				),
+				previous_provider_user_id=previous_provider_user_id,
 			)
-
-			if sr.request_type == RequestType.URGENT:
-				now = timezone.now()
-				ensure_dispatch_windows_for_urgent_request(sr, now=now)
-				_dispatch_ready_urgent_windows_once(now=now, limit=200)
 
 		return Response({"ok": True, "request_id": sr.id, "status": sr.status}, status=status.HTTP_200_OK)
 
@@ -1297,6 +1258,49 @@ class RequestCancelView(APIView):
 			{"ok": True, "request_id": request_id, "status": result.new_status},
 			status=status.HTTP_200_OK,
 		)
+
+
+class RequestRelistView(APIView):
+	permission_classes = [IsAtLeastClient]
+
+	def post(self, request, request_id):
+		reason = str(request.data.get("reason") or "").strip()
+		try:
+			result = execute_action(
+				user=request.user,
+				request_id=request_id,
+				action="relist",
+				note=reason,
+			)
+		except PermissionDenied:
+			return Response(
+				{"detail": "غير مصرح بإعادة طرح الطلب"},
+				status=status.HTTP_403_FORBIDDEN,
+			)
+		except Exception as e:
+			return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+		return Response(
+			{"ok": True, "request_id": request_id, "status": result.new_status},
+			status=status.HTTP_200_OK,
+		)
+
+
+class RequestDeleteView(APIView):
+	permission_classes = [IsAtLeastClient]
+
+	def delete(self, request, request_id):
+		try:
+			hard_delete_request(user=request.user, request_id=request_id)
+		except PermissionDenied:
+			return Response(
+				{"detail": "غير مصرح بحذف الطلب نهائياً"},
+				status=status.HTTP_403_FORBIDDEN,
+			)
+		except Exception as e:
+			return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+		return Response({"ok": True, "request_id": request_id}, status=status.HTTP_200_OK)
 
 
 class RequestReopenView(APIView):

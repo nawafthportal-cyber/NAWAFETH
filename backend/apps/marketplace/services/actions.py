@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.marketplace.models import (
+    Offer,
     PRE_EXECUTION_REQUEST_STATUSES,
     RequestStatus,
     RequestStatusLog,
@@ -17,6 +18,12 @@ from apps.marketplace.models import (
 from apps.providers.models import ProviderProfile
 
 from .cancellation_copy import provider_pool_cancel_notification_text
+from .dispatch import (
+    clear_request_pool_delivery_records,
+    dispatch_due_competitive_request_notifications,
+    dispatch_ready_urgent_windows,
+    ensure_dispatch_windows_for_urgent_request,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -165,12 +172,103 @@ def _log_request_status_change(*, sr: ServiceRequest, actor, from_status: str, n
     )
 
 
+def relist_request_to_pool(
+    *,
+    sr: ServiceRequest,
+    actor,
+    note: str,
+    previous_provider_user_id: int | None = None,
+) -> None:
+    if sr.request_type not in {RequestType.URGENT, RequestType.COMPETITIVE}:
+        raise ValidationError("إعادة طرح هذا النوع من الطلبات غير مدعومة حالياً")
+    if not request_is_before_execution(sr):
+        raise ValidationError("لا يمكن إعادة طرح الطلب بعد بدء التنفيذ")
+
+    old = sr.status
+    sr.release_to_pool()
+
+    if sr.request_type == RequestType.COMPETITIVE:
+        Offer.objects.filter(request=sr).delete()
+
+    _log_request_status_change(sr=sr, actor=actor, from_status=old, note=note)
+
+    excluded_user_ids = [previous_provider_user_id] if previous_provider_user_id else []
+
+    def _redispatch() -> None:
+        clear_request_pool_delivery_records(
+            sr,
+            clear_event_logs=True,
+            excluded_user_ids=excluded_user_ids,
+        )
+        now = timezone.now()
+        if sr.request_type == RequestType.URGENT:
+            ensure_dispatch_windows_for_urgent_request(sr, now=now)
+            dispatch_ready_urgent_windows(now=now, limit=200)
+        elif sr.request_type == RequestType.COMPETITIVE:
+            dispatch_due_competitive_request_notifications(now=now, limit=200)
+
+    transaction.on_commit(_redispatch)
+
+
+@transaction.atomic
+def hard_delete_request(*, user, request_id: int) -> ActionResult:
+    sr = (
+        ServiceRequest.objects.select_for_update()
+        .select_related("client")
+        .prefetch_related("attachments")
+        .get(id=request_id)
+    )
+
+    is_staff, is_client, _ = _role_flags(user, sr)
+    if not (is_staff or is_client):
+        raise PermissionDenied("غير مصرح")
+    if not request_is_before_execution(sr):
+        raise ValidationError("لا يمكن حذف الطلب نهائياً بعد بدء التنفيذ")
+
+    from apps.messaging.models import Message
+    from apps.notifications.models import EventLog, Notification
+    from apps.notifications.services import delete_notifications
+
+    request_urls = [
+        f"/requests/{sr.id}",
+        f"/requests/{sr.id}/chat",
+        f"/orders/{sr.id}",
+        f"/provider-orders/{sr.id}",
+    ]
+
+    delete_notifications(qs=Notification.objects.filter(url__in=request_urls))
+    EventLog.objects.filter(request_id=sr.id).delete()
+
+    for attachment in list(sr.attachments.all()):
+        try:
+            attachment.file.delete(save=False)
+        except Exception:
+            logger.exception("request_attachment_delete_failed request_id=%s attachment_id=%s", sr.id, attachment.id)
+
+    for message in Message.objects.filter(thread__request=sr).exclude(attachment=""):
+        try:
+            message.attachment.delete(save=False)
+        except Exception:
+            logger.exception("request_message_attachment_delete_failed request_id=%s message_id=%s", sr.id, message.id)
+
+    sr.delete()
+    return ActionResult(True, "تم حذف الطلب نهائياً")
+
+
 def _role_flags(user, sr: ServiceRequest):
     is_staff = bool(getattr(user, "is_staff", False))
     user_id = getattr(user, "id", None)
     is_client = bool(user_id) and (sr.client_id == user_id)
     is_provider = bool(user_id) and bool(sr.provider_id) and (sr.provider.user_id == user_id)
     return is_staff, is_client, is_provider
+
+
+def request_is_before_execution(sr: ServiceRequest) -> bool:
+    if sr.status in (RequestStatus.NEW, RequestStatus.PROVIDER_ACCEPTED):
+        return True
+    if sr.status == RequestStatus.AWAITING_CLIENT_APPROVAL:
+        return service_request_pending_input_stage(sr) != "progress_update"
+    return False
 
 
 def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | None = None) -> list[str]:
@@ -188,6 +286,15 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
 
     if is_client:
         pending_input_stage = service_request_pending_input_stage(sr)
+        is_before_execution = request_is_before_execution(sr)
+        if is_before_execution:
+            acts.append("delete")
+        if (
+            is_before_execution
+            and sr.provider_id is not None
+            and sr.request_type in {RequestType.URGENT, RequestType.COMPETITIVE}
+        ):
+            acts.append("relist")
         if sr.status == RequestStatus.NEW:
             acts.append("send")
             if sr.provider_id is None or sr.request_type == RequestType.URGENT:
@@ -376,6 +483,20 @@ def execute_action(
             note="إعادة فتح الطلب",
         )
         return ActionResult(True, "تم إعادة فتح الطلب", sr.status)
+
+    if action == "relist":
+        if not (is_staff or is_client):
+            raise PermissionDenied("غير مصرح")
+        if sr.provider_id is None:
+            raise ValidationError("الطلب متاح بالفعل ولا يحتاج إلى إعادة طرح")
+        previous_provider_user_id = ProviderProfile.objects.filter(id=sr.provider_id).values_list("user_id", flat=True).first()
+        relist_request_to_pool(
+            sr=sr,
+            actor=user,
+            note=str(note or "").strip() or "أعاد العميل طرح الطلب لمزودين آخرين قبل التنفيذ",
+            previous_provider_user_id=previous_provider_user_id,
+        )
+        return ActionResult(True, "تمت إعادة طرح الطلب للمزودين الآخرين", sr.status)
 
     # approve_inputs — client only, awaiting client approval + inputs not yet decided
     if action == "approve_inputs":

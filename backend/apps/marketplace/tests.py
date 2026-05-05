@@ -1,14 +1,28 @@
 from django.core.exceptions import ValidationError
 from django.test import TestCase
+from django.test import override_settings
 from django.utils import timezone
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIRequestFactory
+import os
+import shutil
+import tempfile
+from unittest.mock import patch
 
 from apps.accounts.models import User, UserRole
+from apps.messaging.models import Message, Thread
 from apps.notifications.models import EventLog, EventType, Notification
 from apps.notifications.services import create_notification
 from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
 
-from .models import DispatchMode, PRE_EXECUTION_REQUEST_STATUSES, RequestStatus, RequestType, ServiceRequest
+from .models import (
+    DispatchMode,
+    PRE_EXECUTION_REQUEST_STATUSES,
+    RequestStatus,
+    RequestStatusLog,
+    RequestType,
+    ServiceRequest,
+)
 from .serializers import ProviderRequestDetailSerializer, ServiceRequestCreateSerializer
 from .services.actions import execute_action
 from .services.dispatch import (
@@ -460,6 +474,381 @@ class ServiceRequestPolicyTests(TestCase):
         self.assertIsNotNone(client_notification)
         self.assertIn("مزود الخدمة", client_notification.body)
         self.assertIn("السبب: تعذر الوصول للموقع", client_notification.body)
+
+    @patch("apps.marketplace.services.actions.dispatch_ready_urgent_windows")
+    def test_provider_reject_requeues_urgent_request_and_clears_old_pool_delivery_records(self, dispatch_ready_mock):
+        second_provider_user = User.objects.create_user(
+            phone="0501000005",
+            username="provider.third",
+            role_state=UserRole.PROVIDER,
+        )
+        ProviderProfile.objects.create(
+            user=second_provider_user,
+            provider_type="individual",
+            display_name="مزود ثالث",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب عاجل قابل لإعادة الطرح",
+            description="تفاصيل",
+            request_type=RequestType.URGENT,
+            status=RequestStatus.PROVIDER_ACCEPTED,
+            city="الرياض",
+        )
+        create_notification(
+            user=self.provider_user,
+            title="طلب خدمة عاجلة جديد",
+            body="إشعار قديم",
+            kind="urgent_request",
+            url=f"/requests/{service_request.id}",
+            actor=self.client_user,
+            event_type=EventType.REQUEST_CREATED,
+            pref_key="urgent_request",
+            request_id=service_request.id,
+            audience_mode="provider",
+            is_urgent=True,
+        )
+        create_notification(
+            user=second_provider_user,
+            title="طلب خدمة عاجلة جديد",
+            body="إشعار قديم",
+            kind="urgent_request",
+            url=f"/requests/{service_request.id}",
+            actor=self.client_user,
+            event_type=EventType.REQUEST_CREATED,
+            pref_key="urgent_request",
+            request_id=service_request.id,
+            audience_mode="provider",
+            is_urgent=True,
+        )
+
+        self.client.force_login(self.provider_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f"/api/marketplace/provider/requests/{service_request.id}/reject/",
+                {
+                    "canceled_at": timezone.now().isoformat(),
+                    "cancel_reason": "تعذر الوصول",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        service_request.refresh_from_db()
+        self.assertEqual(service_request.status, RequestStatus.NEW)
+        self.assertIsNone(service_request.provider_id)
+        self.assertFalse(
+            Notification.objects.filter(
+                url=f"/requests/{service_request.id}",
+                audience_mode="provider",
+            ).exists()
+        )
+        self.assertTrue(
+            EventLog.objects.filter(
+                event_type=EventType.REQUEST_CREATED,
+                request_id=service_request.id,
+                target_user=self.provider_user,
+            ).exists()
+        )
+        self.assertFalse(
+            EventLog.objects.filter(
+                event_type=EventType.REQUEST_CREATED,
+                request_id=service_request.id,
+                target_user=second_provider_user,
+            ).exists()
+        )
+        dispatch_ready_mock.assert_called_once()
+
+    @patch("apps.marketplace.services.actions.dispatch_due_competitive_request_notifications")
+    def test_provider_reject_requeues_competitive_request_and_resets_offers(self, dispatch_competitive_mock):
+        second_provider_user = User.objects.create_user(
+            phone="0501000006",
+            username="provider.fourth",
+            role_state=UserRole.PROVIDER,
+        )
+        second_provider = ProviderProfile.objects.create(
+            user=second_provider_user,
+            provider_type="individual",
+            display_name="مزود رابع",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب تنافسي معاد الطرح",
+            description="تفاصيل",
+            request_type=RequestType.COMPETITIVE,
+            status=RequestStatus.NEW,
+            city="الرياض",
+            quote_deadline=timezone.localdate() + timezone.timedelta(days=2),
+        )
+        service_request.offers.create(provider=self.provider, price="300.00", duration_days=2, note="تم اختياري", status="selected")
+        service_request.offers.create(provider=second_provider, price="280.00", duration_days=3, note="عرض آخر", status="rejected")
+        Notification.objects.create(
+            user=self.provider_user,
+            title="طلب عرض خدمة تنافسية جديد",
+            body="إشعار قديم",
+            kind="request_created",
+            url=f"/requests/{service_request.id}",
+            audience_mode="provider",
+        )
+        Notification.objects.create(
+            user=second_provider_user,
+            title="طلب عرض خدمة تنافسية جديد",
+            body="إشعار قديم",
+            kind="request_created",
+            url=f"/requests/{service_request.id}",
+            audience_mode="provider",
+        )
+        EventLog.objects.create(
+            event_type=EventType.REQUEST_CREATED,
+            actor=self.client_user,
+            target_user=self.provider_user,
+            request_id=service_request.id,
+            meta={"request_type": service_request.request_type},
+        )
+        EventLog.objects.create(
+            event_type=EventType.REQUEST_CREATED,
+            actor=self.client_user,
+            target_user=second_provider_user,
+            request_id=service_request.id,
+            meta={"request_type": service_request.request_type},
+        )
+
+        self.client.force_login(self.provider_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f"/api/marketplace/provider/requests/{service_request.id}/reject/",
+                {
+                    "canceled_at": timezone.now().isoformat(),
+                    "cancel_reason": "تعذر البدء",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        service_request.refresh_from_db()
+        self.assertEqual(service_request.status, RequestStatus.NEW)
+        self.assertIsNone(service_request.provider_id)
+        self.assertEqual(service_request.offers.count(), 0)
+        self.assertTrue(
+            EventLog.objects.filter(
+                event_type=EventType.REQUEST_CREATED,
+                request_id=service_request.id,
+                target_user=self.provider_user,
+            ).exists()
+        )
+        self.assertFalse(
+            EventLog.objects.filter(
+                event_type=EventType.REQUEST_CREATED,
+                request_id=service_request.id,
+                target_user=second_provider_user,
+            ).exists()
+        )
+        dispatch_competitive_mock.assert_called_once()
+
+    def test_provider_reject_disallows_relist_after_progress_update_started(self):
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب لا يمكن إعادة طرحه",
+            description="تفاصيل",
+            request_type=RequestType.URGENT,
+            status=RequestStatus.AWAITING_CLIENT_APPROVAL,
+            city="الرياض",
+        )
+        RequestStatusLog.objects.create(
+            request=service_request,
+            actor=self.provider_user,
+            from_status=RequestStatus.AWAITING_CLIENT_APPROVAL,
+            to_status=RequestStatus.IN_PROGRESS,
+            note="بدأ التنفيذ ثم عاد بانتظار اعتماد تحديث جديد",
+        )
+
+        self.client.force_login(self.provider_user)
+        response = self.client.post(
+            f"/api/marketplace/provider/requests/{service_request.id}/reject/",
+            {
+                "canceled_at": timezone.now().isoformat(),
+                "cancel_reason": "تعذر المتابعة",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        service_request.refresh_from_db()
+        self.assertEqual(service_request.provider_id, self.provider.id)
+        self.assertEqual(service_request.status, RequestStatus.AWAITING_CLIENT_APPROVAL)
+
+    @patch("apps.marketplace.services.actions.dispatch_due_competitive_request_notifications")
+    def test_client_relist_requeues_competitive_request_and_excludes_previous_provider(self, dispatch_competitive_mock):
+        second_provider_user = User.objects.create_user(
+            phone="0501000007",
+            username="provider.fifth",
+            role_state=UserRole.PROVIDER,
+        )
+        second_provider = ProviderProfile.objects.create(
+            user=second_provider_user,
+            provider_type="individual",
+            display_name="مزود خامس",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب تنافسي يعاد طرحه من العميل",
+            description="تفاصيل",
+            request_type=RequestType.COMPETITIVE,
+            status=RequestStatus.NEW,
+            city="الرياض",
+            quote_deadline=timezone.localdate() + timezone.timedelta(days=3),
+        )
+        service_request.offers.create(provider=self.provider, price="320.00", duration_days=2, note="عرض مختار", status="selected")
+        service_request.offers.create(provider=second_provider, price="280.00", duration_days=4, note="عرض سابق", status="rejected")
+        Notification.objects.create(
+            user=self.provider_user,
+            title="طلب عرض خدمة تنافسية جديد",
+            body="إشعار قديم",
+            kind="request_created",
+            url=f"/requests/{service_request.id}",
+            audience_mode="provider",
+        )
+        Notification.objects.create(
+            user=second_provider_user,
+            title="طلب عرض خدمة تنافسية جديد",
+            body="إشعار قديم",
+            kind="request_created",
+            url=f"/requests/{service_request.id}",
+            audience_mode="provider",
+        )
+        EventLog.objects.create(
+            event_type=EventType.REQUEST_CREATED,
+            actor=self.client_user,
+            target_user=self.provider_user,
+            request_id=service_request.id,
+            meta={"request_type": service_request.request_type},
+        )
+        EventLog.objects.create(
+            event_type=EventType.REQUEST_CREATED,
+            actor=self.client_user,
+            target_user=second_provider_user,
+            request_id=service_request.id,
+            meta={"request_type": service_request.request_type},
+        )
+
+        self.client.force_login(self.client_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f"/api/marketplace/requests/{service_request.id}/relist/",
+                {"reason": "أرغب بإعادة الطرح"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        service_request.refresh_from_db()
+        self.assertEqual(service_request.status, RequestStatus.NEW)
+        self.assertIsNone(service_request.provider_id)
+        self.assertEqual(service_request.offers.count(), 0)
+        self.assertTrue(
+            EventLog.objects.filter(
+                event_type=EventType.REQUEST_CREATED,
+                request_id=service_request.id,
+                target_user=self.provider_user,
+            ).exists()
+        )
+        self.assertFalse(
+            EventLog.objects.filter(
+                event_type=EventType.REQUEST_CREATED,
+                request_id=service_request.id,
+                target_user=second_provider_user,
+            ).exists()
+        )
+        dispatch_competitive_mock.assert_called_once()
+
+    def test_client_delete_request_removes_records_and_files_before_execution(self):
+        media_root = tempfile.mkdtemp(prefix="marketplace-delete-")
+        self.addCleanup(lambda: shutil.rmtree(media_root, ignore_errors=True))
+
+        with override_settings(MEDIA_ROOT=media_root):
+            service_request = ServiceRequest.objects.create(
+                client=self.client_user,
+                provider=self.provider,
+                subcategory=self.subcategory,
+                title="طلب سيحذف نهائياً",
+                description="تفاصيل",
+                request_type=RequestType.COMPETITIVE,
+                status=RequestStatus.NEW,
+                city="الرياض",
+            )
+            attachment = service_request.attachments.create(
+                file=SimpleUploadedFile("scope.txt", b"scope-data"),
+                file_type="document",
+            )
+            thread = Thread.objects.create(request=service_request)
+            message = Message.objects.create(
+                thread=thread,
+                sender=self.client_user,
+                body="رسالة مرتبطة بالطلب",
+                attachment=SimpleUploadedFile("chat.txt", b"chat-data"),
+                attachment_type="file",
+                attachment_name="chat.txt",
+            )
+            RequestStatusLog.objects.create(
+                request=service_request,
+                actor=self.client_user,
+                from_status=RequestStatus.NEW,
+                to_status=RequestStatus.NEW,
+                note="سجل سابق",
+            )
+            Notification.objects.create(
+                user=self.client_user,
+                title="إشعار مرتبط",
+                body="تفاصيل",
+                kind="request_status_change",
+                url=f"/requests/{service_request.id}",
+            )
+            Notification.objects.create(
+                user=self.provider_user,
+                title="إشعار مزود",
+                body="تفاصيل",
+                kind="request_status_change",
+                url=f"/provider-orders/{service_request.id}",
+                audience_mode="provider",
+            )
+            EventLog.objects.create(
+                event_type=EventType.STATUS_CHANGED,
+                actor=self.client_user,
+                target_user=self.provider_user,
+                request_id=service_request.id,
+                meta={"note": "old"},
+            )
+
+            attachment_path = attachment.file.path
+            message_attachment_path = message.attachment.path
+
+            self.client.force_login(self.client_user)
+            response = self.client.delete(
+                f"/api/marketplace/requests/{service_request.id}/delete/"
+            )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(ServiceRequest.objects.filter(id=service_request.id).exists())
+            self.assertFalse(os.path.exists(attachment_path))
+            self.assertFalse(os.path.exists(message_attachment_path))
+            self.assertFalse(Notification.objects.filter(url=f"/requests/{service_request.id}").exists())
+            self.assertFalse(Notification.objects.filter(url=f"/provider-orders/{service_request.id}").exists())
+            self.assertFalse(EventLog.objects.filter(request_id=service_request.id).exists())
 
     def test_client_notification_mentions_deadline_when_competitive_request_expires(self):
         service_request = ServiceRequest.objects.create(

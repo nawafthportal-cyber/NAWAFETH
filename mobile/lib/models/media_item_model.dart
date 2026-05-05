@@ -20,6 +20,7 @@ class MediaItemModel {
   final String? sectionTitle;
   final bool sponsoredBadgeOnly;
   int likesCount;
+  int commentsCount;
   int savesCount;
   bool isLiked;
   bool isSaved;
@@ -43,6 +44,7 @@ class MediaItemModel {
     this.sectionTitle,
     this.sponsoredBadgeOnly = false,
     this.likesCount = 0,
+    this.commentsCount = 0,
     this.savesCount = 0,
     this.isLiked = false,
     this.isSaved = false,
@@ -119,6 +121,7 @@ class MediaItemModel {
       sectionTitle: json['section_title'] as String?,
       sponsoredBadgeOnly: json['sponsored_badge_only'] as bool? ?? false,
       likesCount: json['likes_count'] as int? ?? 0,
+      commentsCount: json['comments_count'] as int? ?? 0,
       savesCount: json['saves_count'] as int? ?? 0,
       isLiked: json['is_liked'] as bool? ?? false,
       isSaved: json['is_saved'] as bool? ?? false,

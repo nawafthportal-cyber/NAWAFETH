@@ -4,6 +4,7 @@ import 'package:video_player/video_player.dart';
 
 import '../models/media_item_model.dart';
 import '../services/api_client.dart';
+import '../services/auth_service.dart';
 import '../services/interactive_service.dart';
 import '../screens/provider_profile_screen.dart';
 
@@ -197,6 +198,28 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
       return InteractiveService.savePortfolio(item.id);
     }
     return InteractiveService.saveSpotlight(item.id);
+  }
+
+  Future<void> _openCommentsSheet() async {
+    final item = _currentItem;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return _SpotlightCommentsSheet(
+          item: item,
+          onCountChanged: (count) {
+            if (!mounted) return;
+            setState(() {
+              item.commentsCount = count;
+            });
+          },
+        );
+      },
+    );
+    if (!mounted) return;
+    setState(() {});
   }
 
   // ──────────────────────────────────────────
@@ -439,6 +462,14 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
             color: item.isLiked ? Colors.red : Colors.white,
             label: _formatCount(item.likesCount),
             onTap: _toggleLike,
+          ),
+          const SizedBox(height: 20),
+
+          _buildActionButton(
+            icon: Icons.mode_comment_outlined,
+            color: Colors.white,
+            label: _formatCount(item.commentsCount),
+            onTap: _openCommentsSheet,
           ),
           const SizedBox(height: 20),
 
@@ -688,5 +719,815 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
         ],
       ),
     );
+  }
+}
+
+class _SpotlightCommentsSheet extends StatefulWidget {
+  final MediaItemModel item;
+  final ValueChanged<int> onCountChanged;
+
+  const _SpotlightCommentsSheet({
+    required this.item,
+    required this.onCountChanged,
+  });
+
+  @override
+  State<_SpotlightCommentsSheet> createState() => _SpotlightCommentsSheetState();
+}
+
+class _SpotlightCommentsSheetState extends State<_SpotlightCommentsSheet> {
+  final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
+
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  bool _isLoggedIn = false;
+  List<_ViewerComment> _comments = <_ViewerComment>[];
+  _ViewerComment? _replyTarget;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComments();
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _commentFocusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadComments() async {
+    final loggedIn = await AuthService.isLoggedIn();
+    final response = await InteractiveService.fetchComments(widget.item);
+    if (!mounted) return;
+    final parsed = response.isSuccess
+        ? _parseComments(response.data)
+        : <_ViewerComment>[];
+    setState(() {
+      _isLoggedIn = loggedIn;
+      _isLoading = false;
+      _comments = parsed;
+    });
+    _emitCount();
+    if (!response.isSuccess && mounted) {
+      _showSnack(response.error ?? 'تعذر تحميل التعليقات حالياً.');
+    }
+  }
+
+  List<_ViewerComment> _parseComments(dynamic data) {
+    final rows = <Map<String, dynamic>>[];
+    if (data is List) {
+      rows.addAll(data.whereType<Map>().map((row) => Map<String, dynamic>.from(row)));
+    } else if (data is Map && data['results'] is List) {
+      rows.addAll((data['results'] as List)
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row)));
+    }
+    return rows.map(_ViewerComment.fromJson).toList(growable: true);
+  }
+
+  Future<void> _submitComment() async {
+    if (_isSubmitting) return;
+    if (!_isLoggedIn) {
+      await _openLogin();
+      return;
+    }
+    final body = _commentController.text.trim();
+    if (body.isEmpty) return;
+
+    setState(() => _isSubmitting = true);
+    final response = await InteractiveService.createComment(
+      widget.item,
+      body: body,
+      parentId: _replyTarget?.id,
+    );
+    if (!mounted) return;
+
+    if (!response.isSuccess || response.data is! Map) {
+      setState(() => _isSubmitting = false);
+      _showSnack(response.error ?? 'تعذر نشر التعليق حالياً.');
+      return;
+    }
+
+    final created = _ViewerComment.fromJson(Map<String, dynamic>.from(response.data as Map));
+    setState(() {
+      if (_replyTarget == null) {
+        _comments.insert(0, created);
+      } else {
+        final parent = _findCommentById(_replyTarget!.id, _comments);
+        if (parent != null) {
+          parent.replies.add(created);
+          parent.repliesCount = parent.replies.length;
+        } else {
+          _comments.insert(0, created);
+        }
+      }
+      _commentController.clear();
+      _replyTarget = null;
+      _isSubmitting = false;
+    });
+    _emitCount();
+    _showSnack(created.parentId == null ? 'تم نشر تعليقك.' : 'تم نشر الرد.');
+  }
+
+  Future<void> _toggleLike(_ViewerComment comment) async {
+    if (!_isLoggedIn) {
+      await _openLogin();
+      return;
+    }
+    if (comment.isLikeBusy) return;
+    final wasLiked = comment.isLiked;
+    setState(() {
+      comment.isLikeBusy = true;
+      comment.isLiked = !wasLiked;
+      comment.likesCount += wasLiked ? -1 : 1;
+      if (comment.likesCount < 0) comment.likesCount = 0;
+    });
+    final response = wasLiked
+        ? await InteractiveService.unlikeComment(widget.item, comment.id)
+        : await InteractiveService.likeComment(widget.item, comment.id);
+    if (!mounted) return;
+    setState(() {
+      comment.isLikeBusy = false;
+      if (!response.isSuccess) {
+        comment.isLiked = wasLiked;
+        comment.likesCount += wasLiked ? 1 : -1;
+        if (comment.likesCount < 0) comment.likesCount = 0;
+        return;
+      }
+      final data = response.dataAsMap;
+      if (data != null && data['likes_count'] != null) {
+        comment.likesCount = _ViewerComment.asInt(data['likes_count']);
+      }
+    });
+    if (!response.isSuccess) {
+      _showSnack(response.error ?? 'تعذر تحديث الإعجاب بالتعليق حالياً.');
+    }
+  }
+
+  Future<void> _deleteComment(_ViewerComment comment) async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return AlertDialog(
+              title: const Text('حذف هذا التعليق؟', style: TextStyle(fontFamily: 'Cairo')),
+              content: const Text(
+                'سيؤدي ذلك إلى حذف التعليق وردوده نهائيًا.',
+                style: TextStyle(fontFamily: 'Cairo'),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+                  child: const Text('حذف', style: TextStyle(fontFamily: 'Cairo')),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
+    if (!confirmed) return;
+
+    final response = await InteractiveService.deleteComment(widget.item, comment.id);
+    if (!mounted) return;
+    if (!response.isSuccess) {
+      _showSnack(response.error ?? 'تعذر حذف التعليق حالياً.');
+      return;
+    }
+
+    setState(() {
+      _removeCommentById(comment.id, _comments);
+      if (_replyTarget?.id == comment.id) {
+        _replyTarget = null;
+      }
+    });
+    _emitCount();
+    _showSnack('تم حذف التعليق.');
+  }
+
+  Future<void> _reportComment(_ViewerComment comment) async {
+    if (!_isLoggedIn) {
+      await _openLogin();
+      return;
+    }
+    final payload = await showModalBottomSheet<_CommentReportPayload>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => _CommentReportSheet(comment: comment),
+    );
+    if (payload == null) return;
+
+    final response = await InteractiveService.reportComment(
+      widget.item,
+      comment.id,
+      reason: payload.reason,
+      details: payload.details,
+    );
+    if (!mounted) return;
+    if (!response.isSuccess) {
+      _showSnack(response.error ?? 'تعذر إرسال بلاغ التعليق حالياً.');
+      return;
+    }
+    _showSnack('تم إرسال بلاغ التعليق إلى فريق المحتوى.');
+  }
+
+  Future<void> _openLogin() async {
+    await Navigator.of(context).pushNamed('/login');
+    if (!mounted) return;
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!mounted) return;
+    setState(() => _isLoggedIn = loggedIn);
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message, style: const TextStyle(fontFamily: 'Cairo'))),
+    );
+  }
+
+  void _emitCount() {
+    final total = _countAllComments(_comments);
+    widget.item.commentsCount = total;
+    widget.onCountChanged(total);
+  }
+
+  int _countAllComments(List<_ViewerComment> comments) {
+    var total = 0;
+    for (final comment in comments) {
+      total += 1 + _countAllComments(comment.replies);
+    }
+    return total;
+  }
+
+  _ViewerComment? _findCommentById(int id, List<_ViewerComment> comments) {
+    for (final comment in comments) {
+      if (comment.id == id) return comment;
+      final nested = _findCommentById(id, comment.replies);
+      if (nested != null) return nested;
+    }
+    return null;
+  }
+
+  bool _removeCommentById(int id, List<_ViewerComment> comments) {
+    for (var index = 0; index < comments.length; index += 1) {
+      final comment = comments[index];
+      if (comment.id == id) {
+        comments.removeAt(index);
+        return true;
+      }
+      if (_removeCommentById(id, comment.replies)) {
+        comment.repliesCount = comment.replies.length;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String _relativeTime(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return 'الآن';
+    final parsed = DateTime.tryParse(raw)?.toLocal();
+    if (parsed == null) return 'الآن';
+    final diff = DateTime.now().difference(parsed);
+    if (diff.inMinutes < 1) return 'الآن';
+    if (diff.inHours < 1) return 'منذ ${diff.inMinutes} د';
+    if (diff.inDays < 1) return 'منذ ${diff.inHours} س';
+    if (diff.inDays < 7) return 'منذ ${diff.inDays} يوم';
+    return '${parsed.day}/${parsed.month}/${parsed.year}';
+  }
+
+  Widget _buildReplyBar() {
+    if (_replyTarget == null) return const SizedBox.shrink();
+    final targetLabel = (_replyTarget!.displayName.isNotEmpty
+            ? _replyTarget!.displayName
+            : _replyTarget!.username)
+        .trim();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'الرد على ${targetLabel.isEmpty ? 'التعليق' : targetLabel}',
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => setState(() => _replyTarget = null),
+            child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComposer() {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          12 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _commentController,
+                focusNode: _commentFocusNode,
+                minLines: 1,
+                maxLines: 4,
+                textDirection: TextDirection.rtl,
+                decoration: InputDecoration(
+                  hintText: _replyTarget == null
+                      ? 'اكتب تعليقًا محترمًا...'
+                      : 'اكتب ردك...',
+                  hintStyle: const TextStyle(fontFamily: 'Cairo'),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(18),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            FilledButton(
+              onPressed: _isSubmitting ? null : _submitComment,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(54, 54),
+                shape: const CircleBorder(),
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.send_rounded),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommentTile(_ViewerComment comment, {bool isReply = false}) {
+    final imageUrl = ApiClient.buildMediaUrl(comment.profileImage);
+    final author = comment.displayName.isNotEmpty ? comment.displayName : comment.username;
+    return Container(
+      margin: EdgeInsetsDirectional.only(start: isReply ? 28 : 0, bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: isReply ? 16 : 18,
+                backgroundColor: const Color(0xFFE2E8F0),
+                backgroundImage: imageUrl != null && imageUrl.isNotEmpty
+                    ? CachedNetworkImageProvider(imageUrl)
+                    : null,
+                child: imageUrl == null || imageUrl.isEmpty
+                    ? Text(
+                        author.isEmpty ? 'ن' : author.characters.first,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            author.isEmpty ? 'مستخدم' : author,
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        if (comment.isVerifiedBlue || comment.isVerifiedGreen) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.verified_rounded,
+                            size: 15,
+                            color: comment.isVerifiedGreen
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFF2563EB),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      _relativeTime(comment.createdAt),
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'delete') {
+                    _deleteComment(comment);
+                  } else if (value == 'report') {
+                    _reportComment(comment);
+                  }
+                },
+                itemBuilder: (menuContext) => [
+                  if (comment.isMine)
+                    const PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Text('حذف التعليق', style: TextStyle(fontFamily: 'Cairo')),
+                    )
+                  else
+                    const PopupMenuItem<String>(
+                      value: 'report',
+                      child: Text('الإبلاغ عن التعليق', style: TextStyle(fontFamily: 'Cairo')),
+                    ),
+                ],
+                icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            comment.body,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 13,
+              height: 1.5,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: comment.isLikeBusy ? null : () => _toggleLike(comment),
+                icon: Icon(
+                  comment.isLiked ? Icons.favorite : Icons.favorite_border,
+                  color: comment.isLiked ? Colors.red.shade600 : const Color(0xFF475569),
+                  size: 18,
+                ),
+                label: Text(
+                  '${comment.likesCount}',
+                  style: const TextStyle(fontFamily: 'Cairo'),
+                ),
+              ),
+              if (!isReply)
+                TextButton(
+                  onPressed: () {
+                    setState(() => _replyTarget = comment);
+                    _commentFocusNode.requestFocus();
+                  },
+                  child: const Text(
+                    'رد',
+                    style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700),
+                  ),
+                ),
+            ],
+          ),
+          if (comment.replies.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            ...comment.replies.map((reply) => _buildCommentTile(reply, isReply: true)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.88,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 48,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'التعليقات',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${widget.item.commentsCount}',
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1D4ED8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildReplyBar(),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _comments.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'لا توجد تعليقات بعد. كن أول من يعلّق.',
+                              style: TextStyle(fontFamily: 'Cairo', color: Color(0xFF64748B)),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                            itemCount: _comments.length,
+                            itemBuilder: (context, index) => _buildCommentTile(_comments[index]),
+                          ),
+              ),
+              if (!_isLoggedIn)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: OutlinedButton.icon(
+                    onPressed: _openLogin,
+                    icon: const Icon(Icons.login_rounded),
+                    label: const Text('سجّل الدخول لإضافة تعليق', style: TextStyle(fontFamily: 'Cairo')),
+                  ),
+                ),
+              _buildComposer(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommentReportSheet extends StatefulWidget {
+  final _ViewerComment comment;
+
+  const _CommentReportSheet({required this.comment});
+
+  @override
+  State<_CommentReportSheet> createState() => _CommentReportSheetState();
+}
+
+class _CommentReportSheetState extends State<_CommentReportSheet> {
+  static const List<String> _reasons = <String>[
+    'محتوى غير لائق',
+    'سبام أو تضليل',
+    'عنف أو إساءة',
+    'انتهاك حقوق',
+    'سبب آخر',
+  ];
+
+  late String _reason = _reasons.first;
+  final TextEditingController _detailsController = TextEditingController();
+
+  @override
+  void dispose() {
+    _detailsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 14, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 48,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'الإبلاغ عن التعليق',
+                style: TextStyle(fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'سيصل هذا البلاغ إلى فريق إدارة المحتوى مع توضيح أنه بلاغ على تعليق.',
+                style: TextStyle(fontFamily: 'Cairo', color: Color(0xFF64748B), height: 1.5),
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _reason,
+                decoration: const InputDecoration(
+                  labelText: 'سبب البلاغ',
+                  labelStyle: TextStyle(fontFamily: 'Cairo'),
+                  border: OutlineInputBorder(),
+                ),
+                items: _reasons
+                    .map((reason) => DropdownMenuItem<String>(
+                          value: reason,
+                          child: Text(reason, style: const TextStyle(fontFamily: 'Cairo')),
+                        ))
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _reason = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _detailsController,
+                maxLines: 4,
+                textDirection: TextDirection.rtl,
+                decoration: const InputDecoration(
+                  labelText: 'تفاصيل إضافية',
+                  hintText: 'اكتب ملاحظة قصيرة لفريق المراجعة',
+                  labelStyle: TextStyle(fontFamily: 'Cairo'),
+                  hintStyle: TextStyle(fontFamily: 'Cairo'),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.pop(
+                          context,
+                          _CommentReportPayload(
+                            reason: _reason,
+                            details: _detailsController.text.trim(),
+                          ),
+                        );
+                      },
+                      child: const Text('إرسال البلاغ', style: TextStyle(fontFamily: 'Cairo')),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommentReportPayload {
+  final String reason;
+  final String details;
+
+  const _CommentReportPayload({required this.reason, required this.details});
+}
+
+class _ViewerComment {
+  final int id;
+  final int? parentId;
+  final String body;
+  final String displayName;
+  final String username;
+  final String? profileImage;
+  final String? createdAt;
+  final bool isMine;
+  final bool isVerifiedBlue;
+  final bool isVerifiedGreen;
+  int likesCount;
+  bool isLiked;
+  bool isLikeBusy = false;
+  int repliesCount;
+  final List<_ViewerComment> replies;
+
+  _ViewerComment({
+    required this.id,
+    required this.parentId,
+    required this.body,
+    required this.displayName,
+    required this.username,
+    required this.profileImage,
+    required this.createdAt,
+    required this.isMine,
+    required this.isVerifiedBlue,
+    required this.isVerifiedGreen,
+    required this.likesCount,
+    required this.isLiked,
+    required this.repliesCount,
+    required this.replies,
+  });
+
+  factory _ViewerComment.fromJson(Map<String, dynamic> json) {
+    final nested = json['replies'];
+    final replies = nested is List
+        ? nested
+            .whereType<Map>()
+            .map((row) => _ViewerComment.fromJson(Map<String, dynamic>.from(row)))
+            .toList(growable: true)
+        : <_ViewerComment>[];
+    return _ViewerComment(
+      id: asInt(json['id']),
+      parentId: json['parent'] == null ? null : asInt(json['parent']),
+      body: (json['body'] ?? '').toString(),
+      displayName: (json['display_name'] ?? '').toString(),
+      username: (json['username'] ?? '').toString(),
+      profileImage: json['profile_image']?.toString(),
+      createdAt: json['created_at']?.toString(),
+      isMine: json['is_mine'] == true,
+      isVerifiedBlue: json['is_verified_blue'] == true,
+      isVerifiedGreen: json['is_verified_green'] == true,
+      likesCount: asInt(json['likes_count']),
+      isLiked: json['is_liked'] == true,
+      repliesCount: asInt(json['replies_count']),
+      replies: replies,
+    );
+  }
+
+  static int asInt(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse('${value ?? ''}') ?? 0;
   }
 }

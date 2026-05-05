@@ -6288,12 +6288,69 @@ body.page-profile .profile-guest-highlight span {
   border: 1px solid #e3e8f3;
   border-radius: 10px;
   background: #fff;
+.chat-sheet-option.is-danger { color: #b42318; }
+.chat-sheet-option-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+.chat-sheet-option-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: inherit;
+}
+.chat-sheet-option-meta {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c8798;
+}
   color: var(--color-text);
   font-size: 20px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+.chat-report-upload-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+.chat-report-files {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-report-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid #e7eaf2;
+  background: #f8f9fc;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.chat-report-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-report-file-remove {
+  border: none;
+  background: transparent;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
   cursor: pointer;
 }
 .chat-client-requests-body {

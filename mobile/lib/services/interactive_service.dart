@@ -36,6 +36,16 @@ class InteractiveService {
     final mode = await AccountModeService.apiMode();
     return path.contains('?') ? '$path&mode=$mode' : '$path?mode=$mode';
   }
+
+  static String _contentBase(MediaItemSource source) {
+    return source == MediaItemSource.portfolio
+        ? '/api/providers/portfolio/'
+        : '/api/providers/spotlights/';
+  }
+
+  static String _contentCommentsPath(MediaItemModel item, [String suffix = '']) {
+    return '${_contentBase(item.source)}${item.id}/comments/$suffix';
+  }
   // ────────────────────────────────────────
   // 📋 جلب قوائم
   // ────────────────────────────────────────
@@ -507,6 +517,69 @@ class InteractiveService {
     return resp.isSuccess;
   }
 
+  static Future<ApiResponse> fetchComments(
+    MediaItemModel item, {
+    int limit = 50,
+  }) async {
+    final path = await _withMode('${_contentCommentsPath(item)}?limit=$limit');
+    return ApiClient.get(path, forceRefresh: true);
+  }
+
+  static Future<ApiResponse> createComment(
+    MediaItemModel item, {
+    required String body,
+    int? parentId,
+  }) async {
+    final path = await _withMode(_contentCommentsPath(item));
+    return ApiClient.post(
+      path,
+      body: {
+        'body': body,
+        if (parentId != null) 'parent': parentId,
+      },
+    );
+  }
+
+  static Future<ApiResponse> deleteComment(
+    MediaItemModel item,
+    int commentId,
+  ) async {
+    final path = await _withMode(_contentCommentsPath(item, '$commentId/'));
+    return ApiClient.delete(path);
+  }
+
+  static Future<ApiResponse> likeComment(
+    MediaItemModel item,
+    int commentId,
+  ) async {
+    final path = await _withMode(_contentCommentsPath(item, '$commentId/like/'));
+    return ApiClient.post(path);
+  }
+
+  static Future<ApiResponse> unlikeComment(
+    MediaItemModel item,
+    int commentId,
+  ) async {
+    final path = await _withMode(_contentCommentsPath(item, '$commentId/unlike/'));
+    return ApiClient.post(path);
+  }
+
+  static Future<ApiResponse> reportComment(
+    MediaItemModel item,
+    int commentId, {
+    required String reason,
+    String details = '',
+  }) async {
+    final path = await _withMode(_contentCommentsPath(item, '$commentId/report/'));
+    return ApiClient.post(
+      path,
+      body: {
+        'reason': reason,
+        'details': details,
+      },
+    );
+  }
+
   /// إعجاب بمزود (معزول حسب الوضع)
   static Future<bool> likeProvider(int providerId) async {
     final path = await _withMode('/api/providers/$providerId/like/');
@@ -675,6 +748,7 @@ class InteractiveService {
       'section_title': item.sectionTitle,
       'sponsored_badge_only': item.sponsoredBadgeOnly,
       'likes_count': item.likesCount,
+      'comments_count': item.commentsCount,
       'saves_count': item.savesCount,
       'is_liked': item.isLiked,
       'is_saved': item.isSaved,

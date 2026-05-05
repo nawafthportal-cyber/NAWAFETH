@@ -576,9 +576,43 @@ class ProviderContentComment(models.Model):
         blank=True,
         related_name="replies",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     body = models.TextField(max_length=1000)
     is_approved = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class ProviderContentCommentLike(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="provider_content_comment_likes",
+    )
+    comment = models.ForeignKey(
+        ProviderContentComment,
+        on_delete=models.CASCADE,
+        related_name="likes",
+    )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "comment", "role_context"],
+                name="uniq_like_user_content_comment_role",
+            ),
+        ]

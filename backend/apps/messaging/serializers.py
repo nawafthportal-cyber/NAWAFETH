@@ -165,7 +165,9 @@ class ThreadUserStateSerializer(serializers.ModelSerializer):
             "client_label",
             "is_archived",
             "is_blocked",
+            "is_deleted",
             "blocked_at",
             "archived_at",
+            "deleted_at",
         )
         read_only_fields = fields

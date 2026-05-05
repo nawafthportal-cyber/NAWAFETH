@@ -1092,11 +1092,38 @@ const ProviderDetailPage = (() => {
 
     const gallery = _normalizedProviderCoverGallery(provider);
     _stopProviderCoverGalleryRotation();
-    coverEl.querySelectorAll('img.pd-cover-media, img.pd-cover-bg').forEach((img) => img.remove());
+    let mediaImg = coverEl.querySelector('img.pd-cover-media');
+    let backgroundImg = coverEl.querySelector('img.pd-cover-bg');
+
+    if (!backgroundImg) {
+      backgroundImg = document.createElement('img');
+      backgroundImg.className = 'pd-cover-bg';
+      backgroundImg.alt = '';
+      backgroundImg.setAttribute('aria-hidden', 'true');
+      backgroundImg.decoding = 'async';
+      coverEl.insertBefore(backgroundImg, coverEl.firstChild);
+    }
+
+    if (!mediaImg) {
+      mediaImg = document.createElement('img');
+      mediaImg.className = 'pd-cover-media';
+      mediaImg.decoding = 'async';
+      mediaImg.loading = 'eager';
+      mediaImg.fetchPriority = 'high';
+      const gradientEl = coverEl.querySelector('.pd-cover-gradient');
+      coverEl.insertBefore(mediaImg, gradientEl || dots || null);
+    }
 
     if (!gallery.length) {
       coverEl.style.backgroundImage = '';
       coverEl.classList.remove('has-media', 'has-gallery');
+      if (mediaImg) {
+        mediaImg.removeAttribute('src');
+        mediaImg.alt = '';
+      }
+      if (backgroundImg) {
+        backgroundImg.removeAttribute('src');
+      }
       if (dots) {
         dots.innerHTML = '';
         dots.classList.add('hidden');
@@ -1108,7 +1135,12 @@ const ProviderDetailPage = (() => {
 
     const applySlide = (index) => {
       _coverGalleryIndex = index;
-      coverEl.style.backgroundImage = `url('${gallery[index].imageUrl}')`;
+      const imageUrl = gallery[index].imageUrl;
+      const displayName = _pickFirstText(provider && (provider.display_name || provider.displayName));
+      coverEl.style.backgroundImage = '';
+      backgroundImg.src = imageUrl;
+      mediaImg.src = imageUrl;
+      mediaImg.alt = displayName || _copy('cover');
       coverEl.classList.add('has-media');
       coverEl.classList.toggle('has-gallery', gallery.length > 1);
       if (!dots) return;

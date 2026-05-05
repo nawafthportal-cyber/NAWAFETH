@@ -20,11 +20,13 @@ from apps.uploads.validators import (
 from .models import (
     Category,
     ProviderContentComment,
+    ProviderContentCommentLike,
     ProviderFollow,
     ProviderCategory,
     ProviderCoverImage,
     ProviderPortfolioItem,
     ProviderProfile,
+    RoleContext,
     ProviderService,
     ProviderSpotlightItem,
     ProviderSpotlightVisibilityBlock,
@@ -1069,6 +1071,8 @@ class SpotlightCommentSerializer(serializers.ModelSerializer):
     is_verified_green = serializers.SerializerMethodField()
     is_provider = serializers.SerializerMethodField()
     is_mine = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
+    likes_count = serializers.SerializerMethodField()
     replies = serializers.SerializerMethodField()
     replies_count = serializers.SerializerMethodField()
 
@@ -1085,6 +1089,8 @@ class SpotlightCommentSerializer(serializers.ModelSerializer):
             "is_verified_green",
             "is_provider",
             "is_mine",
+            "is_liked",
+            "likes_count",
             "body",
             "replies_count",
             "replies",
@@ -1093,7 +1099,7 @@ class SpotlightCommentSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_display_name(self, obj):
-        provider = getattr(getattr(obj, "user", None), "provider_profile", None)
+        provider = self._provider_identity(obj)
         if provider and getattr(provider, "display_name", ""):
             return provider.display_name
         user = getattr(obj, "user", None)
@@ -1103,19 +1109,19 @@ class SpotlightCommentSerializer(serializers.ModelSerializer):
         return full_name or getattr(user, "username", "") or "مستخدم"
 
     def get_profile_image(self, obj):
-        provider = getattr(getattr(obj, "user", None), "provider_profile", None)
+        provider = self._provider_identity(obj)
         return _safe_file_url(getattr(provider, "profile_image", None))
 
     def get_is_verified_blue(self, obj):
-        provider = getattr(getattr(obj, "user", None), "provider_profile", None)
+        provider = self._provider_identity(obj)
         return bool(getattr(provider, "is_verified_blue", False))
 
     def get_is_verified_green(self, obj):
-        provider = getattr(getattr(obj, "user", None), "provider_profile", None)
+        provider = self._provider_identity(obj)
         return bool(getattr(provider, "is_verified_green", False))
 
     def get_is_provider(self, obj):
-        return bool(getattr(getattr(obj, "user", None), "provider_profile", None))
+        return bool(self._provider_identity(obj))
 
     def get_is_mine(self, obj):
         request = self.context.get("request")
@@ -1123,6 +1129,27 @@ class SpotlightCommentSerializer(serializers.ModelSerializer):
         if not user or not getattr(user, "is_authenticated", False):
             return False
         return int(getattr(user, "id", 0) or 0) == int(getattr(obj, "user_id", 0) or 0)
+
+    def get_is_liked(self, obj):
+        annotated = getattr(obj, "is_liked", None)
+        if annotated is not None:
+            return bool(annotated)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+        role = get_active_role(request)
+        return ProviderContentCommentLike.objects.filter(
+            user=user,
+            comment=obj,
+            role_context=role,
+        ).exists()
+
+    def get_likes_count(self, obj):
+        annotated = getattr(obj, "likes_count", None)
+        if annotated is not None:
+            return int(annotated or 0)
+        return int(obj.likes.count())
 
     def get_replies_count(self, obj):
         prefetched = getattr(obj, "prefetched_replies", None)
@@ -1140,6 +1167,12 @@ class SpotlightCommentSerializer(serializers.ModelSerializer):
             )
         serializer = SpotlightCommentSerializer(prefetched, many=True, context=self.context)
         return serializer.data
+
+    @staticmethod
+    def _provider_identity(obj):
+        if str(getattr(obj, "role_context", "") or "").strip().lower() != RoleContext.PROVIDER:
+            return None
+        return getattr(getattr(obj, "user", None), "provider_profile", None)
 
 
 class SpotlightCommentCreateSerializer(serializers.ModelSerializer):

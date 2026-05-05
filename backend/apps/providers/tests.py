@@ -13,6 +13,7 @@ from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
 from apps.messaging.models import Thread
 from apps.moderation.models import ModerationCase
 from apps.reviews.models import Review, ReviewModerationStatus
+from apps.support.models import SupportTicket
 from apps.subscriptions.models import Subscription, SubscriptionPlan, SubscriptionStatus
 
 from .models import (
@@ -21,6 +22,7 @@ from .models import (
     ContentShareContentType,
     ProviderCategory,
     ProviderContentComment,
+    ProviderContentCommentLike,
     ProviderContentShare,
     ProviderFollow,
     ProviderPortfolioItem,
@@ -279,6 +281,22 @@ class ProviderSpotlightQuotaTests(TestCase):
             end_at=timezone.now() + timedelta(days=364),
             auto_renew=True,
         )
+        self.client_user = User.objects.create_user(
+            phone="0504400002",
+            username="provider.spotlight.viewer",
+            role_state=UserRole.CLIENT,
+        )
+        self.portfolio_item = ProviderPortfolioItem.objects.create(
+            provider=self.provider,
+            file_type="image",
+            file=SimpleUploadedFile("portfolio.jpg", b"img", content_type="image/jpeg"),
+        )
+        self.spotlight_item = ProviderSpotlightItem.objects.create(
+            provider=self.provider,
+            file_type="image",
+            file=SimpleUploadedFile("spotlight.jpg", b"img", content_type="image/jpeg"),
+            caption="لمحة للاختبار",
+        )
         self.client.force_login(self.provider_user)
         self.list_url = reverse("providers:my_spotlights")
 
@@ -446,6 +464,8 @@ class ProviderSpotlightQuotaTests(TestCase):
         self.assertEqual(payload["count"], 1)
         self.assertEqual(len(payload["results"]), 1)
         self.assertEqual(payload["results"][0]["body"], "تعليق أول")
+        self.assertEqual(payload["results"][0]["likes_count"], 0)
+        self.assertFalse(payload["results"][0]["is_liked"])
 
         create_response = self.client.post(
             reverse("providers:spotlight_comments", kwargs={"item_id": self.spotlight_item.id}),
@@ -462,6 +482,143 @@ class ProviderSpotlightQuotaTests(TestCase):
                 body="تعليق جديد داخل اللمحة",
             ).exists()
         )
+
+    def test_dual_role_comment_in_client_mode_stays_client_scoped(self):
+        dual_role_user = User.objects.create_user(
+            phone="0503300085",
+            username="provider.dual.role.client.commenter",
+            first_name="عميل",
+            last_name="نشط",
+            role_state=UserRole.CLIENT,
+        )
+        ProviderProfile.objects.create(
+            user=dual_role_user,
+            provider_type="individual",
+            display_name="هوية المزود",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.client.force_login(dual_role_user)
+
+        response = self.client.post(
+            reverse("providers:spotlight_comments", kwargs={"item_id": self.spotlight_item.id}) + "?mode=client",
+            {"body": "تعليق بحساب العميل"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()["display_name"], "عميل نشط")
+        self.assertFalse(response.json()["is_provider"])
+        self.assertFalse(response.json()["is_verified_blue"])
+        self.assertFalse(response.json()["is_verified_green"])
+        self.assertEqual(
+            ProviderContentComment.objects.get(body="تعليق بحساب العميل").role_context,
+            "client",
+        )
+
+    def test_dual_role_comment_in_provider_mode_keeps_provider_identity(self):
+        dual_role_user = User.objects.create_user(
+            phone="0503300086",
+            username="provider.dual.role.provider.commenter",
+            first_name="مستخدم",
+            last_name="ثنائي",
+            role_state=UserRole.PROVIDER,
+        )
+        ProviderProfile.objects.create(
+            user=dual_role_user,
+            provider_type="individual",
+            display_name="مزود معتمد",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+            is_verified_blue=True,
+        )
+        self.client.force_login(dual_role_user)
+
+        response = self.client.post(
+            reverse("providers:spotlight_comments", kwargs={"item_id": self.spotlight_item.id}) + "?mode=provider",
+            {"body": "تعليق بحساب المزود"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()["display_name"], "مزود معتمد")
+        self.assertTrue(response.json()["is_provider"])
+        self.assertTrue(response.json()["is_verified_blue"])
+        self.assertEqual(
+            ProviderContentComment.objects.get(body="تعليق بحساب المزود").role_context,
+            "provider",
+        )
+
+    def test_spotlight_comment_like_and_report_create_visible_state_and_content_ticket(self):
+        author = User.objects.create_user(
+            phone="0503300025",
+            username="provider.spotlight.comment.author",
+            first_name="صاحب تعليق",
+            role_state=UserRole.CLIENT,
+        )
+        comment = ProviderContentComment.objects.create(
+            provider=self.provider,
+            user=author,
+            spotlight_item=self.spotlight_item,
+            body="تعليق يستحق المراجعة",
+            is_approved=True,
+        )
+
+        self.client.force_login(self.client_user)
+
+        like_response = self.client.post(
+            reverse("providers:spotlight_comment_like", kwargs={"item_id": self.spotlight_item.id, "comment_id": comment.id})
+        )
+        self.assertEqual(like_response.status_code, 200)
+        self.assertTrue(
+            ProviderContentCommentLike.objects.filter(
+                user=self.client_user,
+                comment=comment,
+                role_context="client",
+            ).exists()
+        )
+
+        list_response = self.client.get(
+            reverse("providers:spotlight_comments", kwargs={"item_id": self.spotlight_item.id})
+        )
+        self.assertEqual(list_response.status_code, 200)
+        payload = list_response.json()
+        self.assertEqual(payload["results"][0]["likes_count"], 1)
+        self.assertTrue(payload["results"][0]["is_liked"])
+
+        report_response = self.client.post(
+            reverse("providers:spotlight_comment_report", kwargs={"item_id": self.spotlight_item.id, "comment_id": comment.id}),
+            {"reason": "مسيء", "details": "وصف غير مناسب"},
+            content_type="application/json",
+        )
+        self.assertEqual(report_response.status_code, 201, report_response.json())
+        ticket = SupportTicket.objects.get(id=report_response.json()["ticket_id"])
+        self.assertEqual(ticket.reported_kind, "spotlight_comment")
+        self.assertEqual(ticket.reported_object_id, str(comment.id))
+        self.assertEqual(ticket.reported_user_id, author.id)
+        self.assertIn("بلاغ تعليق على لمحة", ticket.description)
+
+    def test_spotlight_comment_report_rejects_reporting_own_comment(self):
+        comment = ProviderContentComment.objects.create(
+            provider=self.provider,
+            user=self.client_user,
+            spotlight_item=self.spotlight_item,
+            body="تعليقي الخاص",
+            is_approved=True,
+        )
+        self.client.force_login(self.client_user)
+
+        response = self.client.post(
+            reverse("providers:spotlight_comment_report", kwargs={"item_id": self.spotlight_item.id, "comment_id": comment.id}),
+            {"reason": "خطأ"},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
 
     def test_spotlight_comments_support_replies_and_owner_delete(self):
         parent = ProviderContentComment.objects.create(
@@ -577,6 +734,8 @@ class ProviderSpotlightQuotaTests(TestCase):
         self.assertEqual(payload["count"], 1)
         self.assertEqual(len(payload["results"]), 1)
         self.assertEqual(payload["results"][0]["body"], "تعليق مشروع أول")
+        self.assertEqual(payload["results"][0]["likes_count"], 0)
+        self.assertFalse(payload["results"][0]["is_liked"])
 
         create_response = self.client.post(
             reverse("providers:portfolio_comments", kwargs={"item_id": self.portfolio_item.id}),
@@ -593,6 +752,46 @@ class ProviderSpotlightQuotaTests(TestCase):
                 body="تعليق جديد داخل خدمات ومشاريع",
             ).exists()
         )
+
+    def test_portfolio_comment_like_and_report_create_content_ticket(self):
+        author = User.objects.create_user(
+            phone="0503300026",
+            username="provider.portfolio.comment.author",
+            first_name="صاحب مشروع",
+            role_state=UserRole.CLIENT,
+        )
+        comment = ProviderContentComment.objects.create(
+            provider=self.provider,
+            user=author,
+            portfolio_item=self.portfolio_item,
+            body="تعليق على خدمات ومشاريع",
+            is_approved=True,
+        )
+
+        self.client.force_login(self.client_user)
+
+        like_response = self.client.post(
+            reverse("providers:portfolio_comment_like", kwargs={"item_id": self.portfolio_item.id, "comment_id": comment.id})
+        )
+        self.assertEqual(like_response.status_code, 200)
+        self.assertTrue(
+            ProviderContentCommentLike.objects.filter(
+                user=self.client_user,
+                comment=comment,
+                role_context="client",
+            ).exists()
+        )
+
+        report_response = self.client.post(
+            reverse("providers:portfolio_comment_report", kwargs={"item_id": self.portfolio_item.id, "comment_id": comment.id}),
+            {"reason": "غير لائق", "details": "تفاصيل البلاغ"},
+            content_type="application/json",
+        )
+        self.assertEqual(report_response.status_code, 201, report_response.json())
+        ticket = SupportTicket.objects.get(id=report_response.json()["ticket_id"])
+        self.assertEqual(ticket.reported_kind, "portfolio_comment")
+        self.assertEqual(ticket.reported_object_id, str(comment.id))
+        self.assertIn("بلاغ تعليق على خدمات ومشاريع", ticket.description)
 
     def test_spotlight_comment_delete_rejects_non_owner(self):
         owner = User.objects.create_user(
