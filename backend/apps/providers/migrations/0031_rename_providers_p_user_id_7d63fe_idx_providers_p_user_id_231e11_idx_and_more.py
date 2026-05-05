@@ -3,6 +3,90 @@
 from django.db import migrations, models
 
 
+def _index_exists(schema_editor, table_name, index_name):
+    connection = schema_editor.connection
+    with connection.cursor() as cursor:
+        if connection.vendor == "postgresql":
+            cursor.execute(
+                """
+                SELECT 1
+                FROM pg_indexes
+                WHERE schemaname = ANY (current_schemas(false))
+                  AND tablename = %s
+                  AND indexname = %s
+                LIMIT 1
+                """,
+                [table_name, index_name],
+            )
+            return cursor.fetchone() is not None
+
+        constraints = connection.introspection.get_constraints(cursor, table_name)
+        return index_name in constraints and bool(constraints[index_name].get("index"))
+
+
+def _rename_index_if_present(schema_editor, table_name, old_name, new_name):
+    if _index_exists(schema_editor, table_name, new_name):
+        return
+    if not _index_exists(schema_editor, table_name, old_name):
+        return
+    if schema_editor.connection.vendor != "postgresql":
+        return
+
+    quoted_old_name = schema_editor.quote_name(old_name)
+    quoted_new_name = schema_editor.quote_name(new_name)
+    schema_editor.execute(f"ALTER INDEX {quoted_old_name} RENAME TO {quoted_new_name}")
+
+
+def rename_provider_visibility_indexes(apps, schema_editor):
+    provider_visibility_block = apps.get_model("providers", "ProviderVisibilityBlock")
+    provider_spotlight_visibility_block = apps.get_model("providers", "ProviderSpotlightVisibilityBlock")
+    provider_portfolio_visibility_block = apps.get_model("providers", "ProviderPortfolioVisibilityBlock")
+
+    _rename_index_if_present(
+        schema_editor,
+        provider_portfolio_visibility_block._meta.db_table,
+        "providers_p_user_id_7d63fe_idx",
+        "providers_p_user_id_231e11_idx",
+    )
+    _rename_index_if_present(
+        schema_editor,
+        provider_spotlight_visibility_block._meta.db_table,
+        "providers_p_user_id_e5059c_idx",
+        "providers_p_user_id_6a01d5_idx",
+    )
+    _rename_index_if_present(
+        schema_editor,
+        provider_visibility_block._meta.db_table,
+        "providers_p_user_id_f8f47e_idx",
+        "providers_p_user_id_b0bf0a_idx",
+    )
+
+
+def reverse_provider_visibility_indexes(apps, schema_editor):
+    provider_visibility_block = apps.get_model("providers", "ProviderVisibilityBlock")
+    provider_spotlight_visibility_block = apps.get_model("providers", "ProviderSpotlightVisibilityBlock")
+    provider_portfolio_visibility_block = apps.get_model("providers", "ProviderPortfolioVisibilityBlock")
+
+    _rename_index_if_present(
+        schema_editor,
+        provider_portfolio_visibility_block._meta.db_table,
+        "providers_p_user_id_231e11_idx",
+        "providers_p_user_id_7d63fe_idx",
+    )
+    _rename_index_if_present(
+        schema_editor,
+        provider_spotlight_visibility_block._meta.db_table,
+        "providers_p_user_id_6a01d5_idx",
+        "providers_p_user_id_e5059c_idx",
+    )
+    _rename_index_if_present(
+        schema_editor,
+        provider_visibility_block._meta.db_table,
+        "providers_p_user_id_b0bf0a_idx",
+        "providers_p_user_id_f8f47e_idx",
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,20 +94,30 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RenameIndex(
-            model_name="providerportfoliovisibilityblock",
-            new_name="providers_p_user_id_231e11_idx",
-            old_name="providers_p_user_id_7d63fe_idx",
-        ),
-        migrations.RenameIndex(
-            model_name="providerspotlightvisibilityblock",
-            new_name="providers_p_user_id_6a01d5_idx",
-            old_name="providers_p_user_id_e5059c_idx",
-        ),
-        migrations.RenameIndex(
-            model_name="providervisibilityblock",
-            new_name="providers_p_user_id_b0bf0a_idx",
-            old_name="providers_p_user_id_f8f47e_idx",
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(
+                    rename_provider_visibility_indexes,
+                    reverse_code=reverse_provider_visibility_indexes,
+                ),
+            ],
+            state_operations=[
+                migrations.RenameIndex(
+                    model_name="providerportfoliovisibilityblock",
+                    new_name="providers_p_user_id_231e11_idx",
+                    old_name="providers_p_user_id_7d63fe_idx",
+                ),
+                migrations.RenameIndex(
+                    model_name="providerspotlightvisibilityblock",
+                    new_name="providers_p_user_id_6a01d5_idx",
+                    old_name="providers_p_user_id_e5059c_idx",
+                ),
+                migrations.RenameIndex(
+                    model_name="providervisibilityblock",
+                    new_name="providers_p_user_id_b0bf0a_idx",
+                    old_name="providers_p_user_id_f8f47e_idx",
+                ),
+            ],
         ),
         migrations.AlterField(
             model_name="providercontentcommentlike",
