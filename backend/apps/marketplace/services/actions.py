@@ -194,6 +194,10 @@ def _redispatch_request_to_providers(*, sr: ServiceRequest, actor) -> None:
     provider_user = getattr(provider, "user", None)
 
     try:
+        if request_type in {RequestType.URGENT, RequestType.COMPETITIVE}:
+            clear_request_pool_delivery_records(sr, clear_event_logs=True)
+        if request_type == RequestType.COMPETITIVE:
+            Offer.objects.filter(request=sr).delete()
         if request_type == RequestType.NORMAL and provider is not None and provider_user is not None:
             create_notification(
                 user=provider_user,
@@ -305,7 +309,7 @@ def hard_delete_request(*, user, request_id: int) -> ActionResult:
     is_staff, is_client, _ = _role_flags(user, sr)
     if not (is_staff or is_client):
         raise PermissionDenied("غير مصرح")
-    if not request_is_before_execution(sr):
+    if not request_can_be_hard_deleted(sr):
         raise ValidationError("لا يمكن حذف الطلب نهائياً بعد بدء التنفيذ")
 
     from apps.messaging.models import Message
@@ -354,6 +358,17 @@ def request_is_before_execution(sr: ServiceRequest) -> bool:
     return False
 
 
+def request_can_be_hard_deleted(sr: ServiceRequest) -> bool:
+    return request_is_before_execution(sr) or sr.status == RequestStatus.CANCELLED
+
+
+def request_can_be_reopened(sr: ServiceRequest) -> bool:
+    return sr.status == RequestStatus.CANCELLED and sr.request_type in {
+        RequestType.URGENT,
+        RequestType.COMPETITIVE,
+    }
+
+
 def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | None = None) -> list[str]:
     """
     Returns actions allowed for a given user and service request.
@@ -363,14 +378,16 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
 
     if is_staff:
         base = ["cancel", "accept", "start", "complete"]
-        if sr.status == RequestStatus.CANCELLED:
+        if request_can_be_hard_deleted(sr):
+            base.append("delete")
+        if request_can_be_reopened(sr):
             base.append("reopen")
         return base
 
     if is_client:
         pending_input_stage = service_request_pending_input_stage(sr)
         is_before_execution = request_is_before_execution(sr)
-        if is_before_execution:
+        if request_can_be_hard_deleted(sr):
             acts.append("delete")
         if (
             is_before_execution
@@ -391,7 +408,7 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
             acts.append("cancel")
         if sr.status == RequestStatus.AWAITING_CLIENT_APPROVAL and sr.provider_inputs_approved is None:
             acts.extend(["approve_inputs", "reject_inputs"])
-        if sr.status == RequestStatus.CANCELLED:
+        if request_can_be_reopened(sr):
             acts.append("reopen")
         return acts
 
@@ -575,6 +592,8 @@ def execute_action(
     if action == "reopen":
         if not (is_staff or is_client):
             raise PermissionDenied("غير مصرح")
+        if not request_can_be_reopened(sr):
+            raise ValidationError("إعادة فتح هذا النوع من الطلبات غير مدعومة حالياً")
         old = sr.status
         sr.reopen()
         RequestStatusLog.objects.create(

@@ -1059,6 +1059,99 @@ class PortfolioModerationAndVisibilityTests(TestCase):
         self.assertEqual(detail_response.status_code, 404)
 
 
+class ProviderServiceModerationReportTests(TestCase):
+    def setUp(self):
+        self.viewer = User.objects.create_user(
+            phone="0503900021",
+            username="service.viewer",
+            role_state=UserRole.CLIENT,
+        )
+        self.provider_user = User.objects.create_user(
+            phone="0503900022",
+            username="service.report.provider",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود الخدمات",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        category = Category.objects.create(name="تنظيف")
+        subcategory = SubCategory.objects.create(category=category, name="تنظيف منازل")
+        self.service = ProviderService.objects.create(
+            provider=self.provider,
+            subcategory=subcategory,
+            title="خدمة مخالفة",
+            description="وصف الخدمة المخالفة",
+            is_active=True,
+        )
+        self.client.force_login(self.viewer)
+
+    def test_reporting_service_creates_content_team_moderation_case(self):
+        response = self.client.post(
+            reverse("providers:provider_service_report", kwargs={"item_id": self.service.id}),
+            {
+                "reason": "محتوى مضلل",
+                "details": "تفاصيل البلاغ من صفحة الخدمة",
+            },
+        )
+
+        self.assertEqual(response.status_code, 201, response.json())
+        case = ModerationCase.objects.get(id=response.json()["case_id"])
+        self.assertEqual(case.reporter_id, self.viewer.id)
+        self.assertEqual(case.reported_user_id, self.provider_user.id)
+        self.assertEqual(case.source_app, "providers")
+        self.assertEqual(case.source_model, "ProviderService")
+        self.assertEqual(case.source_object_id, str(self.service.id))
+        self.assertEqual(case.category, "service")
+        self.assertEqual(case.assigned_team_code, "content")
+
+
+class ProviderProfileReportTests(TestCase):
+    def setUp(self):
+        self.viewer = User.objects.create_user(
+            phone="0503900031",
+            username="provider.report.viewer",
+            role_state=UserRole.CLIENT,
+        )
+        self.provider_user = User.objects.create_user(
+            phone="0503900032",
+            username="provider.report.target",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود مبلّغ عنه",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.client.force_login(self.viewer)
+
+    def test_reporting_provider_profile_creates_support_ticket(self):
+        response = self.client.post(
+            reverse("providers:provider_report", kwargs={"provider_id": self.provider.id}),
+            {
+                "reason": "انتحال أو احتيال",
+                "details": "تفاصيل البلاغ على مزود الخدمة",
+            },
+        )
+
+        self.assertEqual(response.status_code, 201, response.json())
+        ticket = SupportTicket.objects.get(id=response.json()["ticket_id"])
+        self.assertEqual(ticket.requester_id, self.viewer.id)
+        self.assertEqual(ticket.reported_kind, "provider_profile")
+        self.assertEqual(ticket.reported_object_id, str(self.provider.id))
+        self.assertEqual(ticket.reported_user_id, self.provider_user.id)
+        self.assertIn("بلاغ على مقدم خدمة", ticket.description)
+
+
 class ProviderFollowersRoleIsolationTests(TestCase):
     def setUp(self):
         self.owner_user = User.objects.create_user(

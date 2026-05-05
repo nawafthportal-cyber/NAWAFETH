@@ -69,6 +69,25 @@ const OrderDetailPage = (() => {
       cancelReasonLabel: 'سبب الإلغاء',
       cancelReasonPlaceholder: 'اكتب سبب إلغاء الطلب',
       cancelOrder: 'إلغاء الطلب',
+      deleteOrder: 'حذف الطلب من المنصة',
+      deleteOrderForever: 'حذف نهائي من المنصة',
+      deleteOrderHint: 'سيتم حذف الطلب نهائياً من المنصة مع سجلاته المرتبطة، ولا يمكن التراجع عن هذه العملية.',
+      deleteOrderAdviceCancelled: 'استخدم الحذف فقط عندما لا تحتاج إبقاء الطلب الملغي في سجلك.',
+      deleteOrderAdviceActive: 'إذا كنت ترغب بإبقاء الطلب متاحاً لاحقاً، فاستخدم إعادة الطرح أو الإلغاء بدلاً من الحذف النهائي.',
+      deleteOrderFailed: 'تعذر حذف الطلب نهائياً',
+      deleteOrderSuccess: 'تم حذف الطلب نهائياً من المنصة',
+      deleteOrderConfirm: 'هل تريد حذف الطلب نهائياً من المنصة؟ لا يمكن التراجع عن هذه العملية.',
+      relistOrder: 'إعادة طرح الطلب',
+      relistOrderNow: 'إعادة الطرح الآن',
+      relistOrderHint: 'سيتم سحب الإسناد الحالي وإعادة طرح الطلب لمزودين آخرين مؤهلين قبل بدء التنفيذ.',
+      relistOrderReasonLabel: 'ملاحظة للمراجعة أو سبب إعادة الطرح',
+      relistOrderReasonPlaceholder: 'اكتب ملاحظة اختيارية تساعدك على تتبع سبب إعادة الطرح',
+      relistOrderFailed: 'تعذر إعادة طرح الطلب',
+      relistOrderSuccess: 'تمت إعادة طرح الطلب للمزودين الآخرين',
+      managementTitleActive: 'خيارات الطلب قبل التنفيذ',
+      managementTitleCancelled: 'إدارة الطلب الملغي',
+      managementSubtitleRelist: 'افصل بين إعادة الطرح والحذف النهائي حتى تكون الخطوة المقصودة واضحة تماماً.',
+      managementSubtitleDeleteOnly: 'هذا الطلب لن يعود للتنفيذ إلا عبر الإجراء المناسب المتاح أدناه.',
       reopenNote: 'يمكنك إعادة فتح الطلب ليعود إلى حالة جديد بدون مقدم خدمة معيّن.',
       reopenOrder: 'إعادة فتح الطلب',
       noAttachments: 'لا يوجد مرفقات',
@@ -200,6 +219,25 @@ const OrderDetailPage = (() => {
       cancelReasonLabel: 'Cancellation reason',
       cancelReasonPlaceholder: 'Write why you want to cancel the order',
       cancelOrder: 'Cancel order',
+      deleteOrder: 'Delete order from platform',
+      deleteOrderForever: 'Permanently delete from platform',
+      deleteOrderHint: 'The order and its related records will be removed permanently from the platform. This action cannot be undone.',
+      deleteOrderAdviceCancelled: 'Use delete only when you no longer need to keep the cancelled order in your history.',
+      deleteOrderAdviceActive: 'If you may need the order later, use relist or cancel instead of permanent deletion.',
+      deleteOrderFailed: 'Unable to permanently delete the order',
+      deleteOrderSuccess: 'The order was permanently deleted from the platform',
+      deleteOrderConfirm: 'Do you want to permanently delete this order from the platform? This cannot be undone.',
+      relistOrder: 'Relist order',
+      relistOrderNow: 'Relist now',
+      relistOrderHint: 'The current assignment will be withdrawn and the order will be offered to other eligible providers before execution starts.',
+      relistOrderReasonLabel: 'Review note or relist reason',
+      relistOrderReasonPlaceholder: 'Write an optional note to track why you are relisting the order',
+      relistOrderFailed: 'Unable to relist the order',
+      relistOrderSuccess: 'The order was relisted to other providers',
+      managementTitleActive: 'Pre-execution order options',
+      managementTitleCancelled: 'Manage cancelled order',
+      managementSubtitleRelist: 'Separate relisting from permanent deletion so the intended action stays explicit.',
+      managementSubtitleDeleteOnly: 'This order will not return to execution except through the appropriate action below.',
       reopenNote: 'You can reopen the order so it returns to New without an assigned provider.',
       reopenOrder: 'Reopen order',
       noAttachments: 'No attachments',
@@ -796,52 +834,125 @@ const OrderDetailPage = (() => {
     body.innerHTML = '';
     const group = _statusGroup(_order);
     const actions = _availableActions();
+    const canDelete = actions.includes('delete');
+    const canRelist = actions.includes('relist');
+    const canCancel = actions.includes('cancel');
+    const canReopen = actions.includes('reopen');
 
-    if (group === 'new' && actions.includes('cancel')) {
-      const reasonLabel = UI.el('label', {
+    if (!canDelete && !canRelist && !canCancel && !canReopen) {
+      section.classList.add('hidden');
+      return;
+    }
+
+    if (canDelete || canRelist) {
+      const manageCard = UI.el('div', { className: 'order-manage-card' });
+      const head = UI.el('div', { className: 'order-manage-head' });
+      head.appendChild(UI.el('div', {
+        className: 'order-manage-icon',
+        innerHTML: group === 'cancelled' ? '&#128230;' : '&#9881;&#65039;',
+      }));
+      const titles = UI.el('div', { className: 'order-manage-titles' });
+      titles.appendChild(UI.el('h3', {
+        className: 'order-manage-title',
+        textContent: _copy(group === 'cancelled' ? 'managementTitleCancelled' : 'managementTitleActive'),
+      }));
+      titles.appendChild(UI.el('p', {
+        className: 'order-manage-subtitle',
+        textContent: _copy(canRelist ? 'managementSubtitleRelist' : 'managementSubtitleDeleteOnly'),
+      }));
+      head.appendChild(titles);
+      manageCard.appendChild(head);
+
+      const actionsWrap = UI.el('div', { className: 'order-manage-buttons' });
+
+      if (canRelist) {
+        const relistPanel = UI.el('div', { className: 'order-manage-panel order-manage-panel-primary' });
+        relistPanel.appendChild(UI.el('p', {
+          className: 'order-manage-panel-copy',
+          textContent: _copy('relistOrderHint'),
+        }));
+        relistPanel.appendChild(UI.el('label', {
+          className: 'order-form-label',
+          for: 'order-relist-reason',
+          textContent: _copy('relistOrderReasonLabel'),
+        }));
+        relistPanel.appendChild(UI.el('textarea', {
+          id: 'order-relist-reason',
+          className: 'form-textarea order-inline-textarea',
+          rows: 3,
+          placeholder: _copy('relistOrderReasonPlaceholder'),
+        }));
+        relistPanel.appendChild(UI.el('button', {
+          type: 'button',
+          className: 'btn-primary order-manage-btn',
+          textContent: _copy('relistOrderNow'),
+          onclick: _relistOrder,
+        }));
+        actionsWrap.appendChild(relistPanel);
+      }
+
+      if (canDelete) {
+        const deletePanel = UI.el('div', { className: 'order-manage-panel order-manage-panel-danger' });
+        deletePanel.appendChild(UI.el('p', {
+          className: 'order-manage-panel-copy',
+          textContent: _copy('deleteOrderHint'),
+        }));
+        deletePanel.appendChild(UI.el('p', {
+          className: 'order-manage-panel-note',
+          textContent: _copy(group === 'cancelled' ? 'deleteOrderAdviceCancelled' : 'deleteOrderAdviceActive'),
+        }));
+        deletePanel.appendChild(UI.el('button', {
+          type: 'button',
+          className: 'btn-secondary order-manage-btn order-manage-btn-danger',
+          textContent: _copy(group === 'cancelled' ? 'deleteOrder' : 'deleteOrderForever'),
+          onclick: _deleteOrder,
+        }));
+        actionsWrap.appendChild(deletePanel);
+      }
+
+      manageCard.appendChild(actionsWrap);
+      body.appendChild(manageCard);
+    }
+
+    if (group === 'new' && canCancel) {
+      const cancelShell = UI.el('div', { className: 'order-action-shell' });
+      cancelShell.appendChild(UI.el('label', {
         className: 'order-form-label',
         for: 'order-cancel-reason',
         textContent: _copy('cancelReasonLabel'),
-      });
-      const reasonInput = UI.el('textarea', {
+      }));
+      cancelShell.appendChild(UI.el('textarea', {
         id: 'order-cancel-reason',
         className: 'form-textarea order-inline-textarea',
         rows: 3,
         placeholder: _copy('cancelReasonPlaceholder'),
-      });
-      const btn = UI.el('button', {
+      }));
+      cancelShell.appendChild(UI.el('button', {
         type: 'button',
-        className: 'btn-secondary',
+        className: 'btn-secondary order-manage-btn order-manage-btn-danger-solid',
         textContent: _copy('cancelOrder'),
         onclick: _cancelOrder,
-      });
-      body.appendChild(reasonLabel);
-      body.appendChild(reasonInput);
-      body.appendChild(btn);
-      section.classList.remove('hidden');
-      _setActionButtonsDisabled(_actionLoading);
-      return;
+      }));
+      body.appendChild(cancelShell);
     }
 
-    if (group === 'cancelled') {
-      const note = UI.el('div', {
+    if (group === 'cancelled' && canReopen) {
+      const reopenShell = UI.el('div', { className: 'order-action-shell order-action-shell-soft' });
+      reopenShell.appendChild(UI.el('div', {
         className: 'order-inline-note',
         textContent: _copy('reopenNote'),
-      });
-      const btn = UI.el('button', {
+      }));
+      reopenShell.appendChild(UI.el('button', {
         type: 'button',
-        className: 'btn-primary',
+        className: 'btn-primary order-manage-btn',
         textContent: _copy('reopenOrder'),
         onclick: _reopenOrder,
-      });
-      body.appendChild(note);
-      body.appendChild(btn);
-      section.classList.remove('hidden');
-      _setActionButtonsDisabled(_actionLoading);
-      return;
+      }));
+      body.appendChild(reopenShell);
     }
 
-    section.classList.add('hidden');
+    section.classList.remove('hidden');
+    _setActionButtonsDisabled(_actionLoading);
   }
 
   function _renderAttachments(order) {
@@ -1395,15 +1506,11 @@ const OrderDetailPage = (() => {
   async function _cancelOrder() {
     if (!_order || _actionLoading || !_availableActions().includes('cancel')) return;
     const reason = String(document.getElementById('order-cancel-reason')?.value || '').trim();
-    if (!reason) {
-      _setActionFeedback(_copy('writeCancelReason'), true);
-      return;
-    }
 
     _setActionLoading(true);
     const res = await ApiClient.request('/api/marketplace/requests/' + _requestId + '/cancel/', {
       method: 'POST',
-      body: { reason },
+      body: reason ? { reason } : {},
     });
     _setActionLoading(false);
 
@@ -1417,7 +1524,7 @@ const OrderDetailPage = (() => {
   }
 
   async function _reopenOrder() {
-    if (!_order || _actionLoading || _statusGroup(_order) !== 'cancelled') return;
+    if (!_order || _actionLoading || !_availableActions().includes('reopen')) return;
 
     _setActionLoading(true);
     const res = await ApiClient.request('/api/marketplace/requests/' + _requestId + '/reopen/', {
@@ -1433,6 +1540,46 @@ const OrderDetailPage = (() => {
 
     _setActionFeedback(_copy('reopenSuccess'), false);
     _loadDetail();
+  }
+
+  async function _relistOrder() {
+    if (!_order || _actionLoading || !_availableActions().includes('relist')) return;
+    const reason = String(document.getElementById('order-relist-reason')?.value || '').trim();
+
+    _setActionLoading(true);
+    const res = await ApiClient.request('/api/marketplace/requests/' + _requestId + '/relist/', {
+      method: 'POST',
+      body: reason ? { reason } : {},
+    });
+    _setActionLoading(false);
+
+    if (!res.ok) {
+      _setActionFeedback(_extractError(res, _copy('relistOrderFailed')), true);
+      return;
+    }
+
+    _setActionFeedback(_copy('relistOrderSuccess'), false);
+    _loadDetail();
+  }
+
+  async function _deleteOrder() {
+    if (!_order || _actionLoading || !_availableActions().includes('delete')) return;
+    if (!window.confirm(_copy('deleteOrderConfirm'))) return;
+
+    _setActionLoading(true);
+    const res = await ApiClient.request('/api/marketplace/requests/' + _requestId + '/delete/', {
+      method: 'DELETE',
+      body: {},
+    });
+    _setActionLoading(false);
+
+    if (!res.ok) {
+      _setActionFeedback(_extractError(res, _copy('deleteOrderFailed')), true);
+      return;
+    }
+
+    _setActionFeedback(_copy('deleteOrderSuccess'), false);
+    window.location.href = '/orders/';
   }
 
   async function _decideProviderInputs(approved) {
@@ -1538,7 +1685,7 @@ const OrderDetailPage = (() => {
   }
 
   function _setActionButtonsDisabled(disabled) {
-    document.querySelectorAll('#order-actions-body button, #order-provider-decision-form button, #order-review-form button').forEach((node) => {
+    document.querySelectorAll('#order-actions-body button, #order-actions-body textarea, #order-provider-decision-form button, #order-review-form button').forEach((node) => {
       node.disabled = disabled;
     });
   }

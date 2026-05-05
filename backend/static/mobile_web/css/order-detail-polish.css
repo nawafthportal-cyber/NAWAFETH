@@ -287,11 +287,156 @@ body.page-order-detail .order-files-group-head p {
   line-height: 1.6;
 }
 
+/* Order action management card */
+body.page-order-detail #order-actions-section {
+  position: relative;
+  overflow: hidden;
+}
+
+body.page-order-detail .order-actions-body {
+  display: grid;
+  gap: 14px;
+}
+
+body.page-order-detail .order-manage-card {
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(34, 87, 122, 0.14);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 255, 0.94));
+  box-shadow: 0 18px 42px rgba(12, 34, 61, 0.08);
+}
+
+body.page-order-detail .order-manage-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+body.page-order-detail .order-manage-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(34, 87, 122, 0.1);
+  color: #22577a;
+  font-size: 1.15rem;
+  flex: 0 0 auto;
+}
+
+body.page-order-detail .order-manage-titles {
+  min-width: 0;
+}
+
+body.page-order-detail .order-manage-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #102a43;
+}
+
+body.page-order-detail .order-manage-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.84rem;
+  line-height: 1.7;
+  color: #5c6f82;
+}
+
+body.page-order-detail .order-manage-buttons {
+  display: grid;
+  gap: 12px;
+}
+
+body.page-order-detail .order-manage-panel {
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(34, 87, 122, 0.12);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+body.page-order-detail .order-manage-panel-primary {
+  background: linear-gradient(180deg, rgba(244, 250, 255, 0.96), rgba(235, 245, 255, 0.92));
+}
+
+body.page-order-detail .order-manage-panel-danger {
+  background: linear-gradient(180deg, rgba(255, 246, 244, 0.98), rgba(255, 240, 237, 0.94));
+  border-color: rgba(179, 38, 30, 0.14);
+}
+
+body.page-order-detail .order-manage-panel-copy,
+body.page-order-detail .order-manage-panel-note {
+  margin: 0 0 10px;
+  font-size: 0.84rem;
+  line-height: 1.75;
+}
+
+body.page-order-detail .order-manage-panel-copy {
+  color: #294861;
+  font-weight: 700;
+}
+
+body.page-order-detail .order-manage-panel-danger .order-manage-panel-copy {
+  color: #7a1f19;
+}
+
+body.page-order-detail .order-manage-panel-note {
+  color: #7b8794;
+}
+
+body.page-order-detail .order-manage-btn {
+  width: 100%;
+}
+
+body.page-order-detail .order-manage-btn-danger {
+  border-color: rgba(179, 38, 30, 0.28);
+  color: #b3261e;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+body.page-order-detail .order-manage-btn-danger-solid {
+  background: #b3261e;
+  border-color: #b3261e;
+  color: #fff;
+}
+
+body.page-order-detail .order-action-shell {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(179, 38, 30, 0.12);
+  background: linear-gradient(180deg, rgba(255, 249, 248, 0.96), rgba(255, 243, 240, 0.92));
+}
+
+body.page-order-detail .order-action-shell-soft {
+  border-color: rgba(34, 87, 122, 0.12);
+  background: linear-gradient(180deg, rgba(245, 250, 255, 0.98), rgba(239, 247, 255, 0.94));
+}
+
+body.page-order-detail .order-action-shell .order-inline-note {
+  margin-bottom: 12px;
+}
+
+body.page-order-detail .order-action-shell .order-form-label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+body.page-order-detail #order-actions-body textarea:disabled,
+body.page-order-detail #order-actions-body button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
 /* Desktop centering safety net */
 @media (min-width: 1024px) {
   body.page-order-detail .container.order-detail-layout {
     width: min(1080px, calc(100% - 48px));
     margin-inline: auto;
+  }
+
+  body.page-order-detail .order-manage-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -313,4 +458,42 @@ body.page-order-detail.dark .order-log-row,
 body.page-order-detail.theme-dark .order-log-row {
   background: rgba(28, 28, 44, 0.85);
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.page-order-detail.dark .order-manage-card,
+body.page-order-detail.theme-dark .order-manage-card,
+body.page-order-detail.dark .order-action-shell,
+body.page-order-detail.theme-dark .order-action-shell,
+body.page-order-detail.dark .order-action-shell-soft,
+body.page-order-detail.theme-dark .order-action-shell-soft {
+  background: linear-gradient(180deg, rgba(19, 38, 55, 0.96), rgba(22, 43, 63, 0.92));
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.page-order-detail.dark .order-manage-panel,
+body.page-order-detail.theme-dark .order-manage-panel {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.page-order-detail.dark .order-manage-title,
+body.page-order-detail.theme-dark .order-manage-title {
+  color: #f8fbff;
+}
+
+body.page-order-detail.dark .order-manage-subtitle,
+body.page-order-detail.theme-dark .order-manage-subtitle,
+body.page-order-detail.dark .order-manage-panel-note,
+body.page-order-detail.theme-dark .order-manage-panel-note {
+  color: #b8c7d9;
+}
+
+body.page-order-detail.dark .order-manage-panel-copy,
+body.page-order-detail.theme-dark .order-manage-panel-copy {
+  color: #e5eef7;
+}
+
+body.page-order-detail.dark .order-manage-panel-danger .order-manage-panel-copy,
+body.page-order-detail.theme-dark .order-manage-panel-danger .order-manage-panel-copy {
+  color: #ffd1cb;
 }

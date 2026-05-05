@@ -5,6 +5,8 @@ import 'chat_detail_screen.dart'; // ✅ لفتح المحادثة
 import 'notifications_screen.dart';
 import 'provider_profile_screen.dart';
 import 'service_request_form_screen.dart'; // ✅ نموذج طلب الخدمة
+import '../services/auth_service.dart';
+import '../services/interactive_service.dart';
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
 import '../widgets/platform_report_dialog.dart';
@@ -15,6 +17,7 @@ class ServiceDetailScreen extends StatefulWidget {
   final List<String> images;
   final String description;
   final int? providerId;
+  final int? serviceId;
   final String providerName;
   final String providerHandle;
   final String providerImage;
@@ -30,6 +33,7 @@ class ServiceDetailScreen extends StatefulWidget {
     required this.images,
     this.description = '',
     this.providerId,
+    this.serviceId,
     this.providerName = 'مزود خدمة',
     this.providerHandle = '',
     this.providerImage = '',
@@ -177,6 +181,45 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   String get _serviceDescription {
     final value = widget.description.trim();
     return value.isNotEmpty ? value : 'لا يوجد وصف للخدمة.';
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+      ),
+    );
+  }
+
+  Future<void> _submitServiceReport({
+    required String reason,
+    required String details,
+  }) async {
+    final serviceId = widget.serviceId;
+    if (serviceId == null || serviceId <= 0) {
+      _showSnack('تعذر إرسال البلاغ: معرف الخدمة غير متوفر.', isError: true);
+      return;
+    }
+
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) {
+      _showSnack('يلزم تسجيل الدخول لإرسال البلاغ.', isError: true);
+      return;
+    }
+
+    final response = await InteractiveService.reportProviderService(
+      serviceId,
+      reason: reason,
+      details: details,
+    );
+    _showSnack(
+      response.isSuccess
+          ? 'تم إرسال بلاغ الخدمة إلى فريق المحتوى.'
+          : (response.error ?? 'تعذر إرسال بلاغ الخدمة حالياً.'),
+      isError: !response.isSuccess,
+    );
   }
 
   void _openProviderProfile() {
@@ -337,6 +380,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                         contextValue:
                             '$_providerDisplayName ${_providerDisplayHandle.isNotEmpty ? "($_providerDisplayHandle)" : ""}'
                                 .trim(),
+                        onSubmit: _submitServiceReport,
                       );
                     },
                     icon: const Icon(Icons.flag_outlined, size: 18),

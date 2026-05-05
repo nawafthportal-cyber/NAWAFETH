@@ -238,10 +238,10 @@ Future<void> showPlatformReportDialog({
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text(
-                          'تم إرسال البلاغ للإدارة. شكراً لك',
+                          'تعذر إرسال البلاغ من هذه الواجهة حالياً.',
                           style: TextStyle(fontFamily: 'Cairo'),
                         ),
-                        backgroundColor: AppColors.success,
+                        backgroundColor: AppColors.error,
                       ),
                     );
                   },

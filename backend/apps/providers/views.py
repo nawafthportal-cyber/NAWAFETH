@@ -521,6 +521,106 @@ class ProviderServicePublicDetailView(generics.RetrieveAPIView):
 		)
 
 
+class ReportProviderServiceView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, item_id: int):
+		item = generics.get_object_or_404(
+			ProviderService.objects.select_related("provider", "provider__user", "subcategory", "subcategory__category"),
+			id=item_id,
+			is_active=True,
+		)
+		if request.user.id == item.provider.user_id:
+			return Response({"detail": "لا يمكنك الإبلاغ عن خدمتك الخاصة."}, status=status.HTTP_400_BAD_REQUEST)
+
+		from apps.moderation.services import assign_case, create_case
+
+		reason = str(request.data.get("reason") or "").strip()[:120] or "إبلاغ عن خدمة"
+		details = str(request.data.get("details") or "").strip()[:500]
+		case = create_case(
+			reporter=request.user,
+			payload={
+				"reported_user": item.provider.user,
+				"source_app": "providers",
+				"source_model": "ProviderService",
+				"source_object_id": str(item.id),
+				"source_label": item.title or f"خدمة {item.provider.display_name}",
+				"category": "service",
+				"reason": reason,
+				"details": details,
+				"summary": f"بلاغ على خدمة {item.title or item.provider.display_name}"[:300],
+				"severity": "normal",
+				"snapshot": {
+					"provider_id": item.provider_id,
+					"provider_name": item.provider.display_name,
+					"service_title": item.title,
+					"service_description": item.description,
+					"subcategory": getattr(getattr(item, "subcategory", None), "name", "") or "",
+					"category_name": getattr(getattr(getattr(item, "subcategory", None), "category", None), "name", "") or "",
+					"price_from": item.price_from,
+					"price_to": item.price_to,
+					"price_unit": item.price_unit,
+				},
+				"meta": {
+					"surface": str(request.data.get("surface") or "mobile_web.service_detail"),
+					"provider_id": item.provider_id,
+					"service_id": item.id,
+				},
+			},
+			request=request,
+		)
+		assign_case(
+			case=case,
+			assigned_team_code="content",
+			assigned_team_name="المحتوى والمراجعات",
+			note="بلاغ وارد من صفحة الخدمة",
+			by_user=request.user,
+			request=request,
+		)
+		return Response({"ok": True, "case_id": case.id, "case_code": case.code}, status=status.HTTP_201_CREATED)
+
+
+class ReportProviderProfileView(APIView):
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def post(self, request, provider_id: int):
+		provider = generics.get_object_or_404(
+			ProviderProfile.objects.select_related("user"),
+			id=provider_id,
+			user__is_active=True,
+		)
+		if request.user.id == provider.user_id:
+			return Response({"detail": "لا يمكنك الإبلاغ عن ملفك الشخصي."}, status=status.HTTP_400_BAD_REQUEST)
+
+		from apps.moderation.integrations import sync_support_ticket_case
+		from apps.support.models import SupportPriority, SupportTeam, SupportTicket, SupportTicketEntrypoint, SupportTicketType
+
+		reason = str(request.data.get("reason") or "").strip()[:120] or "إبلاغ عن مقدم خدمة"
+		details = str(request.data.get("details") or "").strip()[:300]
+		description = f"بلاغ على مقدم خدمة @{provider.display_name or provider.user.username or provider.user.phone} - السبب: {reason}"
+		if details:
+			description += f" - التفاصيل: {details}"
+		description = description[:300]
+
+		assigned_team = SupportTeam.objects.filter(code__iexact="support", is_active=True).first()
+		ticket = SupportTicket.objects.create(
+			requester=request.user,
+			ticket_type=SupportTicketType.COMPLAINT,
+			priority=SupportPriority.NORMAL,
+			entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
+			description=description,
+			reported_kind="provider_profile",
+			reported_object_id=str(provider.id),
+			reported_user=provider.user,
+			assigned_team=assigned_team,
+		)
+		try:
+			sync_support_ticket_case(ticket=ticket, by_user=request.user, request=request, note="provider_profile_report")
+		except Exception:
+			pass
+		return Response({"ok": True, "ticket_id": ticket.id, "ticket_code": ticket.code}, status=status.HTTP_201_CREATED)
+
+
 class ProviderSubcategoriesPublicListView(generics.ListAPIView):
 	"""Public list of a provider's selected service subcategories."""
 

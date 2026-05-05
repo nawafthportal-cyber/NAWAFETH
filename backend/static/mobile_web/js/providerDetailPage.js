@@ -131,7 +131,9 @@ const ProviderDetailPage = (() => {
       reportDetailsPlaceholder: 'اكتب التفاصيل هنا...',
       cancel: 'إلغاء',
       submitReport: 'إرسال البلاغ',
+      submitReportPending: 'جارٍ إرسال البلاغ...',
       reportSent: 'تم إرسال البلاغ للإدارة. شكراً لك',
+      reportSendFailed: 'تعذر إرسال البلاغ حالياً',
       reportReasonInappropriate: 'محتوى غير لائق',
       reportReasonHarassment: 'تحرش أو إزعاج',
       reportReasonFraud: 'احتيال أو نصب',
@@ -360,7 +362,9 @@ const ProviderDetailPage = (() => {
       reportDetailsPlaceholder: 'Write the details here...',
       cancel: 'Cancel',
       submitReport: 'Send report',
+      submitReportPending: 'Sending...',
       reportSent: 'The report was sent to the team. Thank you.',
+      reportSendFailed: 'Unable to send the report right now',
       reportReasonInappropriate: 'Inappropriate content',
       reportReasonHarassment: 'Harassment or nuisance',
       reportReasonFraud: 'Fraud or scam',
@@ -1945,9 +1949,31 @@ const ProviderDetailPage = (() => {
       className: 'pd-report-btn pd-report-btn-submit',
       textContent: _copy('submitReport'),
     });
-    submitBtn.addEventListener('click', () => {
-      closeDialog();
-      _showToast(_copy('reportSent'));
+    submitBtn.addEventListener('click', async () => {
+      if (!Auth.isLoggedIn()) {
+        window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = _copy('submitReportPending');
+      try {
+        const res = await ApiClient.request(_withMode('/api/providers/' + _providerId + '/report/'), {
+          method: 'POST',
+          body: {
+            reason: String(reasonSelect.value || '').trim(),
+            details: String(detailsInput.value || '').trim(),
+          },
+        });
+        if (!res || !res.ok) {
+          throw new Error((res && res.data && (res.data.detail || res.data.error)) || _copy('reportSendFailed'));
+        }
+        closeDialog();
+        _showToast(_copy('reportSent'));
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = _copy('submitReport');
+        _showToast((err && err.message) ? err.message : _copy('reportSendFailed'));
+      }
     });
 
     actions.appendChild(cancelBtn);

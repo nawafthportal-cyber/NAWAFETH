@@ -83,6 +83,7 @@
                   <th>رقم الطلب</th>
                   <th>اسم مقدم الطلب</th>
                   <th>الأولوية</th>
+                  <th>مصدر الطلب</th>
                   <th>نوع الطلب</th>
                   <th>تاريخ الاستلام</th>
                   <th>الحالة</th>
@@ -104,6 +105,7 @@
                     </td>
                     <td>{{ row.requester }}</td>
                     <td>{{ row.priority_number }}</td>
+                    <td>{{ row.entrypoint }}</td>
                     <td>{{ row.ticket_type }}</td>
                     <td>{{ row.created_at }}</td>
                     <td>{{ row.status }}</td>
@@ -113,7 +115,7 @@
                   </tr>
                   {% if selected_ticket and selected_ticket.id == row.id %}
                     <tr class="dash-inline-detail-row">
-                      <td colspan="9">
+                      <td colspan="10">
                         <div class="dash-inline-detail-shell support-detail-shell">
                           <div class="title-row">
                             <h2>تفاصيل الطلب: {{ selected_ticket.code }}</h2>
@@ -122,6 +124,7 @@
 
                           <div class="support-meta-grid">
                             <div class="quick-stat"><span>اسم مقدم الطلب</span><strong>{{ selected_ticket_requester_name }}</strong></div>
+                            <div class="quick-stat"><span>مصدر الطلب</span><strong>{{ selected_ticket_entrypoint }}</strong></div>
                             <div class="quick-stat"><span>تاريخ الاستلام</span><strong>{{ selected_ticket.created_at|date:"d/m/Y - H:i" }}</strong></div>
                             <div class="quick-stat"><span>المكلف الحالي</span><strong>{% if selected_ticket.assigned_to %}{{ selected_ticket.assigned_to.username|default:selected_ticket.assigned_to.phone }}{% else %}غير مكلف{% endif %}</strong></div>
                             <div class="quick-stat"><span>الفريق</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>
@@ -217,7 +220,7 @@
                   {% endif %}
                 {% empty %}
                   <tr>
-                    <td colspan="9" class="empty-note">لا توجد طلبات مطابقة للفلاتر الحالية.</td>
+                    <td colspan="10" class="empty-note">لا توجد طلبات مطابقة للفلاتر الحالية.</td>
                   </tr>
                 {% endfor %}
               </tbody>

@@ -418,35 +418,154 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
     );
   }
 
-  Future<void> _managePreExecutionCancellation() async {
+  Future<void> _deleteRequestPermanently() async {
     final order = _order;
     if (order == null) return;
 
-    final canDelete = _canDeleteOrder(order);
-    final canRelist = _canRelistOrder(order);
-    if (!canDelete && !canRelist) {
-      return;
-    }
-
-    final reasonController = TextEditingController();
-    final choice = await showDialog<String>(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           title: const Text(
-            'إدارة الطلب قبل التنفيذ',
+            'حذف الطلب نهائياً',
             style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w900),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF4F2),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFF1C7C0)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.delete_forever_rounded, color: Color(0xFFB3261E)),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'سيتم حذف الطلب نهائياً من المنصة مع سجلاته المرتبطة، ولا يمكن التراجع عن هذه العملية.',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          height: 1.7,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF7A1F19),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
               Text(
-                canRelist
-                    ? 'يمكنك حذف الطلب نهائياً أو سحب الإسناد الحالي وإعادة طرحه لمزودين آخرين.'
-                    : 'يمكنك حذف الطلب نهائياً قبل بدء التنفيذ.',
-                style: const TextStyle(fontFamily: 'Cairo', height: 1.7),
+                order.statusGroup == 'cancelled'
+                    ? 'استخدم الحذف عندما لا تحتاج إبقاء الطلب الملغي في سجلك.'
+                    : 'إذا كنت تريد إبقاء الطلب متاحاً لاحقاً، فاستخدم إعادة الطرح أو الإلغاء بدلاً من الحذف النهائي.',
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  height: 1.7,
+                  color: Color(0xFF667085),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('تراجع', style: TextStyle(fontFamily: 'Cairo')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+              child: const Text(
+                'تأكيد الحذف النهائي',
+                style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _saving = true);
+    final res = await MarketplaceService.deleteRequestPermanently(order.id);
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    if (res.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تم حذف الطلب نهائياً من المنصة',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+        ),
+      );
+      Navigator.pop(context, true);
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          res.error ?? 'تعذر حذف الطلب نهائياً',
+          style: const TextStyle(fontFamily: 'Cairo'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _relistRequest() async {
+    final order = _order;
+    if (order == null) return;
+
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text(
+            'إعادة طرح الطلب',
+            style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w900),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4FAFF),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFC8DCF0)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.campaign_rounded, color: _accentColor),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'سيتم سحب الإسناد الحالي وإعادة طرح الطلب لمزودين آخرين مؤهلين قبل بدء التنفيذ.',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          height: 1.7,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF184B6A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
               TextField(
@@ -454,7 +573,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
                 minLines: 2,
                 maxLines: 4,
                 decoration: const InputDecoration(
-                  labelText: 'ملاحظة أو سبب (اختياري)',
+                  labelText: 'ملاحظة للمراجعة أو سبب إعادة الطرح (اختياري)',
                   border: OutlineInputBorder(),
                 ),
                 style: const TextStyle(fontFamily: 'Cairo'),
@@ -463,69 +582,50 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('تراجع', style: TextStyle(fontFamily: 'Cairo')),
             ),
-            if (canDelete)
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, 'delete'),
-                style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
-                child: const Text(
-                  'حذف نهائي',
-                  style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w900),
-                ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(backgroundColor: _accentColor),
+              child: const Text(
+                'إعادة الطرح الآن',
+                style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
               ),
-            if (canRelist)
-              ElevatedButton(
-                onPressed: () => Navigator.pop(dialogContext, 'relist'),
-                style: ElevatedButton.styleFrom(backgroundColor: _accentColor),
-                child: const Text(
-                  'إعادة طرح الطلب',
-                  style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
-                ),
-              ),
+            ),
           ],
         ),
       ),
     );
     final reason = reasonController.text.trim();
     reasonController.dispose();
-    if (choice == null || !mounted) return;
+    if (confirmed != true || !mounted) return;
 
     setState(() => _saving = true);
-    final res = choice == 'delete'
-        ? await MarketplaceService.deleteRequestPermanently(order.id)
-        : await MarketplaceService.relistRequest(
-            order.id,
-            reason: reason.isEmpty ? null : reason,
-          );
+    final res = await MarketplaceService.relistRequest(
+      order.id,
+      reason: reason.isEmpty ? null : reason,
+    );
     if (!mounted) return;
     setState(() => _saving = false);
 
     if (res.isSuccess) {
-      final successMessage = choice == 'delete'
-          ? 'تم حذف الطلب نهائياً'
-          : 'تمت إعادة طرح الطلب للمزودين الآخرين';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
-            successMessage,
-            style: const TextStyle(fontFamily: 'Cairo'),
+            'تمت إعادة طرح الطلب للمزودين الآخرين',
+            style: TextStyle(fontFamily: 'Cairo'),
           ),
         ),
       );
-      if (choice == 'delete') {
-        Navigator.pop(context, true);
-      } else {
-        await _loadDetail();
-      }
+      await _loadDetail();
       return;
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          res.error ?? 'تعذر تنفيذ الإجراء',
+          res.error ?? 'تعذر إعادة طرح الطلب',
           style: const TextStyle(fontFamily: 'Cairo'),
         ),
       ),
@@ -1113,80 +1213,199 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (canManagePreExecution || canCancel || canReopen) ...[
-                  Row(
-                    children: [
-                      if (canManagePreExecution) ...[
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _saving ? null : _managePreExecutionCancellation,
-                            icon: const Icon(Icons.swap_horiz_rounded, color: Colors.white),
-                            label: Text(
-                              canRelist ? 'حذف أو إعادة طرح' : 'حذف نهائي',
-                              style: const TextStyle(
-                                fontFamily: 'Cairo',
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                  if (canManagePreExecution) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: isDark
+                            ? const LinearGradient(
+                                colors: [Color(0xFF12283B), Color(0xFF173650)],
+                                begin: Alignment.topRight,
+                                end: Alignment.bottomLeft,
+                              )
+                            : LinearGradient(
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.98),
+                                  const Color(0xFFF4F9FF),
+                                ],
+                                begin: Alignment.topRight,
+                                end: Alignment.bottomLeft,
+                              ),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: isDark ? Colors.white10 : const Color(0xFFDCE7F2),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.16 : 0.08),
+                            blurRadius: 22,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.08)
+                                      : const Color(0xFFEAF3FC),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Icon(
+                                  order.statusGroup == 'cancelled'
+                                      ? Icons.inventory_2_outlined
+                                      : Icons.tune_rounded,
+                                  color: _accentColor,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      order.statusGroup == 'cancelled'
+                                          ? 'إدارة الطلب الملغي'
+                                          : 'خيارات الطلب قبل التنفيذ',
+                                      style: TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w900,
+                                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      canRelist
+                                          ? 'افصل بين إعادة الطرح والحذف النهائي حتى تكون الخطوة المقصودة واضحة تماماً.'
+                                          : 'هذا الطلب لن يعود للتنفيذ إلا عبر الإجراء المناسب المتاح أدناه.',
+                                      style: TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 11.5,
+                                        height: 1.55,
+                                        color: isDark
+                                            ? const Color(0xFFB8C7D9)
+                                            : const Color(0xFF667085),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          if (canRelist) ...[
+                            ElevatedButton.icon(
+                              onPressed: _saving ? null : _relistRequest,
+                              icon: const Icon(Icons.campaign_rounded, color: Colors.white),
+                              label: const Text(
+                                'إعادة طرح الطلب',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(52),
+                                backgroundColor: _accentColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
                               ),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              backgroundColor: canRelist ? _accentColor : Colors.red.shade700,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
+                            const SizedBox(height: 10),
+                          ],
+                          if (canDelete)
+                            OutlinedButton.icon(
+                              onPressed: _saving ? null : _deleteRequestPermanently,
+                              icon: const Icon(Icons.delete_forever_rounded),
+                              label: Text(
+                                order.statusGroup == 'cancelled'
+                                    ? 'حذف الطلب من المنصة'
+                                    : 'حذف نهائي من المنصة',
+                                style: const TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(52),
+                                side: BorderSide(color: Colors.red.shade300),
+                                foregroundColor: Colors.red.shade700,
+                                backgroundColor: isDark
+                                    ? const Color(0x33B3261E)
+                                    : const Color(0xFFFFF6F4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (canCancel || canReopen) const SizedBox(height: 12),
+                  ],
+                  if (canCancel || canReopen)
+                    Row(
+                      children: [
+                        if (canCancel) ...[
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _saving ? null : _cancelRequest,
+                              icon: const Icon(Icons.cancel_outlined, color: Colors.white),
+                              label: const Text(
+                                'إلغاء الطلب',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                backgroundColor: Colors.red.shade700,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ] else if (canCancel) ...[
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _saving ? null : _cancelRequest,
-                            icon: const Icon(Icons.cancel_outlined, color: Colors.white),
-                            label: const Text(
-                              'إلغاء الطلب',
-                              style: TextStyle(
-                                fontFamily: 'Cairo',
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                        ],
+                        if (canReopen) ...[
+                          if (canCancel) const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _saving ? null : _reopenRequest,
+                              icon: const Icon(Icons.restart_alt_rounded),
+                              label: const Text(
+                                'إعادة فتح الطلب',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              backgroundColor: Colors.red.shade700,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                side: BorderSide(color: _accentColor.withValues(alpha: 0.35)),
+                                foregroundColor: _accentColor,
+                                backgroundColor: Colors.white.withValues(alpha: 0.9),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                      if (canReopen) ...[
-                        if (canManagePreExecution || canCancel) const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _saving ? null : _reopenRequest,
-                            icon: const Icon(Icons.restart_alt_rounded),
-                            label: const Text(
-                              'إعادة فتح الطلب',
-                              style: TextStyle(
-                                fontFamily: 'Cairo',
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: BorderSide(color: _accentColor.withValues(alpha: 0.35)),
-                              foregroundColor: _accentColor,
-                              backgroundColor: Colors.white.withValues(alpha: 0.9),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
                   const SizedBox(height: 12),
                 ],
                 Row(

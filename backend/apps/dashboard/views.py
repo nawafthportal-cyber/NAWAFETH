@@ -1508,7 +1508,6 @@ def _support_attachment_rows(ticket: SupportTicket) -> list[dict]:
 def _support_queryset_for_user(user):
     qs = (
         SupportTicket.objects.select_related("requester", "requester__provider_profile", "assigned_team", "assigned_to")
-        .filter(entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM)
         .order_by("-created_at", "-id")
     )
     access_profile = active_access_profile_for_user(user)
@@ -1702,6 +1701,7 @@ def _serialize_support_rows(tickets: list[SupportTicket]) -> list[dict]:
                     ticket.requester,
                     subscriptions_by_user_id=subscriptions_by_user_id,
                 ),
+                "entrypoint": ticket.get_entrypoint_display(),
                 "ticket_type": ticket.get_ticket_type_display(),
                 "created_at": _format_dt(ticket.created_at),
                 "status": ticket.get_status_display(),
@@ -1719,6 +1719,7 @@ def _support_export_rows(tickets: list[SupportTicket]) -> tuple[list[str], list[
         "رقم الطلب",
         "اسم العميل",
         "الأولوية",
+        "مصدر الطلب",
         "نوع الطلب",
         "تاريخ ووقت استلام الطلب",
         "حالة الطلب",
@@ -1733,6 +1734,7 @@ def _support_export_rows(tickets: list[SupportTicket]) -> tuple[list[str], list[
                 row["code"],
                 row["requester"],
                 row["priority_number"],
+                row["entrypoint"],
                 row["ticket_type"],
                 row["created_at"],
                 row["status"],
@@ -2277,6 +2279,7 @@ def support_dashboard(request, ticket_id: int | None = None):
             "tickets": _serialize_support_rows(tickets),
             "selected_ticket": selected_ticket,
             "selected_ticket_requester_name": _support_requester_label(selected_ticket) if selected_ticket else "",
+            "selected_ticket_entrypoint": selected_ticket.get_entrypoint_display() if selected_ticket else "",
             "selected_ticket_attachments": _support_attachment_rows(selected_ticket) if selected_ticket else [],
             "support_form": support_form,
             "summary": _support_summary(tickets),
@@ -9727,6 +9730,133 @@ def _content_moderation_detail_payload(case: ModerationCase | None) -> dict:
     }
 
 
+def _safe_file_url(file_field) -> str:
+    if not file_field:
+        return ""
+    try:
+        return str(file_field.url or "").strip()
+    except Exception:
+        return ""
+
+
+def _content_moderation_target_kind_label(target_kind: str) -> str:
+    return {
+        "spotlight_item": "لمحة مزود",
+        "portfolio_item": "معرض أعمال",
+        "service": "خدمة منشورة",
+    }.get(target_kind, "محتوى مباشر")
+
+
+def _content_moderation_service_price_label(service: ProviderService) -> str:
+    unit_label = dict(ProviderService.PRICE_UNIT_CHOICES).get(service.price_unit, service.price_unit or "")
+    price_from = service.price_from
+    price_to = service.price_to
+    if price_from is not None and price_to is not None:
+        return f"{price_from} - {price_to} ريال ({unit_label})"
+    if price_from is not None:
+        return f"{price_from} ريال ({unit_label})"
+    if price_to is not None:
+        return f"حتى {price_to} ريال ({unit_label})"
+    return unit_label or "غير محدد"
+
+
+def _content_moderation_target_preview_payload(case: ModerationCase | None) -> dict:
+    empty_payload = {
+        "available": False,
+        "kind_label": "-",
+        "status_label": "غير متاح",
+        "title": "لا يوجد محتوى محدد",
+        "subtitle": "",
+        "description": "اختر بلاغًا من القائمة لعرض المحتوى المبلّغ عنه مباشرة داخل اللوحة.",
+        "preview_url": "",
+        "preview_alt": "",
+        "preview_is_image": False,
+        "preview_is_video": False,
+        "file_url": "",
+        "open_label": "",
+        "meta_rows": [],
+    }
+    if case is None:
+        return empty_payload
+
+    try:
+        target_kind, target = _content_resolve_moderation_target(case)
+    except ValueError as exc:
+        fallback_kind = _content_moderation_target_kind(case)
+        return {
+            **empty_payload,
+            "kind_label": _content_moderation_target_kind_label(fallback_kind),
+            "title": (case.source_label or "المحتوى المبلّغ عنه").strip() or "المحتوى المبلّغ عنه",
+            "description": str(exc),
+            "meta_rows": [
+                {"label": "رقم البلاغ", "value": case.code or f"MC#{case.id}"},
+                {"label": "نوع المصدر", "value": case.source_model or "-"},
+            ],
+        }
+
+    provider = getattr(target, "provider", None)
+    provider_user = getattr(provider, "user", None)
+    provider_name = str(getattr(provider, "display_name", "") or "").strip() or _dashboard_requester_display_name(provider_user)
+    provider_account = _dashboard_user_identifier(provider_user) if provider_user else "-"
+    provider_location = "-"
+    if provider is not None:
+        provider_location = format_city_display(
+            str(getattr(provider, "city", "") or ""),
+            region=str(getattr(provider, "region", "") or ""),
+        ) or "-"
+
+    if target_kind == "service":
+        return {
+            **empty_payload,
+            "available": True,
+            "kind_label": _content_moderation_target_kind_label(target_kind),
+            "status_label": "نشطة" if target.is_active else "مخفية",
+            "title": (target.title or case.source_label or "الخدمة المبلّغ عنها").strip(),
+            "subtitle": provider_name if provider_name and provider_name != "-" else "خدمة منشورة داخل حساب مزود",
+            "description": (target.description or case.details or case.summary or "لا يوجد وصف لهذه الخدمة.").strip(),
+            "preview_alt": (target.title or case.source_label or "الخدمة المبلّغ عنها").strip(),
+            "meta_rows": [
+                {"label": "مقدم الخدمة", "value": provider_name or "-"},
+                {"label": "حساب المزود", "value": provider_account},
+                {"label": "التصنيف", "value": getattr(getattr(target, "subcategory", None), "name", "-") or "-"},
+                {"label": "السعر", "value": _content_moderation_service_price_label(target)},
+                {"label": "الموقع", "value": provider_location},
+                {"label": "آخر تحديث", "value": _format_dt(getattr(target, "updated_at", None))},
+            ],
+        }
+
+    file_type = str(getattr(target, "file_type", "") or "").strip()
+    file_type_choices = (
+        ProviderSpotlightItem.FILE_TYPE_CHOICES if target_kind == "spotlight_item" else ProviderPortfolioItem.FILE_TYPE_CHOICES
+    )
+    file_type_label = dict(file_type_choices).get(file_type, file_type or "-")
+    preview_url = _safe_file_url(getattr(target, "thumbnail", None)) or _safe_file_url(getattr(target, "file", None))
+    file_url = _safe_file_url(getattr(target, "file", None))
+    caption = (getattr(target, "caption", "") or "").strip()
+    return {
+        **empty_payload,
+        "available": True,
+        "kind_label": _content_moderation_target_kind_label(target_kind),
+        "status_label": "متاح للمعاينة",
+        "title": caption or (case.source_label or "المحتوى المبلّغ عنه").strip() or "المحتوى المبلّغ عنه",
+        "subtitle": provider_name if provider_name and provider_name != "-" else file_type_label,
+        "description": (case.details or case.summary or caption or "هذا هو المحتوى الذي تم الإبلاغ عنه مباشرة من التطبيق.").strip(),
+        "preview_url": preview_url,
+        "preview_alt": caption or case.source_label or "المحتوى المبلّغ عنه",
+        "preview_is_image": file_type == "image" and bool(preview_url),
+        "preview_is_video": file_type == "video" and bool(file_url),
+        "file_url": file_url,
+        "open_label": "فتح الملف الأصلي" if file_url else "",
+        "meta_rows": [
+            {"label": "مقدم الخدمة", "value": provider_name or "-"},
+            {"label": "حساب المزود", "value": provider_account},
+            {"label": "نوع المحتوى", "value": file_type_label},
+            {"label": "الموقع", "value": provider_location},
+            {"label": "تاريخ الإنشاء", "value": _format_dt(getattr(target, "created_at", None))},
+        ],
+    }
+
+
 def _content_moderation_case_team_initial_value(case: ModerationCase | None) -> str:
     if case is not None:
         team_code = (case.assigned_team_code or "").strip()
@@ -10718,6 +10848,7 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
             "target_info": _content_ticket_target_info(selected_ticket),
             "detail_info": _content_review_detail_payload(selected_ticket),
             "selected_case_info": _content_moderation_detail_payload(selected_case),
+            "selected_case_target_preview": _content_moderation_target_preview_payload(selected_case),
             "selected_ticket_comments": list(selected_ticket.comments.order_by("-id")[:8]) if selected_ticket else [],
             "selected_ticket_attachments": _support_attachment_rows(selected_ticket) if selected_ticket else [],
             "team_assignee_map": assignee_choices_by_team,

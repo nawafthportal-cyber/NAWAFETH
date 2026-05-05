@@ -31,7 +31,7 @@ from apps.providers.models import (
 )
 from apps.reviews.models import Review
 from apps.subscriptions.models import PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
-from apps.support.models import SupportTicket, SupportTicketType
+from apps.support.models import SupportTicket, SupportTicketEntrypoint, SupportTicketType
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestStatus, UnifiedRequestType
 from apps.verification.models import VerificationBadgeType, VerificationRequest
 
@@ -600,12 +600,18 @@ class DashboardContentReviewsModerationCasesTests(TestCase):
         self.assertContains(response, "لمحة مزود مختبَر")
 
     def test_content_reviews_page_shows_selected_direct_report_details(self):
+        item = ProviderPortfolioItem.objects.create(
+            provider=self.provider,
+            file_type="image",
+            file=SimpleUploadedFile("reported-portfolio.jpg", b"filecontent", content_type="image/jpeg"),
+            caption="لقطة مخالفة من المعرض",
+        )
         case = ModerationCase.objects.create(
             reporter=self.reporter,
             reported_user=self.reported_user,
             source_app="providers",
             source_model="ProviderPortfolioItem",
-            source_object_id="71",
+            source_object_id=str(item.id),
             source_label="محتوى خدمات ومشاريع",
             category="portfolio",
             reason="سبام أو تضليل",
@@ -622,6 +628,9 @@ class DashboardContentReviewsModerationCasesTests(TestCase):
         self.assertContains(response, f"تفاصيل بلاغ المحتوى: {case.code}")
         self.assertContains(response, "سبام أو تضليل")
         self.assertContains(response, "الوصف التفصيلي للبلاغ")
+        self.assertContains(response, "المحتوى المبلّغ عنه")
+        self.assertContains(response, "لقطة مخالفة من المعرض")
+        self.assertContains(response, "فتح الملف الأصلي")
 
     def test_content_reviews_case_delete_action_removes_portfolio_item(self):
         item = ProviderPortfolioItem.objects.create(
@@ -708,3 +717,43 @@ class DashboardContentReviewsModerationCasesTests(TestCase):
         self.assertFalse(service.is_active)
         self.assertEqual(case.status, ModerationStatus.ACTION_TAKEN)
         self.assertEqual(case.decisions.first().decision_code, ModerationDecisionCode.HIDE)
+
+
+class DashboardSupportMessagingReportsTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            phone="0503201101",
+            username="support.messaging.staff",
+            password="pass1234",
+            role_state=UserRole.STAFF,
+        )
+        self.staff.is_staff = True
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=["is_staff", "is_superuser"])
+
+        self.reporter = User.objects.create_user(
+            phone="0503201102",
+            username="support.messaging.reporter",
+            role_state=UserRole.CLIENT,
+        )
+
+        self.client.force_login(self.staff)
+        session = self.client.session
+        session[SESSION_OTP_VERIFIED_KEY] = True
+        session.save()
+
+    def test_support_dashboard_lists_messaging_report_tickets(self):
+        ticket = SupportTicket.objects.create(
+            requester=self.reporter,
+            ticket_type=SupportTicketType.COMPLAINT,
+            entrypoint=SupportTicketEntrypoint.MESSAGING_REPORT,
+            description="بلاغ محادثة تجريبي",
+            reported_kind="thread",
+            reported_object_id="321",
+        )
+
+        response = self.client.get(reverse("dashboard:support_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, ticket.code)
+        self.assertContains(response, "بلاغ المحادثات")

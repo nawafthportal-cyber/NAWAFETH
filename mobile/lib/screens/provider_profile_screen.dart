@@ -1216,6 +1216,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                       reportedEntityValue: '$providerName ($providerHandle)',
                       contextLabel: 'نوع البلاغ',
                       contextValue: 'مزود خدمة',
+                      onSubmit: _submitProviderReport,
                     );
                   },
                   leading:
@@ -1272,6 +1273,49 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       entries: entries,
       error: error,
       emptyMessage: 'لا يوجد متابعون بعد',
+    );
+  }
+
+  Future<void> _submitProviderReport({
+    required String reason,
+    required String details,
+  }) async {
+    final providerId = _resolvedProviderId;
+    if (providerId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر إرسال البلاغ: معرف المزود غير صالح')),
+      );
+      return;
+    }
+
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) {
+      if (!mounted) return;
+      await showLoginRequiredPromptDialog(
+        context,
+        title: 'يلزم تسجيل الدخول للإبلاغ',
+        message: 'حتى تتمكن من إرسال بلاغ على مقدم الخدمة، سجّل دخولك أولاً.',
+      );
+      return;
+    }
+
+    final response = await InteractiveService.reportProviderProfile(
+      providerId,
+      reason: reason,
+      details: details,
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          response.isSuccess
+              ? 'تم إرسال البلاغ إلى فريق الدعم.'
+              : (response.error ?? 'تعذر إرسال البلاغ حالياً.'),
+        ),
+        backgroundColor:
+            response.isSuccess ? AppColors.success : AppColors.error,
+      ),
     );
   }
 

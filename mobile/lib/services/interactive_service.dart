@@ -580,6 +580,40 @@ class InteractiveService {
     );
   }
 
+  static Future<ApiResponse> reportProviderProfile(
+    int providerId, {
+    required String reason,
+    String details = '',
+    String surface = 'flutter.provider_profile',
+  }) async {
+    final path = await _withMode('/api/providers/$providerId/report/');
+    return ApiClient.post(
+      path,
+      body: {
+        'reason': reason,
+        'details': details,
+        'surface': surface,
+      },
+    );
+  }
+
+  static Future<ApiResponse> reportProviderService(
+    int serviceId, {
+    required String reason,
+    String details = '',
+    String surface = 'flutter.service_detail',
+  }) async {
+    final path = await _withMode('/api/providers/services/$serviceId/report/');
+    return ApiClient.post(
+      path,
+      body: {
+        'reason': reason,
+        'details': details,
+        'surface': surface,
+      },
+    );
+  }
+
   /// إعجاب بمزود (معزول حسب الوضع)
   static Future<bool> likeProvider(int providerId) async {
     final path = await _withMode('/api/providers/$providerId/like/');

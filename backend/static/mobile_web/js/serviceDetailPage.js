@@ -33,7 +33,9 @@ var ServiceDetailPage = (function () {
       reportDetailsPlaceholder: "اكتب التفاصيل هنا...",
       reportCancel: "إلغاء",
       reportSubmit: "إرسال البلاغ",
+      reportSubmitting: "جارٍ إرسال البلاغ...",
       reportSuccess: "تم إرسال البلاغ للإدارة. شكراً لك",
+      reportFailed: "تعذر إرسال البلاغ حالياً",
       reportReasonInappropriate: "محتوى غير لائق",
       reportReasonHarassment: "تحرش أو إزعاج",
       reportReasonFraud: "احتيال أو نصب",
@@ -67,7 +69,9 @@ var ServiceDetailPage = (function () {
       reportDetailsPlaceholder: "Write the details here...",
       reportCancel: "Cancel",
       reportSubmit: "Send report",
+      reportSubmitting: "Sending...",
       reportSuccess: "Your report has been sent to the administrators. Thank you.",
+      reportFailed: "Unable to send the report right now",
       reportReasonInappropriate: "Inappropriate content",
       reportReasonHarassment: "Harassment or disturbance",
       reportReasonFraud: "Fraud or scam",
@@ -392,7 +396,7 @@ var ServiceDetailPage = (function () {
 
   function _openReportDialog() {
     if (typeof UI === "undefined" || !UI.el) {
-      alert(_copy().reportFallbackAlert);
+      alert(_copy().reportFailed);
       return;
     }
 
@@ -489,9 +493,28 @@ var ServiceDetailPage = (function () {
       className: "pd-report-btn pd-report-btn-submit",
       textContent: _copy().reportSubmit,
     });
-    submitBtn.addEventListener("click", function () {
-      closeDialog();
-      _showToast(_copy().reportSuccess);
+    submitBtn.addEventListener("click", async function () {
+      submitBtn.disabled = true;
+      submitBtn.textContent = _copy().reportSubmitting;
+      try {
+        var res = await RAW_API.request("/api/providers/services/" + encodeURIComponent(String(serviceId)) + "/report/", {
+          method: "POST",
+          body: {
+            reason: String(reasonSelect.value || "").trim(),
+            details: String(detailsInput.value || "").trim(),
+            surface: "mobile_web.service_detail",
+          },
+        });
+        if (!res || !res.ok) {
+          throw new Error((res && res.data && (res.data.detail || res.data.error)) || _copy().reportFailed);
+        }
+        closeDialog();
+        _showToast(_copy().reportSuccess);
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = _copy().reportSubmit;
+        _showToast((err && err.message) ? err.message : _copy().reportFailed);
+      }
     });
 
     actions.appendChild(cancelBtn);

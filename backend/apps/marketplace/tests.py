@@ -834,6 +834,148 @@ class ServiceRequestPolicyTests(TestCase):
         )
         dispatch_competitive_mock.assert_called_once()
 
+    def test_client_can_delete_cancelled_requests_for_all_request_types(self):
+        self.client.force_login(self.client_user)
+
+        request_types = (
+            RequestType.NORMAL,
+            RequestType.URGENT,
+            RequestType.COMPETITIVE,
+        )
+
+        for index, request_type in enumerate(request_types, start=1):
+            request_kwargs = {
+                "client": self.client_user,
+                "subcategory": self.subcategory,
+                "title": f"طلب ملغي {index}",
+                "description": "تفاصيل",
+                "request_type": request_type,
+                "status": RequestStatus.CANCELLED,
+                "city": "الرياض",
+                "canceled_at": timezone.now(),
+                "cancel_reason": "أُلغي سابقاً",
+            }
+            if request_type == RequestType.COMPETITIVE:
+                request_kwargs["quote_deadline"] = timezone.localdate() + timezone.timedelta(days=2)
+
+            service_request = ServiceRequest.objects.create(**request_kwargs)
+
+            with self.subTest(request_type=request_type):
+                response = self.client.delete(
+                    f"/api/marketplace/requests/{service_request.id}/delete/"
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertFalse(ServiceRequest.objects.filter(id=service_request.id).exists())
+
+    def test_client_cannot_reopen_cancelled_normal_request(self):
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            subcategory=self.subcategory,
+            title="طلب مباشر ملغي",
+            description="تفاصيل",
+            request_type=RequestType.NORMAL,
+            status=RequestStatus.CANCELLED,
+            city="الرياض",
+            canceled_at=timezone.now(),
+            cancel_reason="أُلغي",
+        )
+
+        self.client.force_login(self.client_user)
+        response = self.client.post(
+            f"/api/marketplace/requests/{service_request.id}/reopen/"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        service_request.refresh_from_db()
+        self.assertEqual(service_request.status, RequestStatus.CANCELLED)
+
+    @patch("apps.marketplace.services.actions.dispatch_due_competitive_request_notifications")
+    def test_client_reopen_competitive_request_clears_old_delivery_records_and_offers(self, dispatch_competitive_mock):
+        second_provider_user = User.objects.create_user(
+            phone="0501000008",
+            username="provider.sixth",
+            role_state=UserRole.PROVIDER,
+        )
+        second_provider = ProviderProfile.objects.create(
+            user=second_provider_user,
+            provider_type="individual",
+            display_name="مزود سادس",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            subcategory=self.subcategory,
+            title="طلب تنافسي ملغي",
+            description="تفاصيل",
+            request_type=RequestType.COMPETITIVE,
+            status=RequestStatus.CANCELLED,
+            city="الرياض",
+            quote_deadline=timezone.localdate() + timezone.timedelta(days=3),
+            canceled_at=timezone.now(),
+            cancel_reason="أُلغي",
+        )
+        service_request.offers.create(provider=self.provider, price="320.00", duration_days=2, note="عرض سابق", status="selected")
+        service_request.offers.create(provider=second_provider, price="280.00", duration_days=4, note="عرض آخر", status="rejected")
+        Notification.objects.create(
+            user=self.provider_user,
+            title="طلب عرض خدمة تنافسية جديد",
+            body="إشعار قديم",
+            kind="request_created",
+            url=f"/requests/{service_request.id}",
+            audience_mode="provider",
+        )
+        Notification.objects.create(
+            user=second_provider_user,
+            title="طلب عرض خدمة تنافسية جديد",
+            body="إشعار قديم",
+            kind="request_created",
+            url=f"/requests/{service_request.id}",
+            audience_mode="provider",
+        )
+        EventLog.objects.create(
+            event_type=EventType.REQUEST_CREATED,
+            actor=self.client_user,
+            target_user=self.provider_user,
+            request_id=service_request.id,
+            meta={"request_type": service_request.request_type},
+        )
+        EventLog.objects.create(
+            event_type=EventType.REQUEST_CREATED,
+            actor=self.client_user,
+            target_user=second_provider_user,
+            request_id=service_request.id,
+            meta={"request_type": service_request.request_type},
+        )
+
+        self.client.force_login(self.client_user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f"/api/marketplace/requests/{service_request.id}/reopen/"
+            )
+
+        self.assertEqual(response.status_code, 200)
+        service_request.refresh_from_db()
+        self.assertEqual(service_request.status, RequestStatus.NEW)
+        self.assertEqual(service_request.offers.count(), 0)
+        self.assertFalse(
+            Notification.objects.filter(
+                url=f"/requests/{service_request.id}",
+                audience_mode="provider",
+                kind="request_created",
+            ).exists()
+        )
+        self.assertFalse(
+            EventLog.objects.filter(
+                event_type=EventType.REQUEST_CREATED,
+                request_id=service_request.id,
+            ).exists()
+        )
+        dispatch_competitive_mock.assert_called_once()
+
     def test_client_delete_request_removes_records_and_files_before_execution(self):
         media_root = tempfile.mkdtemp(prefix="marketplace-delete-")
         self.addCleanup(lambda: shutil.rmtree(media_root, ignore_errors=True))
