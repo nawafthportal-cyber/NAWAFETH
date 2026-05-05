@@ -323,3 +323,91 @@ body.page-search.page-search-providers .search-map-close:focus-visible {
     transition: none !important;
   }
 }
+
+
+/* =====================================================================
+   DESKTOP POLISH — wider grids on large screens, staggered card entrance,
+   sticky toolbar lift on scroll, and tighter visual rhythm.
+   ===================================================================== */
+@media (min-width: 1280px) {
+  body.page-search.page-search-providers .sp-content,
+  body.page-search.page-search-providers .sp-toolbar,
+  body.page-search.page-search-providers .sp-hero-inner {
+    width: min(1240px, calc(100% - 48px));
+  }
+}
+@media (min-width: 1500px) {
+  body.page-search.page-search-providers .sp-content,
+  body.page-search.page-search-providers .sp-toolbar,
+  body.page-search.page-search-providers .sp-hero-inner {
+    width: min(1360px, calc(100% - 64px));
+  }
+  body.page-search.page-search-providers .sp-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Staggered card entrance — tasteful, not overwhelming */
+@media (prefers-reduced-motion: no-preference) {
+  body.page-search.page-search-providers .sp-grid > .provider-search-card:nth-child(1) { animation-delay: 0ms; }
+  body.page-search.page-search-providers .sp-grid > .provider-search-card:nth-child(2) { animation-delay: 50ms; }
+  body.page-search.page-search-providers .sp-grid > .provider-search-card:nth-child(3) { animation-delay: 100ms; }
+  body.page-search.page-search-providers .sp-grid > .provider-search-card:nth-child(4) { animation-delay: 140ms; }
+  body.page-search.page-search-providers .sp-grid > .provider-search-card:nth-child(5) { animation-delay: 170ms; }
+  body.page-search.page-search-providers .sp-grid > .provider-search-card:nth-child(6) { animation-delay: 195ms; }
+  body.page-search.page-search-providers .sp-grid > .provider-search-card:nth-child(n+7) { animation-delay: 215ms; }
+}
+
+/* Sticky toolbar deeper shadow once it sticks */
+@media (min-width: 1024px) {
+  body.page-search.page-search-providers .sp-toolbar {
+    transition: box-shadow 280ms ease, transform 280ms ease;
+  }
+  body.page-search.page-search-providers .sp-toolbar-wrap {
+    padding-top: 12px;
+  }
+}
+
+/* Results header: a subtle accent dot before the title for brand rhythm */
+body.page-search.page-search-providers .sp-results-ht {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+body.page-search.page-search-providers .sp-results-ht::before {
+  content: "";
+  width: 6px;
+  height: 22px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #7c4dd3, #4a2d8f);
+  box-shadow: 0 4px 10px rgba(124, 77, 211, .28);
+  flex-shrink: 0;
+}
+
+/* Map button: gentle pulse halo on focus to draw the eye */
+body.page-search.page-search-providers #search-map-btn:focus-visible {
+  box-shadow: 0 0 0 4px rgba(124, 77, 211, .22), 0 8px 18px rgba(124, 77, 211, .22);
+}
+
+/* Map modal on desktop: limit height + center vertically for a true dialog feel */
+@media (min-width: 1024px) {
+  body.page-search.page-search-providers .search-map-modal {
+    max-width: min(1100px, 92vw);
+    max-height: min(820px, 88vh);
+    margin: auto;
+    border-radius: 22px;
+  }
+  body.page-search.page-search-providers .search-map-head {
+    border-top-left-radius: 22px;
+    border-top-right-radius: 22px;
+  }
+}
+
+/* Reduced motion guard for the stagger */
+@media (prefers-reduced-motion: reduce) {
+  body.page-search.page-search-providers .sp-grid > .provider-search-card {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
