@@ -1,0 +1,325 @@
+/* ===================================================================
+   Nawafeth — search-polish.css
+   Additive finishing touches for the search page (provider results +
+   map modal + provider popup on the map). Scoped under the existing
+   page body class so global styles are not affected.
+   =================================================================== */
+
+/* ── Section / card entrance ───────────────────────────────────────── */
+@keyframes nw-search-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes nw-search-pop {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body.page-search.page-search-providers .provider-search-card {
+    animation: nw-search-rise 380ms cubic-bezier(.22,.61,.36,1) both;
+  }
+}
+
+/* ── Provider cards: smoother lift + clearer focus ────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  body.page-search.page-search-providers .provider-search-card {
+    transition: transform 240ms cubic-bezier(.22,.61,.36,1),
+                box-shadow 240ms ease,
+                border-color 240ms ease;
+    will-change: transform;
+  }
+  body.page-search.page-search-providers .provider-search-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 36px rgba(52, 28, 92, .14);
+  }
+}
+body.page-search.page-search-providers .provider-search-card:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(124, 77, 211, .18);
+}
+
+/* ── Map open button: tactile feedback ─────────────────────────────── */
+body.page-search.page-search-providers #search-map-btn {
+  transition: transform 160ms ease, box-shadow 200ms ease, background-color 160ms ease;
+}
+body.page-search.page-search-providers #search-map-btn:active {
+  transform: scale(.96);
+}
+body.page-search.page-search-providers #search-map-btn:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 3px;
+}
+
+/* ===================================================================
+   MAP MODAL (fullscreen sheet on small screens, dialog on large)
+   =================================================================== */
+body.page-search.page-search-providers .search-map-modal {
+  /* Smoother elevation + crisper border on opening */
+  box-shadow: 0 26px 60px rgba(15, 10, 35, .26), 0 4px 14px rgba(15, 10, 35, .12);
+}
+body.page-search.page-search-providers .search-map-head {
+  background:
+    linear-gradient(180deg, rgba(248, 244, 255, .9), rgba(255, 255, 255, .96));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+body.page-search.page-search-providers .search-map-head h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+body.page-search.page-search-providers .search-map-head h3::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c4dd3, #b48cf0);
+  box-shadow: 0 0 0 4px rgba(124, 77, 211, .14);
+}
+body.page-search.page-search-providers .search-map-close {
+  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+body.page-search.page-search-providers .search-map-close:hover {
+  transform: rotate(90deg);
+  box-shadow: 0 6px 14px rgba(124, 77, 211, .18);
+}
+body.page-search.page-search-providers .search-map-close:active { transform: rotate(90deg) scale(.92); }
+body.page-search.page-search-providers .search-map-close:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 3px;
+}
+
+/* ===================================================================
+   LEAFLET POPUP — refine wrapper + provider card
+   =================================================================== */
+.search-map-provider-popup-wrap.leaflet-popup .leaflet-popup-content-wrapper {
+  border-radius: 18px;
+  padding: 0;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 18px 38px rgba(20, 12, 50, .22), 0 4px 12px rgba(20, 12, 50, .1);
+  border: 1px solid rgba(124, 77, 211, .14);
+}
+.search-map-provider-popup-wrap.leaflet-popup .leaflet-popup-content {
+  margin: 0;
+  width: auto !important;
+  min-width: 240px;
+  max-width: 280px;
+  font-family: 'Cairo', sans-serif;
+}
+.search-map-provider-popup-wrap.leaflet-popup .leaflet-popup-tip {
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(20, 12, 50, .14);
+}
+.search-map-provider-popup-wrap.leaflet-popup .leaflet-popup-close-button {
+  top: 8px;
+  inset-inline-end: 8px;
+  inset-inline-start: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .92);
+  color: #4a3a6e;
+  font-size: 18px;
+  line-height: 26px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(20, 12, 50, .12);
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+.search-map-provider-popup-wrap.leaflet-popup .leaflet-popup-close-button:hover {
+  background: #fff;
+  transform: scale(1.08);
+}
+
+/* ── Provider popup body refinements ──────────────────────────────── */
+.search-map-provider-popup {
+  position: relative;
+  padding: 16px 14px 14px;
+  background:
+    radial-gradient(120% 80% at 50% -20%, rgba(124, 77, 211, .12), transparent 60%),
+    linear-gradient(180deg, #ffffff, #faf7ff);
+}
+.search-map-provider-popup::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 56px;
+  background: linear-gradient(180deg, rgba(124, 77, 211, .14), transparent);
+  pointer-events: none;
+}
+
+/* Avatar block: bigger, glow, online dot polished */
+.search-map-provider-popup .search-map-provider-avatar-link {
+  position: relative;
+  display: inline-flex;
+  border-radius: 18px;
+  padding: 3px;
+  background: linear-gradient(135deg, rgba(124, 77, 211, .35), rgba(180, 140, 240, .25));
+  box-shadow: 0 8px 18px rgba(20, 12, 50, .12);
+}
+.search-map-provider-popup .search-map-provider-avatar,
+.search-map-provider-popup .search-map-provider-avatar-fallback {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 10px rgba(20, 12, 50, .1);
+  background: #ffffff;
+}
+.search-map-provider-popup .search-map-provider-avatar-link .nw-presence-dot {
+  position: absolute;
+  bottom: -2px;
+  inset-inline-end: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(20, 12, 50, .2);
+}
+.search-map-provider-popup .nw-presence-dot.is-online { background: #22c55e; }
+.search-map-provider-popup .nw-presence-dot.is-offline { background: #94a3b8; }
+
+/* Name + meta */
+.search-map-provider-popup .search-map-provider-name {
+  font-size: 14px;
+  font-weight: 900;
+  color: #24163c;
+  margin: 10px 0 4px;
+  line-height: 1.4;
+}
+.search-map-provider-popup .search-map-provider-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(124, 77, 211, .07);
+  border: 1px solid rgba(124, 77, 211, .12);
+  font-size: 11px;
+  font-weight: 800;
+  color: #5d2f86;
+  margin-bottom: 12px;
+}
+.search-map-provider-popup .search-map-provider-meta span:nth-child(2) { color: rgba(93, 47, 134, .5); }
+
+/* Action grid: 2-column compact, primary spans full width */
+.search-map-provider-popup .search-map-provider-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.search-map-provider-popup .search-map-provider-actions > .map-provider-action.is-primary {
+  grid-column: 1 / -1;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  background: linear-gradient(135deg, #5d2f86, #7c4dd3);
+  border-color: transparent;
+  box-shadow: 0 10px 22px rgba(124, 77, 211, .32);
+  transition: transform 160ms ease, box-shadow 200ms ease, filter 200ms ease;
+}
+.search-map-provider-popup .search-map-provider-actions > .map-provider-action.is-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(124, 77, 211, .38);
+  filter: brightness(1.04);
+}
+.search-map-provider-popup .search-map-provider-actions > .map-provider-action.is-primary:active {
+  transform: translateY(0) scale(.98);
+}
+.search-map-provider-popup .map-provider-action {
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  background: #ffffff;
+  border: 1px solid rgba(124, 77, 211, .16);
+  color: #3d2a63;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease, color 160ms ease;
+}
+.search-map-provider-popup .map-provider-action:not(.is-primary):not(.is-disabled):hover {
+  background: rgba(124, 77, 211, .07);
+  border-color: rgba(124, 77, 211, .35);
+  color: #2a1a4a;
+}
+.search-map-provider-popup .map-provider-action:not(.is-primary):active { transform: scale(.97); }
+.search-map-provider-popup .map-provider-action.is-disabled {
+  opacity: .5;
+  background: rgba(124, 77, 211, .04);
+  border-color: rgba(124, 77, 211, .1);
+}
+.search-map-provider-popup .map-provider-action:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 2px;
+}
+
+/* Verified badges inside name row stay inline */
+.search-map-provider-popup .search-map-provider-name svg { flex-shrink: 0; }
+
+/* ── Tablet ≥ 640: a touch wider popup card ───────────────────────── */
+@media (min-width: 640px) {
+  .search-map-provider-popup-wrap.leaflet-popup .leaflet-popup-content {
+    min-width: 260px;
+    max-width: 300px;
+  }
+  .search-map-provider-popup .search-map-provider-avatar,
+  .search-map-provider-popup .search-map-provider-avatar-fallback {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+/* ── Desktop ≥ 1024: tighter modal padding feel ───────────────────── */
+@media (min-width: 1024px) {
+  body.page-search.page-search-providers .search-map-head { padding: 16px 22px; }
+  body.page-search.page-search-providers .search-map-head h3 { font-size: 16px; }
+}
+
+/* ── Dark mode tuning ─────────────────────────────────────────────── */
+[data-theme="dark"] .search-map-provider-popup-wrap.leaflet-popup .leaflet-popup-content-wrapper {
+  background: #1c1430;
+  border-color: rgba(192, 132, 252, .22);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, .5);
+}
+[data-theme="dark"] .search-map-provider-popup-wrap.leaflet-popup .leaflet-popup-tip {
+  background: #1c1430;
+}
+[data-theme="dark"] .search-map-provider-popup {
+  background:
+    radial-gradient(120% 80% at 50% -20%, rgba(192, 132, 252, .18), transparent 60%),
+    linear-gradient(180deg, #1c1430, #14102a);
+}
+[data-theme="dark"] .search-map-provider-popup .search-map-provider-name { color: #f0eaf8; }
+[data-theme="dark"] .search-map-provider-popup .search-map-provider-meta {
+  background: rgba(192, 132, 252, .12);
+  border-color: rgba(192, 132, 252, .22);
+  color: #d8b8ff;
+}
+[data-theme="dark"] .search-map-provider-popup .map-provider-action {
+  background: rgba(255, 255, 255, .04);
+  border-color: rgba(192, 132, 252, .22);
+  color: #e8d9ff;
+}
+[data-theme="dark"] .search-map-provider-popup .map-provider-action:not(.is-primary):not(.is-disabled):hover {
+  background: rgba(192, 132, 252, .12);
+  border-color: rgba(192, 132, 252, .42);
+  color: #ffffff;
+}
+[data-theme="dark"] body.page-search.page-search-providers .search-map-head {
+  background: linear-gradient(180deg, rgba(28, 20, 48, .92), rgba(20, 14, 36, .96));
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  body.page-search.page-search-providers .provider-search-card,
+  body.page-search.page-search-providers #search-map-btn,
+  body.page-search.page-search-providers .search-map-close,
+  .search-map-provider-popup .map-provider-action,
+  .search-map-provider-popup .map-provider-action.is-primary {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,220 @@
+/* ===================================================================
+   Nawafeth — home-polish.css
+   Additive finishing touches for the mobile web home page.
+   Scoped under `body.home-mobile-layout` so global styles are not
+   affected. This file ONLY adds micro-interactions, refined focus
+   rings, smoother scrollbars, gentle entrance animations and
+   reduced-motion safeguards. It must NOT redefine layout sizes.
+   =================================================================== */
+
+/* ── Section entrance: gentle fade + rise ──────────────────────────── */
+@keyframes nw-home-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body.home-mobile-layout .home-sections-stack > .home-section {
+    animation: nw-home-rise 520ms cubic-bezier(.22,.61,.36,1) both;
+    animation-delay: 60ms;
+  }
+  body.home-mobile-layout .home-sections-stack > .home-section:nth-of-type(2) { animation-delay: 120ms; }
+  body.home-mobile-layout .home-sections-stack > .home-section:nth-of-type(3) { animation-delay: 180ms; }
+  body.home-mobile-layout .home-sections-stack > .home-section:nth-of-type(4) { animation-delay: 240ms; }
+  body.home-mobile-layout .home-sections-stack > .home-section:nth-of-type(5) { animation-delay: 300ms; }
+  body.home-mobile-layout .home-sections-stack > .home-section:nth-of-type(n+6) { animation-delay: 340ms; }
+}
+
+/* ── Refined focus-visible rings for keyboard users ────────────────── */
+body.home-mobile-layout .view-all-btn:focus-visible,
+body.home-mobile-layout .categories-arrow:focus-visible,
+body.home-mobile-layout .carousel-arrow:focus-visible,
+body.home-mobile-layout .cat-item:focus-visible,
+body.home-mobile-layout .featured-specialist-card:focus-visible,
+body.home-mobile-layout .reel-item:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(124, 77, 211, .18);
+}
+
+/* ── Slim, branded horizontal scrollbars (desktop / trackpad) ──────── */
+body.home-mobile-layout .categories-scroll,
+body.home-mobile-layout .reels-track,
+body.home-mobile-layout .providers-scroll,
+body.home-mobile-layout .showcase-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 77, 211, .28) transparent;
+}
+body.home-mobile-layout .categories-scroll::-webkit-scrollbar,
+body.home-mobile-layout .reels-track::-webkit-scrollbar,
+body.home-mobile-layout .providers-scroll::-webkit-scrollbar,
+body.home-mobile-layout .showcase-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+body.home-mobile-layout .categories-scroll::-webkit-scrollbar-thumb,
+body.home-mobile-layout .reels-track::-webkit-scrollbar-thumb,
+body.home-mobile-layout .providers-scroll::-webkit-scrollbar-thumb,
+body.home-mobile-layout .showcase-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, rgba(124, 77, 211, .32), rgba(180, 140, 240, .32));
+  border-radius: 999px;
+}
+body.home-mobile-layout .categories-scroll::-webkit-scrollbar-track,
+body.home-mobile-layout .reels-track::-webkit-scrollbar-track,
+body.home-mobile-layout .providers-scroll::-webkit-scrollbar-track,
+body.home-mobile-layout .showcase-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Hide scrollbar on touch where it is visually noisy */
+@media (hover: none) and (pointer: coarse) {
+  body.home-mobile-layout .categories-scroll,
+  body.home-mobile-layout .reels-track,
+  body.home-mobile-layout .providers-scroll,
+  body.home-mobile-layout .showcase-scroll {
+    scrollbar-width: none;
+  }
+  body.home-mobile-layout .categories-scroll::-webkit-scrollbar,
+  body.home-mobile-layout .reels-track::-webkit-scrollbar,
+  body.home-mobile-layout .providers-scroll::-webkit-scrollbar,
+  body.home-mobile-layout .showcase-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Carousel arrows: smoother hover with subtle elevation ─────────── */
+body.home-mobile-layout .carousel-arrow {
+  transition: transform 180ms cubic-bezier(.22,.61,.36,1),
+              background-color 180ms ease,
+              box-shadow 180ms ease,
+              opacity 180ms ease;
+  will-change: transform;
+}
+@media (hover: hover) {
+  body.home-mobile-layout .carousel-arrow:hover {
+    transform: translateY(-50%) scale(1.06);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .22);
+  }
+}
+body.home-mobile-layout .carousel-arrow:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
+/* ── Categories arrows: tactile feedback only (no layout change) ───── */
+body.home-mobile-layout .categories-arrow {
+  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+@media (hover: hover) {
+  body.home-mobile-layout .categories-arrow:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 14px rgba(124, 77, 211, .18);
+  }
+}
+body.home-mobile-layout .categories-arrow:active { transform: scale(.92); }
+
+/* ── Card micro-lift on hover (desktop / fine pointers only) ───────── */
+@media (hover: hover) and (pointer: fine) {
+  body.home-mobile-layout .cat-item,
+  body.home-mobile-layout .featured-specialist-card,
+  body.home-mobile-layout .reel-item {
+    transition: transform 220ms cubic-bezier(.22,.61,.36,1),
+                box-shadow 220ms ease,
+                filter 220ms ease;
+  }
+  body.home-mobile-layout .cat-item:hover,
+  body.home-mobile-layout .featured-specialist-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(52, 28, 92, .12);
+  }
+  body.home-mobile-layout .reel-item:hover {
+    transform: translateY(-1px);
+    filter: saturate(1.08);
+  }
+}
+
+/* ── View-all chevron flourish (additive ::after, no markup change) ── */
+body.home-mobile-layout .view-all-btn::after {
+  content: "‹";
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+  margin-inline-start: 2px;
+  transform: translateY(-1px);
+  transition: transform 180ms ease;
+  opacity: .85;
+}
+body.home-mobile-layout [dir="ltr"] .view-all-btn::after,
+html[dir="ltr"] body.home-mobile-layout .view-all-btn::after { content: "›"; }
+@media (hover: hover) {
+  body.home-mobile-layout .view-all-btn:hover::after {
+    transform: translateY(-1px) translateX(-2px);
+  }
+  html[dir="ltr"] body.home-mobile-layout .view-all-btn:hover::after {
+    transform: translateY(-1px) translateX(2px);
+  }
+}
+
+/* ── Section header: refined kicker shine on hover (desktop) ───────── */
+@media (hover: hover) and (pointer: fine) {
+  body.home-mobile-layout .home-section-shell {
+    transition: transform 320ms cubic-bezier(.22,.61,.36,1);
+  }
+}
+
+/* ── Smoother shimmer for skeletons (overrides only timing) ────────── */
+@media (prefers-reduced-motion: no-preference) {
+  body.home-mobile-layout .shimmer {
+    animation-duration: 1500ms;
+    animation-timing-function: ease-in-out;
+  }
+}
+
+/* ── Hero skeleton crossfade when banners reveal ───────────────────── */
+body.home-mobile-layout .hero-skeleton {
+  transition: opacity 360ms ease;
+}
+body.home-mobile-layout #banners {
+  transition: opacity 360ms ease;
+}
+
+/* ── Tablet polish (768–1024): a touch more breathing room ─────────── */
+@media (min-width: 768px) and (max-width: 1024px) {
+  body.home-mobile-layout .home-sections-stack {
+    gap: clamp(20px, 2.4vw, 28px);
+  }
+}
+
+/* ── Reduced motion: kill all entrance & micro animations ──────────── */
+@media (prefers-reduced-motion: reduce) {
+  body.home-mobile-layout .home-sections-stack > .home-section {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  body.home-mobile-layout .carousel-arrow,
+  body.home-mobile-layout .categories-arrow,
+  body.home-mobile-layout .cat-item,
+  body.home-mobile-layout .featured-specialist-card,
+  body.home-mobile-layout .reel-item,
+  body.home-mobile-layout .view-all-btn::after {
+    transition: none !important;
+  }
+}
+
+/* ── Dark mode tuning for new focus / scrollbars ───────────────────── */
+[data-theme="dark"] body.home-mobile-layout .categories-scroll,
+[data-theme="dark"] body.home-mobile-layout .reels-track,
+[data-theme="dark"] body.home-mobile-layout .providers-scroll,
+[data-theme="dark"] body.home-mobile-layout .showcase-scroll {
+  scrollbar-color: rgba(192, 132, 252, .35) transparent;
+}
+[data-theme="dark"] body.home-mobile-layout .categories-scroll::-webkit-scrollbar-thumb,
+[data-theme="dark"] body.home-mobile-layout .reels-track::-webkit-scrollbar-thumb,
+[data-theme="dark"] body.home-mobile-layout .providers-scroll::-webkit-scrollbar-thumb,
+[data-theme="dark"] body.home-mobile-layout .showcase-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, rgba(192, 132, 252, .42), rgba(129, 140, 248, .42));
+}
+[data-theme="dark"] body.home-mobile-layout .view-all-btn:focus-visible,
+[data-theme="dark"] body.home-mobile-layout .cat-item:focus-visible,
+[data-theme="dark"] body.home-mobile-layout .featured-specialist-card:focus-visible {
+  outline-color: rgba(192, 132, 252, .9);
+  box-shadow: 0 0 0 4px rgba(192, 132, 252, .22);
+}

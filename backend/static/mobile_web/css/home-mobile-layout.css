@@ -930,8 +930,8 @@ body.home-mobile-layout .home-section--categories .cat-name {
   -webkit-box-orient: vertical;
   line-height: 1.45;
   min-height: 2.9em;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -4703,8 +4703,8 @@ body.home-mobile-layout .section-reels {
   }
 
   body.home-mobile-layout.home-mobile-layout--locked .categories-scroll .cat-item {
-    flex: 0 0 92px;
-    width: 92px;
+    flex: 0 0 108px;
+    width: 108px;
   }
 
   body.home-mobile-layout.home-mobile-layout--locked .providers-scroll {

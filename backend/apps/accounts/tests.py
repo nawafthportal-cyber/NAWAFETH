@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -129,6 +130,25 @@ class AccountProfileStatusTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["profile_status"], "complete")
         self.assertEqual(response.data["role_label"], "عميل")
+
+    def test_me_view_falls_back_when_payload_enrichment_crashes(self):
+        user = User.objects.create(
+            phone="0500000004",
+            username="fallback.client",
+            first_name="عميل",
+            role_state=UserRole.CLIENT,
+        )
+        self.client.force_authenticate(user=user)
+
+        with patch("apps.accounts.views._me_payload", side_effect=RuntimeError("boom")):
+            response = self.client.get(self.url + "?mode=client")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["id"], user.id)
+        self.assertEqual(response.data["username"], "fallback.client")
+        self.assertEqual(response.data["profile_status"], "phone_only")
+        self.assertEqual(response.data["following_count"], 0)
+        self.assertEqual(response.data["favorites_media_count"], 0)
 
 
 class AccountSessionActionTests(TestCase):

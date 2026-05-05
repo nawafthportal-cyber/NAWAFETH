@@ -292,6 +292,52 @@ def _me_payload(user: User, *, request=None) -> dict:
     }
 
 
+def _me_payload_fallback(user: User) -> dict:
+    role_state = getattr(user, "role_state", None)
+    profile_status = _resolve_profile_status(user)
+    role_label = _resolve_role_label(user)
+
+    has_provider_profile = False
+    try:
+        has_provider_profile = bool(getattr(user, "provider_profile", None))
+    except Exception:
+        has_provider_profile = False
+
+    is_provider = bool(role_state == UserRole.PROVIDER) or has_provider_profile
+
+    return {
+        "id": user.id,
+        "phone": user.phone,
+        "email": user.email,
+        "username": user.username,
+        "first_name": getattr(user, "first_name", None),
+        "last_name": getattr(user, "last_name", None),
+        "country": getattr(user, "country", None),
+        "city": getattr(user, "city", None),
+        "city_display": _safe_format_city_display(getattr(user, "city", None)),
+        "lat": getattr(user, "lat", None),
+        "lng": getattr(user, "lng", None),
+        "profile_image": _safe_media_url(getattr(user, "profile_image", None)),
+        "cover_image": _safe_media_url(getattr(user, "cover_image", None)),
+        "role_state": role_state,
+        "profile_status": profile_status,
+        "role_label": role_label,
+        "has_provider_profile": has_provider_profile,
+        "is_provider": is_provider,
+        "following_count": 0,
+        "likes_count": 0,
+        "favorites_media_count": 0,
+        "provider_profile_id": None,
+        "provider_display_name": None,
+        "provider_city": None,
+        "provider_city_display": "",
+        "provider_followers_count": 0,
+        "provider_likes_received_count": 0,
+        "provider_rating_avg": None,
+        "provider_rating_count": 0,
+    }
+
+
 def _client_ip(request) -> str | None:
     xff = (request.META.get("HTTP_X_FORWARDED_FOR") or "").strip()
     if xff:
@@ -502,7 +548,18 @@ def me_view(request):
                 )
             raise
 
-    return Response(_me_payload(user, request=request))
+    try:
+        payload = _me_payload(user, request=request)
+    except Exception:
+        logger.exception(
+            "me_view_payload_failed user_id=%s role_state=%s",
+            getattr(user, "id", None),
+            getattr(user, "role_state", None),
+            extra={"log_category": "accounts_profile"},
+        )
+        payload = _me_payload_fallback(user)
+
+    return Response(payload)
 
 
 @api_view(["POST"])

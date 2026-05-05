@@ -1,0 +1,325 @@
+/* ===================================================================
+   Nawafeth — provider-detail-polish.css
+   Additive finishing touches for the provider detail page (all tabs:
+   profile, services, portfolio, reviews + map card + action bar).
+   Scoped under `body.page-provider-detail` so global styles are
+   untouched. No layout properties are redefined; only micro-
+   interactions, focus rings, smoother transitions, refined hovers
+   and reduced-motion safeguards.
+   =================================================================== */
+
+/* ── Card / tab content entrance ──────────────────────────────────── */
+@keyframes nw-pd-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes nw-pd-pop {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body.page-provider-detail .pd-panel.active > .pd-card,
+  body.page-provider-detail .pd-panel.active > section,
+  body.page-provider-detail .pd-panel.active > .pd-services-grid > *,
+  body.page-provider-detail .pd-panel.active > .pd-rating-summary,
+  body.page-provider-detail .pd-panel.active > .pd-reviews-list > * {
+    animation: nw-pd-rise 420ms cubic-bezier(.22,.61,.36,1) both;
+  }
+  body.page-provider-detail .pd-panel.active > *:nth-child(2) { animation-delay: 60ms; }
+  body.page-provider-detail .pd-panel.active > *:nth-child(3) { animation-delay: 120ms; }
+  body.page-provider-detail .pd-panel.active > *:nth-child(4) { animation-delay: 160ms; }
+  body.page-provider-detail .pd-panel.active > *:nth-child(n+5) { animation-delay: 200ms; }
+}
+
+/* ── Tabs: refined feedback, no layout change ─────────────────────── */
+body.page-provider-detail .pd-tab {
+  transition: color 180ms ease,
+              background-color 180ms ease,
+              border-color 180ms ease,
+              box-shadow 200ms ease,
+              transform 160ms cubic-bezier(.22,.61,.36,1);
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  body.page-provider-detail .pd-tab:not(.active):hover {
+    background: rgba(124, 77, 211, .07);
+    color: #5d2f86;
+  }
+}
+body.page-provider-detail .pd-tab:active { transform: scale(.97); }
+body.page-provider-detail .pd-tab:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(124, 77, 211, .18);
+}
+body.page-provider-detail .pd-tab.active {
+  box-shadow: 0 6px 16px rgba(124, 77, 211, .18);
+}
+
+/* Smooth transitions for the tab meta counter */
+body.page-provider-detail .pd-tab-meta {
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+/* ── Cards: subtle hover lift on desktop only ─────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  body.page-provider-detail .pd-card {
+    transition: transform 240ms cubic-bezier(.22,.61,.36,1),
+                box-shadow 240ms ease,
+                border-color 240ms ease;
+  }
+  body.page-provider-detail .pd-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 32px rgba(52, 28, 92, .10);
+  }
+}
+
+/* ── Field rows: clearer keyboard focus ───────────────────────────── */
+body.page-provider-detail .pd-field-open-link {
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+body.page-provider-detail .pd-field-open-link:hover {
+  background: rgba(124, 77, 211, .1);
+  color: #5d2f86;
+}
+body.page-provider-detail .pd-field-open-link:active { transform: scale(.94); }
+body.page-provider-detail .pd-field-open-link:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 2px;
+}
+
+/* ── Action bar (request / chat / call / whatsapp) ────────────────── */
+body.page-provider-detail .pd-actions a,
+body.page-provider-detail .pd-actions button {
+  transition: transform 180ms cubic-bezier(.22,.61,.36,1),
+              box-shadow 220ms ease,
+              filter 220ms ease,
+              background-color 200ms ease,
+              border-color 200ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  body.page-provider-detail .pd-action-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 30px rgba(124, 77, 211, .32);
+    filter: brightness(1.04);
+  }
+}
+body.page-provider-detail .pd-actions a:active,
+body.page-provider-detail .pd-actions button:active { transform: scale(.97); }
+body.page-provider-detail .pd-actions a:focus-visible,
+body.page-provider-detail .pd-actions button:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(124, 77, 211, .18);
+}
+
+/* Primary CTA shine sweep on hover (decorative only) */
+@keyframes nw-pd-shine {
+  0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  20%  { opacity: 1; }
+  60%  { transform: translateX(220%)  skewX(-18deg); opacity: 1; }
+  100% { transform: translateX(220%)  skewX(-18deg); opacity: 0; }
+}
+body.page-provider-detail .pd-action-primary {
+  position: relative;
+  overflow: hidden;
+}
+body.page-provider-detail .pd-action-primary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline-start: -40%;
+  width: 30%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, .42), transparent);
+  pointer-events: none;
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  body.page-provider-detail .pd-action-primary:hover::after {
+    animation: nw-pd-shine 1100ms ease both;
+  }
+}
+
+/* ── Overview strip cards: tap feedback on touch + lift on hover ─── */
+@media (hover: hover) and (pointer: fine) {
+  body.page-provider-detail .pd-overview-card {
+    transition: transform 220ms cubic-bezier(.22,.61,.36,1), box-shadow 220ms ease;
+  }
+  body.page-provider-detail .pd-overview-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(52, 28, 92, .10);
+  }
+}
+
+/* ── Stats block: subtle counter pop only when entering ───────────── */
+@media (prefers-reduced-motion: no-preference) {
+  body.page-provider-detail .pd-stats-card .pd-stat-value {
+    transition: color 200ms ease;
+  }
+}
+
+/* ── Service cards (services tab) ─────────────────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  body.page-provider-detail .pd-services-grid > * {
+    transition: transform 240ms cubic-bezier(.22,.61,.36,1),
+                box-shadow 240ms ease,
+                border-color 240ms ease;
+  }
+  body.page-provider-detail .pd-services-grid > *:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 36px rgba(52, 28, 92, .12);
+  }
+}
+body.page-provider-detail .pd-services-grid > *:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 3px;
+}
+
+/* Services hero badge: a soft pulse on first reveal */
+@keyframes nw-pd-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124, 77, 211, .35); }
+  50%      { box-shadow: 0 0 0 6px rgba(124, 77, 211, 0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  body.page-provider-detail .pd-services-hero-badge,
+  body.page-provider-detail .pd-portfolio-hero-badge {
+    animation: nw-pd-pulse 2.6s ease-in-out 1 both;
+  }
+}
+
+/* ── Portfolio (reels) cards ──────────────────────────────────────── */
+@media (hover: hover) and (pointer: fine) {
+  body.page-provider-detail #pd-portfolio-sections .pd-reel-card,
+  body.page-provider-detail #pd-portfolio-sections [data-reel-card] {
+    transition: transform 260ms cubic-bezier(.22,.61,.36,1),
+                box-shadow 260ms ease, filter 260ms ease;
+  }
+  body.page-provider-detail #pd-portfolio-sections .pd-reel-card:hover,
+  body.page-provider-detail #pd-portfolio-sections [data-reel-card]:hover {
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 22px 44px rgba(20, 12, 50, .22);
+    filter: saturate(1.06);
+  }
+}
+
+/* ── Reviews tab refinements ──────────────────────────────────────── */
+body.page-provider-detail .pd-rating-summary {
+  transition: box-shadow 240ms ease, transform 240ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  body.page-provider-detail .pd-rating-summary:hover {
+    box-shadow: 0 16px 32px rgba(52, 28, 92, .10);
+  }
+  body.page-provider-detail .pd-reviews-list > * {
+    transition: transform 220ms cubic-bezier(.22,.61,.36,1), box-shadow 220ms ease;
+  }
+  body.page-provider-detail .pd-reviews-list > *:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(52, 28, 92, .08);
+  }
+}
+
+/* ── Service range map card ──────────────────────────────────────── */
+body.page-provider-detail #pd-service-range-card .pd-map-wrap {
+  transition: box-shadow 240ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  body.page-provider-detail #pd-service-range-card:hover .pd-map-wrap {
+    box-shadow: 0 14px 30px rgba(20, 12, 50, .14);
+  }
+}
+
+/* ── Social list chips: gentle hover ──────────────────────────────── */
+body.page-provider-detail .pd-social-list > a,
+body.page-provider-detail .pd-social-list > button {
+  transition: transform 160ms ease, background-color 180ms ease, box-shadow 220ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  body.page-provider-detail .pd-social-list > a:hover,
+  body.page-provider-detail .pd-social-list > button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 16px rgba(52, 28, 92, .12);
+  }
+}
+body.page-provider-detail .pd-social-list > a:active,
+body.page-provider-detail .pd-social-list > button:active { transform: scale(.96); }
+body.page-provider-detail .pd-social-list > a:focus-visible,
+body.page-provider-detail .pd-social-list > button:focus-visible {
+  outline: 2px solid rgba(124, 77, 211, .85);
+  outline-offset: 3px;
+}
+
+/* ── Empty states ─────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  body.page-provider-detail .pd-empty:not(.hidden) {
+    animation: nw-pd-pop 480ms cubic-bezier(.22,.61,.36,1) both;
+  }
+  body.page-provider-detail .pd-empty-icon {
+    display: inline-block;
+    animation: nw-pd-float 4.6s ease-in-out infinite;
+  }
+}
+@keyframes nw-pd-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+/* ── Skeleton shimmer pacing ──────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  body.page-provider-detail .nw-skeleton-block,
+  body.page-provider-detail .nw-skeleton-surface {
+    animation-duration: 1500ms;
+    animation-timing-function: ease-in-out;
+  }
+}
+
+/* ── Tablet (640–1023): a touch more spacing on tabs ──────────────── */
+@media (min-width: 640px) and (max-width: 1023px) {
+  body.page-provider-detail .pd-tab {
+    letter-spacing: .01em;
+  }
+}
+
+/* ── Dark mode tuning ─────────────────────────────────────────────── */
+[data-theme="dark"] body.page-provider-detail .pd-tab.active {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .42);
+}
+[data-theme="dark"] body.page-provider-detail .pd-tab:not(.active):hover {
+  background: rgba(192, 132, 252, .1);
+  color: #d8b8ff;
+}
+[data-theme="dark"] body.page-provider-detail .pd-card:hover,
+[data-theme="dark"] body.page-provider-detail .pd-overview-card:hover,
+[data-theme="dark"] body.page-provider-detail .pd-services-grid > *:hover,
+[data-theme="dark"] body.page-provider-detail .pd-reviews-list > *:hover {
+  box-shadow: 0 18px 36px rgba(0, 0, 0, .5);
+}
+[data-theme="dark"] body.page-provider-detail .pd-tab:focus-visible,
+[data-theme="dark"] body.page-provider-detail .pd-actions a:focus-visible,
+[data-theme="dark"] body.page-provider-detail .pd-actions button:focus-visible {
+  outline-color: rgba(192, 132, 252, .9);
+  box-shadow: 0 0 0 4px rgba(192, 132, 252, .22);
+}
+
+/* ── Reduced motion: silence everything decorative ────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  body.page-provider-detail .pd-panel.active > *,
+  body.page-provider-detail .pd-tab,
+  body.page-provider-detail .pd-card,
+  body.page-provider-detail .pd-overview-card,
+  body.page-provider-detail .pd-action-primary,
+  body.page-provider-detail .pd-action-primary::after,
+  body.page-provider-detail .pd-services-grid > *,
+  body.page-provider-detail .pd-reviews-list > *,
+  body.page-provider-detail .pd-empty,
+  body.page-provider-detail .pd-empty-icon,
+  body.page-provider-detail #pd-portfolio-sections .pd-reel-card,
+  body.page-provider-detail .pd-services-hero-badge,
+  body.page-provider-detail .pd-portfolio-hero-badge {
+    animation: none !important;
+    transition: none !important;
+  }
+}

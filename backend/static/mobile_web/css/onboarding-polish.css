@@ -1,0 +1,162 @@
+/* ===================================================================
+   Nawafeth — onboarding-polish.css
+   Additive refinements for the first-visit onboarding screen.
+   All rules are scoped under `body.page-onboarding` and only enhance
+   visuals (entrance, focus, button shine, dot transitions, tablet
+   sizing). No layout properties are redefined.
+   =================================================================== */
+
+/* ── Card entrance: gentle scale + fade ────────────────────────────── */
+@keyframes nw-onb-pop {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes nw-onb-shine {
+  0%   { transform: translateX(-120%) skewX(-18deg); }
+  60%  { transform: translateX(220%)  skewX(-18deg); }
+  100% { transform: translateX(220%)  skewX(-18deg); }
+}
+@keyframes nw-onb-orbit {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: .55; }
+  50%      { transform: translate3d(0, -10px, 0) scale(1.04); opacity: .8; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body.page-onboarding .onboarding-card {
+    animation: nw-onb-pop 520ms cubic-bezier(.22,.61,.36,1) both;
+  }
+}
+
+/* ── Soft floating orbs behind the card (additive ::before/::after) ─ */
+body.page-onboarding .onboarding-page {
+  position: relative;
+  isolation: isolate;
+}
+body.page-onboarding .onboarding-page::before,
+body.page-onboarding .onboarding-page::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+}
+body.page-onboarding .onboarding-page::before {
+  width: 220px;
+  height: 220px;
+  top: -40px;
+  inset-inline-start: -40px;
+  background: radial-gradient(circle, rgba(255,255,255,.35), transparent 70%);
+}
+body.page-onboarding .onboarding-page::after {
+  width: 280px;
+  height: 280px;
+  bottom: -60px;
+  inset-inline-end: -60px;
+  background: radial-gradient(circle, rgba(180, 140, 240, .35), transparent 70%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  body.page-onboarding .onboarding-page::before { animation: nw-onb-orbit 9s ease-in-out infinite; }
+  body.page-onboarding .onboarding-page::after  { animation: nw-onb-orbit 11s ease-in-out infinite reverse; }
+}
+body.page-onboarding .onboarding-page > .container { position: relative; z-index: 1; }
+
+/* ── Status icon: gentle breathing (only when actually loading) ────── */
+@media (prefers-reduced-motion: no-preference) {
+  body.page-onboarding .onboard-status-icon {
+    animation: nw-onb-orbit 4.6s ease-in-out infinite;
+  }
+}
+
+/* ── Dot transitions: smoother width morph ─────────────────────────── */
+body.page-onboarding .onboard-dot {
+  transition: background-color 220ms ease, width 280ms cubic-bezier(.22,.61,.36,1);
+}
+
+/* ── Next button: shine sweep + hover lift ─────────────────────────── */
+body.page-onboarding .onboard-next {
+  position: relative;
+  overflow: hidden;
+  transition: transform 180ms cubic-bezier(.22,.61,.36,1),
+              box-shadow 220ms ease,
+              filter 220ms ease;
+}
+body.page-onboarding .onboard-next::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline-start: -40%;
+  width: 30%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,.45), transparent);
+  pointer-events: none;
+  opacity: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  body.page-onboarding .onboard-next:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 36px rgba(103, 58, 183, .32);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    body.page-onboarding .onboard-next:hover::after {
+      opacity: 1;
+      animation: nw-onb-shine 1100ms ease both;
+    }
+  }
+}
+body.page-onboarding .onboard-next:active { transform: translateY(0) scale(.98); }
+
+/* ── Skip button: subtle hover tint ────────────────────────────────── */
+body.page-onboarding .onboard-skip {
+  transition: color 160ms ease, background-color 160ms ease;
+  border-radius: 14px;
+}
+@media (hover: hover) {
+  body.page-onboarding .onboard-skip:hover {
+    color: #4a3a6e;
+    background: rgba(122, 90, 170, .07);
+  }
+}
+
+/* ── Refined focus rings for keyboard users ────────────────────────── */
+body.page-onboarding .onboard-next:focus-visible,
+body.page-onboarding .onboard-skip:focus-visible,
+body.page-onboarding .onboard-status-action:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, .9);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(124, 77, 211, .35);
+}
+
+/* ── Tablet polish: a wider, taller card with more breathing room ── */
+@media (min-width: 768px) {
+  body.page-onboarding .onboarding-card {
+    max-width: 520px;
+    padding: clamp(28px, 4vw, 40px);
+    border-radius: 32px;
+  }
+  body.page-onboarding .onboard-status-card { min-height: 460px; }
+  body.page-onboarding .onboard-status-card h1 { font-size: 30px; }
+  body.page-onboarding .onboard-slide h1 { font-size: 24px; }
+}
+
+@media (min-width: 1024px) {
+  body.page-onboarding .onboarding-page {
+    padding-block: clamp(24px, 4vh, 48px);
+  }
+  body.page-onboarding .onboarding-card { max-width: 560px; }
+}
+
+/* ── Reduced motion: silence everything decorative ─────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  body.page-onboarding .onboarding-card,
+  body.page-onboarding .onboarding-page::before,
+  body.page-onboarding .onboarding-page::after,
+  body.page-onboarding .onboard-status-icon,
+  body.page-onboarding .onboard-next,
+  body.page-onboarding .onboard-next::after,
+  body.page-onboarding .onboard-dot,
+  body.page-onboarding .onboard-skip {
+    animation: none !important;
+    transition: none !important;
+  }
+}
