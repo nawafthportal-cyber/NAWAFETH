@@ -668,12 +668,19 @@ class ProviderProgressUpdateSerializer(RequestActionSerializer):
         decimal_places=2,
         required=False,
     )
+    attachments = serializers.ListField(
+        child=serializers.FileField(allow_empty_file=False),
+        required=False,
+        allow_empty=True,
+    )
 
     def validate(self, attrs):
         note = (attrs.get("note") or "").strip()
         has_expected = "expected_delivery_at" in attrs
         has_estimated = "estimated_service_amount" in attrs
         has_received = "received_amount" in attrs
+        attachments = attrs.get("attachments") or []
+        has_attachments = bool(attachments)
 
         if has_estimated != has_received:
             raise serializers.ValidationError(
@@ -705,10 +712,19 @@ class ProviderProgressUpdateSerializer(RequestActionSerializer):
                 )
             attrs["remaining_amount"] = estimated - received
 
-        if not note and not has_expected and not has_estimated:
+        if not note and not has_expected and not has_estimated and not has_attachments:
             raise serializers.ValidationError(
-                {"note": "أدخل ملاحظة أو حدّث بيانات التنفيذ"}
+                {"note": "أدخل ملاحظة أو حدّث بيانات التنفيذ أو أرفق ملفات"}
             )
+
+        if has_attachments:
+            optimized = []
+            for f in attachments:
+                try:
+                    optimized.append(optimize_upload_for_storage(f))
+                except Exception:
+                    optimized.append(f)
+            attrs["attachments"] = optimized
         return attrs
 
 
@@ -732,10 +748,19 @@ class ServiceRequestAttachmentSerializer(serializers.ModelSerializer):
 
 class RequestStatusLogSerializer(serializers.ModelSerializer):
     actor_name = serializers.SerializerMethodField()
+    attachments = ServiceRequestAttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model = RequestStatusLog
-        fields = ("id", "from_status", "to_status", "note", "created_at", "actor_name")
+        fields = (
+            "id",
+            "from_status",
+            "to_status",
+            "note",
+            "created_at",
+            "actor_name",
+            "attachments",
+        )
 
     def get_actor_name(self, obj):
         actor = getattr(obj, "actor", None)

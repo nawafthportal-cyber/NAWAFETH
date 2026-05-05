@@ -377,7 +377,7 @@ class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSer
 class ProviderSubcategorySettingSerializer(serializers.Serializer):
     subcategory_id = serializers.IntegerField(min_value=1)
     accepts_urgent = serializers.BooleanField(required=False, default=False)
-    requires_geo_scope = serializers.BooleanField(required=False, default=True)
+    requires_geo_scope = serializers.BooleanField(required=False)
 
 
 class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelSerializer):
@@ -1436,6 +1436,7 @@ class MyProviderSubcategoriesSerializer(serializers.Serializer):
             ordered_ids.append(sub_id)
             settings_by_id[sub_id] = {
                 "accepts_urgent": False,
+                "requires_geo_scope": serializers.empty,
             }
 
         for item in raw_settings:
@@ -1444,9 +1445,11 @@ class MyProviderSubcategoriesSerializer(serializers.Serializer):
                 ordered_ids.append(sub_id)
                 settings_by_id[sub_id] = {
                     "accepts_urgent": False,
+                    "requires_geo_scope": serializers.empty,
                 }
             settings_by_id[sub_id] = {
                 "accepts_urgent": bool(item.get("accepts_urgent", False)),
+                "requires_geo_scope": item.get("requires_geo_scope", serializers.empty),
             }
 
         ids = ordered_ids
@@ -1466,18 +1469,16 @@ class MyProviderSubcategoriesSerializer(serializers.Serializer):
         normalized_settings = []
         for sub_id in ids:
             subcategory = active_subcategories[sub_id]
-            accepts_urgent = bool((settings_by_id.get(sub_id) or {}).get("accepts_urgent", False))
-            if accepts_urgent and not bool(getattr(subcategory, "allows_urgent_requests", False)):
-                raise serializers.ValidationError(
-                    {"subcategory_settings": f"التصنيف الفرعي {subcategory.name} لا يدعم الطلبات العاجلة."}
-                )
+            setting = settings_by_id.get(sub_id) or {}
+            accepts_urgent = bool(setting.get("accepts_urgent", False))
+            requires_geo_scope = setting.get("requires_geo_scope", serializers.empty)
+            if requires_geo_scope is serializers.empty:
+                requires_geo_scope = bool(getattr(subcategory, "requires_geo_scope", True))
             normalized_settings.append(
                 {
                     "subcategory_id": sub_id,
-                    "accepts_urgent": bool(
-                        accepts_urgent and getattr(subcategory, "allows_urgent_requests", False)
-                    ),
-                    "requires_geo_scope": bool(getattr(subcategory, "requires_geo_scope", True)),
+                    "accepts_urgent": accepts_urgent,
+                    "requires_geo_scope": bool(requires_geo_scope),
                 }
             )
 
@@ -1547,6 +1548,13 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
             return serializers.empty
         return serializers.BooleanField(required=False).run_validation(self.initial_data.get("accepts_urgent"))
 
+    def _input_requires_geo_scope(self):
+        if not hasattr(self, "initial_data") or not hasattr(self.initial_data, "get"):
+            return serializers.empty
+        if "requires_geo_scope" not in self.initial_data:
+            return serializers.empty
+        return serializers.BooleanField(required=False).run_validation(self.initial_data.get("requires_geo_scope"))
+
     def _accepts_urgent_map(self, provider_id):
         cache = self.context.setdefault("_provider_category_urgent_cache", {})
         if provider_id not in cache:
@@ -1556,33 +1564,55 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
             )
         return cache[provider_id]
 
+    def _requires_geo_scope_map(self, provider_id):
+        cache = self.context.setdefault("_provider_category_geo_scope_cache", {})
+        if provider_id not in cache:
+            cache[provider_id] = dict(
+                ProviderCategory.objects.filter(provider_id=provider_id)
+                .values_list("subcategory_id", "requires_geo_scope")
+            )
+        return cache[provider_id]
+
     def _normalize_accepts_urgent(self, *, subcategory, accepts_urgent):
         normalized = False if accepts_urgent is serializers.empty else bool(accepts_urgent)
         if normalized and not bool(getattr(subcategory, "allows_urgent_requests", False)):
             raise serializers.ValidationError({"accepts_urgent": "هذا التصنيف الفرعي لا يدعم الطلبات العاجلة."})
         return bool(normalized and getattr(subcategory, "allows_urgent_requests", False))
 
-    def _upsert_provider_category(self, provider, subcategory, accepts_urgent):
+    def _normalize_requires_geo_scope(self, *, subcategory, requires_geo_scope):
+        if requires_geo_scope is serializers.empty:
+            return bool(getattr(subcategory, "requires_geo_scope", True))
+        return bool(requires_geo_scope)
+
+    def _upsert_provider_category(self, provider, subcategory, accepts_urgent, requires_geo_scope):
+        normalized_requires_geo_scope = self._normalize_requires_geo_scope(
+            subcategory=subcategory,
+            requires_geo_scope=requires_geo_scope,
+        )
         relation, created = ProviderCategory.objects.get_or_create(
             provider=provider,
             subcategory=subcategory,
             defaults={
                 "accepts_urgent": bool(accepts_urgent),
-                "requires_geo_scope": bool(getattr(subcategory, "requires_geo_scope", True)),
+                "requires_geo_scope": normalized_requires_geo_scope,
             },
         )
         update_fields = []
         if not created and relation.accepts_urgent != bool(accepts_urgent):
             relation.accepts_urgent = bool(accepts_urgent)
             update_fields.append("accepts_urgent")
-        if not created and relation.requires_geo_scope != bool(getattr(subcategory, "requires_geo_scope", True)):
-            relation.requires_geo_scope = bool(getattr(subcategory, "requires_geo_scope", True))
+        if not created and relation.requires_geo_scope != normalized_requires_geo_scope:
+            relation.requires_geo_scope = normalized_requires_geo_scope
             update_fields.append("requires_geo_scope")
         if update_fields:
             relation.save(update_fields=update_fields)
-        cache = self.context.get("_provider_category_urgent_cache")
-        if isinstance(cache, dict) and getattr(provider, "id", None) in cache:
-            cache[provider.id][subcategory.id] = bool(accepts_urgent)
+        provider_id = getattr(provider, "id", None)
+        urgent_cache = self.context.get("_provider_category_urgent_cache")
+        if isinstance(urgent_cache, dict) and provider_id in urgent_cache:
+            urgent_cache[provider_id][subcategory.id] = bool(accepts_urgent)
+        geo_scope_cache = self.context.get("_provider_category_geo_scope_cache")
+        if isinstance(geo_scope_cache, dict) and provider_id in geo_scope_cache:
+            geo_scope_cache[provider_id][subcategory.id] = normalized_requires_geo_scope
         sync_provider_accepts_urgent_flag(provider)
 
     def get_accepts_urgent(self, obj):
@@ -1595,7 +1625,16 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
         return bool(self._accepts_urgent_map(provider_id).get(subcategory_id, False))
 
     def get_requires_geo_scope(self, obj):
-        return bool(getattr(getattr(obj, "subcategory", None), "requires_geo_scope", True))
+        provider_id = getattr(obj, "provider_id", None)
+        subcategory_id = getattr(obj, "subcategory_id", None)
+        if not provider_id or not subcategory_id:
+            return bool(getattr(getattr(obj, "subcategory", None), "requires_geo_scope", True))
+        return bool(
+            self._requires_geo_scope_map(provider_id).get(
+                subcategory_id,
+                getattr(getattr(obj, "subcategory", None), "requires_geo_scope", True),
+            )
+        )
 
     def create(self, validated_data):
         subcategory = validated_data.get("subcategory")
@@ -1603,18 +1642,39 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
             subcategory=subcategory,
             accepts_urgent=self._input_accepts_urgent(),
         )
+        requires_geo_scope = self._normalize_requires_geo_scope(
+            subcategory=subcategory,
+            requires_geo_scope=self._input_requires_geo_scope(),
+        )
         service = super().create(validated_data)
-        self._upsert_provider_category(service.provider, service.subcategory, accepts_urgent)
+        self._upsert_provider_category(
+            service.provider,
+            service.subcategory,
+            accepts_urgent,
+            requires_geo_scope,
+        )
         return service
 
     def update(self, instance, validated_data):
         subcategory = validated_data.get("subcategory", getattr(instance, "subcategory", None))
         accepts_urgent = self._input_accepts_urgent()
+        requires_geo_scope = self._input_requires_geo_scope()
         service = super().update(instance, validated_data)
         if accepts_urgent is serializers.empty:
             accepts_urgent = self.get_accepts_urgent(service)
+        if requires_geo_scope is serializers.empty:
+            requires_geo_scope = self.get_requires_geo_scope(service)
         accepts_urgent = self._normalize_accepts_urgent(subcategory=subcategory, accepts_urgent=accepts_urgent)
-        self._upsert_provider_category(service.provider, service.subcategory, accepts_urgent)
+        requires_geo_scope = self._normalize_requires_geo_scope(
+            subcategory=subcategory,
+            requires_geo_scope=requires_geo_scope,
+        )
+        self._upsert_provider_category(
+            service.provider,
+            service.subcategory,
+            accepts_urgent,
+            requires_geo_scope,
+        )
         return service
 
 
@@ -1623,8 +1683,26 @@ class ProviderServicePublicSerializer(serializers.ModelSerializer):
     requires_geo_scope = serializers.SerializerMethodField()
     subcategory = SubCategoryWithCategorySerializer(read_only=True)
 
+    def _requires_geo_scope_map(self, provider_id):
+        cache = self.context.setdefault("_provider_category_geo_scope_cache", {})
+        if provider_id not in cache:
+            cache[provider_id] = dict(
+                ProviderCategory.objects.filter(provider_id=provider_id)
+                .values_list("subcategory_id", "requires_geo_scope")
+            )
+        return cache[provider_id]
+
     def get_requires_geo_scope(self, obj):
-        return bool(getattr(getattr(obj, "subcategory", None), "requires_geo_scope", True))
+        provider_id = getattr(obj, "provider_id", None)
+        subcategory_id = getattr(obj, "subcategory_id", None)
+        if not provider_id or not subcategory_id:
+            return bool(getattr(getattr(obj, "subcategory", None), "requires_geo_scope", True))
+        return bool(
+            self._requires_geo_scope_map(provider_id).get(
+                subcategory_id,
+                getattr(getattr(obj, "subcategory", None), "requires_geo_scope", True),
+            )
+        )
 
     class Meta:
         model = ProviderService

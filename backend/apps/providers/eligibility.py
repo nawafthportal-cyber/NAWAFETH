@@ -95,3 +95,6 @@ class HasProviderProfile:
             self.message = state.detail or self.message
             return False
         return True
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)

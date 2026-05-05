@@ -27,7 +27,12 @@ const OrderDetailPage = (() => {
       providerAttachmentsDesc: 'الملفات المرفوعة عند إكمال الخدمة.',
       financeTitle: 'تفاصيل التنفيذ',
       completionTitle: 'بيانات الإكمال',
-      providerDecisionTitle: 'قرارك على تفاصيل التنفيذ',
+      providerDecisionTitle: 'قرارك على تحديث حالة التنفيذ',
+      providerDecisionSubtitle: 'راجع تفاصيل التنفيذ والملاحظات والمرفقات قبل الاعتماد.',
+      providerNotesTitle: 'ملاحظات مقدم الخدمة',
+      providerNotesAttachments: 'مرفقات تتبع التنفيذ',
+      providerNotesEmpty: 'لم يرسل مقدم الخدمة أي ملاحظات بعد.',
+      logAttachmentsLabel: 'مرفقات التحديث',
       providerRejectLabel: 'سبب الرفض عند الحاجة',
       providerRejectPlaceholder: 'اكتب سبب رفض التفاصيل ليصل إلى مقدم الخدمة',
       rejectDetails: 'رفض التفاصيل',
@@ -153,7 +158,12 @@ const OrderDetailPage = (() => {
       providerAttachmentsDesc: 'Files uploaded when the service was completed.',
       financeTitle: 'Execution details',
       completionTitle: 'Completion details',
-      providerDecisionTitle: 'Your decision on execution details',
+      providerDecisionTitle: 'Your decision on execution status update',
+      providerDecisionSubtitle: 'Review execution details, notes and attachments before approving.',
+      providerNotesTitle: 'Provider notes',
+      providerNotesAttachments: 'Workflow attachments',
+      providerNotesEmpty: 'The provider has not sent any notes yet.',
+      logAttachmentsLabel: 'Update attachments',
       providerRejectLabel: 'Reason for rejection if needed',
       providerRejectPlaceholder: 'Write why you are rejecting the details so the provider receives it',
       rejectDetails: 'Reject details',
@@ -643,10 +653,95 @@ const OrderDetailPage = (() => {
       note.classList.add('hidden');
     }
 
+    _renderProviderNotesCard();
+
     form.classList.toggle('hidden', _actionLoading);
     if (rejectReason && _order.provider_inputs_approved !== false) rejectReason.value = '';
     _setActionButtonsDisabled(_actionLoading);
     section.classList.remove('hidden');
+  }
+
+  function _pickLatestProviderProgressLog() {
+    const logs = Array.isArray(_order && _order.status_logs) ? _order.status_logs : [];
+    // status_logs come ordered by -id. Pick the most recent log whose to_status is awaiting_client
+    // (which is what the provider progress-update endpoint creates), or with attachments.
+    for (let i = 0; i < logs.length; i += 1) {
+      const log = logs[i] || {};
+      const to = String(log.to_status || '').toLowerCase();
+      const hasAttachments = Array.isArray(log.attachments) && log.attachments.length > 0;
+      if (to === 'awaiting_client' || hasAttachments) return log;
+    }
+    return null;
+  }
+
+  function _renderProviderNotesCard() {
+    const card = document.getElementById('order-provider-notes-card');
+    const body = document.getElementById('order-provider-notes-body');
+    const meta = document.getElementById('order-provider-notes-meta');
+    const attachmentsBox = document.getElementById('order-provider-notes-attachments');
+    const subtitle = document.getElementById('order-provider-decision-subtitle');
+    if (subtitle) subtitle.textContent = _copy('providerDecisionSubtitle');
+    if (!card || !body) return;
+
+    const log = _pickLatestProviderProgressLog();
+    const note = String((log && log.note) || '').trim();
+    const attachments = Array.isArray(log && log.attachments) ? log.attachments : [];
+
+    if (!log || (!note && attachments.length === 0)) {
+      card.classList.add('hidden');
+      body.textContent = '';
+      if (meta) meta.textContent = '';
+      if (attachmentsBox) {
+        attachmentsBox.innerHTML = '';
+        attachmentsBox.classList.add('hidden');
+      }
+      return;
+    }
+
+    const titleEl = document.getElementById('order-provider-notes-title');
+    if (titleEl) titleEl.textContent = _copy('providerNotesTitle');
+
+    body.textContent = note || _copy('providerNotesEmpty');
+    _setAutoDirection(body, note);
+
+    if (meta) {
+      meta.textContent = log.created_at ? _formatDate(log.created_at) : '';
+    }
+
+    if (attachmentsBox) {
+      attachmentsBox.innerHTML = '';
+      if (attachments.length) {
+        const head = UI.el('div', { className: 'order-provider-notes-attachments-head', textContent: _copy('providerNotesAttachments') });
+        attachmentsBox.appendChild(head);
+        const list = UI.el('div', { className: 'order-attachments-chip-list' });
+        attachments.forEach((att) => list.appendChild(_buildAttachmentChip(att)));
+        attachmentsBox.appendChild(list);
+        attachmentsBox.classList.remove('hidden');
+      } else {
+        attachmentsBox.classList.add('hidden');
+      }
+    }
+
+    card.classList.remove('hidden');
+  }
+
+  function _buildAttachmentChip(attachment) {
+    const href = _resolveAttachmentHref(attachment);
+    const type = String((attachment && attachment.file_type) || '').toLowerCase();
+    let icon = '📎';
+    if (type === 'image') icon = '🖼️';
+    else if (type === 'video') icon = '🎬';
+    else if (type === 'audio') icon = '🎧';
+    else if (type === 'document') icon = '📄';
+    const label = (attachment && (attachment.name || attachment.title)) || (_copy('attachmentFile') + ' #' + String(attachment && attachment.id || ''));
+    if (!href) {
+      const span = UI.el('span', { className: 'order-attachment-chip is-disabled', textContent: icon + ' ' + label, title: _copy('attachmentUnavailable') });
+      return span;
+    }
+    const link = UI.el('a', { className: 'order-attachment-chip', href, textContent: icon + ' ' + label });
+    link.target = '_blank';
+    link.rel = 'noopener';
+    return link;
   }
 
   function _renderCancelledSection() {
@@ -882,6 +977,15 @@ const OrderDetailPage = (() => {
         const noteEl = UI.el('div', { className: 'order-log-note', textContent: log.note });
         _setAutoDirection(noteEl, log.note);
         row.appendChild(noteEl);
+      }
+      const logAttachments = Array.isArray(log.attachments) ? log.attachments : [];
+      if (logAttachments.length) {
+        const wrap = UI.el('div', { className: 'order-log-attachments' });
+        wrap.appendChild(UI.el('div', { className: 'order-log-attachments-label', textContent: _copy('logAttachmentsLabel') }));
+        const list = UI.el('div', { className: 'order-attachments-chip-list' });
+        logAttachments.forEach((att) => list.appendChild(_buildAttachmentChip(att)));
+        wrap.appendChild(list);
+        row.appendChild(wrap);
       }
       if (log.created_at) row.appendChild(UI.el('div', { className: 'order-log-time', textContent: _formatDate(log.created_at) }));
       root.appendChild(row);

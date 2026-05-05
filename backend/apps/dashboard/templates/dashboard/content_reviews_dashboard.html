@@ -11,8 +11,8 @@
         </div>
         <div class="hero-stats">
           <span class="pill brand">إجمالي الطلبات: {{ summary.total }}</span>
-          <span class="pill accent">استفسارات المحتوى: {{ summary.suggestions }}</span>
-          <span class="pill danger">بلاغات المحتوى: {{ summary.complaints }}</span>
+          <span class="pill accent">طلبات التقييمات والمراجعات: {{ summary.total }}</span>
+          <span class="pill danger">بلاغات التقييمات والتعليقات: {{ summary.complaints }}</span>
         </div>
       </div>
     </header>
@@ -32,7 +32,7 @@
 
         <section class="section-panel slide-up">
           <div class="title-row">
-            <h2>استفسارات وبلاغات إدارة المحتوى</h2>
+            <h2>طلبات التقييمات والتعليقات</h2>
             <div class="actions">
               <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=pdf">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -284,7 +284,7 @@
           <div class="side-card">
             <h4>صلاحيات الإشراف</h4>
             <div class="quick-stat"><span>إدارة المحتوى</span><strong>{% if can_manage_content %}مفعّل{% else %}غير متاح{% endif %}</strong></div>
-            <div class="quick-stat"><span>إشراف التقييم</span><strong>{% if can_moderate_reviews %}مفعّل{% else %}غير متاح{% endif %}</strong></div>
+            <div class="quick-stat"><span>إشراف التقييمات والتعليقات</span><strong>{% if can_moderate_reviews %}مفعّل{% else %}غير متاح{% endif %}</strong></div>
             <div class="quick-stat"><span>حذف المحتوى محل الشكوى</span><strong>{% if can_hide_delete %}مفعّل{% else %}غير متاح{% endif %}</strong></div>
           </div>
         </div>

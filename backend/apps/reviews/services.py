@@ -40,6 +40,7 @@ def invalidate_provider_rating_cache(provider_id: int) -> None:
             f"provider:{provider_id}:public_stats:client",
             f"provider:{provider_id}:public_stats:provider",
             f"provider:{provider_id}:public_stats:shared",
+            f"provider:{provider_id}:public_stats:shared:v2",
         ]
     )
 

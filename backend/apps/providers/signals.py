@@ -365,3 +365,34 @@ def notify_highlight_same_category(sender, instance: ProviderSpotlightItem, crea
             "category_names": [str(row[1] or "").strip() for row in category_rows if row[1]],
         },
     )
+
+
+@receiver(post_save, sender=ProviderSpotlightItem)
+def enforce_spotlight_quota(sender, instance: ProviderSpotlightItem, created, **kwargs):
+    if not created:
+        return
+
+    provider = getattr(instance, "provider", None)
+    user = getattr(provider, "user", None)
+    if provider is None or user is None:
+        return
+
+    from apps.subscriptions.services import get_effective_active_subscription
+    from apps.subscriptions.capabilities import spotlight_quota_for_user
+
+    if get_effective_active_subscription(user) is None:
+        return
+
+    spotlight_quota = max(0, int(spotlight_quota_for_user(user) or 0))
+    total_spotlights = ProviderSpotlightItem.objects.filter(provider=provider).count()
+    overflow = total_spotlights - spotlight_quota
+    if overflow <= 0:
+        return
+
+    stale_ids = list(
+        ProviderSpotlightItem.objects.filter(provider=provider)
+        .order_by("created_at", "id")
+        .values_list("id", flat=True)[:overflow]
+    )
+    if stale_ids:
+        ProviderSpotlightItem.objects.filter(id__in=stale_ids).delete()

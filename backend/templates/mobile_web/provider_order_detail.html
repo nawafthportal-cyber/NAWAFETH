@@ -721,6 +721,26 @@
     width: 100%;
   }
 
+  .pod-progress-files-block {
+    margin: 14px 0 8px;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px dashed rgba(103,58,183,0.28);
+    background: linear-gradient(180deg, rgba(245,243,255,0.9), rgba(255,255,255,0.95));
+  }
+
+  .pod-progress-files-block .pod-input-label {
+    margin: 0 0 4px;
+    font-weight: 900;
+  }
+
+  .pod-input-hint {
+    margin: 0 0 10px;
+    color: var(--pod-muted);
+    font-size: .82rem;
+    line-height: 1.7;
+  }
+
   .pod-file-list {
     display: grid;
     gap: 8px;
@@ -1105,6 +1125,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260502-provider-order-detail-i18n-stage4"></script>
+<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260505-progress-attachments-v1"></script>
 {% endblock %}
 

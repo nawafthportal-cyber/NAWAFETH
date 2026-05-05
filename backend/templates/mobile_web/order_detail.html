@@ -5,6 +5,10 @@
 {% block body_class %}page-order-detail{% endblock %}
 {% block sidebar_orders %}active{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'mobile_web/css/order-detail-polish.css' %}?v=20260505-order-detail-polish-v1">
+{% endblock %}
+
 {% block content %}
 <main class="page-content">
   <div class="container order-detail-layout">
@@ -95,8 +99,32 @@
         </section>
 
         <section id="order-provider-decision-section" class="order-detail-card orders-mobile-sheet hidden">
-          <h2 id="order-provider-decision-title">قرارك على تفاصيل التنفيذ</h2>
+          <div class="order-decision-header">
+            <span class="order-decision-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 11l3 3L22 4"></path>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+            </span>
+            <div class="order-decision-titles">
+              <h2 id="order-provider-decision-title">قرارك على تحديث حالة التنفيذ</h2>
+              <p id="order-provider-decision-subtitle" class="order-decision-subtitle">راجع تفاصيل التنفيذ والملاحظات والمرفقات قبل الاعتماد.</p>
+            </div>
+          </div>
           <div id="order-provider-inputs-grid" class="order-info-grid"></div>
+          <div id="order-provider-notes-card" class="order-provider-notes-card hidden">
+            <div class="order-provider-notes-head">
+              <span class="order-provider-notes-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                </svg>
+              </span>
+              <h3 id="order-provider-notes-title">ملاحظات مقدم الخدمة</h3>
+            </div>
+            <div id="order-provider-notes-body" class="order-provider-notes-body"></div>
+            <div id="order-provider-notes-attachments" class="order-provider-notes-attachments hidden"></div>
+            <p id="order-provider-notes-meta" class="order-provider-notes-meta"></p>
+          </div>
           <div id="order-provider-decision-note" class="order-inline-note hidden"></div>
           <div id="order-provider-decision-feedback" class="order-offers-feedback ux26-alert hidden" aria-live="polite"></div>
           <div id="order-provider-decision-form" class="order-decision-form">
@@ -219,5 +247,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/orderDetailPage.js' %}?v=20260502-order-detail-i18n-stage2"></script>
+<script src="{% static 'mobile_web/js/orderDetailPage.js' %}?v=20260505-progress-attachments-v1"></script>
 {% endblock %}

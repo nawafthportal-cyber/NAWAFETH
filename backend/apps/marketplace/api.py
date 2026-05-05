@@ -742,23 +742,38 @@ class ProviderAssignedRequestRejectView(APIView):
 				return Response({"detail": "لا يمكن إعادة طرح الطلب بعد بدء التنفيذ"}, status=status.HTTP_400_BAD_REQUEST)
 
 			previous_provider_user_id = getattr(provider, "user_id", None)
-			relist_request_to_pool(
-				sr=sr,
-				actor=request.user,
-				note=(
-					note
-					or (
-						f"اعتذار مزود الخدمة عن الطلب قبل التنفيذ: {cancel_reason}"
-					)
-				),
-				previous_provider_user_id=previous_provider_user_id,
+			note_text = (
+				note
+				or f"اعتذار مزود الخدمة عن الطلب قبل التنفيذ: {cancel_reason}"
 			)
+			if sr.request_type in {RequestType.URGENT, RequestType.COMPETITIVE}:
+				relist_request_to_pool(
+					sr=sr,
+					actor=request.user,
+					note=note_text,
+					previous_provider_user_id=previous_provider_user_id,
+				)
+			else:
+				# NORMAL/direct assignment: cancel the request entirely (no pool to relist into).
+				old_status = sr.status
+				sr.cancel(allowed_statuses=list(PRE_EXECUTION_REQUEST_STATUSES))
+				sr.canceled_at = canceled_at
+				sr.cancel_reason = cancel_reason[:255]
+				sr.save(update_fields=["canceled_at", "cancel_reason"])
+				RequestStatusLog.objects.create(
+					request=sr,
+					actor=request.user,
+					from_status=old_status,
+					to_status=sr.status,
+					note=note_text[:255],
+				)
 
 		return Response({"ok": True, "request_id": sr.id, "status": sr.status}, status=status.HTTP_200_OK)
 
 
 class ProviderProgressUpdateView(APIView):
 	permission_classes = [permissions.IsAuthenticated, IsProviderPermission]
+	parser_classes = [MultiPartParser, FormParser, JSONParser]
 
 	def post(self, request, request_id):
 		s = ProviderProgressUpdateSerializer(data=request.data)
@@ -844,7 +859,7 @@ class ProviderProgressUpdateView(APIView):
 			if update_fields:
 				sr.save(update_fields=update_fields)
 
-			RequestStatusLog.objects.create(
+			log = RequestStatusLog.objects.create(
 				request=sr,
 				actor=request.user,
 				from_status=old,
@@ -858,6 +873,28 @@ class ProviderProgressUpdateView(APIView):
 					)
 				),
 			)
+
+			progress_attachments = s.validated_data.get("attachments") or []
+			if progress_attachments:
+				created_atts = ServiceRequestAttachment.objects.bulk_create(
+					[
+						ServiceRequestAttachment(
+							request=sr,
+							status_log=log,
+							source=ServiceRequestAttachment.SOURCE_PROVIDER_PROGRESS,
+							file=attachment,
+							file_type=_infer_attachment_type(attachment),
+						)
+						for attachment in progress_attachments
+					]
+				)
+				try:
+					from apps.uploads.tasks import schedule_video_optimization
+					for att in created_atts:
+						if att.file_type == "video":
+							schedule_video_optimization(att, "file")
+				except Exception:
+					pass
 
 			notification_stage = "progress_update" if old == RequestStatus.IN_PROGRESS or pending_stage_before == "progress_update" else "pre_execution"
 			transaction.on_commit(
@@ -1209,6 +1246,7 @@ class RequestCompleteView(APIView):
 					[
 						ServiceRequestAttachment(
 							request=sr,
+							source=ServiceRequestAttachment.SOURCE_PROVIDER_COMPLETION,
 							file=attachment,
 							file_type=_infer_attachment_type(attachment),
 						)

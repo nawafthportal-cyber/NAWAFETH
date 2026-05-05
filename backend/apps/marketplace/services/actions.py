@@ -155,6 +155,89 @@ def _notify_pool_request_cancelled_providers(*, sr: ServiceRequest, actor, note:
         )
 
 
+def _delete_normal_targeted_provider_notifications(*, sr: ServiceRequest, provider_user_id: int) -> None:
+    """Remove the targeted "new request" notification for a NORMAL request when
+    the client cancels before the provider has accepted."""
+    from apps.notifications.models import Notification
+    from apps.notifications.services import delete_notifications
+
+    try:
+        delete_notifications(
+            qs=Notification.objects.filter(
+                user_id=int(provider_user_id),
+                kind="request_created",
+                audience_mode="provider",
+                url=f"/requests/{sr.id}",
+            )
+        )
+    except Exception:
+        logger.exception(
+            "failed to delete targeted provider notifications request_id=%s",
+            getattr(sr, "id", None),
+        )
+
+
+def _redispatch_request_to_providers(*, sr: ServiceRequest, actor) -> None:
+    """Re-emit provider notifications/dispatch when a request is reopened.
+
+    Mirrors the logic in ``ServiceRequestCreateView.perform_create`` so that the
+    pool sees the request again after a CANCELLED → NEW transition.
+    """
+    from apps.notifications.models import EventType
+    from apps.notifications.services import create_notification
+
+    request_type = (getattr(sr, "request_type", "") or "").strip().lower()
+    dispatch_mode = (getattr(sr, "dispatch_mode", "") or "all").strip().lower()
+    now = timezone.now()
+
+    provider = getattr(sr, "provider", None)
+    provider_user = getattr(provider, "user", None)
+
+    try:
+        if request_type == RequestType.NORMAL and provider is not None and provider_user is not None:
+            create_notification(
+                user=provider_user,
+                title="طلب جديد",
+                body=f"لديك طلب خدمة جديد: {sr.title}",
+                kind="request_created",
+                url=f"/requests/{sr.id}",
+                actor=actor,
+                event_type=EventType.REQUEST_CREATED,
+                pref_key="new_request",
+                request_id=sr.id,
+                audience_mode="provider",
+            )
+        if (
+            request_type == RequestType.URGENT
+            and dispatch_mode == "nearest"
+            and provider is not None
+            and provider_user is not None
+        ):
+            create_notification(
+                user=provider_user,
+                title="طلب عاجل موجّه إليك",
+                body=f"لديك طلب خدمة عاجل: {sr.title}",
+                kind="urgent_request",
+                url=f"/requests/{sr.id}",
+                actor=actor,
+                event_type=EventType.REQUEST_CREATED,
+                pref_key="urgent_request",
+                request_id=sr.id,
+                is_urgent=True,
+                audience_mode="provider",
+            )
+        if request_type == RequestType.URGENT and dispatch_mode in {"all", "nearest"}:
+            ensure_dispatch_windows_for_urgent_request(sr, now=now)
+            dispatch_ready_urgent_windows(now=now, limit=200)
+        if request_type == RequestType.COMPETITIVE:
+            dispatch_due_competitive_request_notifications(now=now, limit=200)
+    except Exception:
+        logger.exception(
+            "failed to re-dispatch reopened request request_id=%s",
+            getattr(sr, "id", None),
+        )
+
+
 @dataclass(frozen=True)
 class ActionResult:
     ok: bool
@@ -297,8 +380,9 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
             acts.append("relist")
         if sr.status == RequestStatus.NEW:
             acts.append("send")
-            if sr.provider_id is None or sr.request_type == RequestType.URGENT:
-                acts.append("cancel")
+            # Allow cancel at NEW for any request type — provider has not
+            # accepted yet, so the client may always retract the request.
+            acts.append("cancel")
         elif (
             sr.request_type == RequestType.URGENT
             and sr.status in PRE_EXECUTION_REQUEST_STATUSES
@@ -375,9 +459,20 @@ def execute_action(
                 and sr.provider_id is not None
                 and pending_input_stage != "progress_update"
             )
-            if sr.provider_id is not None and not urgent_pending_with_provider:
+            # Client may cancel freely while the request is still NEW (no
+            # provider has actually accepted yet, even if it was targeted).
+            new_pending_acceptance = sr.status == RequestStatus.NEW
+            if (
+                sr.provider_id is not None
+                and not urgent_pending_with_provider
+                and not new_pending_acceptance
+            ):
                 raise PermissionDenied("لا يمكن إلغاء الطلب بعد قبول مزود الخدمة")
-            client_allowed_statuses = list(PRE_EXECUTION_REQUEST_STATUSES) if urgent_pending_with_provider else [RequestStatus.NEW]
+            client_allowed_statuses = (
+                list(PRE_EXECUTION_REQUEST_STATUSES)
+                if urgent_pending_with_provider
+                else [RequestStatus.NEW]
+            )
             sr.cancel(allowed_statuses=client_allowed_statuses)
             sr.canceled_at = timezone.now()
             sr.cancel_reason = cleaned_note[:255]
@@ -407,6 +502,13 @@ def execute_action(
                     actor=user,
                     note=note,
                     previous_provider_user_id=previous_provider_user_id,
+                )
+            )
+        elif sr.request_type == RequestType.NORMAL and previous_provider_user_id:
+            transaction.on_commit(
+                lambda: _delete_normal_targeted_provider_notifications(
+                    sr=sr,
+                    provider_user_id=previous_provider_user_id,
                 )
             )
         return ActionResult(True, "تم إلغاء الطلب", sr.status)
@@ -481,6 +583,9 @@ def execute_action(
             from_status=old,
             to_status=RequestStatus.NEW,
             note="إعادة فتح الطلب",
+        )
+        transaction.on_commit(
+            lambda: _redispatch_request_to_providers(sr=sr, actor=user)
         )
         return ActionResult(True, "تم إعادة فتح الطلب", sr.status)
 

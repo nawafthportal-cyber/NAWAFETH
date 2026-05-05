@@ -3,37 +3,61 @@
 {% block title %}إدارة التصنيفات{% endblock %}
 {% block extra_head %}
   <style>
-    .category-policy-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-    .category-policy-card { padding: 14px 16px; border-radius: 18px; background: linear-gradient(180deg, #fff, #f8f1ff); border: 1px solid rgba(111,29,121,.12); }
-    .category-policy-card strong { display:block; font-size: 26px; color:#5b1670; }
-    .category-policy-card span { color:#6c5979; font-size: 13px; }
-    .category-management-grid { display:grid; grid-template-columns: 1.05fr 1.35fr; gap: 18px; }
-    .category-form-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-    .category-form-grid .full-span { grid-column: 1 / -1; }
+    .cat-policy-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .cat-policy-card { padding: 14px 16px; border-radius: 18px; background: linear-gradient(180deg, #fff, #f8f1ff); border: 1px solid rgba(111,29,121,.12); display:flex; flex-direction:column; gap:4px; }
+    .cat-policy-card strong { font-size: 26px; color:#5b1670; line-height:1.1; }
+    .cat-policy-card .label { color:#41114f; font-weight:700; font-size: 13px; }
+    .cat-policy-card .hint { color:#7a6788; font-size: 12px; }
+    .cat-management-grid { display:grid; grid-template-columns: 1.05fr 1.35fr; gap: 18px; align-items:start; }
+    .cat-form-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .cat-form-grid .full-span { grid-column: 1 / -1; }
     .policy-switches { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .policy-switch { display:flex; align-items:center; gap:10px; padding: 14px; border:1px solid rgba(111,29,121,.12); border-radius: 16px; background:#fff; }
+    .policy-switch { display:flex; align-items:center; gap:10px; padding: 14px; border:1px solid rgba(111,29,121,.12); border-radius: 16px; background:#fff; cursor:pointer; transition:.15s ease; }
+    .policy-switch:hover { border-color:#6f1d79; background:#fbf7fc; }
     .policy-switch input { width:18px; height:18px; accent-color:#6f1d79; }
     .policy-switch-meta strong { display:block; color:#41114f; }
     .policy-switch-meta span { color:#7a6788; font-size:12px; }
-    .category-record { border:1px solid rgba(111,29,121,.12); border-radius: 20px; padding: 16px; background:#fff; }
-    .category-record + .category-record { margin-top: 14px; }
-    .category-record-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 16px; margin-bottom: 12px; }
-    .category-record-head h3 { margin:0; color:#41114f; }
-    .category-record-head p { margin:4px 0 0; color:#7a6788; font-size:13px; }
-    .policy-pill { display:inline-flex; align-items:center; gap:6px; padding: 6px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .cat-record { border:1px solid rgba(111,29,121,.12); border-radius: 20px; padding: 16px; background:#fff; }
+    .cat-record + .cat-record { margin-top: 14px; }
+    .cat-record.is-selected { border-color:#6f1d79; box-shadow: 0 6px 24px rgba(111,29,121,.10); }
+    .cat-record.is-inactive { background: repeating-linear-gradient(45deg, #fff, #fff 10px, #faf6fb 10px, #faf6fb 20px); }
+    .cat-record-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 16px; margin-bottom: 12px; flex-wrap:wrap; }
+    .cat-record-head h3 { margin:0; color:#41114f; display:flex; align-items:center; gap:8px; }
+    .cat-record-head .meta { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .cat-record-head .meta .chip { background:#f5edf7; color:#5b1670; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; }
+    .cat-record-head .meta .chip.warn { background: rgba(220,38,38,.10); color:#991b1b; }
+    .policy-pill { display:inline-flex; align-items:center; gap:6px; padding: 4px 10px; border-radius:999px; font-size:12px; font-weight:700; white-space:nowrap; }
     .policy-pill.local { background: rgba(14,116,144,.10); color:#155e75; }
     .policy-pill.remote { background: rgba(8,145,178,.10); color:#0e7490; }
     .policy-pill.urgent-on { background: rgba(22,163,74,.12); color:#166534; }
     .policy-pill.urgent-off { background: rgba(148,163,184,.18); color:#475569; }
     .policy-pill.inactive { background: rgba(220,38,38,.12); color:#991b1b; }
-    .subcategories-table td:first-child, .subcategories-table th:first-child { width: 32%; }
+    .subcategories-table td:first-child, .subcategories-table th:first-child { width: 28%; }
+    .subcategories-table tr.row-inactive td { opacity: .65; }
+    .subcategories-table tr.is-selected { background: #fbf3fd; }
+    .quick-toggle-form { display:inline-block; margin:0; }
+    .quick-toggle-btn { background:transparent; border:1px dashed transparent; cursor:pointer; padding:0; font: inherit; color: inherit; border-radius:999px; }
+    .quick-toggle-btn:hover { border-color: rgba(111,29,121,.35); }
     .muted-note { color:#7a6788; font-size:13px; }
+    .filters-bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .filters-bar .filter-group { display:flex; gap:6px; flex-wrap:wrap; align-items:center; padding:6px 10px; border:1px solid rgba(111,29,121,.12); border-radius:14px; background:#fff; }
+    .filters-bar .filter-group strong { color:#5b1670; font-size:12px; }
+    .filters-bar .filter-chip { padding:5px 12px; border-radius:999px; font-size:12px; font-weight:700; color:#5b1670; background:#f5edf7; text-decoration:none; border:1px solid transparent; transition:.15s; }
+    .filters-bar .filter-chip:hover { border-color:#6f1d79; }
+    .filters-bar .filter-chip.active { background:#6f1d79; color:#fff; }
+    .editing-banner { background: linear-gradient(135deg, #fbf3fd, #fff); border:1px solid #e6d3ec; border-radius:14px; padding:10px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    .editing-banner strong { color:#5b1670; }
+    .form-shell h3 { margin: 0 0 6px; color:#41114f; }
+    .form-shell { position:sticky; top: 12px; }
+    .empty-state { text-align:center; padding: 28px 16px; color:#7a6788; border:1px dashed rgba(111,29,121,.20); border-radius:18px; background:#fff; }
     @media (max-width: 1100px) {
-      .category-policy-grid, .policy-switches, .category-form-grid, .category-management-grid { grid-template-columns: 1fr; }
+      .cat-policy-grid, .policy-switches, .cat-form-grid, .cat-management-grid { grid-template-columns: 1fr; }
+      .form-shell { position:static; }
     }
   </style>
 {% endblock %}
 {% block body %}
+  {% with qs_status=category_filters.status qs_scope=category_filters.scope qs_urgent=category_filters.urgent qs_q=category_filters.q %}
   <div class="dashboard-layout">
     <header class="dash-header">
       <div class="hero-panel panel fade-in">
@@ -42,8 +66,8 @@
           <p class="subtitle">{{ hero_subtitle }}</p>
         </div>
         <div class="hero-stats">
-          <span class="pill brand">الرئيسية: {{ category_stats.categories }}</span>
-          <span class="pill accent">الفرعية: {{ category_stats.subcategories }}</span>
+          <span class="pill brand">رئيسية: {{ category_stats.active_categories }}/{{ category_stats.categories }}</span>
+          <span class="pill accent">فرعية: {{ category_stats.active_subcategories }}/{{ category_stats.subcategories }}</span>
           <span class="pill info">محلية: {{ category_stats.geo_scoped }}</span>
           <span class="pill mint">عاجل: {{ category_stats.urgent_enabled }}</span>
         </div>
@@ -66,38 +90,96 @@
         <section class="section-panel slide-up">
           <div class="title-row">
             <h2>ملخص سياسات التصنيفات</h2>
+            <div class="muted-note">القيم محسوبة لحظيًا من قاعدة البيانات.</div>
           </div>
-          <div class="category-policy-grid">
-            <article class="category-policy-card"><strong>{{ category_stats.categories }}</strong><span>تصنيف رئيسي داخل الكتالوج</span></article>
-            <article class="category-policy-card"><strong>{{ category_stats.subcategories }}</strong><span>تصنيف فرعي يمكن ربطه بطلبات المنصة</span></article>
-            <article class="category-policy-card"><strong>{{ category_stats.geo_scoped }}</strong><span>تصنيف فرعي يتطلب نطاقًا جغرافيًا</span></article>
-            <article class="category-policy-card"><strong>{{ category_stats.urgent_enabled }}</strong><span>تصنيف فرعي يسمح بالطلبات العاجلة</span></article>
+          <div class="cat-policy-grid">
+            <article class="cat-policy-card">
+              <strong>{{ category_stats.categories }}</strong>
+              <span class="label">تصنيفات رئيسية</span>
+              <span class="hint">المفعّل منها: {{ category_stats.active_categories }}</span>
+            </article>
+            <article class="cat-policy-card">
+              <strong>{{ category_stats.subcategories }}</strong>
+              <span class="label">تصنيفات فرعية</span>
+              <span class="hint">المفعّل منها: {{ category_stats.active_subcategories }}</span>
+            </article>
+            <article class="cat-policy-card">
+              <strong>{{ category_stats.geo_scoped }}</strong>
+              <span class="label">يتطلب نطاقًا جغرافيًا</span>
+              <span class="hint">خدمات محلية مرتبطة بمدن محددة</span>
+            </article>
+            <article class="cat-policy-card">
+              <strong>{{ category_stats.urgent_enabled }}</strong>
+              <span class="label">يقبل الطلبات العاجلة</span>
+              <span class="hint">مرئية ضمن تدفق العاجل</span>
+            </article>
           </div>
         </section>
 
         <section class="section-panel slide-up">
           <div class="title-row">
-            <h2>إنشاء وتحرير التصنيفات</h2>
+            <h2>البحث والتصفية</h2>
+            <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}">إعادة الضبط</a>
+          </div>
+          <form method="get" class="toolbar" style="margin:0 0 12px;">
+            <input class="input-control" type="search" name="q" value="{{ qs_q }}" placeholder="ابحث باسم التصنيف الرئيسي أو الفرعي" style="min-width:280px;">
+            <input type="hidden" name="status" value="{{ qs_status }}">
+            <input type="hidden" name="scope" value="{{ qs_scope }}">
+            <input type="hidden" name="urgent" value="{{ qs_urgent }}">
             <div class="actions">
-              <form method="get" class="toolbar" style="margin:0;">
-                <input class="input-control" type="search" name="q" value="{{ category_filters.q }}" placeholder="ابحث باسم التصنيف الرئيسي أو الفرعي">
-                <div class="actions">
-                  <button class="primary-btn light" type="submit">بحث</button>
-                  <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}">مسح</a>
-                </div>
-              </form>
+              <button class="primary-btn light" type="submit">بحث</button>
+            </div>
+          </form>
+          <div class="filters-bar">
+            <div class="filter-group">
+              <strong>الحالة:</strong>
+              <a class="filter-chip {% if qs_status == 'all' %}active{% endif %}" href="?q={{ qs_q }}&status=all&scope={{ qs_scope }}&urgent={{ qs_urgent }}">الكل</a>
+              <a class="filter-chip {% if qs_status == 'active' %}active{% endif %}" href="?q={{ qs_q }}&status=active&scope={{ qs_scope }}&urgent={{ qs_urgent }}">مفعّل فقط</a>
+              <a class="filter-chip {% if qs_status == 'inactive' %}active{% endif %}" href="?q={{ qs_q }}&status=inactive&scope={{ qs_scope }}&urgent={{ qs_urgent }}">متوقف فقط</a>
+            </div>
+            <div class="filter-group">
+              <strong>النطاق:</strong>
+              <a class="filter-chip {% if qs_scope == 'all' %}active{% endif %}" href="?q={{ qs_q }}&status={{ qs_status }}&scope=all&urgent={{ qs_urgent }}">الكل</a>
+              <a class="filter-chip {% if qs_scope == 'geo' %}active{% endif %}" href="?q={{ qs_q }}&status={{ qs_status }}&scope=geo&urgent={{ qs_urgent }}">محلي (جغرافي)</a>
+              <a class="filter-chip {% if qs_scope == 'remote' %}active{% endif %}" href="?q={{ qs_q }}&status={{ qs_status }}&scope=remote&urgent={{ qs_urgent }}">عن بُعد</a>
+            </div>
+            <div class="filter-group">
+              <strong>العاجل:</strong>
+              <a class="filter-chip {% if qs_urgent == 'all' %}active{% endif %}" href="?q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent=all">الكل</a>
+              <a class="filter-chip {% if qs_urgent == 'yes' %}active{% endif %}" href="?q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent=yes">يسمح بالعاجل</a>
+              <a class="filter-chip {% if qs_urgent == 'no' %}active{% endif %}" href="?q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent=no">لا يسمح</a>
             </div>
           </div>
+        </section>
 
-          <div class="category-management-grid">
+        <section class="section-panel slide-up" id="edit-form">
+          <div class="title-row">
+            <h2>إنشاء وتحرير التصنيفات</h2>
+            {% if selected_category or selected_subcategory %}
+              <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent={{ qs_urgent }}">إلغاء التحرير</a>
+            {% endif %}
+          </div>
+
+          {% if selected_subcategory %}
+            <div class="editing-banner">
+              <div>تحرير التصنيف الفرعي: <strong>{{ selected_subcategory.category.name }} / {{ selected_subcategory.name }}</strong></div>
+              <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent={{ qs_urgent }}">إنشاء تصنيف فرعي جديد</a>
+            </div>
+          {% elif selected_category %}
+            <div class="editing-banner">
+              <div>تحرير التصنيف الرئيسي: <strong>{{ selected_category.name }}</strong></div>
+              <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent={{ qs_urgent }}">إنشاء تصنيف جديد</a>
+            </div>
+          {% endif %}
+
+          <div class="cat-management-grid">
             <form method="post" class="form-shell">
               {% csrf_token %}
               <input type="hidden" name="action" value="save_category">
               {{ category_form.category_id }}
-              <div class="title-row" style="margin-bottom: 12px;">
-                <h3>{% if selected_category %}تعديل التصنيف الرئيسي{% else %}إضافة تصنيف رئيسي{% endif %}</h3>
-              </div>
-              <div class="category-form-grid">
+              <h3>{% if selected_category %}تعديل التصنيف الرئيسي{% else %}إضافة تصنيف رئيسي{% endif %}</h3>
+              <p class="muted-note" style="margin: 4px 0 12px;">التصنيف الرئيسي يجمع تحته خدمات فرعية ويُعرض في صفحات الاستكشاف.</p>
+              <div class="cat-form-grid">
                 <div class="full-span">{{ category_form.name.label_tag }}{{ category_form.name }}</div>
                 <label class="policy-switch full-span">
                   {{ category_form.is_active }}
@@ -109,7 +191,9 @@
               </div>
               <div class="actions" style="margin-top: 14px;">
                 <button class="primary-btn" type="submit" {% if not can_manage %}disabled{% endif %}>حفظ التصنيف الرئيسي</button>
-                <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}">تصنيف جديد</a>
+                {% if selected_category %}
+                  <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent={{ qs_urgent }}">تصنيف جديد</a>
+                {% endif %}
               </div>
             </form>
 
@@ -117,10 +201,9 @@
               {% csrf_token %}
               <input type="hidden" name="action" value="save_subcategory">
               {{ subcategory_form.subcategory_id }}
-              <div class="title-row" style="margin-bottom: 12px;">
-                <h3>{% if selected_subcategory %}تعديل التصنيف الفرعي{% else %}إضافة تصنيف فرعي{% endif %}</h3>
-              </div>
-              <div class="category-form-grid">
+              <h3>{% if selected_subcategory %}تعديل التصنيف الفرعي{% else %}إضافة تصنيف فرعي{% endif %}</h3>
+              <p class="muted-note" style="margin: 4px 0 12px;">التصنيف الفرعي هو الذي يربطه العميل ومزود الخدمة بالطلبات. السياسات أدناه إلزامية للمنصة.</p>
+              <div class="cat-form-grid">
                 <div>{{ subcategory_form.category.label_tag }}{{ subcategory_form.category }}</div>
                 <div>{{ subcategory_form.name.label_tag }}{{ subcategory_form.name }}</div>
                 <div class="full-span policy-switches">
@@ -128,14 +211,14 @@
                     {{ subcategory_form.requires_geo_scope }}
                     <span class="policy-switch-meta">
                       <strong>{{ subcategory_form.requires_geo_scope.label }}</strong>
-                      <span>فعّله للخدمات المحلية التي يجب تنفيذها داخل مدينة أو نطاق محدد.</span>
+                      <span>للخدمات المحلية التي يجب تنفيذها داخل مدينة أو نطاق محدد.</span>
                     </span>
                   </label>
                   <label class="policy-switch">
                     {{ subcategory_form.allows_urgent_requests }}
                     <span class="policy-switch-meta">
                       <strong>{{ subcategory_form.allows_urgent_requests.label }}</strong>
-                      <span>إذا كان غير مفعّل فلن يستطيع أي مزود استقبال هذا التصنيف ضمن تدفق العاجل.</span>
+                      <span>إن لم يُفعّل لن يستقبل أي مزود طلبات عاجلة بهذا التصنيف.</span>
                     </span>
                   </label>
                 </div>
@@ -147,10 +230,11 @@
                   </span>
                 </label>
               </div>
-              <p class="muted-note">السياسات هنا هي المصدر المعتمد للمنصة، وليست خيارًا حرًا لمزود الخدمة.</p>
               <div class="actions" style="margin-top: 14px;">
                 <button class="primary-btn" type="submit" {% if not can_manage %}disabled{% endif %}>حفظ التصنيف الفرعي</button>
-                <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}">تصنيف فرعي جديد</a>
+                {% if selected_subcategory %}
+                  <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent={{ qs_urgent }}">تصنيف فرعي جديد</a>
+                {% endif %}
               </div>
             </form>
           </div>
@@ -159,17 +243,29 @@
         <section class="section-panel slide-up">
           <div class="title-row">
             <h2>قائمة التصنيفات الحالية</h2>
+            <div class="muted-note">{{ category_rows|length }} تصنيف رئيسي معروض.</div>
           </div>
           {% for category in category_rows %}
-            <article class="category-record">
-              <div class="category-record-head">
+            <article class="cat-record {% if selected_category and selected_category.id == category.id %}is-selected{% endif %} {% if not category.is_active %}is-inactive{% endif %}" id="cat-{{ category.id }}">
+              <div class="cat-record-head">
                 <div>
-                  <h3>{{ category.name }}</h3>
-                  <p>{{ category.subcategories.count }} تصنيف فرعي مرتبط بهذا القسم.</p>
+                  <h3>
+                    {{ category.name }}
+                    {% if not category.is_active %}<span class="policy-pill inactive">متوقف</span>{% endif %}
+                  </h3>
+                  <div class="meta">
+                    <span class="chip">{{ category.stats.subs_active }}/{{ category.stats.subs_total }} مفعّل</span>
+                    <span class="chip">{{ category.stats.subs_geo }} محلي</span>
+                    <span class="chip">{{ category.stats.subs_urgent }} يقبل العاجل</span>
+                    {% if category.stats.shown != category.stats.subs_total %}
+                      <span class="chip warn">معروض حسب الفلتر: {{ category.stats.shown }}</span>
+                    {% endif %}
+                  </div>
                 </div>
                 <div class="actions">
-                  <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?category={{ category.id }}">تعديل الرئيسي</a>
-                  <form method="post">
+                  <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?category={{ category.id }}&q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent={{ qs_urgent }}#edit-form">تعديل الرئيسي</a>
+                  <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?category={{ category.id }}&q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent={{ qs_urgent }}#edit-form">+ تصنيف فرعي</a>
+                  <form method="post" class="quick-toggle-form">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="toggle_category_active">
                     <input type="hidden" name="category_id" value="{{ category.id }}">
@@ -190,22 +286,36 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {% for subcategory in category.subcategories.all %}
-                      <tr>
-                        <td><strong>{{ subcategory.name }}</strong></td>
+                    {% for subcategory in category.visible_subcategories %}
+                      <tr class="{% if not subcategory.is_active %}row-inactive{% endif %} {% if selected_subcategory and selected_subcategory.id == subcategory.id %}is-selected{% endif %}">
+                        <td><strong>{{ subcategory.name }}</strong><div class="muted-note">#{{ subcategory.id }}</div></td>
                         <td>
-                          {% if subcategory.requires_geo_scope %}
-                            <span class="policy-pill local">محلي يتطلب نطاقًا جغرافيًا</span>
-                          {% else %}
-                            <span class="policy-pill remote">يمكن تنفيذه دون تقييد جغرافي</span>
-                          {% endif %}
+                          <form method="post" class="quick-toggle-form" title="انقر للتبديل">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="toggle_subcategory_geo">
+                            <input type="hidden" name="subcategory_id" value="{{ subcategory.id }}">
+                            <button type="submit" class="quick-toggle-btn" {% if not can_manage %}disabled{% endif %}>
+                              {% if subcategory.requires_geo_scope %}
+                                <span class="policy-pill local">محلي · جغرافي</span>
+                              {% else %}
+                                <span class="policy-pill remote">عن بُعد</span>
+                              {% endif %}
+                            </button>
+                          </form>
                         </td>
                         <td>
-                          {% if subcategory.allows_urgent_requests %}
-                            <span class="policy-pill urgent-on">يسمح بالعاجل</span>
-                          {% else %}
-                            <span class="policy-pill urgent-off">غير مفعّل للعاجل</span>
-                          {% endif %}
+                          <form method="post" class="quick-toggle-form" title="انقر للتبديل">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="toggle_subcategory_urgent">
+                            <input type="hidden" name="subcategory_id" value="{{ subcategory.id }}">
+                            <button type="submit" class="quick-toggle-btn" {% if not can_manage %}disabled{% endif %}>
+                              {% if subcategory.allows_urgent_requests %}
+                                <span class="policy-pill urgent-on">يسمح بالعاجل</span>
+                              {% else %}
+                                <span class="policy-pill urgent-off">غير مفعّل</span>
+                              {% endif %}
+                            </button>
+                          </form>
                         </td>
                         <td>
                           {% if subcategory.is_active %}
@@ -216,8 +326,8 @@
                         </td>
                         <td>
                           <div class="actions">
-                            <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?subcategory={{ subcategory.id }}">تعديل</a>
-                            <form method="post">
+                            <a class="ghost-btn" href="{% url 'dashboard:content_categories' %}?subcategory={{ subcategory.id }}&q={{ qs_q }}&status={{ qs_status }}&scope={{ qs_scope }}&urgent={{ qs_urgent }}#edit-form">تعديل</a>
+                            <form method="post" class="quick-toggle-form">
                               {% csrf_token %}
                               <input type="hidden" name="action" value="toggle_subcategory_active">
                               <input type="hidden" name="subcategory_id" value="{{ subcategory.id }}">
@@ -227,14 +337,18 @@
                         </td>
                       </tr>
                     {% empty %}
-                      <tr><td colspan="5" class="empty-note">لا توجد تصنيفات فرعية مرتبطة بهذا القسم بعد.</td></tr>
+                      <tr><td colspan="5" class="empty-note">لا توجد تصنيفات فرعية مطابقة للفلاتر الحالية.</td></tr>
                     {% endfor %}
                   </tbody>
                 </table>
               </div>
             </article>
           {% empty %}
-            <div class="empty-note">لا توجد تصنيفات مطابقة للبحث الحالي.</div>
+            <div class="empty-state">
+              <p style="font-weight:700; color:#41114f; margin:0 0 6px;">لا توجد نتائج مطابقة.</p>
+              <p style="margin:0 0 12px;">جرّب إزالة الفلاتر أو إنشاء تصنيف جديد.</p>
+              <a class="primary-btn light" href="{% url 'dashboard:content_categories' %}#edit-form">إنشاء تصنيف جديد</a>
+            </div>
           {% endfor %}
         </section>
       </section>
@@ -246,6 +360,7 @@
       </aside>
     </main>
   </div>
+  {% endwith %}
 
   <script src="{% static 'dashboard/js/content.js' %}"></script>
 {% endblock %}

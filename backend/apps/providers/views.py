@@ -410,11 +410,16 @@ class MyProviderSubcategoriesView(APIView):
 			.order_by("subcategory__category__name", "subcategory__name", "id")
 		)
 		ids = [row.subcategory_id for row in rows]
+		single_row_legacy_mode = len(rows) == 1
 		settings = [
 			{
 				"subcategory_id": row.subcategory_id,
 				"accepts_urgent": bool(row.accepts_urgent and getattr(row.subcategory, "allows_urgent_requests", False)),
-				"requires_geo_scope": bool(getattr(row.subcategory, "requires_geo_scope", True)),
+				"requires_geo_scope": bool(
+					getattr(row.subcategory, "requires_geo_scope", True)
+					if single_row_legacy_mode
+					else getattr(row, "requires_geo_scope", True)
+				),
 			}
 			for row in rows
 		]
@@ -1127,7 +1132,7 @@ class MyProviderSpotlightListCreateView(generics.ListCreateAPIView):
 			return ProviderSpotlightItemCreateSerializer
 		return ProviderSpotlightItemSerializer
 
-	def perform_create(self, serializer):
+	def _spotlight_quota_error_payload(self):
 		pp = getattr(self.request.user, "provider_profile", None)
 		if not pp:
 			raise NotFound("provider_profile_not_found")
@@ -1139,27 +1144,40 @@ class MyProviderSpotlightListCreateView(generics.ListCreateAPIView):
 		spotlight_quota = max(0, int(spotlight_quota_for_user(self.request.user) or 0))
 		current_spotlights = ProviderSpotlightItem.objects.filter(provider=pp).count()
 		if spotlight_quota <= 0:
-			raise ValidationError({
+			return {
 				"detail": f"رفع اللمحات غير متاح ضمن {plan_name}. فعّل أو رقِّ الباقة للاستمرار.",
 				"error_code": "spotlight_quota_unavailable",
 				"plan_name": plan_name,
 				"spotlight_quota": spotlight_quota,
 				"current_count": current_spotlights,
-			})
+			}
 		if current_spotlights >= spotlight_quota:
-			raise ValidationError({
+			return {
 				"detail": f"وصلت إلى الحد الأقصى لعدد اللمحات في {plan_name}. احذف لمحة حاليّة أو رقِّ الباقة لإضافة المزيد.",
 				"error_code": "spotlight_quota_exceeded",
 				"plan_name": plan_name,
 				"spotlight_quota": spotlight_quota,
 				"current_count": current_spotlights,
-			})
+			}
+		return None
+
+	def perform_create(self, serializer):
+		pp = getattr(self.request.user, "provider_profile", None)
+		if not pp:
+			raise NotFound("provider_profile_not_found")
 		item = serializer.save(provider=pp)
 		ensure_media_thumbnail(item)
 
 	def create(self, request, *args, **kwargs):
 		try:
-			return super().create(request, *args, **kwargs)
+			serializer = self.get_serializer(data=request.data)
+			serializer.is_valid(raise_exception=True)
+			quota_error = self._spotlight_quota_error_payload()
+			if quota_error is not None:
+				return Response(quota_error, status=status.HTTP_400_BAD_REQUEST)
+			self.perform_create(serializer)
+			headers = self.get_success_headers(serializer.data)
+			return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 		except Exception as exc:
 			if _is_storage_error(exc):
 				return _handle_storage_error(exc)

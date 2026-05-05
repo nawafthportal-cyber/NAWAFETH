@@ -170,42 +170,39 @@
               <div>
                 <span class="pill accent extras-report-header__pill">الخدمات الإضافية</span>
                 <h2>لوحة التحكم للتقارير</h2>
-                <p class="subtitle">يعرض هذا القسم طلبات التقارير القابلة للمعالجة، ويُبقي نموذج إعداد أو تحديث الطلبات الجديدة متاحًا داخل الصفحة نفسها.</p>
-              </div>
-              <div class="extras-report-header__icon" aria-hidden="true">
-                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M8 52V28l12 10 13-18 11 9 12-15"/>
-                  <path d="M10 52h44"/>
-                  <path d="M16 52V40"/>
-                  <path d="M28 52V34"/>
-                  <path d="M40 52V38"/>
-                  <path d="M52 52V24"/>
-                </svg>
-              </div>
-            </div>
-
-            <div class="extras-report-notes">
-              <div class="extras-report-note extras-report-note--success">
-                <strong>لوحة التشغيل</strong>
-                <p>
-                  {% if active_section_request_summary.total %}
-                    يوجد حالياً {{ active_section_request_summary.total }} طلب تقارير داخل هذا القسم، ويمكن لفريق التشغيل فتح كل طلب ومتابعة حالته والتسعير والفاتورة من نفس الصفحة.
-                  {% else %}
-                    لا توجد طلبات تقارير مطابقة للفلاتر الحالية، ويمكنك استخدام النموذج أدناه لإعداد طلب جديد أو تحديث مسودة التقارير.
-                  {% endif %}
-                </p>
-              </div>
-              <div class="extras-report-note extras-report-note--system">
-                <strong>رسالة من النظام</strong>
-                <p>الجدول التالي يعرض الطلبات التي تحتوي على بنود التقارير فقط، أما النموذج السفلي فهو لإعداد الفترة الزمنية وخيارات التقرير قبل إنشاء الطلب أو استكماله.</p>
+                <p class="subtitle">طلبات التقارير القائمة في الأعلى، ونموذج إعداد طلب جديد أو تحديث المسودة في الأسفل.</p>
               </div>
             </div>
 
             {% include 'dashboard/_extras_requests_panel.html' with request_panel_id='extrasRequests' request_panel_heading='طلبات التقارير' request_panel_rows=active_section_request_rows request_panel_summary=active_section_request_summary request_panel_search_placeholder='بحث برقم الطلب أو اسم مزود الخدمة في طلبات التقارير...' request_panel_empty_note='لا توجد طلبات تقارير مطابقة للفلاتر الحالية.' request_panel_detail_enabled=selected_request_matches_active_section %}
 
-            <form method="post" class="extras-report-shell" data-single-submit-form="true">
+            <div class="extras-section-divider">
+              <h3>إنشاء أو تحديث طلب تقارير</h3>
+              <span class="subtitle">للطلب المحدد حالياً، أو لمسودة جديدة قبل الإرسال.</span>
+            </div>
+
+            <form method="post" class="extras-report-shell" data-single-submit-form="true" data-report-wizard>
               {% csrf_token %}
               <input type="hidden" name="redirect_section" value="reports">
+
+              <ol class="extras-wizard-steps" aria-label="مراحل إعداد طلب التقرير">
+                <li class="extras-wizard-step{% if specialist_identifier %} is-complete{% else %} is-current{% endif %}" data-wizard-step="specialist">
+                  <span class="extras-wizard-step__index">1</span>
+                  <span class="extras-wizard-step__label">المختص</span>
+                </li>
+                <li class="extras-wizard-step{% if bundle_form_values.reports_start_at and bundle_form_values.reports_end_at %} is-complete{% elif specialist_identifier %} is-current{% endif %}" data-wizard-step="period">
+                  <span class="extras-wizard-step__index">2</span>
+                  <span class="extras-wizard-step__label">الفترة</span>
+                </li>
+                <li class="extras-wizard-step{% if bundle_selected_report_options %} is-complete{% elif bundle_form_values.reports_start_at and bundle_form_values.reports_end_at %} is-current{% endif %}" data-wizard-step="options">
+                  <span class="extras-wizard-step__index">3</span>
+                  <span class="extras-wizard-step__label">الخيارات</span>
+                </li>
+                <li class="extras-wizard-step{% if bundle_selected_report_options and bundle_form_values.reports_start_at and bundle_form_values.reports_end_at and specialist_identifier %} is-current{% endif %}" data-wizard-step="submit">
+                  <span class="extras-wizard-step__index">4</span>
+                  <span class="extras-wizard-step__label">الاعتماد</span>
+                </li>
+              </ol>
 
               <div class="extras-report-notes">
                 <div class="extras-report-note extras-report-note--success">
@@ -235,7 +232,7 @@
                         <label for="reportsStartAt">بداية التقرير</label>
                         <input id="reportsStartAt" class="input-control" type="datetime-local" name="reports_start_at" value="{{ bundle_form_values.reports_start_at }}">
                       </div>
-                      <div class="field full">
+                      <div class="field">
                         <label for="reportsEndAt">نهاية التقرير</label>
                         <input id="reportsEndAt" class="input-control" type="datetime-local" name="reports_end_at" value="{{ bundle_form_values.reports_end_at }}">
                       </div>
@@ -276,7 +273,7 @@
 
                 <aside class="review-report-side extras-report-side">
                   <div class="target-card extras-report-summary-card">
-                    <h4>ملخص التقرير</h4>
+                    <h3>ملخص التقرير</h3>
                     <div class="support-meta-grid extras-request-meta-grid">
                       <div class="quick-stat"><span>معرف مزود الخدمة</span><strong data-specialist-identifier-node>{{ specialist_identifier|default:'-' }}</strong></div>
                       <div class="quick-stat"><span>اسم مزود الخدمة</span><strong data-specialist-display-node>{{ specialist_display_name }}</strong></div>
@@ -287,7 +284,7 @@
                   </div>
 
                   <div class="target-card extras-report-summary-card">
-                    <h4>العناصر المعتمدة</h4>
+                    <h3>العناصر المعتمدة</h3>
                     {% if report_bundle_summary.items %}
                       <div class="extras-client-selected-list">
                         {% for item in report_bundle_summary.items %}
@@ -306,8 +303,8 @@
 
               <div class="actions extras-report-actions">
                 {% if can_write %}
-                  <button type="submit" class="primary-btn" name="action" value="save_extras_bundle_reports" data-lock-on-submit="true" data-pending-text="جار الاعتماد...">اعتماد</button>
-                  <button type="submit" class="ghost-btn" name="action" value="clear_extras_bundle_draft" formnovalidate>إلغاء</button>
+                  <button type="submit" class="primary-btn" name="action" value="save_extras_bundle_reports" data-lock-on-submit="true" data-pending-text="جار الحفظ..." title="حفظ بيانات التقرير كمسودة (لا يُرسل الطلب نهائياً)">حفظ بيانات التقرير</button>
+                  <button type="submit" class="ghost-btn" name="action" value="clear_extras_bundle_draft" formnovalidate data-confirm="سيتم مسح كل ما أدخلت في هذا النموذج. هل تريد المتابعة؟">مسح المسودة</button>
                 {% else %}
                   <span class="pill danger">قراءة فقط</span>
                 {% endif %}
@@ -320,43 +317,54 @@
             <div class="extras-finance-header">
               <div>
                 <h2>الإدارة المالية</h2>
-                <p class="subtitle">يعرض هذا القسم الطلبات المالية الخاصة بالخدمات الإضافية مع إمكانية معالجتها، إلى جانب نموذج إعداد أو تحديث المسودة المالية للمختص.</p>
-              </div>
-            </div>
-
-            <div class="extras-report-notes">
-              <div class="extras-report-note extras-report-note--success">
-                <strong>لوحة الطلبات المالية</strong>
-                <p>الجدول التالي يعرض فقط الطلبات التي تتضمن الإدارة المالية، ويمكن من خلاله متابعة الحالة، المكلّف، السداد، وإصدار الفواتير اليدوية.</p>
+                <p class="subtitle">الطلبات المالية القائمة في الأعلى، ونموذج إعداد باقة مالية جديدة أو تحديث المسودة في الأسفل.</p>
               </div>
             </div>
 
             {% include 'dashboard/_extras_requests_panel.html' with request_panel_id='extrasRequests' request_panel_heading='طلبات الإدارة المالية' request_panel_rows=active_section_request_rows request_panel_summary=active_section_request_summary request_panel_search_placeholder='بحث برقم الطلب أو اسم مزود الخدمة في الطلبات المالية...' request_panel_empty_note='لا توجد طلبات إدارة مالية مطابقة للفلاتر الحالية.' request_panel_detail_enabled=selected_request_matches_active_section %}
 
-            <form method="post" class="extras-finance-shell" data-single-submit-form="true">
+            <div class="extras-section-divider">
+              <h3>إنشاء أو تحديث باقة إدارة مالية</h3>
+              <span class="subtitle">للطلب المحدد حالياً، أو لمسودة جديدة قبل الإرسال.</span>
+            </div>
+
+            <form method="post" class="extras-finance-shell" data-single-submit-form="true" data-finance-wizard>
               {% csrf_token %}
               <input type="hidden" name="redirect_section" value="finance">
 
-              <div class="extras-report-notes">
-                <div class="extras-report-note extras-report-note--success">
-                  <strong>رسالة حالة الطلب</strong>
-                  <p>
-                    {% if bundle_selected_finance_options %}
-                      تم تجهيز {{ bundle_selected_finance_options|length }} خدمة مالية داخل هذه الصفحة، وسيتم اعتمادها ضمن باقة الخدمات الإضافية عند استكمال المسار.
-                    {% else %}
-                      حدد مدة الاشتراك والخدمات المالية المطلوبة ثم اعتمد البيانات كما في النموذج المرجعي.
-                    {% endif %}
-                  </p>
+              <ol class="extras-wizard-steps" aria-label="مراحل إعداد باقة مالية">
+                <li class="extras-wizard-step{% if specialist_identifier %} is-complete{% else %} is-current{% endif %}" data-wizard-step="specialist">
+                  <span class="extras-wizard-step__index">1</span>
+                  <span class="extras-wizard-step__label">المختص</span>
+                </li>
+                <li class="extras-wizard-step{% if bundle_form_values.finance_subscription_years %} is-complete{% elif specialist_identifier %} is-current{% endif %}" data-wizard-step="subscription">
+                  <span class="extras-wizard-step__index">2</span>
+                  <span class="extras-wizard-step__label">مدة الاشتراك</span>
+                </li>
+                <li class="extras-wizard-step{% if bundle_selected_finance_options %} is-complete{% elif bundle_form_values.finance_subscription_years %} is-current{% endif %}" data-wizard-step="options">
+                  <span class="extras-wizard-step__index">3</span>
+                  <span class="extras-wizard-step__label">الخدمات</span>
+                </li>
+                <li class="extras-wizard-step{% if bundle_selected_finance_options and bundle_form_values.finance_subscription_years and specialist_identifier %} is-current{% endif %}" data-wizard-step="submit">
+                  <span class="extras-wizard-step__index">4</span>
+                  <span class="extras-wizard-step__label">الاعتماد</span>
+                </li>
+              </ol>
+
+              {% if specialist_lookup_error %}
+                <div class="alert error extras-report-alert" role="alert">
+                  <strong>تنبيه مزود الخدمة:</strong>
+                  <span>{{ specialist_lookup_error }}</span>
                 </div>
-                <div class="extras-report-note extras-report-note--system">
-                  <strong>رسالة من النظام</strong>
-                    <p>حقول الاسم الأول والاسم الثاني وIBAN تُحفظ ضمن بيانات الطلب حتى تكون خدمة تسجيل الحساب البنكي لمزود الخدمة جاهزة للتنفيذ لاحقًا.</p>
-                </div>
-              </div>
+              {% endif %}
 
               <div class="extras-finance-layout review-report-shell">
                 <div class="review-report-main extras-finance-main">
                   <section class="side-card extras-finance-card">
+                    <div class="title-row extras-finance-section-head">
+                      <h3>بيانات المختص ومدة الاشتراك</h3>
+                    </div>
+
                     <div class="support-action-grid extras-finance-grid">
                       <div class="field full">
                         {% include 'dashboard/_extras_specialist_selector.html' with specialist_selector_input_id='financeSpecialistIdentifier' %}
@@ -373,21 +381,15 @@
                         <label>نهاية الاشتراك</label>
                         <div class="input-control static-field extras-finance-readonly"><strong>{{ finance_preview_end_at }}</strong></div>
                       </div>
-                      {% if specialist_lookup_error %}
-                        <div class="field full">
-                          <div class="extras-request-status-note">
-                            <strong>تنبيه مزود الخدمة</strong>
-                            <p>{{ specialist_lookup_error }}</p>
-                          </div>
-                        </div>
-                      {% endif %}
                     </div>
                   </section>
 
                   <section class="side-card extras-finance-card">
                     <div class="title-row extras-finance-section-head">
-                      <h4>خيارات باقة الخدمات المالية المعتمدة</h4>
+                      <h3>خيارات باقة الخدمات المالية المعتمدة</h3>
                     </div>
+
+                    <p class="extras-client-hint subtitle">حقول الاسم الأول والثاني وIBAN تُحفظ ضمن بيانات الطلب، وستُفعّل خدمة تسجيل الحساب البنكي لاحقاً.</p>
 
                     <div class="extras-finance-qr-grid">
                       <div class="field">
@@ -406,11 +408,11 @@
 
                     <div class="extras-finance-options">
                       {% for option in finance_options %}
-                        <label class="extras-finance-option {% if option.unavailable %}is-unavailable{% elif option.key in bundle_selected_finance_options %}is-selected{% endif %}">
+                        <label class="extras-finance-option {% if option.unavailable %}is-unavailable{% elif option.key in bundle_selected_finance_options %}is-selected{% endif %}"{% if option.unavailable %} title="هذه الخدمة غير متاحة حالياً — قيد التطوير"{% endif %}>
                           <input type="checkbox" name="finance_options" value="{{ option.key }}" {% if option.unavailable %}disabled{% elif option.key in bundle_selected_finance_options %}checked{% endif %}>
-                          <span class="extras-finance-option__mark"></span>
+                          <span class="extras-finance-option__mark" aria-hidden="true"></span>
                           <span class="extras-finance-option__label">{{ option.label }}</span>
-                          {% if option.unavailable %}<span class="extras-coming-soon-badge">قيد التطوير</span>{% endif %}
+                          {% if option.unavailable %}<span class="extras-coming-soon-badge" aria-label="غير متاح حالياً">🔒 غير متاح حالياً</span>{% endif %}
                         </label>
                       {% endfor %}
                     </div>
@@ -419,7 +421,7 @@
 
                 <aside class="review-report-side extras-finance-side">
                   <div class="target-card extras-finance-summary-card">
-                    <h4>ملخص الباقة المالية</h4>
+                    <h3>ملخص الباقة المالية</h3>
                     <div class="support-meta-grid extras-request-meta-grid">
                       <div class="quick-stat"><span>معرف مزود الخدمة</span><strong data-specialist-identifier-node>{{ specialist_identifier|default:'-' }}</strong></div>
                       <div class="quick-stat"><span>اسم مزود الخدمة</span><strong data-specialist-display-node>{{ specialist_display_name }}</strong></div>
@@ -430,7 +432,7 @@
                   </div>
 
                   <div class="target-card extras-finance-summary-card">
-                    <h4>العناصر المعتمدة</h4>
+                    <h3>العناصر المعتمدة</h3>
                     {% if finance_bundle_summary.items %}
                       <div class="extras-client-selected-list">
                         {% for item in finance_bundle_summary.items %}
@@ -449,8 +451,8 @@
 
               <div class="actions extras-finance-actions">
                 {% if can_write %}
-                  <button type="submit" class="primary-btn" name="action" value="save_extras_bundle_finance" data-lock-on-submit="true" data-pending-text="جار الاعتماد...">اعتماد</button>
-                  <button type="submit" class="ghost-btn" name="action" value="clear_extras_bundle_draft" formnovalidate>إلغاء</button>
+                  <button type="submit" class="primary-btn" name="action" value="save_extras_bundle_finance" data-lock-on-submit="true" data-pending-text="جار الحفظ..." title="حفظ بيانات الباقة المالية كمسودة (لا يُرسل الطلب نهائياً)">حفظ بيانات الباقة المالية</button>
+                  <button type="submit" class="ghost-btn" name="action" value="clear_extras_bundle_draft" formnovalidate data-confirm="سيتم مسح كل ما أدخلت في هذا النموذج. هل تريد المتابعة؟">مسح المسودة</button>
                 {% else %}
                   <span class="pill danger">قراءة فقط</span>
                 {% endif %}
@@ -463,7 +465,7 @@
             <div class="title-row">
               <div>
                 <h2>إدارة العملاء</h2>
-                <p class="subtitle">هذا القسم يجمع بين إدارة طلبات العملاء القائمة وإعداد طلبات جديدة، بحيث لا يضطر فريق التشغيل للعودة للرئيسية عند المعالجة.</p>
+                <p class="subtitle">طلبات إدارة العملاء القائمة في الأعلى، ونموذج إعداد باقة جديدة أو تحديث المسودة في الأسفل.</p>
               </div>
               <div class="actions">
                 <span class="pill brand">طلبات العملاء: {{ active_section_request_summary.total }}</span>
@@ -471,22 +473,48 @@
               </div>
             </div>
 
-            <div class="extras-client-note extras-client-note--success">
-              <strong>لوحة تشغيل وإدارة</strong>
-              <p>الجدول التالي يعرض فقط الطلبات التي تحتوي على خدمات إدارة العملاء، مع نفس أدوات التحديث والتسعير اليدوي وإصدار الفاتورة المستخدمة في الصفحة الرئيسية.</p>
-            </div>
-
             {% include 'dashboard/_extras_requests_panel.html' with request_panel_id='extrasRequests' request_panel_heading='طلبات إدارة العملاء' request_panel_rows=active_section_request_rows request_panel_summary=active_section_request_summary request_panel_search_placeholder='بحث برقم الطلب أو اسم مزود الخدمة في طلبات إدارة العملاء...' request_panel_empty_note='لا توجد طلبات إدارة عملاء مطابقة للفلاتر الحالية.' request_panel_detail_enabled=selected_request_matches_active_section %}
 
-            <form method="post" class="extras-client-shell" data-single-submit-form="true">
+            <div class="extras-section-divider">
+              <h3>إنشاء أو تحديث باقة إدارة عملاء</h3>
+              <span class="subtitle">للطلب المحدد حالياً، أو لمسودة جديدة قبل الإرسال.</span>
+            </div>
+
+            <form method="post" class="extras-client-shell" data-single-submit-form="true" data-clients-wizard>
               {% csrf_token %}
               <input type="hidden" name="redirect_section" value="clients">
+
+              <ol class="extras-wizard-steps" aria-label="مراحل إعداد باقة إدارة العملاء">
+                <li class="extras-wizard-step{% if specialist_identifier %} is-complete{% else %} is-current{% endif %}" data-wizard-step="specialist">
+                  <span class="extras-wizard-step__index">1</span>
+                  <span class="extras-wizard-step__label">المختص</span>
+                </li>
+                <li class="extras-wizard-step{% if bundle_form_values.clients_subscription_years %} is-complete{% elif specialist_identifier %} is-current{% endif %}" data-wizard-step="subscription">
+                  <span class="extras-wizard-step__index">2</span>
+                  <span class="extras-wizard-step__label">مدة الاشتراك</span>
+                </li>
+                <li class="extras-wizard-step{% if bundle_selected_client_options %} is-complete{% elif bundle_form_values.clients_subscription_years %} is-current{% endif %}" data-wizard-step="options">
+                  <span class="extras-wizard-step__index">3</span>
+                  <span class="extras-wizard-step__label">الخدمات</span>
+                </li>
+                <li class="extras-wizard-step{% if bundle_selected_client_options and bundle_form_values.clients_subscription_years and specialist_identifier %} is-current{% endif %}" data-wizard-step="submit">
+                  <span class="extras-wizard-step__index">4</span>
+                  <span class="extras-wizard-step__label">الاعتماد</span>
+                </li>
+              </ol>
+
+              {% if specialist_lookup_error %}
+                <div class="alert error extras-report-alert" role="alert">
+                  <strong>تنبيه مزود الخدمة:</strong>
+                  <span>{{ specialist_lookup_error }}</span>
+                </div>
+              {% endif %}
 
               <div class="extras-client-layout review-report-shell">
                 <div class="review-report-main extras-client-main">
                   <section class="side-card extras-client-card">
                     <div class="title-row extras-client-section-head">
-                      <h4>بيانات اعتماد الخدمة</h4>
+                      <h3>بيانات اعتماد الخدمة</h3>
                       <div class="actions">
                         <span class="pill info">معاينة تشغيلية</span>
                       </div>
@@ -508,25 +536,14 @@
                         <label>نهاية الاشتراك</label>
                         <div class="input-control static-field extras-client-readonly"><strong>{{ client_preview_end_at }}</strong></div>
                       </div>
-                      {% if specialist_lookup_error %}
-                        <div class="field full">
-                          <div class="extras-request-status-note">
-                            <strong>تنبيه مزود الخدمة</strong>
-                            <p>{{ specialist_lookup_error }}</p>
-                          </div>
-                        </div>
-                      {% endif %}
                     </div>
 
-                    <div class="extras-client-note">
-                      <strong>ملاحظة تشغيلية</strong>
-                      <p>تاريخا البداية والنهاية في هذه الصفحة معاينة تعتمد على مدة الاشتراك الحالية، وسيتم ربط التنفيذ الفعلي بخطوة الاعتماد النهائية داخل سير العمل.</p>
-                    </div>
+                    <p class="extras-client-hint subtitle">تواريخ البداية/النهاية معاينة تعتمد على مدة الاشتراك؛ يتم الربط الفعلي عند الاعتماد النهائي.</p>
                   </section>
 
                   <section class="side-card extras-client-card">
                     <div class="title-row extras-client-section-head">
-                      <h4>الخدمات المطلوبة</h4>
+                      <h3>الخدمات المطلوبة</h3>
                       <div class="actions">
                         <span class="pill mint">إعدادات الباقة</span>
                       </div>
@@ -534,13 +551,13 @@
 
                     <div class="extras-client-options">
                       {% for option in client_options %}
-                        <label class="extras-client-option {% if option.unavailable %}is-unavailable{% elif option.key in bundle_selected_client_options %}is-selected{% endif %}">
+                        <label class="extras-client-option {% if option.unavailable %}is-unavailable{% elif option.key in bundle_selected_client_options %}is-selected{% endif %}"{% if option.unavailable %} title="هذه الخدمة غير متاحة حالياً — قيد التطوير"{% endif %}>
                           <input type="checkbox" name="clients_options" value="{{ option.key }}" {% if option.unavailable %}disabled{% elif option.key in bundle_selected_client_options %}checked{% endif %}>
-                          <span class="extras-client-option__mark"></span>
+                          <span class="extras-client-option__mark" aria-hidden="true"></span>
                           <span class="extras-client-option__content">
                             <strong>{{ option.label }}</strong>
                             {% if option.unavailable %}
-                              <span class="extras-coming-soon-badge">قيد التطوير</span>
+                              <span class="extras-coming-soon-badge" aria-label="غير متاح حالياً">🔒 غير متاح حالياً</span>
                             {% elif option.key == 'bulk_messages' %}
                               <span>عند تفعيل هذا الخيار يمكن تحديد عدد الرسائل الجماعية المطلوب إرسالها.</span>
                             {% endif %}
@@ -560,7 +577,7 @@
 
                 <aside class="review-report-side extras-client-side">
                   <div class="target-card extras-client-summary-card">
-                    <h4>ملخص الإدارة</h4>
+                    <h3>ملخص الإدارة</h3>
                     <div class="support-meta-grid extras-request-meta-grid">
                       <div class="quick-stat"><span>معرف مزود الخدمة</span><strong data-specialist-identifier-node>{{ specialist_identifier|default:'-' }}</strong></div>
                       <div class="quick-stat"><span>اسم مزود الخدمة</span><strong data-specialist-display-node>{{ specialist_display_name }}</strong></div>
@@ -571,7 +588,7 @@
                   </div>
 
                   <div class="target-card extras-client-summary-card">
-                    <h4>العناصر المعتمدة</h4>
+                    <h3>العناصر المعتمدة</h3>
                     {% if client_bundle_summary.items %}
                       <div class="extras-client-selected-list">
                         {% for item in client_bundle_summary.items %}
@@ -603,8 +620,8 @@
 
               <div class="actions extras-client-actions">
                 {% if can_write %}
-                  <button type="submit" class="primary-btn" name="action" value="save_extras_bundle_clients" data-lock-on-submit="true" data-pending-text="جار الاعتماد...">اعتماد</button>
-                  <button type="submit" class="ghost-btn" name="action" value="clear_extras_bundle_draft" formnovalidate>إلغاء</button>
+                  <button type="submit" class="primary-btn" name="action" value="save_extras_bundle_clients" data-lock-on-submit="true" data-pending-text="جار الحفظ..." title="حفظ بيانات إدارة العملاء كمسودة (لا يُرسل الطلب نهائياً)">حفظ بيانات الإدارة</button>
+                  <button type="submit" class="ghost-btn" name="action" value="clear_extras_bundle_draft" formnovalidate data-confirm="سيتم مسح كل ما أدخلت في هذا النموذج. هل تريد المتابعة؟">مسح المسودة</button>
                 {% else %}
                   <span class="pill danger">قراءة فقط</span>
                 {% endif %}
@@ -1305,6 +1322,150 @@
 
   syncRemoveButtons();
   recalcSubtotal();
+})();
+
+// data-confirm handler for destructive buttons
+(function () {
+  document.addEventListener("click", function (event) {
+    var btn = event.target.closest("[data-confirm]");
+    if (!btn) return;
+    var msg = btn.getAttribute("data-confirm");
+    if (msg && !window.confirm(msg)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+})();
+
+// Live wizard step indicator for the reports form
+(function () {
+  var form = document.querySelector("[data-report-wizard]");
+  if (!form) return;
+
+  function stepNode(name) {
+    return form.querySelector('[data-wizard-step="' + name + '"]');
+  }
+
+  function setState(node, state) {
+    if (!node) return;
+    node.classList.remove("is-current", "is-complete");
+    if (state) node.classList.add(state);
+  }
+
+  function recompute() {
+    var identifierNode = form.querySelector("[data-specialist-identifier-node]");
+    var identifierTxt = identifierNode ? (identifierNode.textContent || "").trim() : "";
+    var hasSpecialist = identifierTxt && identifierTxt !== "-";
+
+    var startInput = form.querySelector('input[name="reports_start_at"]');
+    var endInput = form.querySelector('input[name="reports_end_at"]');
+    var hasPeriod = !!(startInput && startInput.value && endInput && endInput.value);
+
+    var optionsCount = form.querySelectorAll('input[name="reports_options"]:checked').length;
+    var hasOptions = optionsCount > 0;
+
+    var allReady = hasSpecialist && hasPeriod && hasOptions;
+
+    setState(stepNode("specialist"), hasSpecialist ? "is-complete" : "is-current");
+    setState(stepNode("period"), hasPeriod ? "is-complete" : (hasSpecialist ? "is-current" : null));
+    setState(stepNode("options"), hasOptions ? "is-complete" : (hasPeriod ? "is-current" : null));
+    setState(stepNode("submit"), allReady ? "is-current" : null);
+  }
+
+  form.addEventListener("change", recompute);
+  form.addEventListener("input", recompute);
+
+  // Observe specialist identifier text node updates (set by selector JS).
+  var idNode = form.querySelector("[data-specialist-identifier-node]");
+  if (idNode && window.MutationObserver) {
+    new MutationObserver(recompute).observe(idNode, { childList: true, characterData: true, subtree: true });
+  }
+})();
+
+// Live wizard step indicator for the clients form
+(function () {
+  var form = document.querySelector("[data-clients-wizard]");
+  if (!form) return;
+
+  function stepNode(name) {
+    return form.querySelector('[data-wizard-step="' + name + '"]');
+  }
+
+  function setState(node, state) {
+    if (!node) return;
+    node.classList.remove("is-current", "is-complete");
+    if (state) node.classList.add(state);
+  }
+
+  function recompute() {
+    var identifierNode = form.querySelector("[data-specialist-identifier-node]");
+    var identifierTxt = identifierNode ? (identifierNode.textContent || "").trim() : "";
+    var hasSpecialist = identifierTxt && identifierTxt !== "-";
+
+    var yearsInput = form.querySelector('input[name="clients_subscription_years"]');
+    var hasSubscription = !!(yearsInput && parseInt(yearsInput.value, 10) > 0);
+
+    var optionsCount = form.querySelectorAll('input[name="clients_options"]:checked').length;
+    var hasOptions = optionsCount > 0;
+
+    var allReady = hasSpecialist && hasSubscription && hasOptions;
+
+    setState(stepNode("specialist"), hasSpecialist ? "is-complete" : "is-current");
+    setState(stepNode("subscription"), hasSubscription ? "is-complete" : (hasSpecialist ? "is-current" : null));
+    setState(stepNode("options"), hasOptions ? "is-complete" : (hasSubscription ? "is-current" : null));
+    setState(stepNode("submit"), allReady ? "is-current" : null);
+  }
+
+  form.addEventListener("change", recompute);
+  form.addEventListener("input", recompute);
+
+  var idNode = form.querySelector("[data-specialist-identifier-node]");
+  if (idNode && window.MutationObserver) {
+    new MutationObserver(recompute).observe(idNode, { childList: true, characterData: true, subtree: true });
+  }
+})();
+
+// Live wizard step indicator for the finance form
+(function () {
+  var form = document.querySelector("[data-finance-wizard]");
+  if (!form) return;
+
+  function stepNode(name) {
+    return form.querySelector('[data-wizard-step="' + name + '"]');
+  }
+
+  function setState(node, state) {
+    if (!node) return;
+    node.classList.remove("is-current", "is-complete");
+    if (state) node.classList.add(state);
+  }
+
+  function recompute() {
+    var identifierNode = form.querySelector("[data-specialist-identifier-node]");
+    var identifierTxt = identifierNode ? (identifierNode.textContent || "").trim() : "";
+    var hasSpecialist = identifierTxt && identifierTxt !== "-";
+
+    var yearsInput = form.querySelector('input[name="finance_subscription_years"]');
+    var hasSubscription = !!(yearsInput && parseInt(yearsInput.value, 10) > 0);
+
+    var optionsCount = form.querySelectorAll('input[name="finance_options"]:checked').length;
+    var hasOptions = optionsCount > 0;
+
+    var allReady = hasSpecialist && hasSubscription && hasOptions;
+
+    setState(stepNode("specialist"), hasSpecialist ? "is-complete" : "is-current");
+    setState(stepNode("subscription"), hasSubscription ? "is-complete" : (hasSpecialist ? "is-current" : null));
+    setState(stepNode("options"), hasOptions ? "is-complete" : (hasSubscription ? "is-current" : null));
+    setState(stepNode("submit"), allReady ? "is-current" : null);
+  }
+
+  form.addEventListener("change", recompute);
+  form.addEventListener("input", recompute);
+
+  var idNode = form.querySelector("[data-specialist-identifier-node]");
+  if (idNode && window.MutationObserver) {
+    new MutationObserver(recompute).observe(idNode, { childList: true, characterData: true, subtree: true });
+  }
 })();
 </script>
 {% endblock %}

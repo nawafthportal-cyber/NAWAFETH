@@ -1,0 +1,316 @@
+/* Order detail page polish — premium card visuals, embedded provider notes,
+ * status timeline with attachments. Scoped under .page-order-detail to avoid
+ * leaking into other pages. Keep hidden state intact via .hidden { display:none }
+ * already handled by global utilities.
+ */
+
+body.page-order-detail #order-provider-decision-section {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(103, 58, 183, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 244, 255, 0.94));
+  box-shadow: 0 22px 50px rgba(91, 54, 171, 0.12);
+  padding: 22px;
+}
+
+body.page-order-detail #order-provider-decision-section::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 0;
+  width: 6px;
+  background: linear-gradient(180deg, #673ab7, #2563eb);
+  pointer-events: none;
+}
+
+body.page-order-detail .order-decision-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-inline-start: 6px;
+}
+
+body.page-order-detail .order-decision-icon {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #5b36ab;
+  background: linear-gradient(135deg, rgba(103, 58, 183, 0.14), rgba(37, 99, 235, 0.12));
+  box-shadow: inset 0 0 0 1px rgba(103, 58, 183, 0.12);
+}
+
+body.page-order-detail .order-decision-titles h2 {
+  margin: 0;
+  font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+  font-weight: 900;
+  color: #1a1a2e;
+}
+
+body.page-order-detail .order-decision-subtitle {
+  margin: 4px 0 0;
+  color: #666680;
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+/* Embedded provider notes card */
+body.page-order-detail .order-provider-notes-card {
+  margin: 14px 0 18px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(241, 165, 89, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 252, 245, 0.98), rgba(255, 247, 232, 0.94));
+  box-shadow: 0 12px 30px rgba(241, 165, 89, 0.08);
+  position: relative;
+}
+
+body.page-order-detail .order-provider-notes-card::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 12px;
+  width: 4px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #f1a559, #ef7c3c);
+}
+
+body.page-order-detail .order-provider-notes-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+
+body.page-order-detail .order-provider-notes-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #d27a2a;
+  background: rgba(241, 165, 89, 0.18);
+}
+
+body.page-order-detail .order-provider-notes-head h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 900;
+  color: #1a1a2e;
+}
+
+body.page-order-detail .order-provider-notes-body {
+  color: #2c2c44;
+  line-height: 1.85;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+body.page-order-detail .order-provider-notes-attachments {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(103, 58, 183, 0.14);
+}
+
+body.page-order-detail .order-provider-notes-attachments-head {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #5b36ab;
+  margin-bottom: 8px;
+}
+
+body.page-order-detail .order-provider-notes-meta {
+  margin: 10px 0 0;
+  color: #888;
+  font-size: 0.78rem;
+}
+
+/* Attachment chips reused in notes card and status logs */
+body.page-order-detail .order-attachments-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.page-order-detail .order-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 58, 183, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  color: #2c2c44;
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  box-shadow: 0 4px 12px rgba(91, 54, 171, 0.08);
+}
+
+body.page-order-detail .order-attachment-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(103, 58, 183, 0.36);
+  box-shadow: 0 8px 18px rgba(91, 54, 171, 0.14);
+}
+
+body.page-order-detail .order-attachment-chip.is-disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+/* Status logs as a timeline */
+body.page-order-detail .order-logs-card #order-status-logs {
+  position: relative;
+  padding-inline-start: 22px;
+}
+
+body.page-order-detail .order-logs-card #order-status-logs::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 8px;
+  inset-block: 6px;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(103, 58, 183, 0.4), rgba(103, 58, 183, 0.05));
+  border-radius: 2px;
+}
+
+body.page-order-detail .order-log-row {
+  position: relative;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(103, 58, 183, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 16px rgba(26, 26, 46, 0.05);
+}
+
+body.page-order-detail .order-log-row::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -18px;
+  top: 18px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #673ab7;
+  box-shadow: 0 0 0 3px rgba(103, 58, 183, 0.12);
+}
+
+body.page-order-detail .order-log-title {
+  font-weight: 900;
+  color: #1a1a2e;
+  font-size: 0.92rem;
+  margin-bottom: 4px;
+}
+
+body.page-order-detail .order-log-note {
+  color: #444461;
+  font-size: 0.88rem;
+  line-height: 1.7;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+
+body.page-order-detail .order-log-time {
+  color: #888;
+  font-size: 0.76rem;
+}
+
+body.page-order-detail .order-log-attachments {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(103, 58, 183, 0.12);
+}
+
+body.page-order-detail .order-log-attachments-label {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #5b36ab;
+  margin-bottom: 6px;
+}
+
+/* Decision form polish */
+body.page-order-detail #order-provider-decision-form .order-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+body.page-order-detail #order-provider-decision-form .btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+
+body.page-order-detail #order-provider-decision-form .btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.35), transparent 70%);
+  transform: translateX(-100%);
+  transition: transform .8s ease;
+  pointer-events: none;
+}
+
+body.page-order-detail #order-provider-decision-form .btn-primary:hover::after {
+  transform: translateX(100%);
+}
+
+/* Files card polish */
+body.page-order-detail .order-files-card .order-files-group {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(247, 245, 255, 0.6);
+  border: 1px solid rgba(103, 58, 183, 0.1);
+}
+
+body.page-order-detail .order-files-group-head h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #1a1a2e;
+}
+
+body.page-order-detail .order-files-group-head p {
+  margin: 0 0 10px;
+  color: #666680;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+/* Desktop centering safety net */
+@media (min-width: 1024px) {
+  body.page-order-detail .container.order-detail-layout {
+    width: min(1080px, calc(100% - 48px));
+    margin-inline: auto;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  body.page-order-detail #order-provider-decision-form .btn-primary::after {
+    transition: none;
+  }
+}
+
+/* Dark mode (only if site already toggles a dark class on body) */
+body.page-order-detail.dark .order-provider-notes-card,
+body.page-order-detail.theme-dark .order-provider-notes-card {
+  background: linear-gradient(180deg, rgba(40, 30, 20, 0.94), rgba(50, 36, 22, 0.9));
+  border-color: rgba(241, 165, 89, 0.32);
+}
+
+body.page-order-detail.dark .order-log-row,
+body.page-order-detail.theme-dark .order-log-row {
+  background: rgba(28, 28, 44, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+}

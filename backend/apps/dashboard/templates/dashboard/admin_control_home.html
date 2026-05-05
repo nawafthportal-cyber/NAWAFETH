@@ -226,7 +226,7 @@
             <div class="admin-report-summary-strip">
               <article class="admin-report-summary-card"><span>إجمالي المستخدمين</span><strong data-animate-number>{{ reports.users_summary.total_users }}</strong></article>
               <article class="admin-report-summary-card"><span>إجمالي الطلبات</span><strong data-animate-number>{{ reports.requests_summary.total }}</strong></article>
-              <article class="admin-report-summary-card"><span>إجمالي التحميلات</span><strong data-animate-number>{{ reports.app_downloads_summary.total }}</strong></article>
+              <article class="admin-report-summary-card"><span>إجمالي الزوار</span><strong data-animate-number>{{ reports.visitor_summary.visitor_count }}</strong></article>
               <article class="admin-report-summary-card"><span>المدفوعات الناجحة</span><strong data-animate-number>{{ reports.payment_summary.paid_invoices }}</strong></article>
               <article class="admin-report-summary-card"><span>قيمة المدفوعات</span><strong data-animate-number>{{ reports.payment_summary.paid_amount_total|floatformat:0 }}</strong></article>
             </div>
@@ -240,74 +240,36 @@
           </div>
 
           <div class="admin-report-grid">
-            <article class="admin-report-card" data-report-card>
-              <div class="admin-report-card__head"><h3>إحصاءات المستخدمين</h3></div>
-              <div class="admin-report-list" data-report-list>
-                <div class="admin-report-item"><span class="admin-report-item__label">عدد المستخدمين الكلي</span><strong class="admin-report-item__value" data-animate-number>{{ reports.users_summary.total_users }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">مكتملو التسجيل</span><strong class="admin-report-item__value" data-animate-number>{{ reports.users_summary.users_complete }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">المستخدمون الموظفون</span><strong class="admin-report-item__value" data-animate-number>{{ reports.users_summary.staff_users }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">مرات التحقق OTP</span><strong class="admin-report-item__value" data-animate-number>{{ reports.users_summary.app_logins }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-              </div>
-            </article>
-
-            <article class="admin-report-card" data-report-card>
-              <div class="admin-report-card__head"><h3>إحصاءات الطلبات</h3></div>
-              <div class="admin-report-list" data-report-list>
-                <div class="admin-report-item"><span class="admin-report-item__label">طلبات جديدة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.new }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">تحت التنفيذ</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.in_progress }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">مكتملة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.completed }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">ملغاة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.cancelled }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">الإجمالي</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.total }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-              </div>
-            </article>
-
-            <article class="admin-report-card" data-report-card>
-              <div class="admin-report-card__head"><h3>إحصاءات التفاعل</h3></div>
-              <div class="admin-report-list" data-report-list>
-                <div class="admin-report-item"><span class="admin-report-item__label">عدد المراجعات</span><strong class="admin-report-item__value" data-animate-number>{{ reports.interaction_summary.reviews }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">إعجابات المحتوى</span><strong class="admin-report-item__value" data-animate-number>{{ reports.interaction_summary.portfolio_likes }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">التوصية بالمنصة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.interaction_summary.provider_follows }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">عمليات البحث</span><strong class="admin-report-item__value" data-animate-number>{{ reports.search_events }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">إحصاءات البريد الإلكتروني</span><strong class="admin-report-item__value" data-animate-number>{{ reports.email_events }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-              </div>
-            </article>
-
-            <article class="admin-report-card" data-report-card>
-              <div class="admin-report-card__head"><h3>الدعم والمساعدة</h3></div>
-              <div class="admin-report-list" data-report-list>
-                {% for row in reports.support_type_rows %}
-                  <div class="admin-report-item"><span class="admin-report-item__label">{{ row.type_label }}</span><strong class="admin-report-item__value" data-animate-number>{{ row.total }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                {% empty %}
-                  <div class="admin-report-item"><span class="admin-report-item__label">لا توجد بيانات</span><strong class="admin-report-item__value" data-animate-number>0</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                {% endfor %}
-              </div>
-            </article>
-
-            <article class="admin-report-card" data-report-card>
-              <div class="admin-report-card__head"><h3>التحميلات والزوار</h3></div>
-              <div class="admin-report-list" data-report-list>
-                <div class="admin-report-item"><span class="admin-report-item__label">تحميلات iOS</span><strong class="admin-report-item__value" data-animate-number>{{ reports.app_downloads_summary.ios }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">تحميلات Android</span><strong class="admin-report-item__value" data-animate-number>{{ reports.app_downloads_summary.android }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">تحميلات Web</span><strong class="admin-report-item__value" data-animate-number>{{ reports.app_downloads_summary.web }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">حسابات الزوار</span><strong class="admin-report-item__value" data-animate-number>{{ reports.visitor_summary.visitor_accounts }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">نقرات نتائج البحث</span><strong class="admin-report-item__value" data-animate-number>{{ reports.visitor_summary.search_clicks }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-              </div>
-            </article>
-
-            <article class="admin-report-card" data-report-card>
-              <div class="admin-report-card__head"><h3>الخدمات المدفوعة والدفع</h3></div>
-              <div class="admin-report-list" data-report-list>
-                {% for row in reports.paid_services_rows %}
-                  <div class="admin-report-item"><span class="admin-report-item__label">{{ row.type_label }}</span><strong class="admin-report-item__value" data-animate-number>{{ row.total }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                {% empty %}
-                  <div class="admin-report-item"><span class="admin-report-item__label">لا توجد بيانات خدمات</span><strong class="admin-report-item__value" data-animate-number>0</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                {% endfor %}
-                <div class="admin-report-item"><span class="admin-report-item__label">إجمالي محاولات الدفع</span><strong class="admin-report-item__value" data-animate-number>{{ reports.payment_summary.attempts_total }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">محاولات ناجحة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.payment_summary.success }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">محاولات فاشلة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.payment_summary.failed }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-                <div class="admin-report-item"><span class="admin-report-item__label">إجمالي المبالغ المدفوعة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.payment_summary.paid_amount_total|floatformat:2 }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
-              </div>
-            </article>
+            {% for section_metrics in reports.metric_sections %}
+              <article class="admin-report-card admin-report-card--wide admin-report-card--matrix" data-report-card>
+                <div class="admin-report-card__head"><h3>{{ section_metrics.title }}</h3></div>
+                <div class="admin-report-matrix-wrap">
+                  <table class="admin-report-matrix">
+                    <tbody>
+                      {% for metrics_row in section_metrics.rows %}
+                        <tr class="admin-report-matrix__labels">
+                          {% for metric in metrics_row %}
+                            <th>
+                              {{ metric.label }}
+                              {% if metric.available is False %}<span class="admin-report-unavailable-badge" title="{{ metric.note }}">غير متاح</span>{% endif %}
+                            </th>
+                          {% endfor %}
+                        </tr>
+                        <tr class="admin-report-matrix__values">
+                          {% for metric in metrics_row %}
+                            {% if metric.available is False %}
+                              <td class="admin-report-matrix__values--na" title="{{ metric.note }}">—</td>
+                            {% else %}
+                              <td data-animate-number>{{ metric.value }}</td>
+                            {% endif %}
+                          {% endfor %}
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            {% endfor %}
 
             <article class="admin-report-card admin-report-card--wide" data-report-card>
               <div class="admin-report-card__head"><h3>التصنيف الرئيسي لمجال الخدمات</h3></div>

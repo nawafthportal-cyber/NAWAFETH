@@ -377,10 +377,36 @@ class RequestStatusLog(models.Model):
 
 
 class ServiceRequestAttachment(models.Model):
+	# Source/role of the attachment so the client UI can group/label them
+	SOURCE_CLIENT = "client"
+	SOURCE_PROVIDER_PROGRESS = "provider_progress"
+	SOURCE_PROVIDER_COMPLETION = "provider_completion"
+	SOURCE_CHOICES = (
+		(SOURCE_CLIENT, "Client"),
+		(SOURCE_PROVIDER_PROGRESS, "Provider progress update"),
+		(SOURCE_PROVIDER_COMPLETION, "Provider completion"),
+	)
+
 	request = models.ForeignKey(
 		ServiceRequest,
 		on_delete=models.CASCADE,
 		related_name="attachments",
+	)
+	# When the attachment was uploaded as part of a status/progress update,
+	# we link it to the corresponding RequestStatusLog so the client can see
+	# files inline with the workflow timeline entry.
+	status_log = models.ForeignKey(
+		"RequestStatusLog",
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name="attachments",
+	)
+	source = models.CharField(
+		max_length=24,
+		choices=SOURCE_CHOICES,
+		default=SOURCE_CLIENT,
+		db_index=True,
 	)
 	file = models.FileField(upload_to="requests/attachments/%Y/%m/%d/")
 	file_type = models.CharField(max_length=20)  # image, video, audio, document

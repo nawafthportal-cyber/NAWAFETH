@@ -9,6 +9,7 @@ const ProviderOrderDetailPage = (() => {
     actionLoading: false,
     chatOpening: false,
     completionFiles: [],
+    progressFiles: [],
     toastTimer: null,
     offerAlreadySent: false,
   };
@@ -128,6 +129,8 @@ const ProviderOrderDetailPage = (() => {
       deliveredAtLabel: 'موعد التسليم الفعلي',
       actualAmountLabel: 'قيمة الخدمة الفعلية (SR)',
       completionAttachmentsLabel: 'مرفقات الإكمال (فواتير/صور/ملفات)',
+      progressAttachmentsLabel: 'مرفقات تتبع التنفيذ',
+      progressAttachmentsHint: 'أرفق صور أو فيديو أو ملفات توضح سير العمل ليطلع عليها العميل',
       addAttachments: 'إضافة مرفقات',
       cancelDuringExecutionTitle: 'إلغاء الطلب أثناء التنفيذ',
       cancelOrder: 'إلغاء الطلب',
@@ -280,6 +283,8 @@ const ProviderOrderDetailPage = (() => {
       deliveredAtLabel: 'Actual delivery time',
       actualAmountLabel: 'Actual service amount (SAR)',
       completionAttachmentsLabel: 'Completion attachments (invoices/images/files)',
+      progressAttachmentsLabel: 'Workflow attachments',
+      progressAttachmentsHint: 'Attach photos, video or files showing work progress so the client can follow along',
       addAttachments: 'Add attachments',
       cancelDuringExecutionTitle: 'Cancel order during execution',
       cancelOrder: 'Cancel order',
@@ -435,6 +440,7 @@ const ProviderOrderDetailPage = (() => {
     if (!res.ok || !res.data || typeof res.data !== 'object') return showError(extractError(res, _copy('loadFailed')));
     state.order = res.data;
     state.completionFiles = [];
+    state.progressFiles = [];
     state.offerAlreadySent = false;
     render();
   }
@@ -740,11 +746,13 @@ const ProviderOrderDetailPage = (() => {
       </div>
       <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
       <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
+      ${progressFilesPickerHtml()}
       <button type="button" class="pod-btn pod-btn-warning pod-btn-block" id="pod-progress-btn" data-pod-action>${_copy('resendUpdateToClient')}</button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
     byId('pod-estimated-amount').value = str(o.estimated_service_amount);
     byId('pod-received-amount').value = str(o.received_amount);
     byId('pod-progress-btn').addEventListener('click', () => submitProgress(false));
+    bindProgressFilesPicker();
     setActionLoading(false);
   }
 
@@ -760,6 +768,7 @@ const ProviderOrderDetailPage = (() => {
       </div>
       <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
       <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
+      ${progressFilesPickerHtml()}
       <button type="button" class="pod-btn pod-btn-primary pod-btn-block" id="pod-progress-btn" data-pod-action></button>
       <div class="pod-divider"></div>
       <p class="pod-action-title">${_copy('rejectRequest')}</p>
@@ -785,6 +794,7 @@ const ProviderOrderDetailPage = (() => {
     } else rbox.style.display = 'none';
     byId('pod-progress-btn').addEventListener('click', () => submitProgress(true));
     byId('pod-reject-btn').addEventListener('click', rejectOrder);
+    bindProgressFilesPicker();
     setActionLoading(false);
   }
 
@@ -852,6 +862,7 @@ const ProviderOrderDetailPage = (() => {
       </div>
       <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
       <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
+      ${progressFilesPickerHtml()}
       <button type="button" class="pod-btn pod-btn-primary pod-btn-block" id="pod-progress-btn" data-pod-action></button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
     byId('pod-estimated-amount').value = str(o.estimated_service_amount);
@@ -867,6 +878,7 @@ const ProviderOrderDetailPage = (() => {
     } else rbox.style.display = 'none';
 
     byId('pod-progress-btn').addEventListener('click', () => submitProgress(true));
+    bindProgressFilesPicker();
     setActionLoading(false);
   }
 
@@ -881,6 +893,7 @@ const ProviderOrderDetailPage = (() => {
       </div>
       <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
       <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
+      ${progressFilesPickerHtml()}
       <button type="button" class="pod-btn pod-btn-warning pod-btn-block" id="pod-progress-btn" data-pod-action>${_copy('progressUpdateButton')}</button>
       <div class="pod-divider"></div>
       <p class="pod-action-title">${_copy('completeOrderTitle')}</p>
@@ -908,6 +921,7 @@ const ProviderOrderDetailPage = (() => {
     byId('pod-complete-btn').addEventListener('click', completeOrder);
     byId('pod-reject-btn').addEventListener('click', rejectOrder);
     renderPickedFiles();
+    bindProgressFilesPicker();
     setActionLoading(false);
   }
 
@@ -969,6 +983,60 @@ const ProviderOrderDetailPage = (() => {
         if (state.actionLoading) return;
         state.completionFiles.splice(i, 1);
         renderPickedFiles();
+      });
+      row.appendChild(name);
+      row.appendChild(del);
+      root.appendChild(row);
+    });
+  }
+
+  function progressFilesPickerHtml() {
+    return `
+      <div class="pod-progress-files-block">
+        <p class="pod-input-label">${_copy('progressAttachmentsLabel')}</p>
+        <p class="pod-input-hint">${_copy('progressAttachmentsHint')}</p>
+        <label class="pod-file-picker"><input type="file" id="pod-progress-files" multiple><span class="pod-btn pod-btn-outline pod-btn-block">${_copy('addAttachments')}</span></label>
+        <div id="pod-progress-files-list" class="pod-file-list"></div>
+      </div>`;
+  }
+
+  function bindProgressFilesPicker() {
+    const input = byId('pod-progress-files');
+    if (input) input.addEventListener('change', onProgressFilesPick);
+    renderPickedProgressFiles();
+  }
+
+  function onProgressFilesPick(e) {
+    const files = Array.from(e.target.files || []);
+    files.forEach((f) => {
+      if (!state.progressFiles.some((x) => x.name === f.name && x.size === f.size && x.lastModified === f.lastModified)) {
+        state.progressFiles.push(f);
+      }
+    });
+    e.target.value = '';
+    renderPickedProgressFiles();
+  }
+
+  function renderPickedProgressFiles() {
+    const root = byId('pod-progress-files-list');
+    if (!root) return;
+    root.innerHTML = '';
+    state.progressFiles.forEach((f, i) => {
+      const row = document.createElement('div');
+      row.className = 'pod-file-row';
+      const name = document.createElement('span');
+      name.className = 'pod-file-name';
+      name.textContent = f.name;
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'pod-file-remove';
+      del.textContent = _copy('remove');
+      del.setAttribute('data-pod-action', '1');
+      del.disabled = state.actionLoading;
+      del.addEventListener('click', () => {
+        if (state.actionLoading) return;
+        state.progressFiles.splice(i, 1);
+        renderPickedProgressFiles();
       });
       row.appendChild(name);
       row.appendChild(del);
@@ -1048,16 +1116,26 @@ const ProviderOrderDetailPage = (() => {
     if (isNew && !expected) return toast(_copy('chooseExpectedDelivery'));
     if (isNew && (!est || !rec)) return toast(_copy('enterEstimatedAndReceived'));
     if ((est && !rec) || (!est && rec)) return toast(_copy('enterAmountsTogether'));
-    const body = {};
-    if (expected) body.expected_delivery_at = expected;
-    if (est) body.estimated_service_amount = est;
-    if (rec) body.received_amount = rec;
-    if (note) body.note = note;
-    if (!Object.keys(body).length) return toast(_copy('enterNoteOrUpdate'));
+    const hasFiles = state.progressFiles && state.progressFiles.length > 0;
+    const fields = {};
+    if (expected) fields.expected_delivery_at = expected;
+    if (est) fields.estimated_service_amount = est;
+    if (rec) fields.received_amount = rec;
+    if (note) fields.note = note;
+    if (!Object.keys(fields).length && !hasFiles) return toast(_copy('enterNoteOrUpdate'));
     setActionLoading(true);
-    const res = await ApiClient.request('/api/marketplace/provider/requests/' + state.id + '/progress-update/', { method: 'POST', body });
+    let res;
+    if (hasFiles) {
+      const fd = new FormData();
+      Object.keys(fields).forEach((k) => fd.append(k, fields[k]));
+      state.progressFiles.forEach((f) => fd.append('attachments', f, f.name));
+      res = await ApiClient.request('/api/marketplace/provider/requests/' + state.id + '/progress-update/', { method: 'POST', body: fd });
+    } else {
+      res = await ApiClient.request('/api/marketplace/provider/requests/' + state.id + '/progress-update/', { method: 'POST', body: fields });
+    }
     setActionLoading(false);
     if (!res.ok) return toast(extractError(res, _copy('operationFailed')));
+    state.progressFiles = [];
     toast(isNew ? _copy('progressSentAwaitingClient') : _copy('progressUpdated'));
     loadDetail();
   }

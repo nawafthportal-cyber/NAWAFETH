@@ -263,6 +263,38 @@
           </section>
         {% endif %}
 
+        {% if module_meta.key == "home_banner" %}
+          <div class="extras-section-divider">
+            <h3>إعداد أو تحديث بنر الصفحة الرئيسية</h3>
+            <span class="subtitle">للطلب المحدد حالياً، أو لبند جديد على طلب قائم قبل الحفظ.</span>
+          </div>
+        {% elif is_featured_module %}
+          <div class="extras-section-divider">
+            <h3>إعداد أو تحديث شريط أبرز المختصين</h3>
+            <span class="subtitle">اربط البند بطلب قائم، حدد معرف المختص وفترة الحملة، ثم احفظ لإظهاره في الشريط.</span>
+          </div>
+        {% elif is_portfolio_module %}
+          <div class="extras-section-divider">
+            <h3>إعداد أو تحديث بند البنرات والمشاريع</h3>
+            <span class="subtitle">اختر طلباً ومزودًا، ثم حدد صورة واحدة من معرض أعماله وفترة الحملة قبل الحفظ.</span>
+          </div>
+        {% elif is_snapshots_module %}
+          <div class="extras-section-divider">
+            <h3>إعداد أو تحديث بند شريط اللمحات</h3>
+            <span class="subtitle">اختر طلباً ومزودًا، ثم حدد ريلاً واحدًا من لمحاته وفترة الحملة قبل الحفظ.</span>
+          </div>
+        {% elif is_search_module %}
+          <div class="extras-section-divider">
+            <h3>إعداد بند الظهور في قوائم البحث</h3>
+            <span class="subtitle">اختر طلباً ومزودًا، ثم حدد قوائم الظهور وترتيبها وفترة الحملة قبل الحفظ.</span>
+          </div>
+        {% elif is_messages_module %}
+          <div class="extras-section-divider">
+            <h3>إعداد أو تحديث بند الرسائل الدعائية</h3>
+            <span class="subtitle">اختر طلب الترويج ثم حدد القنوات والمحتوى وتوقيت الإرسال قبل الاعتماد.</span>
+          </div>
+        {% endif %}
+
         <section class="section-panel slide-up">
           <div class="title-row">
             <h2>إدارة {{ module_meta.label }}</h2>
@@ -279,10 +311,158 @@
             </ul>
           {% endif %}
 
-          <form method="post" enctype="multipart/form-data" class="form-shell" id="promoModuleForm" data-module-key="{{ module_meta.key }}" data-single-submit-form="true">
+          <form method="post" enctype="multipart/form-data" class="form-shell" id="promoModuleForm" data-module-key="{{ module_meta.key }}" data-single-submit-form="true"{% if module_meta.key == "home_banner" %} data-home-banner-wizard{% endif %}{% if is_featured_module %} data-featured-wizard{% endif %}{% if is_portfolio_module %} data-portfolio-wizard{% endif %}{% if is_snapshots_module %} data-snapshots-wizard{% endif %}{% if is_search_module %} data-search-wizard{% endif %}{% if is_messages_module %} data-messages-wizard{% endif %}>
             {% csrf_token %}
             <input type="hidden" name="promo_module_form_token" value="{{ promo_module_form_token }}">
             <h3>{% if is_search_module %}إعداد بند الظهور في قوائم البحث{% else %}إضافة بند ترويجي على طلب قائم{% endif %}</h3>
+
+            {% if module_meta.key == "home_banner" %}
+              <ol class="extras-wizard-steps" aria-label="مراحل إعداد بنر الصفحة الرئيسية">
+                <li class="extras-wizard-step{% if selected_request %} is-complete{% else %} is-current{% endif %}" data-wizard-step="request">
+                  <span class="extras-wizard-step__index">1</span>
+                  <span class="extras-wizard-step__label">ربط بطلب</span>
+                </li>
+                <li class="extras-wizard-step{% if selected_home_banner_asset %} is-complete{% elif selected_request %} is-current{% endif %}" data-wizard-step="asset">
+                  <span class="extras-wizard-step__index">2</span>
+                  <span class="extras-wizard-step__label">التصميم</span>
+                </li>
+                <li class="extras-wizard-step{% if selected_request.start_at and selected_request.end_at %} is-complete{% elif selected_home_banner_asset %} is-current{% endif %}" data-wizard-step="period">
+                  <span class="extras-wizard-step__index">3</span>
+                  <span class="extras-wizard-step__label">فترة الحملة</span>
+                </li>
+                <li class="extras-wizard-step{% if selected_request and selected_home_banner_asset and selected_request.start_at and selected_request.end_at %} is-current{% endif %}" data-wizard-step="submit">
+                  <span class="extras-wizard-step__index">4</span>
+                  <span class="extras-wizard-step__label">الحفظ</span>
+                </li>
+              </ol>
+            {% endif %}
+
+            {% if is_featured_module %}
+              <ol class="extras-wizard-steps" aria-label="مراحل إعداد شريط أبرز المختصين">
+                <li class="extras-wizard-step{% if selected_request %} is-complete{% else %} is-current{% endif %}" data-wizard-step="request">
+                  <span class="extras-wizard-step__index">1</span>
+                  <span class="extras-wizard-step__label">ربط بطلب</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.target_provider_id.value %} is-complete{% elif selected_request %} is-current{% endif %}" data-wizard-step="provider">
+                  <span class="extras-wizard-step__index">2</span>
+                  <span class="extras-wizard-step__label">تحديد المختص</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.start_at.value and module_form.end_at.value %} is-complete{% elif module_form.target_provider_id.value %} is-current{% endif %}" data-wizard-step="period">
+                  <span class="extras-wizard-step__index">3</span>
+                  <span class="extras-wizard-step__label">فترة الحملة</span>
+                </li>
+                <li class="extras-wizard-step{% if selected_request and module_form.target_provider_id.value and module_form.start_at.value and module_form.end_at.value %} is-current{% endif %}" data-wizard-step="submit">
+                  <span class="extras-wizard-step__index">4</span>
+                  <span class="extras-wizard-step__label">الحفظ</span>
+                </li>
+              </ol>
+            {% endif %}
+
+            {% if is_portfolio_module %}
+              <ol class="extras-wizard-steps" aria-label="مراحل إعداد بند البنرات والمشاريع">
+                <li class="extras-wizard-step{% if selected_request %} is-complete{% else %} is-current{% endif %}" data-wizard-step="request">
+                  <span class="extras-wizard-step__index">1</span>
+                  <span class="extras-wizard-step__label">ربط بطلب</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.target_provider_id.value %} is-complete{% elif selected_request %} is-current{% endif %}" data-wizard-step="provider">
+                  <span class="extras-wizard-step__index">2</span>
+                  <span class="extras-wizard-step__label">المختص</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.target_portfolio_item_id.value or selected_portfolio_item_data.id %} is-complete{% elif module_form.target_provider_id.value %} is-current{% endif %}" data-wizard-step="image">
+                  <span class="extras-wizard-step__index">3</span>
+                  <span class="extras-wizard-step__label">اختيار الصورة</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.start_at.value and module_form.end_at.value %} is-complete{% elif module_form.target_portfolio_item_id.value or selected_portfolio_item_data.id %} is-current{% endif %}" data-wizard-step="period">
+                  <span class="extras-wizard-step__index">4</span>
+                  <span class="extras-wizard-step__label">فترة الحملة</span>
+                </li>
+                {% with portfolio_item_selected=module_form.target_portfolio_item_id.value|default:selected_portfolio_item_data.id %}
+                <li class="extras-wizard-step{% if selected_request and module_form.target_provider_id.value and portfolio_item_selected and module_form.start_at.value and module_form.end_at.value %} is-current{% endif %}" data-wizard-step="submit">
+                  <span class="extras-wizard-step__index">5</span>
+                  <span class="extras-wizard-step__label">الحفظ</span>
+                </li>
+                {% endwith %}
+              </ol>
+            {% endif %}
+
+            {% if is_snapshots_module %}
+              <ol class="extras-wizard-steps" aria-label="مراحل إعداد بند شريط اللمحات">
+                <li class="extras-wizard-step{% if selected_request %} is-complete{% else %} is-current{% endif %}" data-wizard-step="request">
+                  <span class="extras-wizard-step__index">1</span>
+                  <span class="extras-wizard-step__label">ربط بطلب</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.target_provider_id.value %} is-complete{% elif selected_request %} is-current{% endif %}" data-wizard-step="provider">
+                  <span class="extras-wizard-step__index">2</span>
+                  <span class="extras-wizard-step__label">المختص</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.target_spotlight_item_id.value or selected_spotlight_item_data.id %} is-complete{% elif module_form.target_provider_id.value %} is-current{% endif %}" data-wizard-step="reel">
+                  <span class="extras-wizard-step__index">3</span>
+                  <span class="extras-wizard-step__label">اختيار الريل</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.start_at.value and module_form.end_at.value %} is-complete{% elif module_form.target_spotlight_item_id.value or selected_spotlight_item_data.id %} is-current{% endif %}" data-wizard-step="period">
+                  <span class="extras-wizard-step__index">4</span>
+                  <span class="extras-wizard-step__label">فترة الحملة</span>
+                </li>
+                {% with spotlight_item_selected=module_form.target_spotlight_item_id.value|default:selected_spotlight_item_data.id %}
+                <li class="extras-wizard-step{% if selected_request and module_form.target_provider_id.value and spotlight_item_selected and module_form.start_at.value and module_form.end_at.value %} is-current{% endif %}" data-wizard-step="submit">
+                  <span class="extras-wizard-step__index">5</span>
+                  <span class="extras-wizard-step__label">الحفظ</span>
+                </li>
+                {% endwith %}
+              </ol>
+            {% endif %}
+
+            {% if is_search_module %}
+              <ol class="extras-wizard-steps" aria-label="مراحل إعداد بند الظهور في قوائم البحث">
+                <li class="extras-wizard-step{% if selected_request %} is-complete{% else %} is-current{% endif %}" data-wizard-step="request">
+                  <span class="extras-wizard-step__index">1</span>
+                  <span class="extras-wizard-step__label">ربط بطلب</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.target_provider_id.value %} is-complete{% elif selected_request %} is-current{% endif %}" data-wizard-step="provider">
+                  <span class="extras-wizard-step__index">2</span>
+                  <span class="extras-wizard-step__label">المختص</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.search_scopes.value and module_form.search_position.value %} is-complete{% elif module_form.target_provider_id.value %} is-current{% endif %}" data-wizard-step="scope">
+                  <span class="extras-wizard-step__index">3</span>
+                  <span class="extras-wizard-step__label">القوائم والترتيب</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.start_at.value and module_form.end_at.value %} is-complete{% elif module_form.search_scopes.value and module_form.search_position.value %} is-current{% endif %}" data-wizard-step="period">
+                  <span class="extras-wizard-step__index">4</span>
+                  <span class="extras-wizard-step__label">فترة الحملة</span>
+                </li>
+                <li class="extras-wizard-step{% if selected_request and module_form.target_provider_id.value and module_form.search_scopes.value and module_form.search_position.value and module_form.start_at.value and module_form.end_at.value %} is-current{% endif %}" data-wizard-step="submit">
+                  <span class="extras-wizard-step__index">5</span>
+                  <span class="extras-wizard-step__label">الحفظ</span>
+                </li>
+              </ol>
+            {% endif %}
+
+            {% if is_messages_module %}
+              <ol class="extras-wizard-steps" aria-label="مراحل إعداد بند الرسائل الدعائية">
+                <li class="extras-wizard-step{% if selected_request %} is-complete{% else %} is-current{% endif %}" data-wizard-step="request">
+                  <span class="extras-wizard-step__index">1</span>
+                  <span class="extras-wizard-step__label">ربط بطلب</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.use_notification_channel.value or module_form.use_chat_channel.value %} is-complete{% elif selected_request %} is-current{% endif %}" data-wizard-step="channels">
+                  <span class="extras-wizard-step__index">2</span>
+                  <span class="extras-wizard-step__label">القنوات</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.message_body.value or selected_message_asset %} is-complete{% elif module_form.use_notification_channel.value or module_form.use_chat_channel.value %} is-current{% endif %}" data-wizard-step="content">
+                  <span class="extras-wizard-step__index">3</span>
+                  <span class="extras-wizard-step__label">نص أو مرفق</span>
+                </li>
+                <li class="extras-wizard-step{% if module_form.send_at.value %} is-complete{% elif module_form.message_body.value or selected_message_asset %} is-current{% endif %}" data-wizard-step="schedule">
+                  <span class="extras-wizard-step__index">4</span>
+                  <span class="extras-wizard-step__label">توقيت الإرسال</span>
+                </li>
+                {% with messages_channel_selected=module_form.use_notification_channel.value|default:module_form.use_chat_channel.value messages_content_present=module_form.message_body.value|default:selected_message_asset %}
+                <li class="extras-wizard-step{% if selected_request and messages_channel_selected and messages_content_present and module_form.send_at.value %} is-current{% endif %}" data-wizard-step="submit">
+                  <span class="extras-wizard-step__index">5</span>
+                  <span class="extras-wizard-step__label">الاعتماد</span>
+                </li>
+                {% endwith %}
+              </ol>
+            {% endif %}
 
             <div class="module-form-layout">
               {% if module_meta.key != "home_banner" and not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}
@@ -403,7 +583,7 @@
                 </section>
               {% elif is_featured_module %}
                 <section class="module-block module-block-featured-specialists">
-                  <h4>شريط أبرز مزودي الخدمة</h4>
+                  <h3>شريط أبرز مزودي الخدمة</h3>
                   <div class="featured-specialists-requester-row">
                     <span>اسم مزود الخدمة</span>
                     <strong>{{ selected_requester_label|default:"-" }}</strong>
@@ -473,7 +653,7 @@
                 </section>
               {% elif is_portfolio_module %}
                 <section class="module-block module-block-portfolio-showcase">
-                  <h4>البنرات والمشاريع</h4>
+                  <h3>البنرات والمشاريع</h3>
                   <div class="portfolio-showcase-requester-row">
                     <span>اسم مزود الخدمة</span>
                     <strong id="portfolioShowcaseProviderName">{{ selected_requester_label|default:"-" }}</strong>
@@ -578,7 +758,7 @@
                 </section>
               {% elif is_snapshots_module %}
                 <section class="module-block module-block-snapshots">
-                  <h4>شريط اللمحات</h4>
+                  <h3>شريط اللمحات</h3>
                   <div class="snapshots-requester-row">
                     <span>اسم مزود الخدمة</span>
                     <strong id="snapshotsProviderName">{{ selected_requester_label|default:"-" }}</strong>
@@ -690,7 +870,7 @@
                 </section>
               {% elif is_search_module %}
                 <section class="module-block module-block-search">
-                  <h4>الظهور في قوائم البحث</h4>
+                  <h3>الظهور في قوائم البحث</h3>
                   <div class="search-module-requester-row">
                     <div class="search-module-requester-copy">
                       <span>اسم مزود الخدمة</span>
@@ -808,7 +988,7 @@
                 </section>
               {% elif is_messages_module %}
                 <section class="module-block module-block-messages">
-                  <h4>إعدادات الرسائل الدعائية</h4>
+                  <h3>إعدادات الرسائل الدعائية</h3>
                   <div class="messages-module-requester-row">
                     <div class="messages-module-requester-copy">
                       <span>الحساب المرتبط بالرسالة</span>
@@ -1163,12 +1343,23 @@
                   name="workflow_action"
                   value="approve_item"
                   data-lock-on-submit="true"
+                  {% if module_meta.key == "home_banner" %}title="حفظ بنر الصفحة الرئيسية للطلب المختار (يرتبط التصميم وفترة الحملة بالطلب)"{% endif %}
                   {% if module_meta.key != "home_banner" and not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}data-require-confirm="اعتماد هذا البند بشكل نهائي؟"{% endif %}
                 >
-                  {% if module_meta.key == "home_banner" or is_featured_module or is_portfolio_module or is_snapshots_module or is_search_module %}حفظ{% elif is_module_review_flow %}اعتماد{% else %}حفظ واعتماد{% endif %}
+                  {% if module_meta.key == "home_banner" %}حفظ بنر الصفحة الرئيسية{% elif is_featured_module %}حفظ بند أبرز المختصين{% elif is_portfolio_module %}حفظ بند البنرات والمشاريع{% elif is_snapshots_module %}حفظ بند شريط اللمحات{% elif is_search_module %}حفظ بند الظهور في البحث{% elif is_messages_module %}حفظ واعتماد الرسالة الدعائية{% elif is_module_review_flow %}اعتماد{% else %}حفظ واعتماد{% endif %}
                 </button>
-                {% if module_meta.key == "home_banner" or is_featured_module or is_portfolio_module or is_snapshots_module or is_search_module %}
-                  <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}{% if selected_request %}?request={{ selected_request.id }}{% endif %}">إلغاء</a>
+                {% if module_meta.key == "home_banner" %}
+                  <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}{% if selected_request %}?request={{ selected_request.id }}{% endif %}" data-confirm="ستغادر الصفحة بدون حفظ التغييرات. هل تريد المتابعة؟">إلغاء والعودة</a>
+                {% elif is_featured_module %}
+                  <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}{% if selected_request %}?request={{ selected_request.id }}{% endif %}" data-confirm="ستغادر الصفحة بدون حفظ التغييرات. هل تريد المتابعة؟">إلغاء والعودة</a>
+                {% elif is_portfolio_module %}
+                  <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}{% if selected_request %}?request={{ selected_request.id }}{% endif %}" data-confirm="ستغادر الصفحة بدون حفظ التغييرات. هل تريد المتابعة؟">إلغاء والعودة</a>
+                {% elif is_snapshots_module %}
+                  <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}{% if selected_request %}?request={{ selected_request.id }}{% endif %}" data-confirm="ستغادر الصفحة بدون حفظ التغييرات. هل تريد المتابعة؟">إلغاء والعودة</a>
+                {% elif is_search_module %}
+                  <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}{% if selected_request %}?request={{ selected_request.id }}{% endif %}" data-confirm="ستغادر الصفحة بدون حفظ التغييرات. هل تريد المتابعة؟">إلغاء والعودة</a>
+                {% elif is_messages_module %}
+                  <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}{% if selected_request %}?request={{ selected_request.id }}{% endif %}" data-confirm="ستغادر الصفحة بدون حفظ التغييرات. هل تريد المتابعة؟">إلغاء والعودة</a>
                 {% endif %}
               {% else %}
                 <span class="pill danger">وضع قراءة فقط</span>
@@ -1187,4 +1378,353 @@
     </main>
   </div>
   <script src="{% static 'dashboard/js/promo.js' %}"></script>
+
+  {% if module_meta.key == "home_banner" %}
+    <script>
+      // data-confirm handler (shared; guarded against double-install)
+      (function () {
+        if (window.__promoConfirmHandlerInstalled) return;
+        window.__promoConfirmHandlerInstalled = true;
+        document.addEventListener("click", function (event) {
+          var node = event.target.closest("[data-confirm]");
+          if (!node) return;
+          var msg = node.getAttribute("data-confirm");
+          if (msg && !window.confirm(msg)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+
+      // Live wizard step indicator for home banner form
+      (function () {
+        var form = document.querySelector("[data-home-banner-wizard]");
+        if (!form) return;
+
+        function stepNode(name) {
+          return form.querySelector('[data-wizard-step="' + name + '"]');
+        }
+
+        function setState(node, state) {
+          if (!node) return;
+          node.classList.remove("is-current", "is-complete");
+          if (state) node.classList.add(state);
+        }
+
+        function recompute() {
+          var requestInput = form.querySelector('select[name="request_id"], input[name="request_id"]');
+          var requestVal = requestInput ? (requestInput.value || "").trim() : "";
+          var hasRequest = !!requestVal;
+
+          var fileInput = form.querySelector('input[name="media_file"]');
+          var existingSrc = (form.querySelector('#homeBannerModule') || {}).dataset
+            ? form.querySelector('#homeBannerModule').dataset.existingSrc
+            : "";
+          var hasAsset = !!(existingSrc || (fileInput && fileInput.files && fileInput.files.length > 0));
+
+          var startInput = form.querySelector('input[name="start_at"]');
+          var endInput = form.querySelector('input[name="end_at"]');
+          var hasPeriod = !!(startInput && startInput.value && endInput && endInput.value);
+
+          var allReady = hasRequest && hasAsset && hasPeriod;
+
+          setState(stepNode("request"), hasRequest ? "is-complete" : "is-current");
+          setState(stepNode("asset"), hasAsset ? "is-complete" : (hasRequest ? "is-current" : null));
+          setState(stepNode("period"), hasPeriod ? "is-complete" : (hasAsset ? "is-current" : null));
+          setState(stepNode("submit"), allReady ? "is-current" : null);
+        }
+
+        form.addEventListener("change", recompute);
+        form.addEventListener("input", recompute);
+      })();
+    </script>
+  {% endif %}
+
+  {% if is_portfolio_module %}
+    <script>
+      (function () {
+        if (window.__promoConfirmHandlerInstalled) return;
+        window.__promoConfirmHandlerInstalled = true;
+        document.addEventListener("click", function (event) {
+          var node = event.target.closest("[data-confirm]");
+          if (!node) return;
+          var msg = node.getAttribute("data-confirm");
+          if (msg && !window.confirm(msg)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+
+      (function () {
+        var form = document.querySelector("[data-portfolio-wizard]");
+        if (!form) return;
+
+        function stepNode(name) {
+          return form.querySelector('[data-wizard-step="' + name + '"]');
+        }
+        function setState(node, state) {
+          if (!node) return;
+          node.classList.remove("is-current", "is-complete");
+          if (state) node.classList.add(state);
+        }
+        function val(name) {
+          var input = form.querySelector('[name="' + name + '"]');
+          return input ? (input.value || "").trim() : "";
+        }
+        function recompute() {
+          var hasRequest = !!val("request_id");
+          var hasProvider = !!val("target_provider_id");
+          var hasImage = !!val("target_portfolio_item_id");
+          var hasPeriod = !!(val("start_at") && val("end_at"));
+          var allReady = hasRequest && hasProvider && hasImage && hasPeriod;
+
+          setState(stepNode("request"), hasRequest ? "is-complete" : "is-current");
+          setState(stepNode("provider"), hasProvider ? "is-complete" : (hasRequest ? "is-current" : null));
+          setState(stepNode("image"), hasImage ? "is-complete" : (hasProvider ? "is-current" : null));
+          setState(stepNode("period"), hasPeriod ? "is-complete" : (hasImage ? "is-current" : null));
+          setState(stepNode("submit"), allReady ? "is-current" : null);
+        }
+
+        form.addEventListener("change", recompute);
+        form.addEventListener("input", recompute);
+      })();
+    </script>
+  {% endif %}
+
+  {% if is_snapshots_module %}
+    <script>
+      (function () {
+        if (window.__promoConfirmHandlerInstalled) return;
+        window.__promoConfirmHandlerInstalled = true;
+        document.addEventListener("click", function (event) {
+          var node = event.target.closest("[data-confirm]");
+          if (!node) return;
+          var msg = node.getAttribute("data-confirm");
+          if (msg && !window.confirm(msg)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+
+      (function () {
+        var form = document.querySelector("[data-snapshots-wizard]");
+        if (!form) return;
+
+        function stepNode(name) {
+          return form.querySelector('[data-wizard-step="' + name + '"]');
+        }
+        function setState(node, state) {
+          if (!node) return;
+          node.classList.remove("is-current", "is-complete");
+          if (state) node.classList.add(state);
+        }
+        function val(name) {
+          var input = form.querySelector('[name="' + name + '"]');
+          return input ? (input.value || "").trim() : "";
+        }
+        function recompute() {
+          var hasRequest = !!val("request_id");
+          var hasProvider = !!val("target_provider_id");
+          var hasReel = !!val("target_spotlight_item_id");
+          var hasPeriod = !!(val("start_at") && val("end_at"));
+          var allReady = hasRequest && hasProvider && hasReel && hasPeriod;
+
+          setState(stepNode("request"), hasRequest ? "is-complete" : "is-current");
+          setState(stepNode("provider"), hasProvider ? "is-complete" : (hasRequest ? "is-current" : null));
+          setState(stepNode("reel"), hasReel ? "is-complete" : (hasProvider ? "is-current" : null));
+          setState(stepNode("period"), hasPeriod ? "is-complete" : (hasReel ? "is-current" : null));
+          setState(stepNode("submit"), allReady ? "is-current" : null);
+        }
+
+        form.addEventListener("change", recompute);
+        form.addEventListener("input", recompute);
+        var hidden = form.querySelector('[name="target_spotlight_item_id"]');
+        if (hidden) {
+          var observer = new MutationObserver(recompute);
+          observer.observe(hidden, { attributes: true, attributeFilter: ["value"] });
+          var gallery = form.querySelector("#snapshotsGallery");
+          if (gallery) gallery.addEventListener("click", function () { setTimeout(recompute, 0); });
+        }
+      })();
+    </script>
+  {% endif %}
+
+  {% if is_search_module %}
+    <script>
+      (function () {
+        if (window.__promoConfirmHandlerInstalled) return;
+        window.__promoConfirmHandlerInstalled = true;
+        document.addEventListener("click", function (event) {
+          var node = event.target.closest("[data-confirm]");
+          if (!node) return;
+          var msg = node.getAttribute("data-confirm");
+          if (msg && !window.confirm(msg)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+
+      (function () {
+        var form = document.querySelector("[data-search-wizard]");
+        if (!form) return;
+
+        function stepNode(name) {
+          return form.querySelector('[data-wizard-step="' + name + '"]');
+        }
+        function setState(node, state) {
+          if (!node) return;
+          node.classList.remove("is-current", "is-complete");
+          if (state) node.classList.add(state);
+        }
+        function val(name) {
+          var input = form.querySelector('[name="' + name + '"]');
+          return input ? (input.value || "").trim() : "";
+        }
+        function hasMulti(name) {
+          var nodes = form.querySelectorAll('[name="' + name + '"]');
+          if (!nodes.length) return false;
+          // Handle <select multiple>
+          if (nodes.length === 1 && nodes[0].multiple) {
+            return Array.from(nodes[0].selectedOptions).length > 0;
+          }
+          // Handle checkbox group
+          for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].type === "checkbox" && nodes[i].checked) return true;
+            if (nodes[i].type === "radio" && nodes[i].checked) return true;
+            if (nodes[i].tagName === "INPUT" && nodes[i].type !== "checkbox" && nodes[i].type !== "radio" && (nodes[i].value || "").trim()) return true;
+          }
+          return false;
+        }
+        function recompute() {
+          var hasRequest = !!val("request_id");
+          var hasProvider = !!val("target_provider_id");
+          var hasScope = hasMulti("search_scopes") && !!val("search_position");
+          var hasPeriod = !!(val("start_at") && val("end_at"));
+          var allReady = hasRequest && hasProvider && hasScope && hasPeriod;
+
+          setState(stepNode("request"), hasRequest ? "is-complete" : "is-current");
+          setState(stepNode("provider"), hasProvider ? "is-complete" : (hasRequest ? "is-current" : null));
+          setState(stepNode("scope"), hasScope ? "is-complete" : (hasProvider ? "is-current" : null));
+          setState(stepNode("period"), hasPeriod ? "is-complete" : (hasScope ? "is-current" : null));
+          setState(stepNode("submit"), allReady ? "is-current" : null);
+        }
+
+        form.addEventListener("change", recompute);
+        form.addEventListener("input", recompute);
+      })();
+    </script>
+  {% endif %}
+
+  {% if is_messages_module %}
+    <script>
+      (function () {
+        if (window.__promoConfirmHandlerInstalled) return;
+        window.__promoConfirmHandlerInstalled = true;
+        document.addEventListener("click", function (event) {
+          var node = event.target.closest("[data-confirm]");
+          if (!node) return;
+          var msg = node.getAttribute("data-confirm");
+          if (msg && !window.confirm(msg)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+
+      (function () {
+        var form = document.querySelector("[data-messages-wizard]");
+        if (!form) return;
+
+        function stepNode(name) {
+          return form.querySelector('[data-wizard-step="' + name + '"]');
+        }
+        function setState(node, state) {
+          if (!node) return;
+          node.classList.remove("is-current", "is-complete");
+          if (state) node.classList.add(state);
+        }
+        function val(name) {
+          var input = form.querySelector('[name="' + name + '"]');
+          if (!input) return "";
+          if (input.type === "checkbox") return input.checked ? "1" : "";
+          return (input.value || "").trim();
+        }
+        function recompute() {
+          var hasRequest = !!val("request_id");
+          var hasChannel = !!(val("use_notification_channel") || val("use_chat_channel"));
+          var fileInput = form.querySelector('input[name="media_file"]');
+          var moduleEl = form.querySelector('#promoMessageModule');
+          var existingSrc = moduleEl ? moduleEl.dataset.existingSrc : "";
+          var hasAsset = !!(existingSrc || (fileInput && fileInput.files && fileInput.files.length > 0));
+          var hasContent = !!(val("message_body") || hasAsset);
+          var hasSchedule = !!val("send_at");
+          var allReady = hasRequest && hasChannel && hasContent && hasSchedule;
+
+          setState(stepNode("request"), hasRequest ? "is-complete" : "is-current");
+          setState(stepNode("channels"), hasChannel ? "is-complete" : (hasRequest ? "is-current" : null));
+          setState(stepNode("content"), hasContent ? "is-complete" : (hasChannel ? "is-current" : null));
+          setState(stepNode("schedule"), hasSchedule ? "is-complete" : (hasContent ? "is-current" : null));
+          setState(stepNode("submit"), allReady ? "is-current" : null);
+        }
+
+        form.addEventListener("change", recompute);
+        form.addEventListener("input", recompute);
+      })();
+    </script>
+  {% endif %}
+
+  {% if is_featured_module %}
+    <script>
+      // data-confirm handler for cancel link (also used by home_banner; guarded against double-install)
+      (function () {
+        if (window.__promoConfirmHandlerInstalled) return;
+        window.__promoConfirmHandlerInstalled = true;
+        document.addEventListener("click", function (event) {
+          var node = event.target.closest("[data-confirm]");
+          if (!node) return;
+          var msg = node.getAttribute("data-confirm");
+          if (msg && !window.confirm(msg)) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+
+      // Live wizard step indicator for featured specialists form
+      (function () {
+        var form = document.querySelector("[data-featured-wizard]");
+        if (!form) return;
+
+        function stepNode(name) {
+          return form.querySelector('[data-wizard-step="' + name + '"]');
+        }
+        function setState(node, state) {
+          if (!node) return;
+          node.classList.remove("is-current", "is-complete");
+          if (state) node.classList.add(state);
+        }
+        function val(name) {
+          var input = form.querySelector('[name="' + name + '"]');
+          return input ? (input.value || "").trim() : "";
+        }
+        function recompute() {
+          var hasRequest = !!val("request_id");
+          var hasProvider = !!val("target_provider_id");
+          var hasPeriod = !!(val("start_at") && val("end_at"));
+          var allReady = hasRequest && hasProvider && hasPeriod;
+
+          setState(stepNode("request"), hasRequest ? "is-complete" : "is-current");
+          setState(stepNode("provider"), hasProvider ? "is-complete" : (hasRequest ? "is-current" : null));
+          setState(stepNode("period"), hasPeriod ? "is-complete" : (hasProvider ? "is-current" : null));
+          setState(stepNode("submit"), allReady ? "is-current" : null);
+        }
+
+        form.addEventListener("change", recompute);
+        form.addEventListener("input", recompute);
+      })();
+    </script>
+  {% endif %}
 {% endblock %}

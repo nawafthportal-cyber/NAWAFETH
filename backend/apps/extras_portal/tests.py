@@ -342,6 +342,8 @@ class ReportsBundleContextSelectionTests(TestCase):
             region="منطقة الرياض",
             accepts_urgent=True,
         )
+        self.category = Category.objects.create(name="فئة التقارير")
+        self.subcategory = SubCategory.objects.create(category=self.category, name="تقارير")
 
     def _create_paid_report_request(self, *, start_at, end_at, payment_confirmed_at):
         request_obj = UnifiedRequest.objects.create(
@@ -469,4 +471,110 @@ class ReportsBundleContextSelectionTests(TestCase):
         self.assertEqual(
             [item["key"] for item in shell_context.get("portal_nav_items", [])],
             ["reports", "clients"],
+        )
+
+    def test_reports_dashboard_context_uses_dashboard_bundle_period(self):
+        now = timezone.now().replace(second=0, microsecond=0)
+        start_at = now - timedelta(days=3)
+        end_at = now + timedelta(days=3)
+        payment_confirmed_at = now - timedelta(hours=2)
+
+        request_obj = UnifiedRequest.objects.create(
+            request_type=UnifiedRequestType.EXTRAS,
+            status=UnifiedRequestStatus.CLOSED,
+            priority="normal",
+            requester=self.provider_user,
+            source_app="dashboard",
+            source_model="ExtrasServiceRequest",
+            source_object_id=f"dashboard-bundle-{timezone.now().timestamp()}",
+            summary="طلب تقارير من لوحة الإدارة",
+        )
+        UnifiedRequestMetadata.objects.create(
+            request=request_obj,
+            payload={
+                "flow_type": "extras_bundle_wizard",
+                "specialist_identifier": self.provider_user.username,
+                "specialist_label": self.provider.display_name,
+                "reports": {
+                    "options": ["platform_metrics", "service_orders_detail"],
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                },
+                "clients": {"options": []},
+                "finance": {"options": []},
+                "summary_sections": [],
+                "bundle": {
+                    "reports": {
+                        "options": ["platform_metrics", "service_orders_detail"],
+                        "start_at": start_at.isoformat(),
+                        "end_at": end_at.isoformat(),
+                    },
+                    "clients": {"options": []},
+                    "finance": {"options": []},
+                    "summary_sections": [],
+                },
+            },
+            updated_by=self.provider_user,
+        )
+        Invoice.objects.create(
+            user=self.provider_user,
+            title="فاتورة تقارير الداشبورد",
+            description="فاتورة",
+            currency="SAR",
+            subtotal="100.00",
+            vat_percent="15.00",
+            reference_type="extras_bundle_request",
+            reference_id=request_obj.code,
+            status=InvoiceStatus.PAID,
+            payment_confirmed=True,
+            payment_confirmed_at=payment_confirmed_at,
+        )
+
+        inside_request = ServiceRequest.objects.create(
+            client=User.objects.create_user(
+                phone="0503000111",
+                username="bundle.window.inside",
+                role_state=UserRole.CLIENT,
+            ),
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب داخل الفترة",
+            description="تفاصيل",
+            request_type=RequestType.NORMAL,
+            status=RequestStatus.NEW,
+            city="الرياض",
+        )
+        outside_request = ServiceRequest.objects.create(
+            client=User.objects.create_user(
+                phone="0503000112",
+                username="bundle.window.outside",
+                role_state=UserRole.CLIENT,
+            ),
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب خارج الفترة",
+            description="تفاصيل",
+            request_type=RequestType.NORMAL,
+            status=RequestStatus.NEW,
+            city="الرياض",
+        )
+        ServiceRequest.objects.filter(id=inside_request.id).update(created_at=start_at + timedelta(hours=1))
+        ServiceRequest.objects.filter(id=outside_request.id).update(created_at=start_at - timedelta(days=10))
+
+        dashboard_context = _build_reports_dashboard_context(self.provider)
+
+        self.assertEqual(dashboard_context.get("request_code"), request_obj.code)
+        self.assertEqual(
+            dashboard_context.get("bundle_context", {}).get("start_label"),
+            timezone.localtime(start_at).strftime("%d/%m/%Y - %H:%M"),
+        )
+        self.assertEqual(
+            dashboard_context.get("bundle_context", {}).get("end_label"),
+            timezone.localtime(end_at).strftime("%d/%m/%Y - %H:%M"),
+        )
+        self.assertEqual(dashboard_context.get("report_request_count"), 1)
+        self.assertEqual(dashboard_context.get("totals", {}).get("new_requests"), 1)
+        self.assertEqual(
+            dashboard_context.get("report_request_groups", [])[0]["option_groups"][0]["cards"][0]["stats"][3],
+            {"label": "عدد الطلبات الجديدة", "value": "1"},
         )

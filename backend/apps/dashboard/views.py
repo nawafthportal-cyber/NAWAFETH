@@ -14,7 +14,7 @@ from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models import Count, Max, Min, Prefetch, Q, Sum
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -34,7 +34,7 @@ from apps.backoffice.policies import (
     ContentManagePolicy,
     ReviewModerationPolicy,
 )
-from apps.marketplace.models import RequestStatus, ServiceRequest
+from apps.marketplace.models import PRE_EXECUTION_REQUEST_STATUSES, RequestStatus, ServiceRequest
 from apps.messaging.models import Message, Thread
 from apps.moderation.integrations import record_content_action_case, record_support_target_delete_case, sync_review_case
 from apps.notifications.models import DeviceToken
@@ -42,6 +42,8 @@ from apps.providers.location_formatter import format_city_display
 from apps.providers.models import (
     Category,
     ProviderContentComment,
+    ProviderContentCommentLike,
+    ProviderContentShare,
     ProviderCategory,
     ProviderFollow,
     ProviderLike,
@@ -849,16 +851,64 @@ def _toggle_revoke_access_profile(request):
 def _collect_reports(start_date: date, end_date: date) -> dict:
     start_dt, end_dt = _to_aware_window(start_date, end_date)
 
+    def _metric(label: str, value, *, note: str = "") -> dict:
+        return {"label": label, "value": value, "available": True, "note": note}
+
+    def _unavailable(label: str, reason: str) -> dict:
+        # Used when the data source is not yet wired (e.g. external provider not
+        # integrated). We deliberately render a placeholder instead of a fake
+        # number so dashboards never expose dummy values.
+        return {"label": label, "value": "—", "available": False, "note": reason}
+
+    def _session_visitor_metrics() -> dict:
+        session_events = AnalyticsEvent.objects.filter(occurred_at__range=(start_dt, end_dt)).exclude(session_id="")
+        session_rows = list(
+            session_events.values("session_id")
+            .annotate(first_seen=Min("occurred_at"), last_seen=Max("occurred_at"))
+            .order_by("session_id")
+        )
+        visitor_count = len(session_rows)
+        total_duration_minutes = 0.0
+        for row in session_rows:
+            first_seen = row.get("first_seen")
+            last_seen = row.get("last_seen")
+            if not first_seen or not last_seen:
+                continue
+            duration_seconds = max(0.0, (last_seen - first_seen).total_seconds())
+            total_duration_minutes += duration_seconds / 60.0
+
+        total_days = max(1, (end_date - start_date).days + 1)
+        daily_unique_sessions = list(
+            session_events.values("occurred_at__date")
+            .annotate(total=Count("session_id", distinct=True))
+            .order_by("occurred_at__date")
+        )
+        average_daily_visitors = round(
+            sum(int(row.get("total") or 0) for row in daily_unique_sessions) / total_days,
+            1,
+        )
+        average_session_minutes = round(total_duration_minutes / visitor_count, 1) if visitor_count else 0
+        return {
+            "visitor_count": visitor_count,
+            "average_daily_visitors": average_daily_visitors,
+            "average_session_minutes": average_session_minutes,
+        }
+
+    users_qs = get_user_model().objects.filter(created_at__range=(start_dt, end_dt))
     requests_qs = ServiceRequest.objects.filter(created_at__range=(start_dt, end_dt))
     support_qs = SupportTicket.objects.filter(created_at__range=(start_dt, end_dt))
+    visitor_metrics = _session_visitor_metrics()
 
-    total_users = get_user_model().objects.filter(created_at__range=(start_dt, end_dt)).count()
-    users_complete = get_user_model().objects.filter(terms_accepted_at__range=(start_dt, end_dt)).count()
+    total_users = users_qs.count()
+    guest_users = users_qs.filter(role_state=UserRole.VISITOR).count()
+    phone_only_users = users_qs.filter(role_state=UserRole.PHONE_ONLY).count()
+    named_users = users_qs.filter(role_state__in=(UserRole.CLIENT, UserRole.PROVIDER, UserRole.STAFF)).count()
+    users_complete = users_qs.filter(terms_accepted_at__range=(start_dt, end_dt)).count()
     users_staff = get_user_model().objects.filter(is_staff=True, is_active=True).count()
     app_logins = OTP.objects.filter(created_at__range=(start_dt, end_dt)).count()
 
     requests_summary = {
-        "new": requests_qs.filter(status=RequestStatus.NEW).count(),
+        "new": requests_qs.filter(status__in=PRE_EXECUTION_REQUEST_STATUSES).count(),
         "in_progress": requests_qs.filter(status=RequestStatus.IN_PROGRESS).count(),
         "completed": requests_qs.filter(status=RequestStatus.COMPLETED).count(),
         "cancelled": requests_qs.filter(status=RequestStatus.CANCELLED).count(),
@@ -866,13 +916,17 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
     }
 
     interaction_summary = {
+        "threads": Thread.objects.filter(created_at__range=(start_dt, end_dt)).count(),
         "reviews": Review.objects.filter(created_at__range=(start_dt, end_dt)).count(),
+        "comments": ProviderContentComment.objects.filter(created_at__range=(start_dt, end_dt)).count(),
         "provider_likes": ProviderLike.objects.filter(created_at__range=(start_dt, end_dt)).count(),
         "portfolio_likes": ProviderPortfolioLike.objects.filter(created_at__range=(start_dt, end_dt)).count(),
         "spotlight_likes": ProviderSpotlightLike.objects.filter(created_at__range=(start_dt, end_dt)).count(),
         "portfolio_saves": ProviderPortfolioSave.objects.filter(created_at__range=(start_dt, end_dt)).count(),
         "spotlight_saves": ProviderSpotlightSave.objects.filter(created_at__range=(start_dt, end_dt)).count(),
-        "provider_follows": ProviderFollow.objects.filter(created_at__range=(start_dt, end_dt)).count(),
+        "content_comment_likes": ProviderContentCommentLike.objects.filter(created_at__range=(start_dt, end_dt)).count(),
+        "uploaded_content_items": ProviderPortfolioItem.objects.filter(created_at__range=(start_dt, end_dt)).count(),
+        "uploaded_spotlights": ProviderSpotlightItem.objects.filter(created_at__range=(start_dt, end_dt)).count(),
     }
 
     support_by_type = (
@@ -915,6 +969,14 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
         occurred_at__range=(start_dt, end_dt),
         event_name__icontains="search",
     ).count()
+    search_result_clicks = AnalyticsEvent.objects.filter(
+        occurred_at__range=(start_dt, end_dt),
+        event_name="search.result_click",
+    ).count()
+    search_direct_request_clicks = AnalyticsEvent.objects.filter(
+        occurred_at__range=(start_dt, end_dt),
+        event_name="search.direct_request_click",
+    ).count()
     email_events = AnalyticsEvent.objects.filter(
         occurred_at__range=(start_dt, end_dt),
     ).filter(Q(event_name__icontains="email") | Q(surface__icontains="email")).count()
@@ -930,21 +992,19 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
         "ios": DeviceToken.objects.filter(platform="ios", is_active=True, created_at__range=(start_dt, end_dt)).values("token").distinct().count(),
         "web": DeviceToken.objects.filter(platform="web", is_active=True, created_at__range=(start_dt, end_dt)).values("token").distinct().count(),
     }
-    app_downloads_summary["total"] = (
-        app_downloads_summary["android"] + app_downloads_summary["ios"] + app_downloads_summary["web"]
-    )
+    app_downloads_summary["total"] = app_downloads_summary["android"] + app_downloads_summary["ios"]
 
     visitor_summary = {
-        "visitor_accounts": get_user_model().objects.filter(role_state=UserRole.VISITOR, created_at__range=(start_dt, end_dt)).count(),
-        "phone_only_accounts": get_user_model().objects.filter(role_state=UserRole.PHONE_ONLY, created_at__range=(start_dt, end_dt)).count(),
+        "visitor_accounts": guest_users,
+        "phone_only_accounts": phone_only_users,
         "profile_views": AnalyticsEvent.objects.filter(
             occurred_at__range=(start_dt, end_dt),
             event_name="provider.profile_view",
         ).count(),
-        "search_clicks": AnalyticsEvent.objects.filter(
-            occurred_at__range=(start_dt, end_dt),
-            event_name="search.result_click",
-        ).count(),
+        "search_clicks": search_result_clicks,
+        "visitor_count": visitor_metrics["visitor_count"],
+        "average_daily_visitors": visitor_metrics["average_daily_visitors"],
+        "average_session_minutes": visitor_metrics["average_session_minutes"],
     }
 
     paid_invoices_qs = Invoice.objects.filter(
@@ -988,15 +1048,152 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
     payment_summary["paid_invoices"] = int(paid_totals.get("invoice_count") or 0)
     payment_summary["paid_amount_total"] = float(paid_totals.get("amount_sum") or 0)
 
-    specialist_classification = {
-        # Temporarily unlinked from subscription tiers until business mapping is finalized.
-        "maher": 0,
-        "mostashar": 0,
-        "moahel": 0,
-        "kafo": 0,
-        "total_specialists": 0,
-        "is_linked": False,
+    support_type_totals = {row["type_code"]: row["total"] for row in support_type_rows}
+    total_content_likes = (
+        interaction_summary["portfolio_likes"]
+        + interaction_summary["spotlight_likes"]
+        + interaction_summary["content_comment_likes"]
+    )
+    subscription_tier_totals = {
+        PlanTier.BASIC: Subscription.objects.filter(
+            status=SubscriptionStatus.ACTIVE,
+            created_at__range=(start_dt, end_dt),
+            plan__tier=PlanTier.BASIC,
+        ).count(),
+        PlanTier.RIYADI: Subscription.objects.filter(
+            status=SubscriptionStatus.ACTIVE,
+            created_at__range=(start_dt, end_dt),
+            plan__tier=PlanTier.RIYADI,
+        ).count(),
+        PlanTier.PRO: Subscription.objects.filter(
+            status=SubscriptionStatus.ACTIVE,
+            created_at__range=(start_dt, end_dt),
+            plan__tier=PlanTier.PRO,
+        ).count(),
     }
+    verification_totals = {
+        "total": VerificationRequest.objects.filter(requested_at__range=(start_dt, end_dt)).count(),
+        VerificationBadgeType.BLUE: VerificationRequest.objects.filter(
+            requested_at__range=(start_dt, end_dt),
+            badge_type=VerificationBadgeType.BLUE,
+        ).count(),
+        VerificationBadgeType.GREEN: VerificationRequest.objects.filter(
+            requested_at__range=(start_dt, end_dt),
+            badge_type=VerificationBadgeType.GREEN,
+        ).count(),
+    }
+
+    metric_sections = [
+        {
+            "title": "إحصاءات المستخدمين",
+            "rows": [[
+                _unavailable(
+                    "عدد تحميلات التطبيق IOS",
+                    "غير مرتبط حالياً بـ App Store Connect — سيتم تفعيله عند ربط مزود متجر التطبيقات.",
+                ),
+                _unavailable(
+                    "عدد تحميلات التطبيق Android",
+                    "غير مرتبط حالياً بـ Google Play Console — سيتم تفعيله عند ربط مزود متجر التطبيقات.",
+                ),
+                _metric("عدد زوار التطبيق", visitor_summary["visitor_count"]),
+                _metric("عدد المستخدمين الكلي (رقم جوال فقط)", phone_only_users),
+                _metric("عدد المستخدمين الكلي (باسم مستخدم)", named_users),
+                _metric("عدد المستخدمين كمزود خدمة", guest_users),
+            ]],
+        },
+        {
+            "title": "إحصاءات الطلبات",
+            "rows": [[
+                _metric("عدد الطلبات الجديدة", requests_summary["new"]),
+                _metric("عدد الطلبات تحت التنفيذ", requests_summary["in_progress"]),
+                _metric("عدد الطلبات المكتملة", requests_summary["completed"]),
+                _metric("عدد الطلبات الملغية", requests_summary["cancelled"]),
+                _metric("المجموع الكلي لجميع الطلبات", requests_summary["total"]),
+            ]],
+        },
+        {
+            "title": "إحصاءات التفاعل",
+            "rows": [
+                [
+                    _metric("عدد المحادثات", interaction_summary["threads"]),
+                    _metric("عدد التعليقات", interaction_summary["comments"]),
+                    _metric("عدد عمليات التقييم", interaction_summary["reviews"]),
+                    _unavailable(
+                        "عدد عمليات التوصية بالمنصة",
+                        "قريبًا: سيتم تفعيل هذا المؤشر بعد اعتماد مصدر بيانات موثوق.",
+                    ),
+                    _unavailable(
+                        "عدد عمليات التوصية بالمختصين",
+                        "قريبًا: سيتم تفعيل هذا المؤشر بعد اعتماد مصدر بيانات موثوق.",
+                    ),
+                ],
+                [
+                    _metric("عدد عمليات الإعجاب بالمحتوى", total_content_likes),
+                    _metric("عدد مواد المحتوى المرفوع", interaction_summary["uploaded_content_items"]),
+                    _metric("عدد التلميحات المرفوعة", interaction_summary["uploaded_spotlights"]),
+                    _metric("عدد طلبات الدعم والمساعدة الكل", support_qs.count()),
+                    _metric("عدد طلبات الدعم والمساعدة (اقتراح)", support_type_totals.get(SupportTicketType.SUGGEST, 0)),
+                ],
+            ],
+        },
+        {
+            "title": "إحصاءات الدعم",
+            "rows": [[
+                _metric("عدد طلبات الدعم والمساعدة (توثيق)", support_type_totals.get(SupportTicketType.VERIFY, 0)),
+                _metric("عدد طلبات الدعم والمساعدة (إعلان)", support_type_totals.get(SupportTicketType.ADS, 0)),
+                _metric("عدد طلبات الدعم والمساعدة (اشتراك)", support_type_totals.get(SupportTicketType.SUBS, 0)),
+                _metric("عدد طلبات الدعم والمساعدة (خدمة إضافية)", support_type_totals.get(SupportTicketType.EXTRAS, 0)),
+                _metric("عدد طلبات الدعم والمساعدة (بلاغ / شكوى)", support_type_totals.get(SupportTicketType.COMPLAINT, 0)),
+            ]],
+        },
+        {
+            "title": "إحصاءات البحث",
+            "rows": [[
+                _metric("عدد عمليات البحث الكلية", search_events),
+                _metric("عدد عمليات البحث عن الخدمة العاجلة", search_result_clicks),
+                _metric("عدد عمليات طلبات العروض", search_direct_request_clicks),
+            ]],
+        },
+        {
+            "title": "إحصاءات الخدمات المدفوعة",
+            "rows": [
+                [
+                    _metric("عدد المشتركين الجدد في الخدمة الأساسية", subscription_tier_totals[PlanTier.BASIC]),
+                    _metric("عدد عمليات التوثيق الكلي", verification_totals["total"]),
+                ],
+                [
+                    _metric("عدد المشتركين الجدد في الخدمة الريادية", subscription_tier_totals[PlanTier.RIYADI]),
+                    _metric("عدد عمليات توثيق الشارة الزرقاء", verification_totals[VerificationBadgeType.BLUE]),
+                ],
+                [
+                    _metric("عدد المشتركين الجدد في الخدمة الاحترافية", subscription_tier_totals[PlanTier.PRO]),
+                    _metric("عدد عمليات توثيق الشارة الخضراء", verification_totals[VerificationBadgeType.GREEN]),
+                ],
+            ],
+        },
+        {
+            "title": "إحصاءات الدفع الإلكتروني",
+            "rows": [[
+                _metric("عدد المشتركين الجدد إجمالاً", sum(subscription_tier_totals.values())),
+                _metric("عدد عمليات الدفع الناجحة", kpi_subs["summary"].get("renewals", 0)),
+                _metric("عدد عمليات الدفع الفاشلة", payment_summary["failed"]),
+            ]],
+        },
+        {
+            "title": "إحصاءات الزوار",
+            "rows": [[
+                _metric("عدد زوار التطبيق", visitor_summary["visitor_count"]),
+                _metric("متوسط عدد المستخدمين خلال يوم واحد", visitor_summary["average_daily_visitors"]),
+                _metric("متوسط مدة تواجد الزائر في التطبيق", visitor_summary["average_session_minutes"]),
+            ]],
+        },
+    ]
+
+    # Specialist classification (ماهر / مستشار / مؤهل / كفؤ) is intentionally
+    # not exported here: the business mapping to subscription tiers has not
+    # been finalized, and we never expose placeholder zeros as if they were
+    # real data. The key is omitted from the response and from CSV/PDF export.
+    specialist_classification = {"is_linked": False}
 
     return {
         "start": start_date.isoformat(),
@@ -1006,6 +1203,9 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
             "users_complete": users_complete,
             "staff_users": users_staff,
             "app_logins": app_logins,
+            "named_users": named_users,
+            "phone_only_users": phone_only_users,
+            "guest_users": guest_users,
         },
         "requests_summary": requests_summary,
         "interaction_summary": interaction_summary,
@@ -1023,12 +1223,23 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
         "kpi_promo": kpi_promo,
         "kpi_subs": kpi_subs,
         "kpi_extras": kpi_extras,
+        "metric_sections": metric_sections,
     }
 
 
 def _reports_export_rows(report: dict) -> tuple[list[str], list[list]]:
     headers = ["القسم", "المؤشر", "القيمة"]
     rows: list[list] = []
+
+    for section in report.get("metric_sections", []):
+        section_title = section.get("title") or "إحصاءات المنصة"
+        for metric_row in section.get("rows", []):
+            for metric in metric_row:
+                if metric.get("available", True) is False:
+                    value = "غير متاح"
+                else:
+                    value = metric.get("value", 0)
+                rows.append([section_title, metric.get("label", ""), value])
 
     for key, value in report["users_summary"].items():
         rows.append(["إحصاءات المستخدمين", key, value])
@@ -1049,8 +1260,7 @@ def _reports_export_rows(report: dict) -> tuple[list[str], list[list]]:
         rows.append(["الخدمات المدفوعة", row["type_label"], row["total"]])
     for key, value in report.get("payment_summary", {}).items():
         rows.append(["الدفع الإلكتروني", key, value])
-    for key, value in report.get("specialist_classification", {}).items():
-        rows.append(["تصنيف المختصين", key, value])
+    # Skip تصنيف المختصين export until it is wired to a real source of truth.
     for row in report["category_stats"]:
         rows.append(["التصنيف الرئيسي", f"{row['name']} - عدد المتخصصين", row["specialists"]])
         rows.append(["التصنيف الرئيسي", f"{row['name']} - عدد الطلبات", row["requests"]])
@@ -3110,6 +3320,38 @@ def _extras_request_active_bundle_sections(request_obj: UnifiedRequest | None) -
     return sections
 
 
+def _extras_bundle_metadata_payload(metadata_payload: dict | None) -> dict:
+    normalized = dict(metadata_payload) if isinstance(metadata_payload, dict) else {}
+    bundle = normalized.get("bundle") if isinstance(normalized.get("bundle"), dict) else {}
+    bundle = dict(bundle)
+
+    for section_key in ("reports", "clients", "finance"):
+        top_level_section = normalized.get(section_key)
+        bundle_section = bundle.get(section_key)
+        if isinstance(top_level_section, dict):
+            bundle[section_key] = dict(top_level_section)
+        elif isinstance(bundle_section, dict):
+            normalized[section_key] = dict(bundle_section)
+
+    top_level_sections = normalized.get("summary_sections")
+    bundle_sections = bundle.get("summary_sections")
+    if isinstance(top_level_sections, list):
+        bundle["summary_sections"] = list(top_level_sections)
+    elif isinstance(bundle_sections, list):
+        normalized["summary_sections"] = list(bundle_sections)
+
+    top_level_notes = str(normalized.get("notes") or "").strip()
+    bundle_notes = str(bundle.get("notes") or "").strip()
+    if top_level_notes:
+        bundle["notes"] = top_level_notes
+    elif bundle_notes:
+        normalized["notes"] = bundle_notes
+
+    if bundle:
+        normalized["bundle"] = bundle
+    return normalized
+
+
 def _extras_request_section_detail(request_obj: UnifiedRequest | None, section_key: str) -> dict | None:
     normalized_key = str(section_key or "").strip().lower()
     if not normalized_key:
@@ -4174,6 +4416,7 @@ def extras_dashboard(request):
                 "finance": bundle_draft.get("finance", {}),
                 "summary_sections": summary_sections,
             }
+            metadata_payload = _extras_bundle_metadata_payload(metadata_payload)
 
             created_request = upsert_unified_request(
                 request_type=UnifiedRequestType.EXTRAS,
@@ -4393,6 +4636,7 @@ def extras_dashboard(request):
                 metadata_payload["operator_comment"] = operator_comment
             else:
                 metadata_payload.pop("operator_comment", None)
+            metadata_payload = _extras_bundle_metadata_payload(metadata_payload)
 
             summary_text = (
                 getattr(target_purchase, "title", "")
@@ -4530,6 +4774,7 @@ def extras_dashboard(request):
                 metadata_payload["operator_comment"] = operator_comment
             else:
                 metadata_payload.pop("operator_comment", None)
+            metadata_payload = _extras_bundle_metadata_payload(metadata_payload)
 
             upsert_unified_request(
                 request_type=UnifiedRequestType.EXTRAS,
@@ -8472,6 +8717,7 @@ def _dashboard_team_panels() -> list[dict]:
         },
     ]
 CONTENT_REVIEW_TYPES = {SupportTicketType.SUGGEST, SupportTicketType.COMPLAINT}
+CONTENT_REVIEW_REPORTED_KINDS = {"review", "portfolio_comment", "spotlight_comment"}
 CONTENT_EXCELLENCE_BADGE_CODES = [
     TOP_100_CLUB_BADGE_CODE,
     HIGH_ACHIEVEMENT_BADGE_CODE,
@@ -8571,24 +8817,69 @@ def _content_media_specs(media_field) -> str:
 def _content_category_stats() -> dict:
     return {
         "categories": Category.objects.count(),
+        "active_categories": Category.objects.filter(is_active=True).count(),
         "subcategories": SubCategory.objects.count(),
+        "active_subcategories": SubCategory.objects.filter(is_active=True).count(),
         "geo_scoped": SubCategory.objects.filter(requires_geo_scope=True).count(),
         "urgent_enabled": SubCategory.objects.filter(allows_urgent_requests=True).count(),
     }
 
 
-def _content_categories_queryset(search_term: str = ""):
+def _content_categories_queryset(
+    search_term: str = "",
+    *,
+    status: str = "all",
+    scope: str = "all",
+    urgent: str = "all",
+):
+    sub_qs = SubCategory.objects.select_related("category").order_by("name", "id")
+    if scope == "geo":
+        sub_qs = sub_qs.filter(requires_geo_scope=True)
+    elif scope == "remote":
+        sub_qs = sub_qs.filter(requires_geo_scope=False)
+    if urgent == "yes":
+        sub_qs = sub_qs.filter(allows_urgent_requests=True)
+    elif urgent == "no":
+        sub_qs = sub_qs.filter(allows_urgent_requests=False)
+    sub_status = status
+    if sub_status == "active":
+        sub_qs = sub_qs.filter(is_active=True)
+    elif sub_status == "inactive":
+        sub_qs = sub_qs.filter(is_active=False)
+
     queryset = Category.objects.prefetch_related(
-        Prefetch(
-            "subcategories",
-            queryset=SubCategory.objects.select_related("category").order_by("name", "id"),
-        )
+        Prefetch("subcategories", queryset=sub_qs, to_attr="filtered_subcategories")
     ).order_by("name", "id")
-    if not search_term:
-        return queryset
-    return queryset.filter(
-        Q(name__icontains=search_term) | Q(subcategories__name__icontains=search_term)
-    ).distinct()
+
+    if status == "active":
+        queryset = queryset.filter(is_active=True)
+    elif status == "inactive":
+        queryset = queryset.filter(is_active=False)
+
+    if search_term:
+        queryset = queryset.filter(
+            Q(name__icontains=search_term) | Q(subcategories__name__icontains=search_term)
+        ).distinct()
+
+    # When sub-level filters are applied, hide categories whose sub list is now empty
+    sub_filtered = scope != "all" or urgent != "all" or sub_status in {"active", "inactive"}
+    rows = []
+    for cat in queryset:
+        subs = list(getattr(cat, "filtered_subcategories", []) or [])
+        if sub_filtered and not subs and not (search_term and search_term.lower() in (cat.name or "").lower()):
+            continue
+        # Compute helpful per-category counts (using full subcategory set, not filtered)
+        all_subs = list(cat.subcategories.all())
+        cat.stats = {
+            "subs_total": len(all_subs),
+            "subs_active": sum(1 for s in all_subs if s.is_active),
+            "subs_geo": sum(1 for s in all_subs if s.requires_geo_scope),
+            "subs_urgent": sum(1 for s in all_subs if s.allows_urgent_requests),
+            "shown": len(subs),
+        }
+        cat.visible_subcategories = subs
+        rows.append(cat)
+    return rows
 
 
 def _content_category_form_instance(*, category: Category | None = None, data=None) -> ContentCategoryForm:
@@ -9154,6 +9445,15 @@ def content_categories(request):
     can_manage = bool(can_write and ContentManagePolicy.evaluate(request.user).allowed)
 
     search_term = (request.GET.get("q") or "").strip()
+    status_filter = (request.GET.get("status") or "all").strip().lower()
+    if status_filter not in {"all", "active", "inactive"}:
+        status_filter = "all"
+    scope_filter = (request.GET.get("scope") or "all").strip().lower()
+    if scope_filter not in {"all", "geo", "remote"}:
+        scope_filter = "all"
+    urgent_filter = (request.GET.get("urgent") or "all").strip().lower()
+    if urgent_filter not in {"all", "yes", "no"}:
+        urgent_filter = "all"
     selected_category_id = (request.GET.get("category") or "").strip()
     selected_subcategory_id = (request.GET.get("subcategory") or "").strip()
 
@@ -9219,6 +9519,26 @@ def content_categories(request):
             state_label = "تفعيل" if subcategory_obj.is_active else "إيقاف"
             messages.success(request, f"تم {state_label} التصنيف الفرعي بنجاح.")
             return redirect(f"{reverse('dashboard:content_categories')}?subcategory={subcategory_obj.id}")
+        elif action == "toggle_subcategory_geo":
+            subcategory_obj = get_object_or_404(
+                SubCategory.objects.select_related("category"),
+                pk=request.POST.get("subcategory_id"),
+            )
+            subcategory_obj.requires_geo_scope = not bool(subcategory_obj.requires_geo_scope)
+            subcategory_obj.save(update_fields=["requires_geo_scope"])
+            state_label = "تطلّب نطاقًا جغرافيًا" if subcategory_obj.requires_geo_scope else "إلغاء النطاق الجغرافي"
+            messages.success(request, f"تم {state_label} للتصنيف الفرعي.")
+            return redirect(f"{reverse('dashboard:content_categories')}?subcategory={subcategory_obj.id}")
+        elif action == "toggle_subcategory_urgent":
+            subcategory_obj = get_object_or_404(
+                SubCategory.objects.select_related("category"),
+                pk=request.POST.get("subcategory_id"),
+            )
+            subcategory_obj.allows_urgent_requests = not bool(subcategory_obj.allows_urgent_requests)
+            subcategory_obj.save(update_fields=["allows_urgent_requests"])
+            state_label = "السماح بالعاجل" if subcategory_obj.allows_urgent_requests else "إيقاف العاجل"
+            messages.success(request, f"تم {state_label} للتصنيف الفرعي.")
+            return redirect(f"{reverse('dashboard:content_categories')}?subcategory={subcategory_obj.id}")
 
     context = _content_base_context("categories")
     context.update(
@@ -9230,8 +9550,18 @@ def content_categories(request):
             "category_form": category_form,
             "subcategory_form": subcategory_form,
             "category_stats": _content_category_stats(),
-            "category_filters": {"q": search_term},
-            "category_rows": _content_categories_queryset(search_term),
+            "category_filters": {
+                "q": search_term,
+                "status": status_filter,
+                "scope": scope_filter,
+                "urgent": urgent_filter,
+            },
+            "category_rows": _content_categories_queryset(
+                search_term,
+                status=status_filter,
+                scope=scope_filter,
+                urgent=urgent_filter,
+            ),
             "selected_category": selected_category,
             "selected_subcategory": selected_subcategory,
         }
@@ -9240,10 +9570,15 @@ def content_categories(request):
 
 
 def _content_review_queryset_for_user(user):
-    return _support_queryset_for_user(user).filter(
-        _support_ticket_dashboard_q("content", fallback_team_codes=["content"])
-        | Q(assigned_team__isnull=True, ticket_type__in=CONTENT_REVIEW_TYPES)
-    ).distinct()
+    return (
+        _support_queryset_for_user(user)
+        .filter(
+            _support_ticket_dashboard_q("content", fallback_team_codes=["content"])
+            | Q(assigned_team__isnull=True, ticket_type__in=CONTENT_REVIEW_TYPES)
+        )
+        .filter(reported_kind__in=CONTENT_REVIEW_REPORTED_KINDS)
+        .distinct()
+    )
 
 
 def _content_ticket_team_label(ticket: SupportTicket) -> str:
@@ -9890,8 +10225,8 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
     context = _content_base_context("reviews")
     context.update(
         {
-            "hero_title": "إدارة استفسارات وبلاغات المحتوى",
-            "hero_subtitle": "متابعة الاستفسارات القادمة من تواصل مع نوافذ والبلاغات المحوّلة إلى فريق المحتوى ومعالجتها تشغيليًا.",
+            "hero_title": "إدارة التقييمات والمراجعات",
+            "hero_subtitle": "متابعة بلاغات التقييمات والتعليقات المرتبطة بها، وتوزيعها ومعالجتها تشغيليًا داخل فريق المحتوى.",
             "tickets": _content_review_ticket_rows(tickets),
             "selected_ticket": selected_ticket,
             "review_form": review_form,
