@@ -13,6 +13,7 @@ from apps.extras.option_catalog import EXTRAS_REPORT_OPTIONS as CATALOG_EXTRAS_R
 from apps.extras_portal.models import ExtrasPortalSubscription
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
 from apps.messaging.models import Thread
+from apps.moderation.models import ModerationCase, ModerationDecisionCode, ModerationStatus
 from apps.notifications.models import DeviceToken
 from apps.providers.models import (
     Category,
@@ -536,3 +537,174 @@ class DashboardContentCategoriesTests(TestCase):
         self.assertTrue(subcategory.requires_geo_scope)
         self.assertTrue(subcategory.allows_urgent_requests)
         self.assertTrue(subcategory.is_active)
+
+
+class DashboardContentReviewsModerationCasesTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            phone="0503201002",
+            username="content.reviews.staff",
+            password="pass1234",
+            role_state=UserRole.STAFF,
+        )
+        self.staff.is_staff = True
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=["is_staff", "is_superuser"])
+
+        self.reporter = User.objects.create_user(
+            phone="0503201003",
+            username="content.reviews.reporter",
+            role_state=UserRole.CLIENT,
+        )
+        self.reported_user = User.objects.create_user(
+            phone="0503201004",
+            username="content.reviews.reported",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.reported_user,
+            provider_type="individual",
+            display_name="مزود بلاغات",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+        )
+
+        self.client.force_login(self.staff)
+        session = self.client.session
+        session[SESSION_OTP_VERIFIED_KEY] = True
+        session.save()
+
+    def test_content_reviews_page_lists_direct_content_reports(self):
+        case = ModerationCase.objects.create(
+            reporter=self.reporter,
+            reported_user=self.reported_user,
+            source_app="providers",
+            source_model="ProviderSpotlightItem",
+            source_object_id="44",
+            source_label="لمحة مزود مختبَر",
+            category="spotlight",
+            reason="محتوى غير مناسب",
+            details="تفاصيل مهمة للمراجعة",
+            summary="بلاغ مباشر على لمحة",
+            assigned_team_code="content",
+            assigned_team_name="المحتوى والمراجعات",
+        )
+        case.refresh_from_db()
+
+        response = self.client.get(reverse("dashboard:content_reviews_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "بلاغات المحتوى المباشرة")
+        self.assertContains(response, case.code)
+        self.assertContains(response, "لمحة مزود مختبَر")
+
+    def test_content_reviews_page_shows_selected_direct_report_details(self):
+        case = ModerationCase.objects.create(
+            reporter=self.reporter,
+            reported_user=self.reported_user,
+            source_app="providers",
+            source_model="ProviderPortfolioItem",
+            source_object_id="71",
+            source_label="محتوى خدمات ومشاريع",
+            category="portfolio",
+            reason="سبام أو تضليل",
+            details="الوصف التفصيلي للبلاغ",
+            summary="بلاغ على محتوى المعرض",
+            assigned_team_code="content",
+            assigned_team_name="المحتوى والمراجعات",
+        )
+        case.refresh_from_db()
+
+        response = self.client.get(reverse("dashboard:content_reviews_dashboard"), {"case": case.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"تفاصيل بلاغ المحتوى: {case.code}")
+        self.assertContains(response, "سبام أو تضليل")
+        self.assertContains(response, "الوصف التفصيلي للبلاغ")
+
+    def test_content_reviews_case_delete_action_removes_portfolio_item(self):
+        item = ProviderPortfolioItem.objects.create(
+            provider=self.provider,
+            file_type="image",
+            file=SimpleUploadedFile("portfolio.jpg", b"filecontent", content_type="image/jpeg"),
+            caption="عنصر معرض مخالف",
+        )
+        case = ModerationCase.objects.create(
+            reporter=self.reporter,
+            reported_user=self.reported_user,
+            source_app="providers",
+            source_model="ProviderPortfolioItem",
+            source_object_id=str(item.id),
+            source_label="عنصر معرض مخالف",
+            category="portfolio",
+            reason="محتوى غير مناسب",
+            assigned_team_code="content",
+            assigned_team_name="المحتوى والمراجعات",
+        )
+
+        response = self.client.post(
+            reverse("dashboard:content_reviews_dashboard"),
+            {
+                "case_id": str(case.id),
+                "redirect_query": f"case={case.id}",
+                "status": ModerationStatus.UNDER_REVIEW,
+                "assigned_team": "",
+                "assigned_to": "",
+                "operator_note": "حذف مباشر من لوحة المحتوى",
+                "decision_code": "",
+                "action": "delete_case",
+            },
+        )
+
+        case.refresh_from_db()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(ProviderPortfolioItem.objects.filter(id=item.id).exists())
+        self.assertEqual(case.status, ModerationStatus.ACTION_TAKEN)
+        self.assertEqual(case.decisions.first().decision_code, ModerationDecisionCode.DELETE)
+
+    def test_content_reviews_case_hide_action_deactivates_service(self):
+        category = Category.objects.create(name="تنظيف")
+        subcategory = SubCategory.objects.create(category=category, name="تنظيف منازل")
+        service = ProviderService.objects.create(
+            provider=self.provider,
+            subcategory=subcategory,
+            title="خدمة مخالفة",
+            description="-",
+            is_active=True,
+        )
+        case = ModerationCase.objects.create(
+            reporter=self.reporter,
+            reported_user=self.reported_user,
+            source_app="providers",
+            source_model="ProviderService",
+            source_object_id=str(service.id),
+            source_label="خدمة مخالفة",
+            category="service",
+            reason="تضليل",
+            assigned_team_code="content",
+            assigned_team_name="المحتوى والمراجعات",
+        )
+
+        response = self.client.post(
+            reverse("dashboard:content_reviews_dashboard"),
+            {
+                "case_id": str(case.id),
+                "redirect_query": f"case={case.id}",
+                "status": ModerationStatus.UNDER_REVIEW,
+                "assigned_team": "",
+                "assigned_to": "",
+                "operator_note": "إخفاء الخدمة من الظهور",
+                "decision_code": "",
+                "action": "hide_case",
+            },
+        )
+
+        case.refresh_from_db()
+        service.refresh_from_db()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(service.is_active)
+        self.assertEqual(case.status, ModerationStatus.ACTION_TAKEN)
+        self.assertEqual(case.decisions.first().decision_code, ModerationDecisionCode.HIDE)

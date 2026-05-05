@@ -94,10 +94,19 @@ def normalize_city_scope(city: str, *, region: str = "") -> str:
     return format_city_display(city_part, region=region_part)
 
 
-def city_matches_scope(request_city: str, *, provider_city: str, provider_region: str = "") -> bool:
+def _provider_scope_parts(provider_city: str, *, provider_region: str = "", provider_country: str = "") -> tuple[str, str]:
+    country_name, city_name, _ = resolve_country_city(provider_country, "", provider_city)
+    if city_name:
+        return "", city_name
+    return split_city_scope(normalize_city_scope(provider_city, region=provider_region))
+
+
+def city_matches_scope(request_city: str, *, provider_city: str, provider_region: str = "", provider_country: str = "") -> bool:
     request_region, request_city_name = split_city_scope(normalize_city_scope(request_city))
-    provider_region_name, provider_city_name = split_city_scope(
-        normalize_city_scope(provider_city, region=provider_region)
+    provider_region_name, provider_city_name = _provider_scope_parts(
+        provider_city,
+        provider_region=provider_region,
+        provider_country=provider_country,
     )
 
     if not request_city_name:

@@ -58,43 +58,90 @@
   }
 
   function setupReviewFormConfirmations() {
-    const form = document.getElementById("contentReviewsActionForm");
-    if (!form) {
-      return;
-    }
-    form.addEventListener("submit", (event) => {
-      const submitter = event.submitter;
-      if (!submitter) {
+    const forms = [
+      {
+        id: "contentReviewsActionForm",
+        decisionField: "moderation_action",
+        decisionDeleteValue: "delete_target",
+      },
+      {
+        id: "contentModerationCaseActionForm",
+        decisionField: "decision_code",
+        decisionHideValue: "hide",
+        decisionDeleteValue: "delete",
+      },
+    ];
+
+    forms.forEach((config) => {
+      const form = document.getElementById(config.id);
+      if (!form) {
         return;
       }
-      const action = submitter.value || "";
-      if (action === "close_ticket") {
-        const ok = window.confirm("سيتم إغلاق البلاغ مع حذف/إخفاء المحتوى محل الشكوى. هل تريد المتابعة؟");
-        if (!ok) {
-          event.preventDefault();
-          return;
-        }
-      }
-      if (action === "return_ticket") {
-        const ok = window.confirm("هل تريد إعادة الطلب للعميل؟");
-        if (!ok) {
-          event.preventDefault();
-          return;
-        }
-      }
 
-      const moderation = form.querySelector("select[name='moderation_action']");
-      if (moderation && moderation.value === "delete_target") {
-        const ok = window.confirm("سيتم حذف/إخفاء المحتوى محل الشكوى. هل تريد المتابعة؟");
-        if (!ok) {
-          event.preventDefault();
+      form.addEventListener("submit", (event) => {
+        const submitter = event.submitter;
+        if (!submitter) {
           return;
         }
-      }
+        const action = submitter.value || "";
+        if (action === "close_ticket") {
+          const ok = window.confirm("سيتم إغلاق البلاغ مع حذف/إخفاء المحتوى محل الشكوى. هل تريد المتابعة؟");
+          if (!ok) {
+            event.preventDefault();
+            return;
+          }
+        }
+        if (action === "return_ticket") {
+          const ok = window.confirm("هل تريد إعادة الطلب للعميل؟");
+          if (!ok) {
+            event.preventDefault();
+            return;
+          }
+        }
+        if (action === "hide_case") {
+          const ok = window.confirm("سيتم تنفيذ إجراء إخفاء على المحتوى محل البلاغ. هل تريد المتابعة؟");
+          if (!ok) {
+            event.preventDefault();
+            return;
+          }
+        }
+        if (action === "delete_case") {
+          const ok = window.confirm("سيتم حذف المحتوى محل البلاغ نهائيًا. هل تريد المتابعة؟");
+          if (!ok) {
+            event.preventDefault();
+            return;
+          }
+        }
 
-      form.querySelectorAll("button[type='submit']").forEach((btn) => {
-        btn.disabled = true;
-        btn.classList.add("is-loading");
+        const decision = form.querySelector("select[name='" + config.decisionField + "']");
+        if (decision && action === "apply_case_decision") {
+          if (config.decisionHideValue && decision.value === config.decisionHideValue) {
+            const ok = window.confirm("سيتم تنفيذ قرار إخفاء على المحتوى المرتبط بالبلاغ. هل تريد المتابعة؟");
+            if (!ok) {
+              event.preventDefault();
+              return;
+            }
+          }
+          if (config.decisionDeleteValue && decision.value === config.decisionDeleteValue) {
+            const ok = window.confirm("سيتم حذف المحتوى المرتبط بالبلاغ. هل تريد المتابعة؟");
+            if (!ok) {
+              event.preventDefault();
+              return;
+            }
+          }
+        }
+        if (decision && config.decisionDeleteValue && decision.value === config.decisionDeleteValue && action !== "apply_case_decision") {
+          const ok = window.confirm("سيتم حذف/إخفاء المحتوى محل الشكوى. هل تريد المتابعة؟");
+          if (!ok) {
+            event.preventDefault();
+            return;
+          }
+        }
+
+        form.querySelectorAll("button[type='submit']").forEach((btn) => {
+          btn.disabled = true;
+          btn.classList.add("is-loading");
+        });
       });
     });
   }
@@ -115,51 +162,57 @@
   }
 
   function setupAssigneeFilterByTeam() {
-    const form = document.getElementById("contentReviewsActionForm");
-    if (!form) {
-      return;
-    }
-
-    const teamSelect = form.querySelector("select[name='assigned_team']");
-    const assigneeSelect = form.querySelector("select[name='assigned_to']");
     const state = window.contentDashboardState || {};
     const assigneesByTeam = state.assigneesByTeam || {};
-    if (!teamSelect || !assigneeSelect || !Object.keys(assigneesByTeam).length) {
+    if (!Object.keys(assigneesByTeam).length) {
       return;
     }
 
-    function renderOptions(teamId) {
-      const currentValue = assigneeSelect.value || "";
-      const choices = Array.isArray(assigneesByTeam[String(teamId)]) ? assigneesByTeam[String(teamId)] : [];
+    ["contentReviewsActionForm", "contentModerationCaseActionForm"].forEach((formId) => {
+      const form = document.getElementById(formId);
+      if (!form) {
+        return;
+      }
 
-      assigneeSelect.innerHTML = "";
-      const blank = document.createElement("option");
-      blank.value = "";
-      blank.textContent = "غير محدد";
-      assigneeSelect.appendChild(blank);
+      const teamSelect = form.querySelector("select[name='assigned_team']");
+      const assigneeSelect = form.querySelector("select[name='assigned_to']");
+      if (!teamSelect || !assigneeSelect) {
+        return;
+      }
 
-      choices.forEach((entry) => {
-        if (!Array.isArray(entry) || entry.length < 2) {
-          return;
+      function renderOptions(teamId) {
+        const currentValue = assigneeSelect.value || "";
+        const choices = Array.isArray(assigneesByTeam[String(teamId)]) ? assigneesByTeam[String(teamId)] : [];
+
+        assigneeSelect.innerHTML = "";
+        const blank = document.createElement("option");
+        blank.value = "";
+        blank.textContent = "غير محدد";
+        assigneeSelect.appendChild(blank);
+
+        choices.forEach((entry) => {
+          if (!Array.isArray(entry) || entry.length < 2) {
+            return;
+          }
+          const option = document.createElement("option");
+          option.value = String(entry[0] || "");
+          option.textContent = String(entry[1] || "");
+          assigneeSelect.appendChild(option);
+        });
+
+        if (currentValue && choices.some((entry) => String(entry[0] || "") === currentValue)) {
+          assigneeSelect.value = currentValue;
+        } else {
+          assigneeSelect.value = "";
         }
-        const option = document.createElement("option");
-        option.value = String(entry[0] || "");
-        option.textContent = String(entry[1] || "");
-        assigneeSelect.appendChild(option);
+      }
+
+      teamSelect.addEventListener("change", () => {
+        renderOptions(teamSelect.value || "");
       });
 
-      if (currentValue && choices.some((entry) => String(entry[0] || "") === currentValue)) {
-        assigneeSelect.value = currentValue;
-      } else {
-        assigneeSelect.value = "";
-      }
-    }
-
-    teamSelect.addEventListener("change", () => {
       renderOptions(teamSelect.value || "");
     });
-
-    renderOptions(teamSelect.value || "");
   }
 
   function scrollSelectedRow() {

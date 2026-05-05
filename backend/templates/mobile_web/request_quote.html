@@ -617,7 +617,13 @@ body.theme-dark.page-request-quote .success-title{ color:#EDE7F6; }
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/requestQuotePage.js' %}?v=20260504-request-quote-remove-region-city"></script>
+<script>
+  window.NAWAFETH_REQUEST_QUOTE_CONTEXT = {
+    requesterCity: {% if request.user.is_authenticated and request.user.city %}"{{ request.user.city|escapejs }}"{% else %}""{% endif %},
+    requesterCountry: {% if request.user.is_authenticated and request.user.country %}"{{ request.user.country|escapejs }}"{% else %}""{% endif %}
+  };
+</script>
+<script src="{% static 'mobile_web/js/requestQuotePage.js' %}?v=20260505-request-quote-geo-fallback"></script>
 <script>
   (function () {
     function syncRequestQuoteLanguage() {

@@ -24,6 +24,7 @@ from apps.promo.services import (
     promo_min_campaign_hours,
     promo_min_campaign_message,
 )
+from apps.moderation.models import ModerationDecisionCode, ModerationStatus
 from apps.providers.models import Category
 from apps.support.models import SupportTeam, SupportTicketStatus
 from apps.verification.models import VerificationStatus
@@ -961,6 +962,69 @@ class ContentReviewActionForm(forms.Form):
 
     def clean_management_reply(self):
         return (self.cleaned_data.get("management_reply") or "").strip()[:500]
+
+
+class ContentModerationCaseActionForm(forms.Form):
+    DECISION_NONE = ""
+    DECISION_CHOICES = (
+        (DECISION_NONE, "بدون قرار نهائي"),
+        (ModerationDecisionCode.HIDE, "إخفاء المحتوى"),
+        (ModerationDecisionCode.DELETE, "حذف المحتوى"),
+        (ModerationDecisionCode.NO_ACTION, "إغلاق دون إجراء"),
+        (ModerationDecisionCode.ESCALATE, "تصعيد"),
+    )
+
+    status = forms.ChoiceField(
+        label="حالة البلاغ",
+        choices=ModerationStatus.choices,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    assigned_team = forms.ChoiceField(
+        label="فريق المعالجة",
+        required=False,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    assigned_to = forms.ChoiceField(
+        label="المكلف بالبلاغ",
+        required=False,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    operator_note = forms.CharField(
+        label="ملاحظة تشغيلية",
+        max_length=500,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 4,
+                "maxlength": 500,
+                "placeholder": "ملاحظة داخلية لفريق المحتوى (500 حرف).",
+            }
+        ),
+    )
+    decision_code = forms.ChoiceField(
+        label="القرار النهائي",
+        required=False,
+        choices=DECISION_CHOICES,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        assignee_choices = kwargs.pop("assignee_choices", None)
+        team_choices = kwargs.pop("team_choices", None)
+        super().__init__(*args, **kwargs)
+
+        if team_choices is None:
+            team_qs = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
+            team_choices = [(str(team.id), team.name_ar) for team in team_qs]
+        if assignee_choices is None:
+            assignee_choices = []
+
+        self.fields["assigned_team"].choices = [("", "غير محدد")] + list(team_choices)
+        self.fields["assigned_to"].choices = [("", "غير محدد")] + list(assignee_choices)
+
+    def clean_operator_note(self):
+        return (self.cleaned_data.get("operator_note") or "").strip()[:500]
 
 
 class PromoInquiryActionForm(forms.Form):

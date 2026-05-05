@@ -32,10 +32,13 @@ const UrgentRequestPage = (() => {
     clientMarker: null,
     providerMarkers: [],
     toastTimer: null,
+    resolvedScopeLocation: null,
+    reverseLocationPromise: null,
   };
 
   const dom = {};
   let languageObserver = null;
+  const urgentContext = window.NAWAFETH_URGENT_REQUEST_CONTEXT || {};
 
   const COPY = {
     ar: {
@@ -131,6 +134,7 @@ const UrgentRequestPage = (() => {
       audioPermissionError: 'تعذر الوصول إلى الميكروفون',
       dispatchSummaryNearest: 'سيتم تحديد موقعك تلقائيًا ثم فتح الخريطة لعرض أقرب المزوّدين المطابقين كي تختار واحدًا منهم.',
       dispatchSummaryAll: 'سيتم إرسال الطلب لجميع المختصين المطابقين لنفس التصنيف الرئيسي والفرعي.',
+      dispatchSummaryAllGeo: 'سيتم تحديد موقعك تلقائيًا لحصر الطلب على المختصين المطابقين داخل نفس النطاق الجغرافي.',
       mapSubtitleWithCity: 'يتم ترتيب المزوّدين حسب القرب من موقعك الحالي.',
       mapSubtitleEmpty: 'فعّل الموقع لعرض أقرب المزوّدين المطابقين على الخريطة.',
       summaryCategorySet: 'التصنيف: {value}',
@@ -142,6 +146,8 @@ const UrgentRequestPage = (() => {
       summaryLocationSet: 'الموقع الحالي: {city}',
       summaryLocationNearestEmpty: 'سيتم استخدام موقعك الحالي عند فتح الخريطة.',
       summaryLocationAllEmpty: 'بدون تقييد مكاني إضافي.',
+      summaryLocationAccountCity: 'مدينة الحساب: {city}',
+      summaryLocationAllPending: 'سيتم تحديد المدينة تلقائيًا من موقعك الحالي عند الإرسال.',
       summaryAttachments: 'المرفقات: {count}',
       summaryProviderSet: 'المزوّد المختار: {provider}',
       summaryProviderNearestEmpty: 'لم يتم اختيار مزوّد مباشر بعد.',
@@ -174,6 +180,8 @@ const UrgentRequestPage = (() => {
       validateCityNearest: 'فعّل الموقع لاستخدام الإرسال للأقرب',
       validateProviderNearest: 'اختر مزوّدًا من الخريطة قبل الإرسال',
       enableLocationSubmit: 'فعّل خدمة الموقع لإرسال الطلب للأقرب',
+      enableLocationAll: 'فعّل خدمة الموقع لتحديد مدينة الطلب تلقائيًا قبل الإرسال للجميع',
+      detectLocationFailed: 'تعذر تحديد مدينة واضحة من موقعك الحالي. حاول مرة أخرى.',
       submitError: 'تعذر إرسال الطلب حاليًا',
       connectionError: 'تعذر الاتصال بالخادم، حاول مرة أخرى',
     },
@@ -270,6 +278,7 @@ const UrgentRequestPage = (() => {
       audioPermissionError: 'Could not access the microphone',
       dispatchSummaryNearest: 'Your current location will be detected automatically, then the map will open so you can choose one nearby matching provider.',
       dispatchSummaryAll: 'The request will be sent to all specialists matching the same main and subcategory.',
+      dispatchSummaryAllGeo: 'Your location will be detected automatically so the request stays within the matching geographic scope.',
       mapSubtitleWithCity: 'Providers are ordered by distance from your current location.',
       mapSubtitleEmpty: 'Enable location to view the nearest matching providers on the map.',
       summaryCategorySet: 'Category: {value}',
@@ -281,6 +290,8 @@ const UrgentRequestPage = (() => {
       summaryLocationSet: 'Current location: {city}',
       summaryLocationNearestEmpty: 'Your current location will be used when the map opens.',
       summaryLocationAllEmpty: 'No extra location restriction.',
+      summaryLocationAccountCity: 'Account city: {city}',
+      summaryLocationAllPending: 'Your city will be detected automatically from your current location when you submit.',
       summaryAttachments: 'Attachments: {count}',
       summaryProviderSet: 'Selected provider: {provider}',
       summaryProviderNearestEmpty: 'No direct provider selected yet.',
@@ -313,6 +324,8 @@ const UrgentRequestPage = (() => {
       validateCityNearest: 'Enable location to use send-to-nearest',
       validateProviderNearest: 'Choose a provider from the map before sending',
       enableLocationSubmit: 'Enable location services to send the request to the nearest provider',
+      enableLocationAll: 'Enable location services so the request city can be detected automatically before sending to all',
+      detectLocationFailed: 'Could not detect a clear city from your current location. Please try again.',
       submitError: 'Could not send the request right now',
       connectionError: 'Could not connect to the server. Please try again.',
     },
@@ -506,6 +519,8 @@ const UrgentRequestPage = (() => {
       updateSummary();
       if (getDispatchMode() === 'nearest' && dom['ur-category']?.value && dom['ur-subcategory']?.value) {
         void openMapModal();
+      } else if (getDispatchMode() === 'all' && selectedSubcategoryRequiresGeoScope() && !requesterCity()) {
+        void resolveAllDispatchScope(false);
       }
     });
 
@@ -519,6 +534,9 @@ const UrgentRequestPage = (() => {
         }
         if (input.checked && input.value === 'all') {
           clearSelectedProvider();
+          if (selectedSubcategoryRequiresGeoScope() && !requesterCity()) {
+            void resolveAllDispatchScope(false);
+          }
         }
         clearFieldError('ur-city');
         updateDispatchUI();
@@ -596,6 +614,7 @@ const UrgentRequestPage = (() => {
         const subOption = document.createElement('option');
         subOption.value = String(sub.id);
         subOption.textContent = sub.name || ('#' + sub.id);
+        subOption.dataset.requiresGeoScope = sub && sub.requires_geo_scope ? '1' : '0';
         subSelect.appendChild(subOption);
       });
     } catch (_) {}
@@ -610,13 +629,14 @@ const UrgentRequestPage = (() => {
   function updateDispatchUI() {
     const dispatch = getDispatchMode();
     const isNearest = dispatch === 'nearest';
+    const needsGeoScope = dispatch === 'all' && selectedSubcategoryRequiresGeoScope();
 
     dom['ur-open-map']?.classList.toggle('hidden', !isNearest);
 
     if (dom['ur-dispatch-summary']) {
       dom['ur-dispatch-summary'].textContent = isNearest
         ? copy('dispatchSummaryNearest')
-        : copy('dispatchSummaryAll');
+        : copy(needsGeoScope ? 'dispatchSummaryAllGeo' : 'dispatchSummaryAll');
     }
 
     if (dom['ur-map-subtitle']) {
@@ -872,6 +892,9 @@ const UrgentRequestPage = (() => {
     const locationLabel = state.clientLocation
       ? `${state.clientLocation.lat.toFixed(4)}, ${state.clientLocation.lng.toFixed(4)}`
       : '';
+    const geoScopedAll = dispatch === 'all' && selectedSubcategoryRequiresGeoScope();
+    const accountCity = requesterCity();
+    const resolvedCity = state.resolvedScopeLocation?.city || '';
 
     if (dom['ur-summary-service']) {
       dom['ur-summary-service'].textContent = categoryName ? copy('summaryCategorySet', { value: categoryName }) : copy('summaryCategoryEmpty');
@@ -887,7 +910,13 @@ const UrgentRequestPage = (() => {
     if (dom['ur-summary-location']) {
       dom['ur-summary-location'].textContent = dispatch === 'nearest'
         ? (locationLabel ? copy('summaryLocationSet', { city: locationLabel }) : copy('summaryLocationNearestEmpty'))
-        : copy('summaryLocationAllEmpty');
+        : geoScopedAll
+          ? (resolvedCity
+            ? copy('summaryLocationSet', { city: resolvedCity })
+            : (accountCity
+              ? copy('summaryLocationAccountCity', { city: accountCity })
+              : copy('summaryLocationAllPending')))
+          : copy('summaryLocationAllEmpty');
     }
     if (dom['ur-summary-attachments']) {
       dom['ur-summary-attachments'].textContent = copy('summaryAttachments', { count: attachmentCount() });
@@ -927,6 +956,95 @@ const UrgentRequestPage = (() => {
 
   function clearAllErrors() {
     ['ur-category', 'ur-subcategory', 'ur-city', 'ur-title', 'ur-description'].forEach(clearFieldError);
+  }
+
+  function normalizeScopeText(value) {
+    return String(value || '').trim();
+  }
+
+  function requesterCity() {
+    return normalizeScopeText(urgentContext.requesterCity || '');
+  }
+
+  function selectedSubcategoryRequiresGeoScope() {
+    const option = dom['ur-subcategory']?.selectedOptions?.[0];
+    if (!option || !option.value) return false;
+    return option.dataset.requiresGeoScope !== '0';
+  }
+
+  function firstNonEmpty(values) {
+    for (const value of values) {
+      const normalized = normalizeScopeText(value);
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+
+  async function resolveAllDispatchScope(forcePrompt) {
+    if (!selectedSubcategoryRequiresGeoScope()) return { city: '' };
+
+    const accountCity = requesterCity();
+    if (accountCity) {
+      return {
+        city: accountCity,
+        country: normalizeScopeText(urgentContext.requesterCountry || ''),
+        source: 'account',
+      };
+    }
+
+    if (state.resolvedScopeLocation?.city) return state.resolvedScopeLocation;
+
+    const location = await resolveClientLocation(forcePrompt);
+    if (!location) return null;
+    return reverseGeocodeClientLocation(location);
+  }
+
+  async function reverseGeocodeClientLocation(location) {
+    if (!location) return null;
+    if (state.reverseLocationPromise) return state.reverseLocationPromise;
+
+    state.reverseLocationPromise = (async () => {
+      const params = new URLSearchParams({
+        format: 'jsonv2',
+        lat: String(location.lat),
+        lon: String(location.lng),
+        zoom: '11',
+        addressdetails: '1',
+        'accept-language': currentLang() === 'ar' ? 'ar' : 'en',
+      });
+      const response = await fetch('https://nominatim.openstreetmap.org/reverse?' + params.toString(), {
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+      if (!response.ok) throw new Error('reverse_geocode_failed');
+
+      const data = await response.json();
+      const address = data && typeof data === 'object' ? (data.address || {}) : {};
+      const city = firstNonEmpty([
+        address.city,
+        address.town,
+        address.municipality,
+        address.county,
+        address.village,
+        address.state_district,
+      ]);
+      if (!city) throw new Error('city_not_found');
+
+      state.resolvedScopeLocation = {
+        city,
+        country: firstNonEmpty([address.country, address.country_code]),
+        source: 'geolocation',
+      };
+      updateSummary();
+      return state.resolvedScopeLocation;
+    })();
+
+    try {
+      return await state.reverseLocationPromise;
+    } finally {
+      state.reverseLocationPromise = null;
+    }
   }
 
   function focusField(id) {
@@ -1478,10 +1596,17 @@ const UrgentRequestPage = (() => {
 
     try {
       let location = null;
+      let resolvedScope = null;
       if (dispatch === 'nearest') {
         location = await resolveClientLocation(true);
         if (!location) {
           showToast(copy('enableLocationSubmit'), 'error');
+          return;
+        }
+      } else if (dispatch === 'all' && selectedSubcategoryRequiresGeoScope()) {
+        resolvedScope = await resolveAllDispatchScope(true);
+        if (!resolvedScope?.city) {
+          showToast(copy(state.clientLocation ? 'detectLocationFailed' : 'enableLocationAll'), 'error');
           return;
         }
       }
@@ -1493,6 +1618,9 @@ const UrgentRequestPage = (() => {
       formData.append('subcategory', subcategory);
       formData.append('subcategory_ids', subcategory);
       formData.append('dispatch_mode', dispatch);
+      if (dispatch === 'all' && resolvedScope?.city) {
+        formData.append('city', resolvedScope.city);
+      }
       if (dispatch === 'nearest' && location) {
         formData.append('request_lat', String(location.lat));
         formData.append('request_lng', String(location.lng));

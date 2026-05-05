@@ -510,7 +510,7 @@ const ProviderOrdersPage = (() => {
     }
 
     const sortSelect = byId('po-sort-select');
-    if (sortSelect && Object.prototype.hasOwnProperty.call(SORT_LABELS, state.sortBy)) {
+    if (sortSelect && Object.prototype.hasOwnProperty.call(SORT_COPY_KEYS, state.sortBy)) {
       sortSelect.value = state.sortBy;
     }
 

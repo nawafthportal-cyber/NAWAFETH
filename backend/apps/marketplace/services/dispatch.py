@@ -152,6 +152,7 @@ def provider_matches_request_scope(provider: ProviderProfile, service_request: S
         getattr(service_request, "city", "") or "",
         provider_city=getattr(provider, "city", "") or "",
         provider_region=getattr(provider, "region", "") or "",
+        provider_country=getattr(provider, "country", "") or "",
     )
 
 

@@ -13,6 +13,11 @@ const RequestQuotePage = (() => {
   let _languageObserver = null;
   let _languageSyncTimer = null;
   let _lastAppliedLang = null;
+  let _clientLocation = null;
+  let _locationPromise = null;
+  let _resolvedScopeLocation = null;
+  let _reverseLocationPromise = null;
+  const quoteContext = window.NAWAFETH_REQUEST_QUOTE_CONTEXT || {};
   const COPY = {
     ar: {
       pageTitle: 'نوافــذ — طلب عروض أسعار',
@@ -87,6 +92,8 @@ const RequestQuotePage = (() => {
       validationDetailsRequired: 'يرجى كتابة تفاصيل الطلب',
       validationDetailsTooLong: 'تفاصيل الطلب يجب ألا تتجاوز 500 حرف',
       validationTitleTooLong: 'عنوان الطلب يجب ألا يتجاوز 50 حرفًا',
+      enableLocationGeoScope: 'فعّل خدمة الموقع لتحديد مدينة الطلب تلقائيًا قبل إرسال طلب عروض الأسعار',
+      detectLocationFailed: 'تعذر تحديد مدينة واضحة من موقعك الحالي. حاول مرة أخرى.',
       submitUploadingWithAttachments: 'يتم الآن رفع {count} مع بيانات الطلب. لا تغلق الصفحة حتى يكتمل الإرسال.',
       submitUploadingNoAttachments: 'يتم الآن إرسال بيانات الطلب. لا تغلق الصفحة حتى يكتمل الإرسال.',
       submitPreparingAttachments: 'جاري تجهيز المرفقات',
@@ -182,6 +189,8 @@ const RequestQuotePage = (() => {
       validationDetailsRequired: 'Please enter the request details',
       validationDetailsTooLong: 'Request details must not exceed 500 characters',
       validationTitleTooLong: 'Request title must not exceed 50 characters',
+      enableLocationGeoScope: 'Enable location access so the request city can be detected automatically before submitting the quote request.',
+      detectLocationFailed: 'Could not determine a clear city from your current location. Please try again.',
       submitUploadingWithAttachments: 'Uploading {count} with the request data. Do not close the page until sending is complete.',
       submitUploadingNoAttachments: 'Sending your request data now. Do not close the page until it finishes.',
       submitPreparingAttachments: 'Preparing attachments',
@@ -233,6 +242,14 @@ const RequestQuotePage = (() => {
 
     const catSel = document.getElementById('rq-category');
     if (catSel) catSel.addEventListener('change', _onCategoryChange);
+
+    const subSel = document.getElementById('rq-subcategory');
+    if (subSel) {
+      subSel.addEventListener('change', () => {
+        _clearFieldError('rq-subcategory');
+        void _maybeResolveCompetitiveScope(false);
+      });
+    }
 
     const fileInput = document.getElementById('rq-files');
     if (fileInput) fileInput.addEventListener('change', _onFilesChanged);
@@ -521,9 +538,143 @@ const RequestQuotePage = (() => {
         const o = document.createElement('option');
         o.value = s.id;
         o.textContent = s.name;
+        o.dataset.requiresGeoScope = s && s.requires_geo_scope ? '1' : '0';
         subSel.appendChild(o);
       });
     } catch (e) { /* ignore */ }
+  }
+
+  function _normalizeScopeText(value) {
+    return String(value || '').trim();
+  }
+
+  function _requesterCity() {
+    return _normalizeScopeText(quoteContext.requesterCity || '');
+  }
+
+  function _selectedSubcategoryRequiresGeoScope() {
+    const option = document.getElementById('rq-subcategory')?.selectedOptions?.[0];
+    if (!option || !option.value) return false;
+    return option.dataset.requiresGeoScope !== '0';
+  }
+
+  function _firstNonEmpty(values) {
+    for (const value of values) {
+      const normalized = _normalizeScopeText(value);
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+
+  async function _resolveClientLocation(forcePrompt) {
+    if (_clientLocation) return _clientLocation;
+    if (!navigator.geolocation) return null;
+    if (_locationPromise) return _locationPromise;
+
+    if (forcePrompt === false) {
+      try {
+        const permission = await navigator.permissions?.query?.({ name: 'geolocation' });
+        if (permission && permission.state === 'denied') return null;
+      } catch (_) {}
+    }
+
+    _locationPromise = new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = Number(position?.coords?.latitude);
+          const lng = Number(position?.coords?.longitude);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            resolve(null);
+            return;
+          }
+          _clientLocation = { lat, lng };
+          resolve(_clientLocation);
+        },
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 9000, maximumAge: 120000 }
+      );
+    });
+
+    try {
+      return await _locationPromise;
+    } finally {
+      _locationPromise = null;
+    }
+  }
+
+  async function _reverseGeocodeClientLocation(location) {
+    if (!location) return null;
+    if (_reverseLocationPromise) return _reverseLocationPromise;
+
+    _reverseLocationPromise = (async () => {
+      const params = new URLSearchParams({
+        format: 'jsonv2',
+        lat: String(location.lat),
+        lon: String(location.lng),
+        zoom: '11',
+        addressdetails: '1',
+        'accept-language': _currentLang() === 'ar' ? 'ar' : 'en',
+      });
+      const response = await fetch('https://nominatim.openstreetmap.org/reverse?' + params.toString(), {
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+      if (!response.ok) throw new Error('reverse_geocode_failed');
+
+      const data = await response.json();
+      const address = data && typeof data === 'object' ? (data.address || {}) : {};
+      const city = _firstNonEmpty([
+        address.city,
+        address.town,
+        address.municipality,
+        address.county,
+        address.village,
+        address.state_district,
+      ]);
+      if (!city) throw new Error('city_not_found');
+
+      _resolvedScopeLocation = {
+        city,
+        country: _firstNonEmpty([address.country, address.country_code]),
+        source: 'geolocation',
+      };
+      return _resolvedScopeLocation;
+    })();
+
+    try {
+      return await _reverseLocationPromise;
+    } finally {
+      _reverseLocationPromise = null;
+    }
+  }
+
+  async function _resolveCompetitiveRequestScope(forcePrompt) {
+    if (!_selectedSubcategoryRequiresGeoScope()) return { city: '' };
+
+    const accountCity = _requesterCity();
+    if (accountCity) {
+      return {
+        city: accountCity,
+        country: _normalizeScopeText(quoteContext.requesterCountry || ''),
+        source: 'account',
+      };
+    }
+
+    if (_resolvedScopeLocation?.city) return _resolvedScopeLocation;
+
+    const location = await _resolveClientLocation(forcePrompt);
+    if (!location) return null;
+    return _reverseGeocodeClientLocation(location);
+  }
+
+  async function _maybeResolveCompetitiveScope(forcePrompt) {
+    if (!_selectedSubcategoryRequiresGeoScope() || _requesterCity()) return null;
+    try {
+      return await _resolveCompetitiveRequestScope(forcePrompt);
+    } catch (_) {
+      return null;
+    }
   }
 
   /* ---- File handling ---- */
@@ -1090,6 +1241,20 @@ const RequestQuotePage = (() => {
     const required = _validateRequiredFields();
     if (!required) return;
 
+    let resolvedScope = null;
+    if (_selectedSubcategoryRequiresGeoScope()) {
+      try {
+        resolvedScope = await _resolveCompetitiveRequestScope(true);
+      } catch (_) {
+        _showToast(_copy('detectLocationFailed'), 'error', { duration: 5200 });
+        return;
+      }
+      if (!resolvedScope || !resolvedScope.city) {
+        _showToast(_copy('enableLocationGeoScope'), 'warning', { duration: 5200 });
+        return;
+      }
+    }
+
     const btn = document.getElementById('rq-submit');
     const attachmentCount = _getAttachmentCount();
     if (btn) {
@@ -1110,6 +1275,7 @@ const RequestQuotePage = (() => {
     if (details) fd.append('description', details);
     if (subcat) fd.append('subcategory', subcat);
     if (deadline) fd.append('quote_deadline', deadline);
+    if (resolvedScope && resolvedScope.city) fd.append('city', resolvedScope.city);
     _appendRequestFiles(fd);
 
     try {

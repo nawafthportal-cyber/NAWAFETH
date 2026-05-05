@@ -37,13 +37,14 @@ body.home-mobile-layout #top-navbar.nw-global-topbar {
 }
 
 body.home-mobile-layout #top-navbar .navbar-inner-global {
-  min-height: 60px;
+  min-height: 68px;
 }
 
 body.home-mobile-layout #top-navbar .topbar-brand-link {
-  padding: 0;
-  border-radius: 0;
-  background: none !important;
+  padding: 6px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.52) 0%, rgba(255, 255, 255, 0) 72%) !important;
   box-shadow: none !important;
 }
 
@@ -2656,6 +2657,11 @@ body.home-mobile-layout .section-reels {
    TABLET + DESKTOP: keep app-like single flow
    ================================================================ */
 @media (min-width: 769px) {
+  body.home-mobile-layout #top-navbar .navbar-inner-global {
+    max-width: var(--container-max);
+    margin-inline: auto;
+  }
+
   body.home-mobile-layout #hero {
     min-height: auto;
     padding: clamp(10px, 2vw, 18px) clamp(14px, 2.4vw, 24px) 0;
@@ -4679,11 +4685,6 @@ body.home-mobile-layout .section-reels {
   body.home-mobile-layout.home-mobile-layout--locked .hero-banner-shell .carousel-arrow,
   body.home-mobile-layout.home-mobile-layout--locked .hero-banner-shell .carousel-wrapper:hover .carousel-arrow {
     opacity: 0.72;
-  }
-
-  body.home-mobile-layout.home-mobile-layout--locked .container {
-    max-width: 100%;
-    margin-inline: 0;
   }
 
   body.home-mobile-layout.home-mobile-layout--locked .hero-content {

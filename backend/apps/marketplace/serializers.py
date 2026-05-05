@@ -255,6 +255,7 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
                 city,
                 provider_city=getattr(provider, "city", "") or "",
                 provider_region=getattr(provider, "region", "") or "",
+                provider_country=getattr(provider, "country", "") or "",
             ):
                 raise serializers.ValidationError({
                     "city": "المدينة المختارة لا تطابق نطاق مزود الخدمة"

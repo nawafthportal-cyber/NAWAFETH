@@ -37,6 +37,8 @@ from apps.backoffice.policies import (
 from apps.marketplace.models import PRE_EXECUTION_REQUEST_STATUSES, RequestStatus, ServiceRequest
 from apps.messaging.models import Message, Thread
 from apps.moderation.integrations import record_content_action_case, record_support_target_delete_case, sync_review_case
+from apps.moderation.models import ModerationCase, ModerationDecisionCode, ModerationStatus
+from apps.moderation.services import add_case_note, assign_case, change_case_status, record_decision
 from apps.notifications.models import DeviceToken
 from apps.providers.location_formatter import format_city_display
 from apps.providers.models import (
@@ -183,6 +185,7 @@ from .forms import (
     ACCESS_MANAGED_DASHBOARD_CODES,
     AccessProfileForm,
     ContentCategoryForm,
+    ContentModerationCaseActionForm,
     ContentDesignUploadForm,
     ContentFirstTimeForm,
     ContentFirstTimeMediaForm,
@@ -9581,6 +9584,273 @@ def _content_review_queryset_for_user(user):
     )
 
 
+def _content_moderation_queryset_for_user(user):
+    qs = ModerationCase.objects.select_related("reporter", "reported_user", "assigned_to").prefetch_related(
+        "action_logs",
+        "decisions",
+    ).filter(assigned_team_code="content")
+
+    access_profile = active_access_profile_for_user(user)
+    if access_profile and access_profile.level == AccessLevel.USER:
+        qs = qs.filter(Q(assigned_to=user) | Q(assigned_to__isnull=True))
+    return qs.order_by("-id")
+
+
+def _content_moderation_category_label(case: ModerationCase) -> str:
+    category = (case.category or "").strip().lower()
+    if category == "spotlight":
+        return "لمحة"
+    if category == "portfolio":
+        return "خدمات ومشاريع"
+    if category == "service":
+        return "خدمة"
+    if category == "content_moderation":
+        return "إجراء محتوى"
+    return case.source_label or category or "محتوى"
+
+
+def _content_moderation_admin_url(app_label: str, model_name: str, object_id: str) -> str:
+    if not app_label or not model_name or not object_id:
+        return ""
+    try:
+        return reverse(f"admin:{app_label}_{model_name.lower()}_change", args=[object_id])
+    except Exception:
+        return ""
+
+
+def _content_moderation_case_rows(cases: list[ModerationCase]) -> list[dict]:
+    rows: list[dict] = []
+    for case in cases:
+        reporter_name = (
+            getattr(case.reporter, "username", "")
+            or getattr(case.reporter, "phone", "")
+            or f"user-{case.reporter_id}"
+        )
+        assignee_name = (
+            getattr(case.assigned_to, "username", "")
+            or getattr(case.assigned_to, "phone", "")
+            or "غير مكلف"
+        )
+        rows.append(
+            {
+                "id": case.id,
+                "code": case.code or f"MC{case.id:06d}",
+                "reporter": reporter_name if str(reporter_name).startswith("@") else f"@{reporter_name}",
+                "source_label": case.source_label or "محتوى غير مسمى",
+                "category": _content_moderation_category_label(case),
+                "reason": case.reason or "-",
+                "status": case.get_status_display(),
+                "assignee": assignee_name,
+                "created_at": _format_dt(case.created_at),
+            }
+        )
+    return rows
+
+
+def _content_moderation_summary(cases: list[ModerationCase]) -> dict:
+    by_status: dict[str, int] = {}
+    for case in cases:
+        by_status[case.status] = by_status.get(case.status, 0) + 1
+    return {
+        "total": len(cases),
+        "new": by_status.get("new", 0),
+        "under_review": by_status.get("under_review", 0),
+        "terminal": sum(
+            by_status.get(status_code, 0)
+            for status_code in {"action_taken", "dismissed", "escalated"}
+        ),
+    }
+
+
+def _content_moderation_detail_payload(case: ModerationCase | None) -> dict:
+    if case is None:
+        return {
+            "reporter_account": "-",
+            "reported_account": "-",
+            "source_label": "-",
+            "category": "-",
+            "reason": "-",
+            "details": "-",
+            "summary": "-",
+            "status": "-",
+            "severity": "-",
+            "assigned_to": "غير مكلف",
+            "assigned_team": "غير محدد",
+            "assigned_at": "-",
+            "linked_support_ticket": "-",
+            "case_admin_url": "",
+            "source_admin_url": "",
+            "latest_decision": "-",
+            "latest_decision_note": "-",
+        }
+
+    reporter_name = (
+        getattr(case.reporter, "username", "")
+        or getattr(case.reporter, "phone", "")
+        or f"user-{case.reporter_id}"
+    )
+    reported_name = (
+        getattr(case.reported_user, "username", "")
+        or getattr(case.reported_user, "phone", "")
+        or (f"user-{case.reported_user_id}" if case.reported_user_id else "")
+    )
+    assignee_name = (
+        getattr(case.assigned_to, "username", "")
+        or getattr(case.assigned_to, "phone", "")
+        or "غير مكلف"
+    )
+    latest_decision = next(iter(case.decisions.all()), None)
+    return {
+        "reporter_account": reporter_name if str(reporter_name).startswith("@") else f"@{reporter_name}",
+        "reported_account": (
+            reported_name if str(reported_name).startswith("@") else f"@{reported_name}"
+        ) if reported_name else "-",
+        "source_label": case.source_label or "محتوى غير مسمى",
+        "category": _content_moderation_category_label(case),
+        "reason": case.reason or "-",
+        "details": (case.details or "").strip() or "-",
+        "summary": (case.summary or "").strip() or "-",
+        "status": case.get_status_display(),
+        "severity": case.get_severity_display(),
+        "assigned_to": assignee_name,
+        "assigned_team": case.assigned_team_name or case.assigned_team_code or "غير محدد",
+        "assigned_at": _format_dt(case.assigned_at),
+        "linked_support_ticket": case.linked_support_ticket_code or "-",
+        "case_admin_url": _content_moderation_admin_url("moderation", "moderationcase", str(case.id)),
+        "source_admin_url": _content_moderation_admin_url(
+            case.source_app,
+            case.source_model,
+            case.source_object_id,
+        ),
+        "latest_decision": latest_decision.get_decision_code_display() if latest_decision else "-",
+        "latest_decision_note": ((latest_decision.note or "").strip() if latest_decision else "") or "-",
+    }
+
+
+def _content_moderation_case_team_initial_value(case: ModerationCase | None) -> str:
+    if case is not None:
+        team_code = (case.assigned_team_code or "").strip()
+        team_name = (case.assigned_team_name or "").strip()
+        if team_code:
+            team = SupportTeam.objects.filter(code__iexact=team_code).only("id").first()
+            if team is not None:
+                return str(team.id)
+        if team_name:
+            team = SupportTeam.objects.filter(name_ar=team_name).only("id").first()
+            if team is not None:
+                return str(team.id)
+
+    default_team = _support_team_for_dashboard("content", fallback_codes=["content"])
+    return str(default_team.id) if default_team is not None else ""
+
+
+def _content_moderation_target_kind(case: ModerationCase) -> str:
+    source_model = (case.source_model or "").strip().lower()
+    category = (case.category or "").strip().lower()
+    if source_model == "providerspotlightitem" or category == "spotlight":
+        return "spotlight_item"
+    if source_model == "providerportfolioitem" or category == "portfolio":
+        return "portfolio_item"
+    if source_model == "providerservice" or category == "service":
+        return "service"
+    return ""
+
+
+def _content_resolve_moderation_target(case: ModerationCase):
+    object_id = str(case.source_object_id or "").strip()
+    if not object_id.isdigit():
+        raise ValueError("المحتوى المرتبط بالبلاغ لا يملك معرفًا صالحًا.")
+
+    object_pk = int(object_id)
+    target_kind = _content_moderation_target_kind(case)
+    if target_kind == "spotlight_item":
+        item = ProviderSpotlightItem.objects.select_related("provider", "provider__user").filter(id=object_pk).first()
+        if item is None:
+            raise ValueError("اللمحة المبلّغ عنها غير موجودة.")
+        return target_kind, item
+    if target_kind == "portfolio_item":
+        item = ProviderPortfolioItem.objects.select_related("provider", "provider__user").filter(id=object_pk).first()
+        if item is None:
+            raise ValueError("محتوى خدمات ومشاريع المبلّغ عنه غير موجود.")
+        return target_kind, item
+    if target_kind == "service":
+        service = ProviderService.objects.select_related("provider", "provider__user").filter(id=object_pk).first()
+        if service is None:
+            raise ValueError("الخدمة المبلّغ عنها غير موجودة.")
+        return target_kind, service
+    raise ValueError("نوع المحتوى المرتبط بالبلاغ غير مدعوم من هذه الشاشة.")
+
+
+def _content_apply_moderation_case_target_action(*, case: ModerationCase, decision_code: str, request, note: str) -> tuple[dict, str]:
+    target_kind, target = _content_resolve_moderation_target(case)
+    trimmed_note = (note or "").strip()
+
+    if decision_code == ModerationDecisionCode.HIDE:
+        if target_kind == "service":
+            if target.is_active:
+                target.is_active = False
+                target.save(update_fields=["is_active"])
+            return (
+                {
+                    "content_kind": target_kind,
+                    "requested_action": "hide",
+                    "performed_action": "hide",
+                },
+                "تم إخفاء الخدمة وإيقاف ظهورها.",
+            )
+
+        if target_kind in {"spotlight_item", "portfolio_item"}:
+            target_label = "اللمحة" if target_kind == "spotlight_item" else "محتوى خدمات ومشاريع"
+            target.delete()
+            return (
+                {
+                    "content_kind": target_kind,
+                    "requested_action": "hide",
+                    "performed_action": "delete",
+                    "fallback_delete": True,
+                },
+                f"لا يدعم هذا النوع إخفاءً منفصلًا، لذلك تمت إزالة {target_label} من الظهور بحذفها.",
+            )
+
+    if decision_code == ModerationDecisionCode.DELETE:
+        if target_kind == "service":
+            target.delete()
+            return (
+                {
+                    "content_kind": target_kind,
+                    "requested_action": "delete",
+                    "performed_action": "delete",
+                },
+                "تم حذف الخدمة المبلّغ عنها.",
+            )
+
+        if target_kind == "spotlight_item":
+            target.delete()
+            return (
+                {
+                    "content_kind": target_kind,
+                    "requested_action": "delete",
+                    "performed_action": "delete",
+                },
+                "تم حذف اللمحة المبلّغ عنها.",
+            )
+
+        if target_kind == "portfolio_item":
+            target.delete()
+            return (
+                {
+                    "content_kind": target_kind,
+                    "requested_action": "delete",
+                    "performed_action": "delete",
+                },
+                "تم حذف محتوى خدمات ومشاريع المبلّغ عنه.",
+            )
+
+    if trimmed_note:
+        return ({"content_kind": target_kind, "requested_action": decision_code, "performed_action": "note_only"}, "تم حفظ القرار على البلاغ.")
+    raise ValueError("القرار المطلوب لا يمكن تطبيقه على هذا النوع من المحتوى.")
+
+
 def _content_ticket_team_label(ticket: SupportTicket) -> str:
     if ticket.assigned_team:
         mapped = CONTENT_TEAM_LABELS.get((ticket.assigned_team.code or "").strip().lower())
@@ -9975,8 +10245,16 @@ def _content_delete_reported_target(*, ticket: SupportTicket, request, note: str
     return "تم تنفيذ إجراء حذف/إخفاء المحتوى محل الشكوى."
 
 
-def _content_reviews_redirect_with_state(request, ticket_id: int | None = None):
+def _content_reviews_redirect_with_state(request, ticket_id: int | None = None, case_id: int | None = None):
     query = (request.POST.get("redirect_query") or request.GET.urlencode()).strip()
+    if case_id is not None:
+        base = reverse("dashboard:content_reviews_dashboard")
+        query_data = QueryDict(query, mutable=True) if query else QueryDict("", mutable=True)
+        query_data["case"] = str(case_id)
+        serialized = query_data.urlencode()
+        if not serialized:
+            return redirect(base)
+        return redirect(f"{base}?{serialized}")
     if ticket_id is not None:
         base = reverse("dashboard:content_reviews_ticket_detail", args=[ticket_id])
     else:
@@ -9990,12 +10268,15 @@ def _content_reviews_redirect_with_state(request, ticket_id: int | None = None):
 @require_dashboard_access("content")
 def content_reviews_dashboard(request, ticket_id: int | None = None):
     base_qs = _content_review_queryset_for_user(request.user)
+    moderation_base_qs = _content_moderation_queryset_for_user(request.user)
     status_filter = (request.GET.get("status") or "").strip()
     type_filter = (request.GET.get("type") or "").strip()
     priority_filter = (request.GET.get("priority") or "").strip()
     query_filter = (request.GET.get("q") or "").strip()
+    selected_case_id_raw = (request.GET.get("case") or "").strip()
 
     tickets_qs = base_qs
+    moderation_cases_qs = moderation_base_qs
     if status_filter:
         tickets_qs = tickets_qs.filter(status=status_filter)
     if type_filter:
@@ -10010,10 +10291,25 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
             | Q(requester__username__icontains=query_filter)
             | Q(requester__phone__icontains=query_filter)
         )
+        moderation_cases_qs = moderation_cases_qs.filter(
+            Q(code__icontains=query_filter)
+            | Q(summary__icontains=query_filter)
+            | Q(reason__icontains=query_filter)
+            | Q(details__icontains=query_filter)
+            | Q(source_label__icontains=query_filter)
+            | Q(reporter__username__icontains=query_filter)
+            | Q(reporter__phone__icontains=query_filter)
+            | Q(reported_user__username__icontains=query_filter)
+            | Q(reported_user__phone__icontains=query_filter)
+        )
 
     tickets = list(tickets_qs)
+    moderation_cases = list(moderation_cases_qs)
     selected_ticket = _resolve_selected_ticket(base_qs, request, ticket_id)
-    if selected_ticket is None and tickets:
+    selected_case = None
+    if selected_case_id_raw.isdigit():
+        selected_case = moderation_base_qs.filter(id=int(selected_case_id_raw)).first()
+    if selected_case is None and selected_ticket is None and tickets:
         selected_ticket = tickets[0]
 
     team_choices = _support_team_choices()
@@ -10040,8 +10336,166 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
             "moderation_action": ContentReviewActionForm.MODERATION_ACTION_NONE,
         },
     )
+    selected_case_team_value = _content_moderation_case_team_initial_value(selected_case)
+    case_form = ContentModerationCaseActionForm(
+        assignee_choices=assignee_choices,
+        team_choices=team_choices,
+        initial={
+            "status": selected_case.status if selected_case else ModerationStatus.NEW,
+            "assigned_team": selected_case_team_value,
+            "assigned_to": str(selected_case.assigned_to_id or "") if selected_case else "",
+            "operator_note": "",
+            "decision_code": "",
+        },
+    )
 
     if request.method == "POST":
+        if (request.POST.get("case_id") or "").strip():
+            if not can_manage_content:
+                return HttpResponseForbidden("لا تملك صلاحية تعديل بلاغات إدارة المحتوى.")
+
+            raw_case_id = (request.POST.get("case_id") or "").strip()
+            if not raw_case_id.isdigit():
+                messages.error(request, "لا يمكن تحديد البلاغ المطلوب تحديثه.")
+                return _content_reviews_redirect_with_state(request)
+
+            target_case = moderation_base_qs.filter(id=int(raw_case_id)).first()
+            if target_case is None:
+                messages.error(request, "البلاغ المحدد غير متاح لهذا الحساب.")
+                return _content_reviews_redirect_with_state(request)
+
+            access_profile = active_access_profile_for_user(request.user)
+            if access_profile and access_profile.level == AccessLevel.USER:
+                if target_case.assigned_to_id and target_case.assigned_to_id != request.user.id:
+                    return HttpResponseForbidden("غير مصرح: البلاغ ليس ضمن المهام المكلف بها.")
+
+            post_case_form = ContentModerationCaseActionForm(
+                request.POST,
+                assignee_choices=assignee_choices,
+                team_choices=team_choices,
+            )
+            if not post_case_form.is_valid():
+                case_form = post_case_form
+                selected_case = target_case
+                messages.error(request, "يرجى تصحيح أخطاء نموذج بلاغ المحتوى.")
+            else:
+                action = (request.POST.get("action") or "save_case").strip()
+                desired_status = post_case_form.cleaned_data.get("status")
+                team_id_raw = (post_case_form.cleaned_data.get("assigned_team") or "").strip()
+                assigned_to_raw = (post_case_form.cleaned_data.get("assigned_to") or "").strip()
+                note = post_case_form.cleaned_data.get("operator_note") or ""
+                decision_code = (post_case_form.cleaned_data.get("decision_code") or "").strip()
+
+                if action == "hide_case":
+                    decision_code = ModerationDecisionCode.HIDE
+                elif action == "delete_case":
+                    decision_code = ModerationDecisionCode.DELETE
+
+                team = SupportTeam.objects.filter(id=int(team_id_raw)).first() if team_id_raw.isdigit() else None
+                if team_id_raw and team is None:
+                    messages.error(request, "فريق المعالجة المحدد غير صالح.")
+                    return _content_reviews_redirect_with_state(request, case_id=target_case.id)
+
+                if team is None:
+                    fallback_team = _support_team_for_dashboard("content", fallback_codes=["content"])
+                    team = fallback_team
+
+                assigned_to_id = int(assigned_to_raw) if assigned_to_raw.isdigit() else None
+                if team is not None and assigned_to_id is not None:
+                    allowed_assignees = {
+                        int(value)
+                        for value, _ in assignee_choices_by_team.get(str(team.id), [])
+                        if str(value).isdigit()
+                    }
+                    if assigned_to_id not in allowed_assignees:
+                        messages.error(request, "المكلف المختار غير مرتبط بفريق المعالجة المحدد.")
+                        return _content_reviews_redirect_with_state(request, case_id=target_case.id)
+
+                if assigned_to_id is not None:
+                    assignee_dashboard_code = _support_team_dashboard_code(team.id) if team is not None else "content"
+                    assignee = dashboard_assignee_user(assigned_to_id, assignee_dashboard_code, write=True)
+                    if assignee is None:
+                        messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الفريق المحدد.")
+                        return _content_reviews_redirect_with_state(request, case_id=target_case.id)
+                    if access_profile and access_profile.level == AccessLevel.USER and assignee.id != request.user.id:
+                        return HttpResponseForbidden("لا يمكنك تعيين البلاغ لمستخدم آخر.")
+
+                assignment_changed = False
+                target_team_code = (getattr(team, "code", "") or target_case.assigned_team_code or "content").strip()
+                target_team_name = (getattr(team, "name_ar", "") or target_case.assigned_team_name or "فريق إدارة المحتوى").strip()
+                if (
+                    target_case.assigned_to_id != assigned_to_id
+                    or (target_case.assigned_team_code or "") != target_team_code
+                    or (target_case.assigned_team_name or "") != target_team_name
+                ):
+                    target_case = assign_case(
+                        case=target_case,
+                        assigned_team_code=target_team_code,
+                        assigned_team_name=target_team_name,
+                        assigned_to_id=assigned_to_id,
+                        note=note,
+                        by_user=request.user,
+                        request=request,
+                    )
+                    assignment_changed = True
+
+                status_changed = False
+                if decision_code:
+                    if decision_code in {ModerationDecisionCode.HIDE, ModerationDecisionCode.DELETE}:
+                        if not can_hide_delete:
+                            return HttpResponseForbidden("لا تملك صلاحية إخفاء أو حذف المحتوى محل البلاغ.")
+                        outcome, decision_message = _content_apply_moderation_case_target_action(
+                            case=target_case,
+                            decision_code=decision_code,
+                            request=request,
+                            note=note,
+                        )
+                        record_decision(
+                            case=target_case,
+                            decision_code=decision_code,
+                            note=note,
+                            outcome=outcome,
+                            is_final=True,
+                            by_user=request.user,
+                            request=request,
+                        )
+                        messages.success(request, decision_message)
+                    else:
+                        decision = record_decision(
+                            case=target_case,
+                            decision_code=decision_code,
+                            note=note,
+                            outcome={"surface": "dashboard.content_reviews"},
+                            is_final=True,
+                            by_user=request.user,
+                            request=request,
+                        )
+                        messages.success(request, f"تم تسجيل قرار البلاغ: {decision.get_decision_code_display()}.")
+                    messages.success(request, f"تم تحديث البلاغ {target_case.code or target_case.id} بنجاح.")
+                    return _content_reviews_redirect_with_state(request, case_id=target_case.id)
+
+                if desired_status and desired_status != target_case.status:
+                    target_case = change_case_status(
+                        case=target_case,
+                        new_status=desired_status,
+                        note=note,
+                        by_user=request.user,
+                        request=request,
+                    )
+                    status_changed = True
+
+                if note and not assignment_changed and not status_changed:
+                    add_case_note(
+                        case=target_case,
+                        note=note,
+                        payload={"surface": "dashboard.content_reviews"},
+                        by_user=request.user,
+                        request=request,
+                    )
+
+                messages.success(request, f"تم تحديث البلاغ {target_case.code or target_case.id} بنجاح.")
+                return _content_reviews_redirect_with_state(request, case_id=target_case.id)
+
         if not can_manage_content:
             return HttpResponseForbidden("لا تملك صلاحية تعديل طلبات إدارة المحتوى.")
 
@@ -10222,15 +10676,28 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
     if _want_pdf(request):
         return pdf_response("content_reviews.pdf", "لوحة إدارة التقييم والمراجعات", headers, rows, landscape=True)
 
+    support_summary = _content_review_summary(tickets)
+    moderation_summary = _content_moderation_summary(moderation_cases)
+    summary = {
+        **support_summary,
+        "support_total": support_summary.get("total", 0),
+        "moderation_total": moderation_summary.get("total", 0),
+        "total": support_summary.get("total", 0) + moderation_summary.get("total", 0),
+    }
+
     context = _content_base_context("reviews")
     context.update(
         {
             "hero_title": "إدارة التقييمات والمراجعات",
-            "hero_subtitle": "متابعة بلاغات التقييمات والتعليقات المرتبطة بها، وتوزيعها ومعالجتها تشغيليًا داخل فريق المحتوى.",
+            "hero_subtitle": "متابعة تذاكر التقييمات والتعليقات، مع إظهار بلاغات المحتوى المباشرة الواردة من اللمحات والمعرض داخل لوحة فريق المحتوى.",
             "tickets": _content_review_ticket_rows(tickets),
+            "moderation_cases": _content_moderation_case_rows(moderation_cases),
             "selected_ticket": selected_ticket,
+            "selected_case": selected_case,
+            "selected_case_form": case_form,
             "review_form": review_form,
-            "summary": _content_review_summary(tickets),
+            "summary": summary,
+            "moderation_summary": moderation_summary,
             "can_write": can_write,
             "can_manage_content": can_manage_content,
             "can_moderate_reviews": can_moderate_reviews,
@@ -10250,6 +10717,7 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
             "redirect_query": request.GET.urlencode(),
             "target_info": _content_ticket_target_info(selected_ticket),
             "detail_info": _content_review_detail_payload(selected_ticket),
+            "selected_case_info": _content_moderation_detail_payload(selected_case),
             "selected_ticket_comments": list(selected_ticket.comments.order_by("-id")[:8]) if selected_ticket else [],
             "selected_ticket_attachments": _support_attachment_rows(selected_ticket) if selected_ticket else [],
             "team_assignee_map": assignee_choices_by_team,

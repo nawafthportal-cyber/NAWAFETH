@@ -180,6 +180,45 @@ class ServiceRequestPolicyTests(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertIn("الرياض", serializer.validated_data["city"])
 
+    def test_serializer_accepts_explicit_city_for_urgent_all_when_requester_city_missing(self):
+        self.client_user.city = ""
+        self.client_user.save(update_fields=["city"])
+        self.local_subcategory.allows_urgent_requests = True
+        self.local_subcategory.save(update_fields=["allows_urgent_requests"])
+
+        serializer = ServiceRequestCreateSerializer(
+            data={
+                "subcategory_ids": [self.local_subcategory.id],
+                "title": "طلب عاجل",
+                "description": "تفاصيل",
+                "request_type": RequestType.URGENT,
+                "dispatch_mode": "all",
+                "city": "دبي",
+            },
+            context={"request": self._request()},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["city"], "دبي")
+
+    def test_serializer_accepts_explicit_city_for_competitive_when_requester_city_missing(self):
+        self.client_user.city = ""
+        self.client_user.save(update_fields=["city"])
+
+        serializer = ServiceRequestCreateSerializer(
+            data={
+                "subcategory_ids": [self.local_subcategory.id],
+                "title": "طلب عرض سعر",
+                "description": "تفاصيل",
+                "request_type": RequestType.COMPETITIVE,
+                "city": "دبي",
+            },
+            context={"request": self._request()},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["city"], "دبي")
+
     def test_serializer_rejects_urgent_for_disallowed_subcategory(self):
         serializer = ServiceRequestCreateSerializer(
             data={
@@ -205,6 +244,25 @@ class ServiceRequestPolicyTests(TestCase):
         )
 
         self.assertFalse(provider_matches_request_scope(self.provider, service_request))
+
+    def test_provider_scope_matching_accepts_country_city_profile_labels(self):
+        self.provider.country = "السعودية"
+        self.provider.city = "السعودية - الرياض"
+        self.provider.region = ""
+        self.provider.save(update_fields=["country", "city", "region"])
+
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            subcategory=self.local_subcategory,
+            title="طلب عاجل محلي",
+            description="تفاصيل",
+            request_type=RequestType.URGENT,
+            dispatch_mode=DispatchMode.ALL,
+            status=RequestStatus.NEW,
+            city="الرياض",
+        )
+
+        self.assertTrue(provider_matches_request_scope(self.provider, service_request))
 
     def test_urgent_cancel_replaces_provider_notification(self):
         service_request = ServiceRequest.objects.create(

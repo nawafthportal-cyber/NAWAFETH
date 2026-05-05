@@ -1594,6 +1594,12 @@ body.theme-dark.page-urgent-request textarea{
 {% endblock %}
 
 {% block extra_js %}
+<script>
+  window.NAWAFETH_URGENT_REQUEST_CONTEXT = {
+    requesterCity: {% if request.user.is_authenticated and request.user.city %}"{{ request.user.city|escapejs }}"{% else %}""{% endif %},
+    requesterCountry: {% if request.user.is_authenticated and request.user.country %}"{{ request.user.country|escapejs }}"{% else %}""{% endif %}
+  };
+</script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/urgentRequestPage.js' %}?v=20260502-urgent-request-i18n-stage1"></script>
+<script src="{% static 'mobile_web/js/urgentRequestPage.js' %}?v=20260505-urgent-request-all-location"></script>
 {% endblock %}
