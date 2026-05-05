@@ -346,7 +346,7 @@ class ThreadUserState(models.Model):
             models.Index(fields=["user", "is_favorite"], name="messaging_t_user_id_439020_idx"),
             models.Index(fields=["user", "is_archived"], name="messaging_t_user_id_a56866_idx"),
             models.Index(fields=["user", "is_blocked"], name="messaging_t_user_id_b28302_idx"),
-            models.Index(fields=["user", "is_deleted"], name="messaging_t_user_id_deleted_idx"),
+            models.Index(fields=["user", "is_deleted"], name="messaging_t_user_del_idx"),
         ]
 
     def __str__(self) -> str:
