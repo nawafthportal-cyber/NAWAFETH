@@ -6,7 +6,7 @@
 {% block sidebar_orders %}active{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'mobile_web/css/order-detail-polish.css' %}?v=20260505-order-detail-polish-v2">
+<link rel="stylesheet" href="{% static 'mobile_web/css/order-detail-polish.css' %}?v=20260506-order-detail-offers-scale-v5">
 {% endblock %}
 
 {% block content %}
@@ -21,17 +21,49 @@
 
     <div id="order-content" class="hidden order-detail-shell">
       <header class="mw-page-topbar order-page-top order-detail-hero ux26-page-header">
-        <div class="order-page-title-wrap">
-          <span class="order-page-kicker" id="order-page-kicker">متابعة الطلب</span>
-          <h1 id="order-page-title">تفاصيل الطلب</h1>
-          <p id="order-page-subtitle">ملخص الحالة أولًا، ثم التفاصيل والإجراءات.</p>
+        <div class="order-hero-main">
+          <div class="order-page-title-wrap">
+            <span class="order-page-kicker" id="order-page-kicker">متابعة الطلب</span>
+            <h1 id="order-page-title">تفاصيل الطلب</h1>
+            <p id="order-page-subtitle">ملخص الحالة أولًا، ثم التفاصيل والإجراءات.</p>
+            <div class="order-hero-pills" aria-hidden="true">
+              <span class="order-hero-pill" id="order-hero-pill-1">رؤية واضحة</span>
+              <span class="order-hero-pill" id="order-hero-pill-2">تحديثات مرتبة</span>
+              <span class="order-hero-pill" id="order-hero-pill-3">إجراءات أسرع</span>
+            </div>
+          </div>
+
+          <div class="order-hero-panel">
+            <div class="order-hero-panel-top">
+              <span class="order-hero-panel-label" id="order-hero-status-label">الحالة الحالية</span>
+              <span id="order-hero-status-badge" class="status-badge ux26-status-badge"></span>
+            </div>
+            <div class="order-hero-panel-id">
+              <span class="order-hero-panel-caption" id="order-hero-id-label">رقم الطلب</span>
+              <strong id="order-hero-id">R000000</strong>
+            </div>
+            <div class="order-hero-panel-grid">
+              <article class="order-hero-panel-item">
+                <span id="order-hero-updated-label">آخر تحديث</span>
+                <strong id="order-hero-updated">-</strong>
+              </article>
+              <article class="order-hero-panel-item">
+                <span id="order-hero-next-step-label">الخطوة التالية</span>
+                <strong id="order-hero-next-step">-</strong>
+              </article>
+            </div>
+          </div>
         </div>
-        <a href="/orders/" class="order-back-link" id="order-back-link" aria-label="العودة إلى قائمة الطلبات">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-          <span id="order-back-link-text">رجوع للطلبات</span>
-        </a>
+
+        <div class="order-hero-actions">
+          <a href="/orders/" class="order-back-link" id="order-back-link" aria-label="العودة إلى قائمة الطلبات">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span id="order-back-link-text">رجوع للطلبات</span>
+          </a>
+          <button type="button" class="order-hero-action-btn" id="btn-refresh-order">تحديث البيانات</button>
+        </div>
       </header>
 
       <div id="order-loading" class="text-center">
@@ -42,198 +74,241 @@
 
       <div id="order-detail" class="hidden order-detail-stack">
         <section class="order-detail-card orders-mobile-sheet order-summary-card">
-          <div class="order-detail-top">
-            <div class="order-summary-main">
-              <div class="order-summary-id-block">
-                <p class="order-summary-label" id="order-summary-id-label">رقم الطلب</p>
-                <div id="order-display-id" class="order-display-id"></div>
+          <div class="order-summary-shell">
+            <div class="order-detail-top">
+              <div class="order-summary-main">
+                <div class="order-summary-copy">
+                  <span class="order-summary-kicker" id="order-summary-kicker">ملف الطلب</span>
+                  <h2 id="order-summary-title-preview">عنوان الطلب</h2>
+                  <p id="order-summary-description-preview">وصف مختصر يساعدك على التقاط الصورة العامة قبل النزول إلى التفاصيل.</p>
+                </div>
+                <div class="order-summary-id-block">
+                  <p class="order-summary-label" id="order-summary-id-label">رقم الطلب</p>
+                  <div id="order-display-id" class="order-display-id"></div>
+                </div>
+                <span id="order-status-badge" class="status-badge ux26-status-badge"></span>
               </div>
-              <span id="order-status-badge" class="status-badge ux26-status-badge"></span>
+            </div>
+            <div class="order-summary-insight">
+              <strong id="order-summary-insight-label">ماذا يحدث الآن؟</strong>
+              <span id="order-summary-insight-text">سيظهر هنا الملخص التنفيذي للحالة الحالية وما يحتاجه الطلب منك.</span>
             </div>
           </div>
           <div id="order-meta" class="order-meta"></div>
         </section>
 
-        <p id="order-original-language-note" class="ticket-muted hidden"></p>
-
-        <div class="order-primary-grid">
-          <section class="order-detail-card orders-mobile-sheet order-edit-card">
-            <div class="order-field-head">
-              <h2 id="order-title-heading">عنوان الطلب</h2>
-              <button type="button" class="btn-sm hidden" id="btn-toggle-title">تعديل</button>
-            </div>
-            <input id="order-title" class="form-input" disabled>
-          </section>
-
-          <section class="order-detail-card orders-mobile-sheet order-edit-card order-description-card">
-            <div class="order-field-head">
-              <h2 id="order-description-heading">تفاصيل الطلب</h2>
-              <button type="button" class="btn-sm hidden" id="btn-toggle-desc">تعديل</button>
-            </div>
-            <textarea id="order-description" class="form-textarea" disabled></textarea>
-          </section>
-        </div>
-
-        <section class="order-detail-card orders-mobile-sheet order-files-card">
-          <h2 id="order-attachments-title">المرفقات</h2>
-          <div id="order-attachments-empty" class="order-lines hidden"></div>
-          <div id="order-client-attachments-group" class="order-files-group hidden">
-            <div class="order-files-group-head">
-              <h3 id="order-client-attachments-title">مرفقات العميل</h3>
-              <p id="order-client-attachments-desc">الملفات المرفوعة مع الطلب.</p>
-            </div>
-            <div id="order-client-attachments" class="order-lines"></div>
-          </div>
-          <div id="order-provider-attachments-group" class="order-files-group hidden">
-            <div class="order-files-group-head">
-              <h3 id="order-provider-attachments-title">مرفقات مزود الخدمة</h3>
-              <p id="order-provider-attachments-desc">الملفات المرفوعة عند إكمال الخدمة.</p>
-            </div>
-            <div id="order-provider-attachments" class="order-lines"></div>
-          </div>
-        </section>
-
-        <section id="order-finance-section" class="order-detail-card orders-mobile-sheet hidden">
-          <h2 id="order-finance-title">تفاصيل التنفيذ</h2>
-          <div id="order-finance-grid" class="order-info-grid"></div>
-        </section>
-
-        <section id="order-provider-decision-section" class="order-detail-card orders-mobile-sheet hidden">
-          <div class="order-decision-header">
-            <span class="order-decision-icon" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 11l3 3L22 4"></path>
-                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-              </svg>
-            </span>
-            <div class="order-decision-titles">
-              <h2 id="order-provider-decision-title">قرارك على تحديث حالة التنفيذ</h2>
-              <p id="order-provider-decision-subtitle" class="order-decision-subtitle">راجع تفاصيل التنفيذ والملاحظات والمرفقات قبل الاعتماد.</p>
-            </div>
-          </div>
-          <div id="order-provider-inputs-grid" class="order-info-grid"></div>
-          <div id="order-provider-notes-card" class="order-provider-notes-card hidden">
-            <div class="order-provider-notes-head">
-              <span class="order-provider-notes-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-                </svg>
-              </span>
-              <h3 id="order-provider-notes-title">ملاحظات مقدم الخدمة</h3>
-            </div>
-            <div id="order-provider-notes-body" class="order-provider-notes-body"></div>
-            <div id="order-provider-notes-attachments" class="order-provider-notes-attachments hidden"></div>
-            <p id="order-provider-notes-meta" class="order-provider-notes-meta"></p>
-          </div>
-          <div id="order-provider-decision-note" class="order-inline-note hidden"></div>
-          <div id="order-provider-decision-feedback" class="order-offers-feedback ux26-alert hidden" aria-live="polite"></div>
-          <div id="order-provider-decision-form" class="order-decision-form">
-            <label for="order-provider-reject-note" class="order-form-label" id="order-provider-reject-label">سبب الرفض عند الحاجة</label>
-            <textarea id="order-provider-reject-note" class="form-textarea order-inline-textarea" rows="3" placeholder="اكتب سبب رفض التفاصيل ليصل إلى مقدم الخدمة"></textarea>
-            <div class="order-inline-actions ux26-form-actions">
-              <button type="button" class="btn-secondary" id="btn-reject-provider-inputs">رفض التفاصيل</button>
-              <button type="button" class="btn-primary" id="btn-approve-provider-inputs">اعتماد وبدء التنفيذ</button>
-            </div>
-          </div>
-        </section>
-
-        <section id="order-cancelled-section" class="order-detail-card orders-mobile-sheet hidden">
-          <h2 id="order-cancelled-title">بيانات الإلغاء</h2>
-          <div id="order-cancelled-grid" class="order-info-grid"></div>
-        </section>
-
-        <section id="order-review-section" class="order-detail-card orders-mobile-sheet hidden">
-          <h2 id="order-review-title">تقييم الخدمة</h2>
-          <div id="order-review-summary" class="order-inline-note hidden"></div>
-          <div id="order-review-feedback" class="order-offers-feedback order-review-feedback ux26-alert hidden" aria-live="polite"></div>
-          <form id="order-review-form" class="order-review-form ux26-form-shell">
-            <div class="order-review-grid">
-              <label class="order-review-field">
-                <span id="review-response-speed-label">سرعة الاستجابة</span>
-                <select id="review-response-speed" class="form-input">
-                  <option value="" id="review-response-speed-placeholder">اختر</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                </select>
-              </label>
-              <label class="order-review-field">
-                <span id="review-cost-value-label">القيمة مقابل السعر</span>
-                <select id="review-cost-value" class="form-input">
-                  <option value="" id="review-cost-value-placeholder">اختر</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                </select>
-              </label>
-              <label class="order-review-field">
-                <span id="review-quality-label">جودة العمل</span>
-                <select id="review-quality" class="form-input">
-                  <option value="" id="review-quality-placeholder">اختر</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                </select>
-              </label>
-              <label class="order-review-field">
-                <span id="review-credibility-label">المصداقية</span>
-                <select id="review-credibility" class="form-input">
-                  <option value="" id="review-credibility-placeholder">اختر</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                </select>
-              </label>
-              <label class="order-review-field">
-                <span id="review-on-time-label">الالتزام بالموعد</span>
-                <select id="review-on-time" class="form-input">
-                  <option value="" id="review-on-time-placeholder">اختر</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                </select>
-              </label>
-            </div>
-            <label for="review-comment" class="order-form-label" id="review-comment-label">تعليقك</label>
-            <textarea id="review-comment" class="form-textarea order-inline-textarea" rows="4" maxlength="300" placeholder="اكتب تعليقًا مختصرًا عن التجربة"></textarea>
-            <button type="submit" class="btn-primary" id="btn-submit-review">
-              <span id="btn-submit-review-text">إرسال التقييم</span>
-              <span class="order-btn-spinner spinner hidden" id="btn-submit-review-spinner" aria-hidden="true"></span>
-            </button>
-          </form>
-        </section>
-
-        <section class="order-detail-card orders-mobile-sheet order-logs-card">
-          <h2 id="order-status-logs-title">سجل الحالة</h2>
-          <div id="order-status-logs" class="order-lines"></div>
-        </section>
-
         <section id="order-offers-section" class="order-detail-card orders-mobile-sheet order-offers-card hidden">
           <div class="order-offers-head">
-            <h2 id="order-offers-title">عروض الأسعار</h2>
-            <button type="button" class="btn-sm" id="btn-refresh-offers">تحديث</button>
+            <div class="order-offers-title-block">
+              <span class="order-offers-kicker" id="order-offers-kicker">مرحلة اختيار المزود</span>
+              <h2 id="order-offers-title">عروض الأسعار</h2>
+              <p id="order-offers-subtitle">قارن العروض حسب السعر والمدة ثم اختر المزود الأنسب.</p>
+            </div>
+            <div class="order-offers-tools" role="group" aria-label="أدوات عروض الأسعار">
+              <span class="order-offers-count" id="order-offers-count">0 عروض</span>
+              <label class="order-offers-control" for="order-offers-filter">
+                <span id="order-offers-filter-label">الحالة</span>
+                <select id="order-offers-filter" class="form-input">
+                  <option value="all" id="order-offers-filter-all">الكل</option>
+                  <option value="pending" id="order-offers-filter-pending">بانتظار القرار</option>
+                  <option value="selected" id="order-offers-filter-selected">مختار</option>
+                  <option value="rejected" id="order-offers-filter-rejected">مرفوض</option>
+                </select>
+              </label>
+              <label class="order-offers-control" for="order-offers-sort">
+                <span id="order-offers-sort-label">الفرز</span>
+                <select id="order-offers-sort" class="form-input">
+                  <option value="recommended" id="order-offers-sort-recommended">الأفضل للمقارنة</option>
+                  <option value="price_asc" id="order-offers-sort-price-asc">السعر الأقل</option>
+                  <option value="price_desc" id="order-offers-sort-price-desc">السعر الأعلى</option>
+                  <option value="duration_asc" id="order-offers-sort-duration-asc">الأسرع تنفيذًا</option>
+                  <option value="latest" id="order-offers-sort-latest">الأحدث</option>
+                </select>
+              </label>
+              <button type="button" class="btn-sm" id="btn-refresh-offers">تحديث</button>
+            </div>
           </div>
           <div id="order-offers-feedback" class="order-offers-feedback ux26-alert hidden"></div>
           <div id="order-offers" class="order-offers-list"></div>
         </section>
 
-        <section id="order-actions-section" class="order-detail-card orders-mobile-sheet hidden">
-          <h2 id="order-actions-title">إجراءات الطلب</h2>
-          <div id="order-action-feedback" class="order-offers-feedback ux26-alert hidden"></div>
-          <div id="order-actions-body" class="order-actions-body"></div>
-        </section>
+        <div class="order-content-grid">
+          <div class="order-main-column">
+            <p id="order-original-language-note" class="ticket-muted hidden"></p>
 
-        <div class="order-bottom-actions">
+            <div class="order-primary-grid">
+              <section class="order-detail-card orders-mobile-sheet order-edit-card">
+                <div class="order-field-head">
+                  <h2 id="order-title-heading">عنوان الطلب</h2>
+                  <button type="button" class="btn-sm hidden" id="btn-toggle-title">تعديل</button>
+                </div>
+                <input id="order-title" class="form-input" disabled>
+              </section>
+
+              <section class="order-detail-card orders-mobile-sheet order-edit-card order-description-card">
+                <div class="order-field-head">
+                  <h2 id="order-description-heading">تفاصيل الطلب</h2>
+                  <button type="button" class="btn-sm hidden" id="btn-toggle-desc">تعديل</button>
+                </div>
+                <textarea id="order-description" class="form-textarea" disabled></textarea>
+              </section>
+            </div>
+
+            <section class="order-detail-card orders-mobile-sheet order-files-card">
+              <h2 id="order-attachments-title">المرفقات</h2>
+              <div id="order-attachments-empty" class="order-lines hidden"></div>
+              <div id="order-client-attachments-group" class="order-files-group hidden">
+                <div class="order-files-group-head">
+                  <h3 id="order-client-attachments-title">مرفقات العميل</h3>
+                  <p id="order-client-attachments-desc">الملفات المرفوعة مع الطلب.</p>
+                </div>
+                <div id="order-client-attachments" class="order-lines"></div>
+              </div>
+              <div id="order-provider-attachments-group" class="order-files-group hidden">
+                <div class="order-files-group-head">
+                  <h3 id="order-provider-attachments-title">مرفقات مزود الخدمة</h3>
+                  <p id="order-provider-attachments-desc">الملفات المرفوعة عند إكمال الخدمة.</p>
+                </div>
+                <div id="order-provider-attachments" class="order-lines"></div>
+              </div>
+            </section>
+
+            <section class="order-detail-card orders-mobile-sheet order-logs-card">
+              <h2 id="order-status-logs-title">سجل الحالة</h2>
+              <div id="order-status-logs" class="order-lines"></div>
+            </section>
+          </div>
+
+          <aside class="order-side-column">
+            <section id="order-finance-section" class="order-detail-card orders-mobile-sheet hidden">
+              <h2 id="order-finance-title">تفاصيل التنفيذ</h2>
+              <div id="order-finance-grid" class="order-info-grid"></div>
+            </section>
+
+            <section id="order-provider-decision-section" class="order-detail-card orders-mobile-sheet hidden">
+              <div class="order-decision-header">
+                <span class="order-decision-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 11l3 3L22 4"></path>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                  </svg>
+                </span>
+                <div class="order-decision-titles">
+                  <h2 id="order-provider-decision-title">قرارك على تحديث حالة التنفيذ</h2>
+                  <p id="order-provider-decision-subtitle" class="order-decision-subtitle">راجع تفاصيل التنفيذ والملاحظات والمرفقات قبل الاعتماد.</p>
+                </div>
+              </div>
+              <div id="order-provider-inputs-grid" class="order-info-grid"></div>
+              <div id="order-provider-notes-card" class="order-provider-notes-card hidden">
+                <div class="order-provider-notes-head">
+                  <span class="order-provider-notes-icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                    </svg>
+                  </span>
+                  <h3 id="order-provider-notes-title">ملاحظات مقدم الخدمة</h3>
+                </div>
+                <div id="order-provider-notes-body" class="order-provider-notes-body"></div>
+                <div id="order-provider-notes-attachments" class="order-provider-notes-attachments hidden"></div>
+                <p id="order-provider-notes-meta" class="order-provider-notes-meta"></p>
+              </div>
+              <div id="order-provider-decision-note" class="order-inline-note hidden"></div>
+              <div id="order-provider-decision-feedback" class="order-offers-feedback ux26-alert hidden" aria-live="polite"></div>
+              <div id="order-provider-decision-form" class="order-decision-form">
+                <label for="order-provider-reject-note" class="order-form-label" id="order-provider-reject-label">سبب الرفض عند الحاجة</label>
+                <textarea id="order-provider-reject-note" class="form-textarea order-inline-textarea" rows="3" placeholder="اكتب سبب رفض التفاصيل ليصل إلى مقدم الخدمة"></textarea>
+                <div class="order-inline-actions ux26-form-actions">
+                  <button type="button" class="btn-secondary" id="btn-reject-provider-inputs">رفض التفاصيل</button>
+                  <button type="button" class="btn-primary" id="btn-approve-provider-inputs">اعتماد وبدء التنفيذ</button>
+                </div>
+              </div>
+            </section>
+
+            <section id="order-cancelled-section" class="order-detail-card orders-mobile-sheet hidden">
+              <h2 id="order-cancelled-title">بيانات الإلغاء</h2>
+              <div id="order-cancelled-grid" class="order-info-grid"></div>
+            </section>
+
+            <section id="order-review-section" class="order-detail-card orders-mobile-sheet hidden">
+              <h2 id="order-review-title">تقييم الخدمة</h2>
+              <div id="order-review-summary" class="order-inline-note hidden"></div>
+              <div id="order-review-feedback" class="order-offers-feedback order-review-feedback ux26-alert hidden" aria-live="polite"></div>
+              <form id="order-review-form" class="order-review-form ux26-form-shell">
+                <div class="order-review-grid">
+                  <label class="order-review-field">
+                    <span id="review-response-speed-label">سرعة الاستجابة</span>
+                    <select id="review-response-speed" class="form-input">
+                      <option value="" id="review-response-speed-placeholder">اختر</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </label>
+                  <label class="order-review-field">
+                    <span id="review-cost-value-label">القيمة مقابل السعر</span>
+                    <select id="review-cost-value" class="form-input">
+                      <option value="" id="review-cost-value-placeholder">اختر</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </label>
+                  <label class="order-review-field">
+                    <span id="review-quality-label">جودة العمل</span>
+                    <select id="review-quality" class="form-input">
+                      <option value="" id="review-quality-placeholder">اختر</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </label>
+                  <label class="order-review-field">
+                    <span id="review-credibility-label">المصداقية</span>
+                    <select id="review-credibility" class="form-input">
+                      <option value="" id="review-credibility-placeholder">اختر</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </label>
+                  <label class="order-review-field">
+                    <span id="review-on-time-label">الالتزام بالموعد</span>
+                    <select id="review-on-time" class="form-input">
+                      <option value="" id="review-on-time-placeholder">اختر</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </label>
+                </div>
+                <label for="review-comment" class="order-form-label" id="review-comment-label">تعليقك</label>
+                <textarea id="review-comment" class="form-textarea order-inline-textarea" rows="4" maxlength="300" placeholder="اكتب تعليقًا مختصرًا عن التجربة"></textarea>
+                <button type="submit" class="btn-primary" id="btn-submit-review">
+                  <span id="btn-submit-review-text">إرسال التقييم</span>
+                  <span class="order-btn-spinner spinner hidden" id="btn-submit-review-spinner" aria-hidden="true"></span>
+                </button>
+              </form>
+            </section>
+
+            <section id="order-actions-section" class="order-detail-card orders-mobile-sheet hidden">
+              <h2 id="order-actions-title">إجراءات الطلب</h2>
+              <div id="order-action-feedback" class="order-offers-feedback ux26-alert hidden"></div>
+              <div id="order-actions-body" class="order-actions-body"></div>
+            </section>
+          </aside>
+        </div>
+
+        <div class="order-bottom-actions hidden">
           <a href="/orders/" class="btn-secondary" id="order-bottom-back">رجوع</a>
           <button type="button" class="btn-primary hidden" id="btn-save-order">
             <span id="save-order-text">حفظ</span>
@@ -247,5 +322,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/orderDetailPage.js' %}?v=20260505-order-actions-v2"></script>
+<script src="{% static 'mobile_web/js/orderDetailPage.js' %}?v=20260506-order-detail-offers-scale-v4"></script>
 {% endblock %}

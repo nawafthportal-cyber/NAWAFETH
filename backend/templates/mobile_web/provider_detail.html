@@ -8,7 +8,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}?v=20260503-spotlight-comments-fix3" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="{% static 'mobile_web/css/provider-detail-polish.css' %}?v=20260505-provider-detail-polish-v2" />
+<link rel="stylesheet" href="{% static 'mobile_web/css/provider-detail-polish.css' %}?v=20260506-provider-detail-polish-v3" />
 <style>
   @media (max-width: 1023px) {
     body.page-provider-detail #top-navbar,
@@ -253,6 +253,8 @@
   </div>
 
 <div class="container">
+    <div class="pd-discovery-shell">
+      <div class="pd-discovery-main">
     <section class="pd-overview-strip" id="pd-overview-strip" aria-label="ملخص مقدم الخدمة">
       <article class="pd-overview-card">
         <span class="pd-overview-label" id="pd-overview-city-label">المدينة</span>
@@ -326,6 +328,9 @@
         </div>
       </div>
     </div>
+      </div>
+
+      <aside class="pd-discovery-side" aria-label="إجراءات سريعة">
 
 <div class="pd-actions" aria-label="إجراءات التواصل وطلب الخدمة">
       <a class="pd-action-follow pd-action-primary" id="btn-request-service" href="/service-request/" aria-label="طلب الخدمة">
@@ -373,7 +378,10 @@
         </div>
       </div>
     </div>
+      </aside>
+    </div>
 
+    <section class="pd-tabs-shell" aria-label="التنقل داخل ملف مقدم الخدمة">
 <div class="pd-tabs" id="pd-tabs" role="tablist" aria-label="تبويبات ملف مقدم الخدمة">
       <button class="pd-tab active" id="pd-tab-btn-profile" type="button" role="tab" aria-controls="tab-profile" aria-selected="true" tabindex="0" data-tab="profile">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
@@ -567,6 +575,7 @@
         </div>
       </div>
     </div>
+    </section>
   </div>
 </div>
 </main>

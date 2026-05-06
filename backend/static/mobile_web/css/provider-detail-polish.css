@@ -324,6 +324,73 @@ body.page-provider-detail .pd-social-list > button:focus-visible {
   }
 }
 
+/* =====================================================================
+   STRUCTURE POLISH — provider detail orchestration
+   ===================================================================== */
+body.page-provider-detail .pd-discovery-shell {
+  display: grid;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+body.page-provider-detail .pd-discovery-main,
+body.page-provider-detail .pd-discovery-side {
+  min-width: 0;
+}
+
+body.page-provider-detail .pd-discovery-main {
+  display: grid;
+  gap: 20px;
+}
+
+body.page-provider-detail .pd-tabs-shell {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid rgba(124, 77, 211, 0.1);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 247, 255, 0.96));
+  box-shadow: 0 20px 44px rgba(33, 16, 64, 0.08);
+}
+
+body.page-provider-detail .pd-tabs-shell .pd-tabs {
+  position: static !important;
+  top: auto !important;
+  z-index: auto !important;
+  padding: 0 0 12px !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(124, 77, 211, 0.08);
+}
+
+body.page-provider-detail .pd-tabs-shell .pd-tab-content {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  padding-top: 6px;
+}
+
+body.page-provider-detail .pd-tabs-shell .pd-panel.active {
+  animation: none;
+}
+
+body.page-provider-detail .pd-tabs-shell .pd-panel > :first-child {
+  margin-top: 0;
+}
+
+@media (max-width: 1023px) {
+  body.page-provider-detail .pd-tabs-shell {
+    border-radius: 22px;
+    padding-inline: 16px;
+  }
+}
+
 
 /* =====================================================================
    DESKTOP POLISH — provider detail page (>=1024px)
@@ -341,7 +408,7 @@ body.page-provider-detail .pd-social-list > button:focus-visible {
 
   body.page-provider-detail .pd-content-shell,
   body.page-provider-detail .pd-loading-shell {
-    width: min(1080px, calc(100% - 48px));
+    width: min(1200px, calc(100% - 56px));
     margin-inline: auto;
   }
 
@@ -352,22 +419,42 @@ body.page-provider-detail .pd-social-list > button:focus-visible {
     box-shadow: 0 24px 60px rgba(33, 16, 64, 0.18);
   }
 
-  body.page-provider-detail .pd-tabs {
+  body.page-provider-detail .pd-discovery-shell {
+    grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+    align-items: start;
+    gap: 24px;
+  }
+
+  body.page-provider-detail .pd-discovery-side {
+    position: relative;
+  }
+
+  body.page-provider-detail .pd-discovery-side .pd-actions {
     position: sticky;
-    top: 12px;
-    z-index: 8;
-    padding: 12px 14px;
-    border-radius: 22px;
+    top: calc(var(--navbar-height, 72px) + 18px);
+    margin-top: 0;
+    padding: 18px;
+    border-radius: 28px;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(252, 250, 255, 0.92));
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border: 1px solid rgba(124, 77, 211, 0.12);
-    box-shadow: 0 14px 32px rgba(33, 16, 64, 0.10);
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,243,255,0.96));
+    border: 1px solid rgba(124, 77, 211, 0.09);
+    box-shadow: 0 22px 46px rgba(33, 16, 64, 0.10);
+  }
+
+  body.page-provider-detail .pd-actions-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  body.page-provider-detail .pd-tabs-shell {
+    padding: 18px 20px 22px;
+    border-radius: 30px;
+    margin-bottom: 28px;
+    box-shadow: 0 22px 48px rgba(33, 16, 64, 0.08);
   }
 
   body.page-provider-detail .pd-tab {
-    padding: 12px 22px;
+    padding: 12px 16px;
     font-size: 14px;
     font-weight: 800;
     border-radius: 14px;
@@ -379,14 +466,74 @@ body.page-provider-detail .pd-social-list > button:focus-visible {
     box-shadow: 0 10px 24px rgba(124, 77, 211, 0.34);
   }
 
-  body.page-provider-detail .pd-services-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px;
+  body.page-provider-detail .pd-tabs-shell .pd-tabs {
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
   body.page-provider-detail .pd-overview-strip {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
+  }
+
+  body.page-provider-detail .pd-connections-row {
+    border-radius: 22px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(124, 77, 211, 0.08);
+    box-shadow: 0 14px 30px rgba(33, 16, 64, 0.06);
+  }
+
+  body.page-provider-detail .pd-highlights-section,
+  body.page-provider-detail .pd-tabs-shell .pd-tab-content {
+    background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,245,255,0.96));
+    border: 1px solid rgba(124, 77, 211, 0.09);
+    border-radius: 26px;
+    box-shadow: 0 18px 40px rgba(33, 16, 64, 0.07);
+  }
+
+  body.page-provider-detail .pd-highlights-section {
+    padding: 18px;
+  }
+
+  body.page-provider-detail .pd-tabs-shell .pd-tab-content {
+    padding: 10px;
+  }
+
+  body.page-provider-detail #tab-profile.pd-panel.active {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  body.page-provider-detail #pd-bio-card,
+  body.page-provider-detail #pd-service-range-card,
+  body.page-provider-detail #pd-social-card {
+    grid-column: 1 / -1;
+  }
+
+  body.page-provider-detail #tab-services.pd-panel.active,
+  body.page-provider-detail #tab-portfolio.pd-panel.active,
+  body.page-provider-detail #tab-reviews.pd-panel.active {
+    display: grid;
+    gap: 20px;
+  }
+
+  body.page-provider-detail .pd-services-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  body.page-provider-detail #pd-portfolio-sections {
+    display: grid;
+    gap: 18px;
+  }
+
+  body.page-provider-detail .pd-portfolio-section,
+  body.page-provider-detail .pd-rating-summary,
+  body.page-provider-detail .pd-reviews-list,
+  body.page-provider-detail .pd-empty {
+    border-radius: 24px;
   }
 
   body.page-provider-detail .pd-card,
@@ -394,15 +541,30 @@ body.page-provider-detail .pd-social-list > button:focus-visible {
     border-radius: 22px;
     box-shadow: 0 18px 40px rgba(33, 16, 64, 0.07);
   }
+
+  body.page-provider-detail .pd-reviews-static {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  body.page-provider-detail .pd-review-card {
+    min-height: 100%;
+  }
 }
 
 @media (min-width: 1280px) {
   body.page-provider-detail .pd-content-shell,
   body.page-provider-detail .pd-loading-shell {
-    width: min(1180px, calc(100% - 64px));
+    width: min(1280px, calc(100% - 72px));
   }
+
+  body.page-provider-detail .pd-discovery-shell {
+    grid-template-columns: minmax(0, 1.42fr) minmax(340px, 0.68fr);
+  }
+
   body.page-provider-detail .pd-services-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

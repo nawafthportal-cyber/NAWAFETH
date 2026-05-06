@@ -7,6 +7,7 @@
 
 const OnboardingOverlay = (() => {
   const STORAGE_KEY = 'nw_onboarding_seen';
+  const LOCKED_HOME_CLASS = 'home-mobile-layout--locked';
   const COPY = {
     ar: {
       overlayLabel: 'مرحبا بك في نوافذ',
@@ -122,14 +123,26 @@ const OnboardingOverlay = (() => {
     try { localStorage.setItem(STORAGE_KEY, _todayStamp()); } catch (_) {}
   }
 
+  function _setHomeLockedState(locked) {
+    if (!document.body) return;
+    document.body.classList.toggle(LOCKED_HOME_CLASS, !!locked);
+  }
+
   /* ── data ── */
   async function _fetchAndShow() {
     _createOverlayShell();
     _showLoading();
 
-    const res = await ApiClient.get('/api/content/public/');
+    let res = null;
+    try {
+      res = await ApiClient.get('/api/content/public/');
+    } catch (_) {
+      _dismissFinal({ markSeen: false });
+      return;
+    }
+
     if (!res.ok || !res.data || typeof res.data !== 'object') {
-      _dismiss();
+      _dismissFinal({ markSeen: false });
       return;
     }
 
@@ -152,7 +165,10 @@ const OnboardingOverlay = (() => {
       };
     }
 
-    if (!_slides.length) { _dismiss(); return; }
+    if (!_slides.length) {
+      _dismissFinal({ markSeen: true });
+      return;
+    }
 
     _index = 0;
     _phase = 'slides';
@@ -187,6 +203,7 @@ const OnboardingOverlay = (() => {
     _overlay.setAttribute('aria-label', _copy('overlayLabel'));
     document.body.appendChild(_overlay);
     document.body.style.overflow = 'hidden';
+    _setHomeLockedState(true);
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => _overlay.classList.add('ob-overlay--visible'));
@@ -755,14 +772,16 @@ const OnboardingOverlay = (() => {
 
   /* ── dismiss (after slides → go to login) ── */
   function _dismiss() {
-    _markSeen();
-    _dismissFinal();
+    _dismissFinal({ markSeen: true });
   }
 
   /* ── final dismiss (remove overlay completely) ── */
-  function _dismissFinal() {
-    _markSeen();
+  function _dismissFinal(options = {}) {
+    const { markSeen = true } = options;
+    if (markSeen) _markSeen();
     if (_otpCooldownTimer) clearInterval(_otpCooldownTimer);
+    document.body.style.overflow = '';
+    _setHomeLockedState(false);
     if (!_overlay) return;
 
     if (_overlay._keyHandler) {
@@ -771,7 +790,6 @@ const OnboardingOverlay = (() => {
 
     _overlay.classList.remove('ob-overlay--visible');
     _overlay.classList.add('ob-overlay--exit');
-    document.body.style.overflow = '';
 
     _overlay.addEventListener('transitionend', () => {
       if (_overlay && _overlay.parentNode) _overlay.parentNode.removeChild(_overlay);

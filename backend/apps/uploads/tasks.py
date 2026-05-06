@@ -119,9 +119,18 @@ def schedule_video_optimization(instance, field_name: str) -> None:
         return
 
     meta = instance._meta
-    optimize_stored_video.delay(
-        meta.app_label,
-        meta.model_name,
-        instance.pk,
-        field_name,
-    )
+    try:
+        optimize_stored_video.delay(
+            meta.app_label,
+            meta.model_name,
+            instance.pk,
+            field_name,
+        )
+    except Exception:
+        logger.exception(
+            "schedule_video_optimization: failed to enqueue %s.%s pk=%s field=%s; leaving original file in place",
+            meta.app_label,
+            meta.model_name,
+            instance.pk,
+            field_name,
+        )

@@ -8,12 +8,8 @@
 {% block body_class %}page-orders{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'mobile_web/css/orders-polish.css' %}?v=20260505-orders-polish-v1">
+<link rel="stylesheet" href="{% static 'mobile_web/css/orders-polish.css' %}?v=20260506-orders-polish-v4">
 <style>
-  body.page-orders #bottom-nav {
-    display: flex !important;
-  }
-
   body.page-orders .page-content {
     padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
   }
@@ -25,52 +21,97 @@
   <div class="container orders-page-layout">
     {% include "mobile_web/_auth_gate_unified.html" with gate_id="auth-gate" kicker="طلباتك الشخصية" title="سجّل دخولك لعرض طلباتك" description="يمكنك متابعة حالة الطلبات والتفاصيل بعد تسجيل الدخول." next_path="/orders/" note="حسابك يفتح لك كل تفاصيل الطلب في مكان واحد." %}
 
-<div id="orders-content" class="hidden">
-      <div class="mw-page-topbar orders-topbar ux26-page-header">
-        <button class="mw-page-menu-btn" id="hero-menu-btn" type="button" aria-label="القائمة">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
-        </button>
-        <div class="orders-topbar-copy">
-          <h1 class="mw-page-title" id="orders-page-title">طلباتي</h1>
-          <p id="orders-page-subtitle">لوحة موحّدة لمتابعة الحالة والإجراءات</p>
+    <div id="orders-content" class="hidden">
+      <header class="mw-page-topbar orders-topbar ux26-page-header">
+        <div class="orders-topbar-main">
+          <button class="mw-page-menu-btn" id="hero-menu-btn" type="button" aria-label="القائمة">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+          </button>
+          <div class="orders-topbar-copy">
+            <span class="orders-eyebrow" id="orders-page-eyebrow">متابعة احترافية</span>
+            <h1 class="mw-page-title" id="orders-page-title">طلباتي</h1>
+            <p id="orders-page-subtitle">لوحة موحّدة لمتابعة الحالة والإجراءات</p>
+          </div>
         </div>
-        <span class="mw-page-topbar-spacer" aria-hidden="true"></span>
-      </div>
+      </header>
 
       <section class="orders-hero-panel" id="orders-hero-panel" aria-label="ملخص الطلبات">
-        <div class="orders-hero-copy">
-          <h2 id="orders-hero-title">ملخص الطلبات</h2>
-          <p id="orders-hero-subtitle">ابدأ بالأهم ثم افتح التفاصيل عند الحاجة.</p>
-        </div>
-        <div class="orders-hero-stats">
-          <article class="orders-hero-stat">
-            <span class="orders-hero-value" id="orders-active-count">0</span>
-            <span class="orders-hero-label" id="orders-active-label">طلبات نشطة</span>
-          </article>
-          <article class="orders-hero-stat">
-            <span class="orders-hero-value" id="orders-total-count">0</span>
-            <span class="orders-hero-label" id="orders-total-label">إجمالي الطلبات</span>
-          </article>
-          <article class="orders-hero-stat">
-            <span class="orders-hero-label" id="orders-pre-execution-label">قبل التنفيذ</span>
-            <small class="orders-hero-note" id="orders-pre-execution-note">تم قبول الطلب: 0 • بانتظار اعتماد العميل: 0</small>
-          </article>
+        <div class="orders-hero-shell">
+          <div class="orders-hero-main-column">
+            <div class="orders-hero-copy">
+              <span class="orders-hero-kicker" id="orders-hero-kicker">مركز المتابعة</span>
+              <h2 id="orders-hero-title">ملخص الطلبات</h2>
+              <p id="orders-hero-subtitle">ابدأ بالأهم ثم افتح التفاصيل عند الحاجة.</p>
+              <div class="orders-hero-pills" aria-hidden="true">
+                <span class="orders-hero-pill" id="orders-hero-pill-1">بحث لحظي</span>
+                <span class="orders-hero-pill" id="orders-hero-pill-2">فرز واضح</span>
+                <span class="orders-hero-pill" id="orders-hero-pill-3">تجربة متوازنة</span>
+              </div>
+            </div>
+            <div class="orders-topbar-actions orders-hero-cta-row">
+              <a href="/search/" class="orders-action-btn orders-action-btn-light" id="orders-browse-link">استعرض الخدمات</a>
+              <button class="orders-action-btn" id="orders-refresh-btn" type="button">تحديث</button>
+            </div>
+          </div>
+          <div class="orders-hero-side-column">
+            <div class="orders-hero-stats">
+              <article class="orders-hero-stat">
+                <span class="orders-hero-value" id="orders-active-count">0</span>
+                <span class="orders-hero-label" id="orders-active-label">طلبات نشطة</span>
+              </article>
+              <article class="orders-hero-stat">
+                <span class="orders-hero-value" id="orders-total-count">0</span>
+                <span class="orders-hero-label" id="orders-total-label">إجمالي الطلبات</span>
+              </article>
+              <article class="orders-hero-stat">
+                <span class="orders-hero-value" id="orders-provider-accepted-count">0</span>
+                <span class="orders-hero-label" id="orders-provider-accepted-label">تم قبولها</span>
+              </article>
+              <article class="orders-hero-stat">
+                <span class="orders-hero-value" id="orders-awaiting-client-count">0</span>
+                <span class="orders-hero-label" id="orders-awaiting-client-label">تحتاج موافقتك</span>
+              </article>
+            </div>
+
+            <div class="orders-hero-insight">
+              <div class="orders-hero-insight-copy">
+                <strong id="orders-pre-execution-label">قبل التنفيذ</strong>
+                <small class="orders-hero-note" id="orders-pre-execution-note">تم قبول الطلب: 0 • بانتظار اعتماد العميل: 0</small>
+              </div>
+              <span class="orders-last-sync" id="orders-last-sync">آخر تحديث الآن</span>
+            </div>
+          </div>
         </div>
       </section>
 
       <div class="orders-mobile-sheet" id="orders-mobile-sheet" aria-label="قائمة الطلبات">
         <div class="orders-filter-head">
-          <h3 id="orders-list-title">قائمة الطلبات</h3>
-          <span class="orders-results-count" id="orders-results-count">0</span>
+          <div class="orders-filter-head-copy">
+            <h3 id="orders-list-title">قائمة الطلبات</h3>
+            <p id="orders-results-helper">فرز مباشر وبحث سريع داخل جميع طلباتك.</p>
+          </div>
+          <div class="orders-filter-head-tools">
+            <span class="orders-results-count" id="orders-results-count">0</span>
+            <label class="orders-sort-wrap" for="orders-sort">
+              <span class="orders-sort-label" id="orders-sort-label">الترتيب</span>
+              <select id="orders-sort" class="orders-sort-select">
+                <option value="newest" id="orders-sort-newest">الأحدث</option>
+                <option value="oldest" id="orders-sort-oldest">الأقدم</option>
+                <option value="status" id="orders-sort-status">حسب الحالة</option>
+                <option value="amount_desc" id="orders-sort-amount">الأعلى قيمة</option>
+                <option value="deadline" id="orders-sort-deadline">الأقرب موعدًا</option>
+              </select>
+            </label>
+          </div>
         </div>
 
-<div class="orders-search-wrap">
+        <div class="orders-search-wrap">
           <svg class="orders-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="orders-search" class="orders-search-input" placeholder="بحث" autocomplete="off">
+          <input type="search" id="orders-search" class="orders-search-input" placeholder="بحث" autocomplete="off">
           <button type="button" class="orders-search-clear hidden" id="orders-search-clear" aria-label="مسح البحث">✕</button>
         </div>
 
-<div class="tabs-row ux26-status-tabs" id="status-tabs">
+        <div class="tabs-row ux26-status-tabs" id="status-tabs">
           <button class="tab-btn active" data-status="">
             <span id="orders-tab-all">الكل</span>
             <span class="orders-tab-count" data-count-for="all">0</span>
@@ -93,16 +134,17 @@
           </button>
         </div>
 
-<div id="orders-list" class="orders-list">
-          
+        <div id="orders-list" class="orders-list" aria-live="polite">
           <div class="orders-skeleton-card shimmer"></div>
           <div class="orders-skeleton-card shimmer"></div>
           <div class="orders-skeleton-card shimmer"></div>
         </div>
 
-<div class="empty-state ux26-alert hidden" id="orders-empty">
+        <div class="empty-state ux26-alert hidden" id="orders-empty">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="#ccc"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
           <p id="orders-empty-text">لا توجد طلبات</p>
+          <small id="orders-empty-hint">ابدأ بطلب جديد أو وسّع نطاق البحث لتظهر لك نتائج أكثر.</small>
+          <a href="/search/" class="orders-empty-cta" id="orders-empty-cta">استعرض الخدمات</a>
         </div>
       </div>
     </div>
@@ -111,5 +153,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/ordersPage.js' %}?v=20260502-orders-i18n-stage1"></script>
+<script src="{% static 'mobile_web/js/ordersPage.js' %}?v=20260506-orders-refined-v2"></script>
 {% endblock %}

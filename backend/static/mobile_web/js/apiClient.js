@@ -209,7 +209,7 @@ const ApiClient = (() => {
     const data = res.headers.get('content-type')?.includes('json')
       ? await res.json()
       : null;
-    return { ok: res.ok, status: res.status, data };
+    return { ok: res.ok, status: res.status, data, headers: res.headers };
   }
 
   /**

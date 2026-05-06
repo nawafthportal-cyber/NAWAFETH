@@ -1750,12 +1750,22 @@ const SearchPage = (() => {
     if (!_heroStatProviders && !_heroStatCategories && !_heroStatVerified) return;
     const total = providers ? providers.length : 0;
     const verified = providers ? providers.filter(function (p) {
-      return p.is_verified || p.verified || p.badge_kind === 'verified' || p.verified_status === 'verified';
+      return !!(
+        p.is_verified ||
+        p.verified ||
+        p.badge_kind === 'verified' ||
+        p.verified_status === 'verified' ||
+        p.is_verified_blue ||
+        p.is_verified_green ||
+        p.identity_verified ||
+        p.phone_verified ||
+        p.email_verified
+      );
     }).length : 0;
     const catCount = Array.isArray(_categories) ? _categories.length : 0;
-    if (_heroStatProviders) _heroStatProviders.textContent = total > 0 ? total : '—';
-    if (_heroStatCategories) _heroStatCategories.textContent = catCount > 0 ? catCount : '—';
-    if (_heroStatVerified) _heroStatVerified.textContent = verified > 0 ? verified : '—';
+    if (_heroStatProviders) _heroStatProviders.textContent = String(total || 0);
+    if (_heroStatCategories) _heroStatCategories.textContent = String(catCount || 0);
+    if (_heroStatVerified) _heroStatVerified.textContent = String(verified || 0);
   }
 
   function _completedCount(provider) {
@@ -2296,7 +2306,7 @@ const SearchPage = (() => {
     (function () {
       const el = document.getElementById('search-results-title');
       if (!el) return;
-      const badge = el.querySelector('.search-results-count-badge');
+      const badge = document.getElementById('search-results-count-badge') || el.querySelector('.search-results-count-badge');
       el.textContent = _copy('readyProviders');
       if (badge) el.appendChild(badge);
     }());

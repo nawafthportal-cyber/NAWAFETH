@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.test import override_settings
+from django.urls import reverse
 from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIRequestFactory
@@ -22,6 +23,7 @@ from .models import (
     RequestStatusLog,
     RequestType,
     ServiceRequest,
+    ServiceRequestAttachment,
 )
 from .serializers import ProviderRequestDetailSerializer, ServiceRequestCreateSerializer
 from .services.actions import execute_action
@@ -1049,6 +1051,45 @@ class ServiceRequestPolicyTests(TestCase):
             self.assertFalse(Notification.objects.filter(url=f"/requests/{service_request.id}").exists())
             self.assertFalse(Notification.objects.filter(url=f"/provider-orders/{service_request.id}").exists())
             self.assertFalse(EventLog.objects.filter(request_id=service_request.id).exists())
+
+    @patch("apps.uploads.tasks.optimize_stored_video.delay", side_effect=RuntimeError("redis unavailable"))
+    def test_create_request_api_with_video_succeeds_when_video_optimization_enqueue_fails(self, delay_mock):
+        media_root = tempfile.mkdtemp(prefix="marketplace-create-video-")
+        self.addCleanup(lambda: shutil.rmtree(media_root, ignore_errors=True))
+
+        with override_settings(MEDIA_ROOT=media_root):
+            self.client.force_login(self.client_user)
+
+            response = self.client.post(
+                reverse("marketplace:request_create"),
+                {
+                    "subcategory_ids": [str(self.subcategory.id)],
+                    "title": "طلب API مع فيديو",
+                    "description": "تفاصيل",
+                    "request_type": RequestType.COMPETITIVE,
+                    "videos": [
+                        SimpleUploadedFile(
+                            "clip.mp4",
+                            b"fake-video-bytes",
+                            content_type="video/mp4",
+                        )
+                    ],
+                },
+            )
+
+            self.assertEqual(response.status_code, 201, response.content)
+
+            service_request = ServiceRequest.objects.get(title="طلب API مع فيديو")
+            attachment = ServiceRequestAttachment.objects.get(request=service_request)
+
+            self.assertEqual(attachment.file_type, "video")
+            self.assertTrue(os.path.exists(attachment.file.path))
+            delay_mock.assert_called_once_with(
+                attachment._meta.app_label,
+                attachment._meta.model_name,
+                attachment.pk,
+                "file",
+            )
 
     def test_client_notification_mentions_deadline_when_competitive_request_expires(self):
         service_request = ServiceRequest.objects.create(

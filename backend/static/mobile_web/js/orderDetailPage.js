@@ -15,9 +15,19 @@ const OrderDetailPage = (() => {
       kicker: 'متابعة الطلب',
       title: 'تفاصيل الطلب',
       subtitle: 'ملخص الحالة أولًا، ثم التفاصيل والإجراءات.',
+      heroPill1: 'رؤية واضحة',
+      heroPill2: 'تحديثات مرتبة',
+      heroPill3: 'إجراءات أسرع',
+      refreshOrder: 'تحديث البيانات',
       backAria: 'العودة إلى قائمة الطلبات',
       backText: 'رجوع للطلبات',
+      heroStatusLabel: 'الحالة الحالية',
+      heroIdLabel: 'رقم الطلب',
+      heroUpdatedLabel: 'آخر تحديث',
+      heroNextStepLabel: 'الخطوة التالية',
       orderIdLabel: 'رقم الطلب',
+      summaryKicker: 'ملف الطلب',
+      summaryInsightLabel: 'ماذا يحدث الآن؟',
       orderTitleHeading: 'عنوان الطلب',
       orderDescriptionHeading: 'تفاصيل الطلب',
       attachmentsTitle: 'المرفقات',
@@ -51,6 +61,18 @@ const OrderDetailPage = (() => {
       reviewSubmitting: 'جاري إرسال التقييم...',
       statusLogsTitle: 'سجل الحالة',
       offersTitle: 'عروض الأسعار',
+      offersKicker: 'مرحلة اختيار المزود',
+      offersSubtitle: 'قارن العروض حسب السعر والمدة ثم اختر المزود الأنسب.',
+      offersCount: '{count} عرض',
+      offersCountPlural: '{count} عروض',
+      offersFilterLabel: 'الحالة',
+      offersFilterAll: 'الكل',
+      offersSortLabel: 'الفرز',
+      offersSortRecommended: 'الأفضل للمقارنة',
+      offersSortPriceAsc: 'السعر الأقل',
+      offersSortPriceDesc: 'السعر الأعلى',
+      offersSortDurationAsc: 'الأسرع تنفيذًا',
+      offersSortLatest: 'الأحدث',
       refresh: 'تحديث',
       actionsTitle: 'إجراءات الطلب',
       back: 'رجوع',
@@ -155,6 +177,16 @@ const OrderDetailPage = (() => {
       actualAmount: 'قيمة الخدمة الفعلية',
       attachmentsLabel: 'المرفقات',
       originalLanguageNotice: 'بعض التفاصيل والأسماء والملاحظات تُعرض بلغتها الأصلية.',
+      heroUpdatedFallback: 'جاري التحديث',
+      nextStepNewUnassigned: 'بانتظار وصول عروض أو ترشيح مزود خدمة مناسب.',
+      nextStepNewAssigned: 'الطلب بانتظار تحديث التفاصيل من مقدم الخدمة أو بدء التنسيق معه.',
+      nextStepAwaitingClient: 'راجع تفاصيل التنفيذ واعتمدها أو ارفضها قبل بدء التنفيذ.',
+      nextStepInProgress: 'تابع التنفيذ والمرفقات حتى التسليم النهائي.',
+      nextStepCompletedPendingReview: 'الطلب مكتمل. بقي عليك إرسال التقييم لإغلاق التجربة.',
+      nextStepCompletedDone: 'الطلب مكتمل والتقييم محفوظ في سجلك.',
+      nextStepCancelledReopen: 'الطلب ملغي. يمكنك إعادة فتحه أو حذفه إذا لزم.',
+      nextStepCancelledDone: 'الطلب ملغي ولن يتحرك إلا إذا أعدت فتحه من الإجراءات المتاحة.',
+      nextStepGeneric: 'تابع التحديثات والإجراءات المتاحة داخل هذه الصفحة.',
     },
     en: {
       pageTitle: 'Nawafeth — Order Details',
@@ -165,9 +197,19 @@ const OrderDetailPage = (() => {
       kicker: 'Track order',
       title: 'Order details',
       subtitle: 'Status summary first, then details and actions.',
+      heroPill1: 'Clear visibility',
+      heroPill2: 'Ordered updates',
+      heroPill3: 'Faster actions',
+      refreshOrder: 'Refresh data',
       backAria: 'Back to orders list',
       backText: 'Back to orders',
+      heroStatusLabel: 'Current status',
+      heroIdLabel: 'Order number',
+      heroUpdatedLabel: 'Last update',
+      heroNextStepLabel: 'Next step',
       orderIdLabel: 'Order number',
+      summaryKicker: 'Order file',
+      summaryInsightLabel: 'What is happening now?',
       orderTitleHeading: 'Order title',
       orderDescriptionHeading: 'Order details',
       attachmentsTitle: 'Attachments',
@@ -201,6 +243,18 @@ const OrderDetailPage = (() => {
       reviewSubmitting: 'Submitting review...',
       statusLogsTitle: 'Status log',
       offersTitle: 'Price offers',
+      offersKicker: 'Provider selection',
+      offersSubtitle: 'Compare offers by price and delivery time, then choose the best provider.',
+      offersCount: '{count} offer',
+      offersCountPlural: '{count} offers',
+      offersFilterLabel: 'Status',
+      offersFilterAll: 'All',
+      offersSortLabel: 'Sort',
+      offersSortRecommended: 'Best comparison',
+      offersSortPriceAsc: 'Lowest price',
+      offersSortPriceDesc: 'Highest price',
+      offersSortDurationAsc: 'Fastest delivery',
+      offersSortLatest: 'Newest',
       refresh: 'Refresh',
       actionsTitle: 'Order actions',
       back: 'Back',
@@ -305,6 +359,16 @@ const OrderDetailPage = (() => {
       actualAmount: 'Actual service amount',
       attachmentsLabel: 'Attachments',
       originalLanguageNotice: 'Some order details, names, and notes are shown in their original language.',
+      heroUpdatedFallback: 'Refreshing',
+      nextStepNewUnassigned: 'Waiting for offers or a suitable provider assignment.',
+      nextStepNewAssigned: 'Waiting for provider updates or direct coordination.',
+      nextStepAwaitingClient: 'Review the execution details and approve or reject them before work starts.',
+      nextStepInProgress: 'Follow execution updates and attachments until final delivery.',
+      nextStepCompletedPendingReview: 'The order is completed. Your review is the final step.',
+      nextStepCompletedDone: 'The order is completed and your review is already recorded.',
+      nextStepCancelledReopen: 'The order is cancelled. You can reopen or remove it if needed.',
+      nextStepCancelledDone: 'The order is cancelled and will stay closed unless you reopen it.',
+      nextStepGeneric: 'Track updates and available actions from this page.',
     },
   };
 
@@ -312,6 +376,8 @@ const OrderDetailPage = (() => {
   let _order = null;
   let _offers = [];
   let _offersLoading = false;
+  let _offersFilter = 'all';
+  let _offersSort = 'recommended';
   let _acceptingOfferId = null;
   let _editTitle = false;
   let _editDesc = false;
@@ -362,7 +428,10 @@ const OrderDetailPage = (() => {
     const tBtn = document.getElementById('btn-toggle-title');
     const dBtn = document.getElementById('btn-toggle-desc');
     const sBtn = document.getElementById('btn-save-order');
+    const refreshOrderBtn = document.getElementById('btn-refresh-order');
     const refreshOffersBtn = document.getElementById('btn-refresh-offers');
+    const offersFilter = document.getElementById('order-offers-filter');
+    const offersSort = document.getElementById('order-offers-sort');
 
     if (tBtn) {
       tBtn.addEventListener('click', () => {
@@ -380,9 +449,29 @@ const OrderDetailPage = (() => {
 
     if (sBtn) sBtn.addEventListener('click', _save);
 
+    if (refreshOrderBtn) {
+      refreshOrderBtn.addEventListener('click', () => {
+        if (!_actionLoading) _loadDetail();
+      });
+    }
+
     if (refreshOffersBtn) {
       refreshOffersBtn.addEventListener('click', () => {
         if (!_offersLoading) _loadOffers();
+      });
+    }
+
+    if (offersFilter) {
+      offersFilter.addEventListener('change', () => {
+        _offersFilter = String(offersFilter.value || 'all');
+        _renderOffersSection();
+      });
+    }
+
+    if (offersSort) {
+      offersSort.addEventListener('change', () => {
+        _offersSort = String(offersSort.value || 'recommended');
+        _renderOffersSection();
       });
     }
 
@@ -455,8 +544,10 @@ const OrderDetailPage = (() => {
 
   function _setLoading(loading) {
     const loadingEl = document.getElementById('order-loading');
+    const refreshOrderBtn = document.getElementById('btn-refresh-order');
     if (loadingEl) loadingEl.classList.toggle('hidden', !loading);
-    if (loading) {
+    if (refreshOrderBtn) refreshOrderBtn.disabled = loading;
+    if (loading && !_order) {
       const detail = document.getElementById('order-detail');
       if (detail) detail.classList.add('hidden');
     }
@@ -538,20 +629,37 @@ const OrderDetailPage = (() => {
     const detail = document.getElementById('order-detail');
     if (detail) detail.classList.remove('hidden');
 
+    const statusGroup = _statusGroup(_order);
+    const statusColor = _statusColor(statusGroup);
+    const displayIdValue = 'R' + String(_order.id || _requestId).padStart(6, '0');
+
     const displayId = document.getElementById('order-display-id');
-    if (displayId) {
-      const id = _order.id || _requestId;
-      displayId.textContent = 'R' + String(id).padStart(6, '0');
-    }
+    if (displayId) displayId.textContent = displayIdValue;
+    _setText('order-hero-id', displayIdValue);
 
     const statusBadge = document.getElementById('order-status-badge');
     if (statusBadge) {
-      const color = _statusColor(_statusGroup(_order));
       statusBadge.textContent = _statusLabel(_order);
-      statusBadge.style.color = color;
-      statusBadge.style.borderColor = color;
-      statusBadge.style.backgroundColor = color + '1A';
+      statusBadge.style.color = statusColor;
+      statusBadge.style.borderColor = statusColor;
+      statusBadge.style.backgroundColor = statusColor + '1A';
     }
+    const heroStatusBadge = document.getElementById('order-hero-status-badge');
+    if (heroStatusBadge) {
+      heroStatusBadge.textContent = _statusLabel(_order);
+      heroStatusBadge.style.color = statusColor;
+      heroStatusBadge.style.borderColor = statusColor;
+      heroStatusBadge.style.backgroundColor = statusColor + '1A';
+    }
+
+    _setText('order-summary-title-preview', _order.title || _copy('title'));
+    _setText(
+      'order-summary-description-preview',
+      _summaryPreviewText()
+    );
+    _setText('order-summary-insight-text', _nextStepText());
+    _setText('order-hero-updated', _latestUpdateText());
+    _setText('order-hero-next-step', _nextStepText());
 
     const meta = document.getElementById('order-meta');
     if (meta) {
@@ -867,6 +975,10 @@ const OrderDetailPage = (() => {
 
       if (canRelist) {
         const relistPanel = UI.el('div', { className: 'order-manage-panel order-manage-panel-primary' });
+        relistPanel.appendChild(UI.el('h4', {
+          className: 'order-manage-panel-title',
+          textContent: _copy('relistOrder'),
+        }));
         relistPanel.appendChild(UI.el('p', {
           className: 'order-manage-panel-copy',
           textContent: _copy('relistOrderHint'),
@@ -893,14 +1005,18 @@ const OrderDetailPage = (() => {
 
       if (canDelete) {
         const deletePanel = UI.el('div', { className: 'order-manage-panel order-manage-panel-danger' });
-        deletePanel.appendChild(UI.el('p', {
-          className: 'order-manage-panel-copy',
-          textContent: _copy('deleteOrderHint'),
+        deletePanel.appendChild(UI.el('h4', {
+          className: 'order-manage-panel-title',
+          textContent: _copy(group === 'cancelled' ? 'deleteOrder' : 'deleteOrderForever'),
         }));
         deletePanel.appendChild(UI.el('p', {
           className: 'order-manage-panel-note',
           textContent: _copy(group === 'cancelled' ? 'deleteOrderAdviceCancelled' : 'deleteOrderAdviceActive'),
         }));
+        const deleteDetails = UI.el('details', { className: 'order-manage-details' });
+        deleteDetails.appendChild(UI.el('summary', { textContent: _copy('deleteOrderForever') }));
+        deleteDetails.appendChild(UI.el('p', { textContent: _copy('deleteOrderHint') }));
+        deletePanel.appendChild(deleteDetails);
         deletePanel.appendChild(UI.el('button', {
           type: 'button',
           className: 'btn-secondary order-manage-btn order-manage-btn-danger',
@@ -916,6 +1032,16 @@ const OrderDetailPage = (() => {
 
     if (group === 'new' && canCancel) {
       const cancelShell = UI.el('div', { className: 'order-action-shell' });
+      const cancelHead = UI.el('div', { className: 'order-action-shell-head' });
+      cancelHead.appendChild(UI.el('h3', {
+        className: 'order-action-shell-title',
+        textContent: _copy('cancelOrder'),
+      }));
+      cancelHead.appendChild(UI.el('p', {
+        className: 'order-action-shell-note',
+        textContent: _copy('deleteOrderAdviceActive'),
+      }));
+      cancelShell.appendChild(cancelHead);
       cancelShell.appendChild(UI.el('label', {
         className: 'order-form-label',
         for: 'order-cancel-reason',
@@ -1147,20 +1273,27 @@ const OrderDetailPage = (() => {
     const section = document.getElementById('order-offers-section');
     const root = document.getElementById('order-offers');
     const refreshBtn = document.getElementById('btn-refresh-offers');
+    const countEl = document.getElementById('order-offers-count');
+    const filterEl = document.getElementById('order-offers-filter');
+    const sortEl = document.getElementById('order-offers-sort');
     if (!section || !root) return;
 
     if (!_order || !_isCompetitiveOrder(_order)) {
       section.classList.add('hidden');
       root.innerHTML = '';
       if (refreshBtn) refreshBtn.disabled = true;
+      if (countEl) countEl.textContent = _formatOffersCount(0);
       return;
     }
 
     section.classList.remove('hidden');
     if (refreshBtn) refreshBtn.disabled = _offersLoading;
+    if (filterEl && filterEl.value !== _offersFilter) filterEl.value = _offersFilter;
+    if (sortEl && sortEl.value !== _offersSort) sortEl.value = _offersSort;
     root.innerHTML = '';
 
     if (_offersLoading) {
+      if (countEl) countEl.textContent = _formatOffersCount(_offers.length);
       const loading = UI.el('div', { className: 'order-offers-state' });
       loading.appendChild(UI.el('span', { className: 'spinner-inline' }));
       loading.appendChild(UI.el('span', { textContent: _copy('loadingOffers') }));
@@ -1169,6 +1302,7 @@ const OrderDetailPage = (() => {
     }
 
     if (!_offers.length) {
+      if (countEl) countEl.textContent = _formatOffersCount(0);
       root.appendChild(UI.el('p', {
         className: 'ticket-muted',
         textContent: _copy('noOffers'),
@@ -1177,8 +1311,19 @@ const OrderDetailPage = (() => {
     }
 
     const canSelectOffer = _canSelectOffers();
+    const visibleOffers = _visibleOffers();
+    if (countEl) countEl.textContent = _formatOffersCount(visibleOffers.length);
 
-    _offers.forEach((offer) => {
+    if (!visibleOffers.length) {
+      root.appendChild(UI.el('p', {
+        className: 'ticket-muted',
+        textContent: _copy('noOffers'),
+      }));
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    visibleOffers.forEach((offer) => {
       const card = UI.el('article', { className: 'order-offer-card' });
       const head = UI.el('div', { className: 'order-offer-head' });
       const providerName = String(offer.provider_name || '').trim() || (_copy('providerFallback') + ' #' + String(offer.provider || ''));
@@ -1209,14 +1354,17 @@ const OrderDetailPage = (() => {
       }));
       card.appendChild(head);
 
-      card.appendChild(UI.el('div', {
-        className: 'order-offer-line',
-        textContent: _copy('offerPrice') + ': ' + String(offer.price || '-') + ' (' + _copy('currency') + ')',
-      }));
-      card.appendChild(UI.el('div', {
-        className: 'order-offer-line',
-        textContent: _copy('offerDuration') + ': ' + String(offer.duration_days || '-') + ' ' + _copy('days'),
-      }));
+      const metrics = UI.el('div', { className: 'order-offer-metrics' });
+      const price = UI.el('div', { className: 'order-offer-metric order-offer-metric-price' });
+      price.appendChild(UI.el('span', { textContent: _copy('offerPrice') }));
+      price.appendChild(UI.el('strong', { textContent: _formatOfferMoney(offer.price) }));
+      metrics.appendChild(price);
+
+      const duration = UI.el('div', { className: 'order-offer-metric' });
+      duration.appendChild(UI.el('span', { textContent: _copy('offerDuration') }));
+      duration.appendChild(UI.el('strong', { textContent: String(offer.duration_days || '-') + ' ' + _copy('days') }));
+      metrics.appendChild(duration);
+      card.appendChild(metrics);
 
       const note = String(offer.note || '').trim();
       if (note) {
@@ -1241,8 +1389,63 @@ const OrderDetailPage = (() => {
         card.appendChild(selectBtn);
       }
 
-      root.appendChild(card);
+      fragment.appendChild(card);
     });
+    root.appendChild(fragment);
+  }
+
+  function _visibleOffers() {
+    const filtered = _offers.filter((offer) => {
+      const filter = String(_offersFilter || 'all').toLowerCase();
+      if (filter === 'all') return true;
+      return String(offer && offer.status || 'pending').toLowerCase() === filter;
+    });
+
+    return filtered.sort((a, b) => {
+      const sort = String(_offersSort || 'recommended').toLowerCase();
+      const statusRankA = _offerStatusRank(a);
+      const statusRankB = _offerStatusRank(b);
+      if (sort === 'recommended' && statusRankA !== statusRankB) return statusRankA - statusRankB;
+      if (sort === 'price_desc') return _offerPrice(b) - _offerPrice(a);
+      if (sort === 'duration_asc') return _offerDuration(a) - _offerDuration(b);
+      if (sort === 'latest') return _offerTime(b) - _offerTime(a);
+      return _offerPrice(a) - _offerPrice(b);
+    });
+  }
+
+  function _formatOffersCount(count) {
+    const value = Number(count) || 0;
+    const key = value === 1 ? 'offersCount' : 'offersCountPlural';
+    return _copy(key).replace('{count}', value.toLocaleString(_numberLocale()));
+  }
+
+  function _offerPrice(offer) {
+    const raw = offer && offer.price;
+    if (raw === null || raw === undefined || raw === '') return Number.MAX_SAFE_INTEGER;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
+  }
+
+  function _offerDuration(offer) {
+    const value = Number(offer && offer.duration_days);
+    return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
+  }
+
+  function _offerTime(offer) {
+    const dt = _asDate(offer && (offer.created_at || offer.updated_at || offer.submitted_at));
+    return dt ? dt.getTime() : 0;
+  }
+
+  function _offerStatusRank(offer) {
+    const status = String(offer && offer.status || 'pending').toLowerCase();
+    if (status === 'selected') return 0;
+    if (status === 'pending') return 1;
+    return 2;
+  }
+
+  function _formatOfferMoney(value) {
+    if (value === null || value === undefined || value === '') return '-';
+    return _formatMoney(value);
   }
 
   async function _acceptOffer(offer) {
@@ -1389,6 +1592,72 @@ const OrderDetailPage = (() => {
     return num.toLocaleString(_numberLocale()) + ' ' + _copy('currency');
   }
 
+  function _summaryPreviewText() {
+    if (!_order) return '';
+    const description = String(_order.description || '').trim();
+    if (description) {
+      return description.length > 180 ? (description.slice(0, 180) + '...') : description;
+    }
+
+    const category = String(_order.category_name || '').trim();
+    const subcategory = String(_order.subcategory_name || '').trim();
+    const city = UI.formatCityDisplay(_order.city_display || _order.city, _order.region || _order.region_name);
+    const bits = [];
+    if (category || subcategory) bits.push([category, subcategory].filter(Boolean).join(' / '));
+    if (city) bits.push(city);
+    bits.push(_nextStepText());
+    return bits.filter(Boolean).join(' • ');
+  }
+
+  function _latestUpdateDate() {
+    if (!_order) return null;
+    const candidates = [];
+    if (Array.isArray(_order.status_logs) && _order.status_logs.length) {
+      _order.status_logs.forEach((log) => {
+        if (log && log.created_at) candidates.push(log.created_at);
+      });
+    }
+    candidates.push(
+      _order.provider_inputs_decided_at,
+      _order.delivered_at,
+      _order.canceled_at,
+      _order.created_at
+    );
+    let latest = null;
+    for (let idx = 0; idx < candidates.length; idx += 1) {
+      const date = _asDate(candidates[idx]);
+      if (!date) continue;
+      if (!latest || date.getTime() > latest.getTime()) latest = date;
+    }
+    return latest;
+  }
+
+  function _latestUpdateText() {
+    const date = _latestUpdateDate();
+    return date ? _formatDate(date) : _copy('heroUpdatedFallback');
+  }
+
+  function _nextStepText() {
+    if (!_order) return _copy('nextStepGeneric');
+    const stage = _workflowStage(_order);
+    const group = _statusGroup(_order);
+
+    if (stage === 'awaiting_client') return _copy('nextStepAwaitingClient');
+    if (group === 'in_progress') return _copy('nextStepInProgress');
+    if (group === 'completed') return _hasReview() ? _copy('nextStepCompletedDone') : _copy('nextStepCompletedPendingReview');
+    if (group === 'cancelled') {
+      return _availableActions().includes('reopen')
+        ? _copy('nextStepCancelledReopen')
+        : _copy('nextStepCancelledDone');
+    }
+    if (group === 'new') {
+      return _hasAssignedProvider(_order)
+        ? _copy('nextStepNewAssigned')
+        : _copy('nextStepNewUnassigned');
+    }
+    return _copy('nextStepGeneric');
+  }
+
   function _asDate(value) {
     if (!value) return null;
     const dt = value instanceof Date ? value : new Date(value);
@@ -1450,6 +1719,8 @@ const OrderDetailPage = (() => {
     }
 
     if (saveBtn) saveBtn.classList.toggle('hidden', !canEdit);
+    const bottomActions = document.querySelector('.order-bottom-actions');
+    if (bottomActions) bottomActions.classList.toggle('hidden', !(canEdit && (_editTitle || _editDesc)));
   }
 
   function _fillReviewFieldsFromOrder() {
@@ -1775,8 +2046,10 @@ const OrderDetailPage = (() => {
     const loginLink = document.getElementById('order-login-link');
     const rejectNote = document.getElementById('order-provider-reject-note');
     const reviewComment = document.getElementById('review-comment');
+    const refreshOrderBtn = document.getElementById('btn-refresh-order');
     if (backLink) backLink.setAttribute('aria-label', _copy('backAria'));
     if (loginLink) loginLink.textContent = _copy('gateButton');
+    if (refreshOrderBtn) refreshOrderBtn.textContent = _copy('refreshOrder');
     if (rejectNote) rejectNote.placeholder = _copy('providerRejectPlaceholder');
     if (reviewComment) reviewComment.placeholder = _copy('reviewCommentPlaceholder');
     _setText('order-gate-title', _copy('gateTitle'));
@@ -1784,8 +2057,17 @@ const OrderDetailPage = (() => {
     _setText('order-page-kicker', _copy('kicker'));
     _setText('order-page-title', _copy('title'));
     _setText('order-page-subtitle', _copy('subtitle'));
+    _setText('order-hero-pill-1', _copy('heroPill1'));
+    _setText('order-hero-pill-2', _copy('heroPill2'));
+    _setText('order-hero-pill-3', _copy('heroPill3'));
     _setText('order-back-link-text', _copy('backText'));
+    _setText('order-hero-status-label', _copy('heroStatusLabel'));
+    _setText('order-hero-id-label', _copy('heroIdLabel'));
+    _setText('order-hero-updated-label', _copy('heroUpdatedLabel'));
+    _setText('order-hero-next-step-label', _copy('heroNextStepLabel'));
     _setText('order-summary-id-label', _copy('orderIdLabel'));
+    _setText('order-summary-kicker', _copy('summaryKicker'));
+    _setText('order-summary-insight-label', _copy('summaryInsightLabel'));
     _setText('order-title-heading', _copy('orderTitleHeading'));
     _setText('order-description-heading', _copy('orderDescriptionHeading'));
     _setText('order-attachments-title', _copy('attachmentsTitle'));
@@ -1812,7 +2094,20 @@ const OrderDetailPage = (() => {
     _setText('review-comment-label', _copy('reviewCommentLabel'));
     _setText('btn-submit-review-text', _copy('reviewSubmit'));
     _setText('order-status-logs-title', _copy('statusLogsTitle'));
+    _setText('order-offers-kicker', _copy('offersKicker'));
     _setText('order-offers-title', _copy('offersTitle'));
+    _setText('order-offers-subtitle', _copy('offersSubtitle'));
+    _setText('order-offers-filter-label', _copy('offersFilterLabel'));
+    _setText('order-offers-filter-all', _copy('offersFilterAll'));
+    _setText('order-offers-filter-pending', _copy('statusPendingDecision'));
+    _setText('order-offers-filter-selected', _copy('statusAccepted'));
+    _setText('order-offers-filter-rejected', _copy('statusRejected'));
+    _setText('order-offers-sort-label', _copy('offersSortLabel'));
+    _setText('order-offers-sort-recommended', _copy('offersSortRecommended'));
+    _setText('order-offers-sort-price-asc', _copy('offersSortPriceAsc'));
+    _setText('order-offers-sort-price-desc', _copy('offersSortPriceDesc'));
+    _setText('order-offers-sort-duration-asc', _copy('offersSortDurationAsc'));
+    _setText('order-offers-sort-latest', _copy('offersSortLatest'));
     _setText('btn-refresh-offers', _copy('refresh'));
     _setText('order-actions-title', _copy('actionsTitle'));
     _setText('order-bottom-back', _copy('back'));
