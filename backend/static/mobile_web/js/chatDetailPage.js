@@ -348,6 +348,7 @@ const ChatDetailPage = (() => {
     isLoading: false,
     isSending: false,
     pollTimer: null,
+    lastFetchTs: 0,
     ws: null,
     wsConnected: false,
     wsReconnectTimer: null,
@@ -392,7 +393,21 @@ const ChatDetailPage = (() => {
 
   const dom = {};
 
+  const FETCH_THROTTLE_MS = 15000;  // minimum ms between background fetches
+  const VISIBILITY_RESUME_MIN_MS = 30000;  // only re-fetch on tab-resume after 30 s
+
+  function _devLog(msg) {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      // eslint-disable-next-line no-console
+      console.debug('[ChatDetail]', msg);
+    }
+  }
+
   function init() {
+    // Guard against double-initialization (e.g. script loaded twice).
+    if (window.__chatDetailInitialized) return;
+    window.__chatDetailInitialized = true;
+
     if (!Auth.isLoggedIn()) {
       window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
       return;
@@ -420,10 +435,11 @@ const ChatDetailPage = (() => {
       _loadAccountContext(),
       _loadThreadMeta(),
       _loadThreadState(),
-      _loadMessages({ showLoader: true, forceScroll: true }),
+      _loadMessages({ showLoader: true, forceScroll: true, reason: 'initial_load' }),
     ]);
 
     _markRead();
+    _connectWebSocket();
     _startPollingFallback();
   }
 
@@ -590,15 +606,39 @@ const ChatDetailPage = (() => {
     });
 
     window.addEventListener('beforeunload', _cleanup);
+    // Restore a live connection when the browser restores the page from
+    // bfcache (Back-Forward Cache).  At that point the WS and poll timer
+    // were cleaned up by _cleanup() but DOMContentLoaded never re-fires.
+    window.addEventListener('pageshow', (event) => {
+      if (!event.persisted) return;
+      _devLog('pageshow bfcache restore — reconnecting');
+      _connectWebSocket();
+      _startPollingFallback();
+    });
+
+    document.addEventListener('visibilitychange', _handleVisibilityChange);
+  }
+
+  function _handleVisibilityChange() {
+    if (document.hidden) return;
+    const elapsed = Date.now() - state.lastFetchTs;
+    if (elapsed >= VISIBILITY_RESUME_MIN_MS) {
+      _devLog('visibility_resume fetch (elapsed=' + elapsed + 'ms)');
+      _loadMessages({ reason: 'visibility_resume' });
+    }
   }
 
   function _cleanup() {
-    if (state.pollTimer) clearInterval(state.pollTimer);
+    _stopPollingFallback();
     if (state.wsReconnectTimer) clearTimeout(state.wsReconnectTimer);
     if (state.ws) {
       try { state.ws.close(); } catch (_) {}
     }
     document.removeEventListener('nawafeth:languagechange', _handleLanguageChange);
+    document.removeEventListener('visibilitychange', _handleVisibilityChange);
+    // Allow re-initialization if this page is reused (e.g. bfcache then
+    // re-navigated to the same URL, or tests that reset the DOM).
+    window.__chatDetailInitialized = false;
   }
 
   async function _loadThreadMeta() {
@@ -676,27 +716,74 @@ const ChatDetailPage = (() => {
   }
 
   async function _loadMessages(opts = {}) {
+    const reason = opts.reason || 'manual_refresh';
+    const now = Date.now();
+
+    _devLog('fetch reason=' + reason + ' wsConnected=' + state.wsConnected
+      + ' sinceLastFetch=' + (now - state.lastFetchTs) + 'ms');
+
+    // Throttle background/poll fetches — skip if we fetched recently.
+    // Always allow: initial_load, manual_refresh (explicit user action), showLoader.
+    const isBackground = reason === 'fallback_poll' || reason === 'visibility_resume' || reason === 'reconnect';
+    if (isBackground && !opts.showLoader && (now - state.lastFetchTs) < FETCH_THROTTLE_MS) {
+      _devLog('fetch throttled (reason=' + reason + ')');
+      return;
+    }
+
     if (state.isLoading) return;
     state.isLoading = true;
+    state.lastFetchTs = now;
     if (opts.showLoader) _showViewState('loading');
 
-    const res = await ApiClient.get(
-      _withMode('/api/messaging/direct/thread/' + state.threadId + '/messages/?limit=80&offset=0')
-    );
+    // Use incremental fetch (since_id) for background refreshes to avoid
+    // re-downloading the full history on every poll/reconnect.
+    const highestId = state.messages.reduce((max, m) => {
+      return (Number.isFinite(m.id) && m.id > 0 && m.id > max) ? m.id : max;
+    }, 0);
+    const useIncremental = isBackground && highestId > 0;
+
+    let url;
+    if (useIncremental) {
+      url = _withMode('/api/messaging/direct/thread/' + state.threadId + '/messages/?since_id=' + highestId);
+    } else {
+      url = _withMode('/api/messaging/direct/thread/' + state.threadId + '/messages/?limit=80&offset=0');
+    }
+
+    const res = await ApiClient.get(url);
     state.isLoading = false;
 
     if (!res.ok || !res.data) {
-      _showViewState('error', _extractError(res, _copy('loadMessagesFailed')));
+      if (!useIncremental) {
+        _showViewState('error', _extractError(res, _copy('loadMessagesFailed')));
+      }
       return;
     }
 
     const rawList = Array.isArray(res.data) ? res.data : (res.data.results || []);
-    const normalized = rawList.map(_normalizeMessage).filter((m) => m && Number.isFinite(m.id));
-    normalized.sort((a, b) => _messageSortValue(a) - _messageSortValue(b));
-    state.messages = normalized;
 
-    _hydratePeerFromMessages(rawList);
-    _renderMessages({ forceScroll: !!opts.forceScroll });
+    if (useIncremental) {
+      // Merge only new messages into the existing list.
+      const existingIds = new Set(state.messages.map((m) => m.id));
+      let appended = 0;
+      rawList.forEach((raw) => {
+        const normalized = _normalizeMessage(raw);
+        if (normalized && Number.isFinite(normalized.id) && !existingIds.has(normalized.id)) {
+          state.messages.push(normalized);
+          appended += 1;
+        }
+      });
+      if (appended > 0) {
+        state.messages.sort((a, b) => _messageSortValue(a) - _messageSortValue(b));
+        _hydratePeerFromMessages(rawList);
+        _renderMessages({ forceScroll: !!opts.forceScroll });
+      }
+    } else {
+      const normalized = rawList.map(_normalizeMessage).filter((m) => m && Number.isFinite(m.id));
+      normalized.sort((a, b) => _messageSortValue(a) - _messageSortValue(b));
+      state.messages = normalized;
+      _hydratePeerFromMessages(rawList);
+      _renderMessages({ forceScroll: !!opts.forceScroll });
+    }
   }
 
   function _hydratePeerFromMessages(rawList) {
@@ -1557,7 +1644,11 @@ const ChatDetailPage = (() => {
     dom.msgInput.value = '';
     _autoGrowInput();
     _clearPendingAttachment();
-    await _loadMessages({ forceScroll: true });
+    // If the WebSocket is live it will push the new message back; skip the
+    // full HTTP re-fetch to avoid redundant load.
+    if (!state.wsConnected) {
+      await _loadMessages({ forceScroll: true, reason: 'manual_refresh' });
+    }
     _showToast(_copy('messageSent'), 'success');
     window.dispatchEvent(new Event('nw:badge-refresh'));
   }
@@ -1581,7 +1672,11 @@ const ChatDetailPage = (() => {
       if (temp) temp.id = serverMessageId;
     }
 
-    await _loadMessages({ forceScroll: true });
+    // If the WebSocket is live it will push the confirmed message back;
+    // only re-fetch when falling back to HTTP polling.
+    if (!state.wsConnected) {
+      await _loadMessages({ forceScroll: true, reason: 'manual_refresh' });
+    }
     window.dispatchEvent(new Event('nw:badge-refresh'));
     return true;
   }
@@ -1641,12 +1736,19 @@ const ChatDetailPage = (() => {
   }
 
   function _startPollingFallback() {
-    if (state.pollTimer) clearInterval(state.pollTimer);
+    if (state.pollTimer) return;  // already running
     state.pollTimer = setInterval(() => {
       if (!state.isLoading && !document.hidden) {
-        _loadMessages();
+        _loadMessages({ reason: 'fallback_poll' });
       }
-    }, 15000);
+    }, FETCH_THROTTLE_MS);
+  }
+
+  function _stopPollingFallback() {
+    if (state.pollTimer) {
+      clearInterval(state.pollTimer);
+      state.pollTimer = null;
+    }
   }
 
   function _buildWsCandidates(token) {
@@ -1742,7 +1844,11 @@ const ChatDetailPage = (() => {
         clearTimeout(state.wsReconnectTimer);
         state.wsReconnectTimer = null;
       }
+      // WS is live — stop the HTTP fallback poll timer.
+      _stopPollingFallback();
       _markRead();
+      // Catch up on any messages that arrived while the socket was down.
+      _loadMessages({ reason: 'reconnect' });
     };
 
     state.ws.onmessage = (event) => {
@@ -1781,6 +1887,8 @@ const ChatDetailPage = (() => {
       state.wsReconnectAttempts = 0;
       state.wsDisableUntilTs = Date.now() + WS_DISABLE_WINDOW_MS;
       _setConnectionStatus('fallback');
+      // WS is fully disabled for a window — activate HTTP polling fallback.
+      _startPollingFallback();
 
       if (!state.wsFallbackNotified) {
         state.wsFallbackNotified = true;
@@ -1791,6 +1899,8 @@ const ChatDetailPage = (() => {
       return;
     }
 
+    // WS is down — (re-)start HTTP fallback polling.
+    _startPollingFallback();
     _setConnectionStatus('reconnecting');
     _scheduleReconnect();
   }

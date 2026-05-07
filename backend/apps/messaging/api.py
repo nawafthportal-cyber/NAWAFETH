@@ -504,7 +504,12 @@ class DirectThreadGetOrCreateView(APIView):
 
 
 class DirectThreadMessagesListView(generics.ListAPIView):
-	"""List messages in a direct thread."""
+	"""List messages in a direct thread.
+
+	Accepts optional ``since_id`` query parameter for incremental polling:
+	when provided, only messages with ``id > since_id`` are returned so the
+	client does not need to re-fetch the full history on every poll cycle.
+	"""
 	permission_classes = [IsAtLeastPhoneOnly]
 	serializer_class = MessageListSerializer
 	pagination_class = MessagePagination
@@ -515,12 +520,28 @@ class DirectThreadMessagesListView(generics.ListAPIView):
 		if not _can_access_direct_thread_for_request(thread, self.request):
 			from rest_framework.exceptions import PermissionDenied
 			raise PermissionDenied("غير مصرح")
-		return (
+		qs = (
 			Message.objects.select_related("sender")
 			.prefetch_related("reads")
 			.filter(thread=thread)
 			.order_by("-id")
 		)
+		since_id_raw = self.request.query_params.get("since_id", "").strip()
+		if since_id_raw.isdigit():
+			since_id = int(since_id_raw)
+			if since_id > 0:
+				# Incremental fetch: return only newer messages, oldest-first so
+				# the client can append them in order.  Pagination is skipped so
+				# every new message is returned regardless of burst size.
+				self._since_id_mode = True
+				return qs.filter(id__gt=since_id).order_by("id")
+		return qs
+
+	def paginate_queryset(self, queryset):
+		"""Skip pagination for incremental (since_id) requests."""
+		if getattr(self, "_since_id_mode", False):
+			return None
+		return super().paginate_queryset(queryset)
 
 
 class DirectThreadSendMessageView(APIView):

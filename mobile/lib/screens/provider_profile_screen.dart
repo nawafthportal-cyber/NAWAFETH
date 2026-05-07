@@ -1,6 +1,6 @@
 import 'dart:async';
 
-// ignore_for_file: unused_field, unused_element
+// ignore_for_file: unused_field, unused_element, unused_local_variable
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 import '../constants/app_theme.dart';
 import '../widgets/auto_scrolling_reels_row.dart';
@@ -29,6 +31,7 @@ import '../widgets/verified_badge_view.dart';
 import '../widgets/spotlight_viewer.dart';
 import 'chat_detail_screen.dart';
 import 'interactive_screen.dart';
+import 'service_request_form_screen.dart';
 import 'provider_dashboard/reviews_tab.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
@@ -930,6 +933,28 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           peerPhone: providerPhone,
           peerCity: providerCityName,
           peerProviderId: providerId,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openServiceRequest() async {
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) {
+      if (!mounted) return;
+      await showLoginRequiredPromptDialog(
+        context,
+        title: 'يلزم تسجيل الدخول لإرسال طلب',
+        message: 'لإرسال طلب خدمة لهذا المزود، سجّل دخولك أولاً.',
+      );
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ServiceRequestFormScreen(
+          providerName: providerName,
+          providerId: widget.providerId,
         ),
       ),
     );
@@ -2366,10 +2391,44 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
             isDark,
           ),
           _dividerVertical(isDark),
-          _statItem(
-            providerRating.toStringAsFixed(1),
-            'التقييم',
-            isDark,
+          // ── Rating with stars ──
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  providerRating.toStringAsFixed(1),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: mainColor,
+                    fontFamily: 'Cairo',
+                  ),
+                ),
+                const SizedBox(height: 3),
+                RatingBarIndicator(
+                  rating: providerRating,
+                  itemBuilder: (_, __) =>
+                      Icon(Icons.star_rounded, color: mainColor),
+                  unratedColor: isDark
+                      ? Colors.grey.shade700
+                      : Colors.grey.shade300,
+                  itemCount: 5,
+                  itemSize: 12,
+                  direction: Axis.horizontal,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'التقييم',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                    fontFamily: 'Cairo',
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -2580,91 +2639,139 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
+          // ── Row 1: Follow + icons ──
+          Row(
+            children: [
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: !_isFollowing && !_isFollowLoading
+                        ? const LinearGradient(
+                            colors: [Color(0xFF5E35B1), Color(0xFF7E57C2)],
+                            begin: Alignment.centerRight,
+                            end: Alignment.centerLeft,
+                          )
+                        : null,
+                    boxShadow: !_isFollowing && !_isFollowLoading
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFF5E35B1)
+                                  .withValues(alpha: 0.28),
+                              blurRadius: 14,
+                              offset: const Offset(0, 6),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: _isFollowing
+                          ? mainColor.withValues(alpha: isDark ? 0.18 : 0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: _isFollowing
+                            ? mainColor.withValues(alpha: 0.28)
+                            : (isDark
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : mainColor.withValues(alpha: 0.18)),
+                      ),
+                    ),
+                    child: TextButton.icon(
+                      onPressed: _isFollowLoading ? null : _toggleFollow,
+                      icon: _isFollowLoading
+                          ? SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(mainColor),
+                              ),
+                            )
+                          : Icon(
+                              _isFollowing
+                                  ? Icons.person_remove_alt_1_rounded
+                                  : Icons.person_add_alt_1_rounded,
+                              size: 18,
+                              color: _isFollowing ? mainColor : Colors.white,
+                            ),
+                      label: Text(
+                        _isFollowing ? 'متابَع' : 'متابعة',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: _isFollowing ? mainColor : Colors.white,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _isFollowing ? mainColor : Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _actionIconBtn(
+                  Icons.chat_bubble_outline_rounded, _openInAppChat, isDark),
+              const SizedBox(width: 8),
+              _actionIconBtn(Icons.call_outlined, _openPhoneCall, isDark),
+              const SizedBox(width: 8),
+              _actionIconBtn(FontAwesomeIcons.whatsapp, _openWhatsApp, isDark),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // ── Row 2: Request Service CTA ──
+          SizedBox(
+            width: double.infinity,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                gradient: !_isFollowing && !_isFollowLoading
-                    ? const LinearGradient(
-                        colors: [Color(0xFF5E35B1), Color(0xFF7E57C2)],
-                        begin: Alignment.centerRight,
-                        end: Alignment.centerLeft,
-                      )
-                    : null,
-                boxShadow: !_isFollowing && !_isFollowLoading
-                    ? [
-                        BoxShadow(
-                          color:
-                              const Color(0xFF5E35B1).withValues(alpha: 0.28),
-                          blurRadius: 14,
-                          offset: const Offset(0, 6),
-                        ),
-                      ]
-                    : null,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF60269E), Color(0xFFF1A559)],
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: mainColor.withValues(alpha: 0.30),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: _isFollowing
-                      ? mainColor.withValues(alpha: isDark ? 0.18 : 0.12)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _isFollowing
-                        ? mainColor.withValues(alpha: 0.28)
-                        : (isDark
-                            ? Colors.white.withValues(alpha: 0.08)
-                            : mainColor.withValues(alpha: 0.18)),
+              child: TextButton.icon(
+                onPressed: _openServiceRequest,
+                icon: const Icon(Icons.send_rounded,
+                    size: 18, color: Colors.white),
+                label: const Text(
+                  'إرسال طلب خدمة',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
                   ),
                 ),
-                child: TextButton.icon(
-                  onPressed: _isFollowLoading ? null : _toggleFollow,
-                  icon: _isFollowLoading
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(mainColor),
-                          ),
-                        )
-                      : Icon(
-                          _isFollowing
-                              ? Icons.person_remove_alt_1_rounded
-                              : Icons.person_add_alt_1_rounded,
-                          size: 18,
-                          color: _isFollowing ? mainColor : Colors.white,
-                        ),
-                  label: Text(
-                    _isFollowing ? 'متابَع' : 'متابعة',
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      color: _isFollowing ? mainColor : Colors.white,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: _isFollowing ? mainColor : Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          _actionIconBtn(
-              Icons.chat_bubble_outline_rounded, _openInAppChat, isDark),
-          const SizedBox(width: 8),
-          _actionIconBtn(Icons.call_outlined, _openPhoneCall, isDark),
-          const SizedBox(width: 8),
-          _actionIconBtn(FontAwesomeIcons.whatsapp, _openWhatsApp, isDark),
         ],
       ),
     );
@@ -3215,6 +3322,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
   }
 
   Widget _buildLoadingShell(bool isDark) {
+    final baseColor =
+        isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade200;
+    final highlightColor =
+        isDark ? Colors.white.withValues(alpha: 0.13) : Colors.grey.shade100;
+
     return Container(
       decoration: BoxDecoration(
         gradient: isDark
@@ -3237,48 +3349,132 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
                 end: Alignment.bottomCenter,
               ),
       ),
-      child: Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24),
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF120E28) : Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: mainColor.withValues(alpha: 0.10),
-                blurRadius: 22,
-                offset: const Offset(0, 12),
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Cover skeleton ──
+            _SkeletonBox(
+              width: double.infinity,
+              height: 160,
+              radius: 0,
+              base: baseColor,
+              highlight: highlightColor,
+            ),
+            const SizedBox(height: 54),
+            // ── Name skeleton ──
+            Center(
+              child: _SkeletonBox(
+                width: 160,
+                height: 18,
+                radius: 12,
+                base: baseColor,
+                highlight: highlightColor,
               ),
-            ],
-          ),
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: Color(0xFF5E35B1)),
-              SizedBox(height: 16),
-              Text(
-                'جار تحميل ملف مقدم الخدمة...',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: _SkeletonBox(
+                width: 110,
+                height: 12,
+                radius: 8,
+                base: baseColor,
+                highlight: highlightColor,
+              ),
+            ),
+            const SizedBox(height: 18),
+            // ── Overview strip skeleton ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _SkeletonBox(
+                width: double.infinity,
+                height: 56,
+                radius: 18,
+                base: baseColor,
+                highlight: highlightColor,
+              ),
+            ),
+            const SizedBox(height: 10),
+            // ── Stats row skeleton ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _SkeletonBox(
+                width: double.infinity,
+                height: 68,
+                radius: 18,
+                base: baseColor,
+                highlight: highlightColor,
+              ),
+            ),
+            const SizedBox(height: 10),
+            // ── Connection shortcuts skeleton ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _SkeletonBox(
+                      width: double.infinity,
+                      height: 60,
+                      radius: 18,
+                      base: baseColor,
+                      highlight: highlightColor,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _SkeletonBox(
+                      width: double.infinity,
+                      height: 60,
+                      radius: 18,
+                      base: baseColor,
+                      highlight: highlightColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            // ── Action buttons skeleton ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _SkeletonBox(
+                width: double.infinity,
+                height: 120,
+                radius: 22,
+                base: baseColor,
+                highlight: highlightColor,
+              ),
+            ),
+            const SizedBox(height: 14),
+            // ── Tabs skeleton ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _SkeletonBox(
+                width: double.infinity,
+                height: 52,
+                radius: 20,
+                base: baseColor,
+                highlight: highlightColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // ── Content cards skeleton ──
+            for (int i = 0; i < 3; i++) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _SkeletonBox(
+                  width: double.infinity,
+                  height: 100,
+                  radius: 18,
+                  base: baseColor,
+                  highlight: highlightColor,
                 ),
               ),
-              SizedBox(height: 6),
-              Text(
-                'يتم تجهيز البيانات، الإحصاءات، والخدمات والمعرض لعرضها بشكل كامل.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF64748B),
-                ),
-              ),
+              const SizedBox(height: 10),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -3684,6 +3880,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
   }
 
   Widget _servicesTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_servicesData.isEmpty) {
       return _emptySectionCard(
         icon: Icons.work_outline,
@@ -3692,29 +3889,36 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
       );
     }
 
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _servicesData.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final service = _servicesData[index];
-        final title = (service["title"] ?? '').toString().trim();
-        final description = (service["description"] ?? '').toString().trim();
-        final serviceTitle = title.isNotEmpty ? title : 'خدمة بدون اسم';
-        final categoryLabel = _serviceCategoryFromService(service);
-        final subCategoryLabel = _serviceSubCategoryFromService(service);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _servicesIntroCard(isDark),
+        const SizedBox(height: 12),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _servicesData.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (context, index) {
+            final service = _servicesData[index];
+            final title = (service["title"] ?? '').toString().trim();
+            final description = (service["description"] ?? '').toString().trim();
+            final serviceTitle = title.isNotEmpty ? title : 'خدمة بدون اسم';
+            final categoryLabel = _serviceCategoryFromService(service);
+            final subCategoryLabel = _serviceSubCategoryFromService(service);
 
-        return _serviceCard(
-          index: index + 1,
-          title: serviceTitle,
-          description: description,
-          priceLabel: _servicePriceLabel(service),
-          priceUnitLabel: _serviceUnitLabel(service),
-          categoryLabel: categoryLabel,
-          subCategoryLabel: subCategoryLabel,
-        );
-      },
+            return _serviceCard(
+              index: index + 1,
+              title: serviceTitle,
+              description: description,
+              priceLabel: _servicePriceLabel(service),
+              priceUnitLabel: _serviceUnitLabel(service),
+              categoryLabel: categoryLabel,
+              subCategoryLabel: subCategoryLabel,
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -4519,5 +4723,74 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen>
     }
     _recomputeEngagementFromLists();
     setState(() {});
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared skeleton box for loading state — animated shimmer sweep
+// ─────────────────────────────────────────────────────────────────────────────
+class _SkeletonBox extends StatefulWidget {
+  final double width;
+  final double height;
+  final double radius;
+  final Color base;
+  final Color highlight;
+
+  const _SkeletonBox({
+    required this.width,
+    required this.height,
+    required this.radius,
+    required this.base,
+    required this.highlight,
+  });
+
+  @override
+  State<_SkeletonBox> createState() => _SkeletonBoxState();
+}
+
+class _SkeletonBoxState extends State<_SkeletonBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) {
+        return Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.radius),
+            gradient: LinearGradient(
+              begin: Alignment(-1.5 + _anim.value * 3, 0),
+              end: Alignment(-0.5 + _anim.value * 3, 0),
+              colors: [
+                widget.base,
+                widget.highlight,
+                widget.base,
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
