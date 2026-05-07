@@ -106,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const int _homeBannersLimit = 16;
   static const int _portfolioShowcaseLimit = 16;
   static const int _portfolioShowcaseFetchLimit = 40;
-  static const double _reelItemExtent = 76;
+  static const double _reelItemExtent = 68;
 
   static const _reelFallbackLogos = [
     'assets/images/32.jpeg',
@@ -785,9 +785,9 @@ class _HomeScreenState extends State<HomeScreen> {
       providerProfileImage:
           placement['target_provider_profile_image'] as String?,
       isVerifiedBlue:
-        placement['target_provider_is_verified_blue'] as bool? ?? false,
+          placement['target_provider_is_verified_blue'] as bool? ?? false,
       isVerifiedGreen:
-        placement['target_provider_is_verified_green'] as bool? ?? false,
+          placement['target_provider_is_verified_green'] as bool? ?? false,
       fileType:
           placement['target_portfolio_item_file_type'] as String? ?? 'image',
       fileUrl: rawFile,
@@ -1190,7 +1190,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const purple = Colors.deepPurple;
+    const purple = AppColors.primary;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -1244,10 +1244,10 @@ class _HomeScreenState extends State<HomeScreen> {
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+              padding: const EdgeInsets.fromLTRB(10, 4, 10, 0),
               child: PlatformTopBar(
                 overlay: false,
-                height: 62,
+                height: 58,
                 showMenuButton: true,
                 onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
                 notificationCount: _notificationUnread,
@@ -1274,16 +1274,16 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 6),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
             child: AspectRatio(
-              aspectRatio: 16 / 10.8,
+              aspectRatio: 16 / 9.2,
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
                   boxShadow: AppShadows.card,
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.xl),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -1309,7 +1309,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -1324,7 +1324,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.deepPurple.shade700, Colors.deepPurple.shade400],
+            colors: [AppColors.primaryDark, AppColors.primaryLight],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
           ),
@@ -1390,7 +1390,7 @@ class _HomeScreenState extends State<HomeScreen> {
         : 0;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1417,7 +1417,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           const Spacer(),
           if (heroBanners.length > 1) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Row(
               children: List.generate(_heroBanners.length, (index) {
                 final isActive = index == _bannerCurrentPage;
@@ -1444,7 +1444,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeroNavigationArrows() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Row(
         children: [
           _heroNavButton(
@@ -1472,13 +1472,13 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Ink(
-          width: 32,
-          height: 32,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.32),
             borderRadius: BorderRadius.circular(999),
           ),
-          child: Icon(icon, size: 20, color: Colors.white),
+          child: Icon(icon, size: 18, color: Colors.white),
         ),
       ),
     );
@@ -1774,6 +1774,7 @@ class _HomeScreenState extends State<HomeScreen> {
       title: 'أحدث اللمحات',
       isDark: isDark,
       compactHeader: true,
+      accentColor: AppColors.teal,
       child: _buildSectionAnimatedContent(
         stateKey: _isSpotlightsLoading && !hasData
             ? 'reels-loading'
@@ -1789,7 +1790,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'لا توجد لمحات حالياً',
                   )
                 : SizedBox(
-                    height: 102,
+                    height: 92,
                     child: Listener(
                       onPointerDown: (_) => _pauseReelsAutoScroll(),
                       onPointerUp: (_) =>
@@ -1804,7 +1805,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         itemBuilder: (context, index) {
                           final item = _spotlights[index];
                           final thumb = _spotlightThumbUrl(item);
-                          final mediaUrl = ApiClient.buildMediaUrl(item.fileUrl);
+                          final mediaUrl =
+                              ApiClient.buildMediaUrl(item.fileUrl);
                           final caption = item.sponsoredBadgeOnly
                               ? ((item.sectionTitle ?? '').trim().isNotEmpty
                                   ? (item.sectionTitle ?? '').trim()
@@ -1814,7 +1816,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           return _PressableScale(
                             onTap: () => _openSpotlightViewer(index),
                             child: SizedBox(
-                              width: 76,
+                              width: 68,
                               child: Column(
                                 children: [
                                   _reelMediaRing(
@@ -1827,13 +1829,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ? Icons.play_arrow_rounded
                                         : Icons.image_rounded,
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 5),
                                   Text(
                                     caption.isNotEmpty ? caption : 'لمحة',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 9,
+                                      fontSize: AppTextStyles.micro,
                                       fontFamily: 'Cairo',
                                       fontWeight: FontWeight.w700,
                                       color: isDark
@@ -1859,18 +1861,22 @@ class _HomeScreenState extends State<HomeScreen> {
     String? note,
     required Widget child,
     required bool isDark,
-    EdgeInsets margin = const EdgeInsets.fromLTRB(14, 8, 14, 4),
+    EdgeInsets margin = const EdgeInsets.fromLTRB(12, 6, 12, 3),
     Widget? trailing,
     bool compactHeader = false,
+    Color accentColor = AppColors.primary,
   }) {
     // 2026 minimal-UI section: rely on spacing instead of borders/shadows.
     return Padding(
       padding: margin,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
         decoration: BoxDecoration(
           color: isDark ? AppColors.cardDark : AppColors.surfaceLight,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+            color: accentColor.withValues(alpha: isDark ? 0.13 : 0.08),
+          ),
           boxShadow: isDark ? null : AppShadows.card,
         ),
         child: Column(
@@ -1883,8 +1889,9 @@ class _HomeScreenState extends State<HomeScreen> {
               isDark: isDark,
               trailing: trailing,
               compact: compactHeader,
+              accentColor: accentColor,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             child,
           ],
         ),
@@ -1899,6 +1906,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool isDark,
     Widget? trailing,
     bool compact = false,
+    Color accentColor = AppColors.primary,
   }) {
     final hasKicker = kicker.trim().isNotEmpty;
     final hasNote = note != null && note.trim().isNotEmpty;
@@ -1912,7 +1920,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: hasNote ? 32 : 18,
             margin: const EdgeInsetsDirectional.only(end: 10),
             decoration: BoxDecoration(
-              color: AppColors.primary,
+              color: accentColor,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1928,8 +1936,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontSize: AppTextStyles.micro,
                     fontWeight: FontWeight.w800,
                     fontFamily: 'Cairo',
-                    letterSpacing: 0.1,
-                    color: isDark ? const Color(0xFFC7F7EE) : AppColors.primary,
+                    letterSpacing: 0,
+                    color: isDark
+                        ? accentColor.withValues(alpha: 0.92)
+                        : accentColor,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -1937,7 +1947,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: compact ? AppTextStyles.h3 : AppTextStyles.h2,
+                  fontSize: compact ? AppTextStyles.bodyLg : AppTextStyles.h3,
                   fontWeight: FontWeight.w800,
                   fontFamily: 'Cairo',
                   height: 1.2,
@@ -2129,21 +2139,21 @@ class _HomeScreenState extends State<HomeScreen> {
     required String label,
   }) {
     return SizedBox(
-      height: 112,
+      height: 96,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 40,
+              height: 40,
               decoration: const BoxDecoration(
                 color: AppColors.primarySurface,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 22, color: AppColors.primary),
+              child: Icon(icon, size: 20, color: AppColors.primary),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               label,
               textAlign: TextAlign.center,
@@ -2180,6 +2190,7 @@ class _HomeScreenState extends State<HomeScreen> {
       note: 'إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون تشويش.',
       isDark: isDark,
       compactHeader: true,
+      accentColor: AppColors.accent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2219,18 +2230,18 @@ class _HomeScreenState extends State<HomeScreen> {
               color: isDark
                   ? Colors.white.withValues(alpha: 0.84)
                   : AppColors.grey700,
-              fontSize: AppTextStyles.bodyMd,
-              height: 1.7,
+              fontSize: AppTextStyles.bodySm,
+              height: 1.6,
               fontFamily: 'Cairo',
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              minimumSize: const Size(0, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              minimumSize: const Size(0, 40),
               side: const BorderSide(color: AppColors.primary, width: 1.1),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadius.md),
@@ -2272,15 +2283,15 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData fallbackIcon,
   }) {
     return Container(
-      width: 70,
-      height: 70,
-      margin: const EdgeInsets.symmetric(horizontal: 6),
+      width: 62,
+      height: 62,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
       child: Stack(
         alignment: Alignment.center,
         children: [
           Container(
-            width: 70,
-            height: 70,
+            width: 62,
+            height: 62,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: const SweepGradient(
@@ -2303,8 +2314,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Container(
-            width: 62,
-            height: 62,
+            width: 54,
+            height: 54,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
@@ -2399,6 +2410,7 @@ class _HomeScreenState extends State<HomeScreen> {
       kicker: 'اكتشف الخدمات',
       title: _content.categoriesTitle,
       isDark: isDark,
+      accentColor: AppColors.teal,
       trailing: _buildSectionMiniAction(
         label: 'عرض الكل',
         onTap: _openSearchHome,
@@ -2431,13 +2443,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                           Expanded(
                             child: SizedBox(
-                              height: 96,
+                              height: 88,
                               child: Listener(
-                                onPointerDown: (_) => _pauseCategoriesAutoScroll(),
-                                onPointerUp: (_) =>
-                                    _pauseCategoriesAutoScroll(resumeLater: true),
+                                onPointerDown: (_) =>
+                                    _pauseCategoriesAutoScroll(),
+                                onPointerUp: (_) => _pauseCategoriesAutoScroll(
+                                    resumeLater: true),
                                 onPointerCancel: (_) =>
-                                    _pauseCategoriesAutoScroll(resumeLater: true),
+                                    _pauseCategoriesAutoScroll(
+                                        resumeLater: true),
                                 child: ListView.builder(
                                   controller: _categoriesScroll,
                                   scrollDirection: Axis.horizontal,
@@ -2455,7 +2469,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) => SearchProviderScreen(
+                                              builder: (_) =>
+                                                  SearchProviderScreen(
                                                 initialCategoryId:
                                                     cat.id > 0 ? cat.id : null,
                                               ),
@@ -2463,43 +2478,48 @@ class _HomeScreenState extends State<HomeScreen> {
                                           );
                                         },
                                         child: Container(
-                                          width: 78,
-                                          margin: const EdgeInsetsDirectional.only(
-                                              end: 6),
+                                          width: 70,
+                                          margin:
+                                              const EdgeInsetsDirectional.only(
+                                                  end: 5),
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                            vertical: 6,
+                                            horizontal: 3,
+                                            vertical: 5,
                                           ),
                                           child: Column(
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,
                                             children: [
                                               Container(
-                                                width: 50,
-                                                height: 50,
+                                                width: 44,
+                                                height: 44,
                                                 decoration: BoxDecoration(
                                                   color: isDark
-                                                      ? Colors.white
-                                                          .withValues(alpha: 0.06)
-                                                      : AppColors.primarySurface,
-                                                  borderRadius: BorderRadius.circular(
-                                                      AppRadius.md),
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.06)
+                                                      : AppColors
+                                                          .primarySurface,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          AppRadius.md),
                                                 ),
                                                 child: Icon(
                                                   icon,
-                                                  size: 22,
+                                                  size: 20,
                                                   color: AppColors.primary,
                                                 ),
                                               ),
-                                              const SizedBox(height: 8),
+                                              const SizedBox(height: 6),
                                               Expanded(
                                                 child: Text(
                                                   cat.name,
                                                   maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   textAlign: TextAlign.center,
                                                   style: TextStyle(
-                                                    fontSize: AppTextStyles.micro,
+                                                    fontSize:
+                                                        AppTextStyles.micro,
                                                     fontWeight: FontWeight.w600,
                                                     height: 1.3,
                                                     fontFamily: 'Cairo',
@@ -2550,21 +2570,21 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Ink(
-          width: 34,
-          height: 34,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
             color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
             border: Border.all(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.08)
-              : AppColors.borderLight,
+                  : AppColors.borderLight,
             ),
             boxShadow: isDark ? null : AppShadows.card,
           ),
           child: Icon(
             icon,
-            size: 18,
+            size: 16,
             color: isDark ? Colors.white70 : AppColors.grey700,
           ),
         ),
@@ -2593,9 +2613,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? _categoriesScroll.position.maxScrollExtent
                       : 0.0;
                   final current = hasClients ? _categoriesScroll.offset : 0.0;
-                  final progress = max <= 0
-                      ? 0.0
-                      : (current / max).clamp(0.0, 1.0);
+                  final progress =
+                      max <= 0 ? 0.0 : (current / max).clamp(0.0, 1.0);
                   final thumbWidth =
                       (constraints.maxWidth * 0.26).clamp(28.0, 88.0);
                   final travel = (constraints.maxWidth - thumbWidth)
@@ -2642,6 +2661,7 @@ class _HomeScreenState extends State<HomeScreen> {
       kicker: 'ترشيحات المنصة',
       title: title,
       isDark: isDark,
+      accentColor: AppColors.primary,
       child: _buildSectionAnimatedContent(
         stateKey: _isFeaturedLoading && visibleFeaturedSpecialists.isEmpty
             ? 'providers-loading'
@@ -2657,9 +2677,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'لا يوجد مختصون مميزون حالياً',
                   )
                 : SizedBox(
-                    height: 208,
+                    height: 180,
                     child: Listener(
-                      onPointerDown: (_) => _pauseFeaturedSpecialistsAutoRotate(),
+                      onPointerDown: (_) =>
+                          _pauseFeaturedSpecialistsAutoRotate(),
                       onPointerUp: (_) => _pauseFeaturedSpecialistsAutoRotate(
                         resumeLater: true,
                       ),
@@ -2689,10 +2710,10 @@ class _HomeScreenState extends State<HomeScreen> {
       kicker: 'أعمال وبنرات',
       title: 'البنرات والمشاريع',
       isDark: isDark,
+      accentColor: AppColors.info,
       child: _buildSectionAnimatedContent(
-        stateKey: _portfolioShowcase.isEmpty
-            ? 'portfolio-empty'
-            : 'portfolio-ready',
+        stateKey:
+            _portfolioShowcase.isEmpty ? 'portfolio-empty' : 'portfolio-ready',
         child: _portfolioShowcase.isEmpty
             ? _buildEmptyState(
                 isDark: isDark,
@@ -2700,7 +2721,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'لا توجد مشاريع أو بنرات حالياً',
               )
             : SizedBox(
-                height: 214,
+                height: 188,
                 child: Listener(
                   onPointerDown: (_) => _pausePortfolioShowcaseAutoRotate(),
                   onPointerUp: (_) =>
@@ -2736,8 +2757,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return _PressableScale(
       onTap: () => _openPortfolioShowcasePlacement(index),
       child: Container(
-        width: 188,
-        margin: const EdgeInsetsDirectional.only(end: 10),
+        width: 164,
+        margin: const EdgeInsetsDirectional.only(end: 8),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
           borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -2781,8 +2802,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 right: 10,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 7,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
@@ -2791,7 +2812,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const Text(
                     'مختار',
                     style: TextStyle(
-                      fontSize: 8.5,
+                      fontSize: AppTextStyles.micro,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Cairo',
                       color: Colors.white,
@@ -2804,15 +2825,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   left: 10,
                   bottom: 10,
                   child: Container(
-                    width: 30,
-                    height: 30,
+                    width: 28,
+                    height: 28,
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.45),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.play_arrow_rounded,
-                      size: 18,
+                      size: 17,
                       color: Colors.white,
                     ),
                   ),
@@ -2873,7 +2894,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Color purple,
   ) {
     final profileUrl = ApiClient.buildMediaUrl(specialist.profileImage);
-    const cardWidth = 132.0;
+    const cardWidth = 118.0;
 
     return _PressableScale(
       onTap: () async {
@@ -2918,8 +2939,8 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Container(
         width: cardWidth,
-        margin: const EdgeInsetsDirectional.only(end: 10),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsetsDirectional.only(end: 8),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color:
               isDark ? Colors.white.withValues(alpha: 0.04) : AppColors.bgLight,
@@ -2928,14 +2949,14 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             // ── Avatar with subtle tinted ring + overlays (verified + excellence) ──
             Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(2.5),
+                  padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isDark
@@ -2943,7 +2964,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         : AppColors.primarySurface,
                   ),
                   child: CircleAvatar(
-                    radius: 30,
+                    radius: 26,
                     backgroundColor:
                         isDark ? AppColors.surfaceDark : Colors.white,
                     backgroundImage: profileUrl != null
@@ -2969,23 +2990,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     top: 0,
                     left: -6,
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      width: 21,
+                      height: 21,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: const Color(0xFF5DA9E9),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDark
-                              ? AppColors.cardDark
-                              : Colors.white,
-                          width: 2,
+                          color: isDark ? AppColors.cardDark : Colors.white,
+                          width: 1.6,
                         ),
                         boxShadow: AppShadows.card,
                       ),
                       child: const Icon(
                         Icons.check_rounded,
-                        size: 14,
+                        size: 12,
                         color: Colors.white,
                       ),
                     ),
@@ -2995,34 +3014,32 @@ class _HomeScreenState extends State<HomeScreen> {
                     top: 0,
                     right: -6,
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      width: 21,
+                      height: 21,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: const Color(0xFF4CAF50),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isDark
-                              ? AppColors.cardDark
-                              : Colors.white,
-                          width: 2,
+                          color: isDark ? AppColors.cardDark : Colors.white,
+                          width: 1.6,
                         ),
                         boxShadow: AppShadows.card,
                       ),
                       child: const Icon(
                         Icons.check_rounded,
-                        size: 14,
+                        size: 12,
                         color: Colors.white,
                       ),
                     ),
                   ),
                 if (specialist.excellenceBadges.isNotEmpty)
                   Positioned(
-                    top: specialist.isVerifiedBlue ? 30 : 0,
+                    top: specialist.isVerifiedBlue ? 26 : 0,
                     left: -6,
                     child: Container(
-                      width: 24,
-                      height: 24,
+                      width: 21,
+                      height: 21,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isDark
@@ -3038,14 +3055,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       child: const Icon(
                         Icons.auto_awesome_rounded,
-                        size: 13,
+                        size: 11,
                         color: AppColors.accent,
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             // ── Name — centered, up to 2 lines ──
             ProviderNameWithBadges(
               name: specialist.displayName,
@@ -3053,9 +3070,9 @@ class _HomeScreenState extends State<HomeScreen> {
               isVerifiedGreen: specialist.isVerifiedGreen,
               maxLines: 2,
               textAlign: TextAlign.center,
-              badgeIconSize: 13,
+              badgeIconSize: 12,
               style: TextStyle(
-                fontSize: AppTextStyles.bodyMd,
+                fontSize: AppTextStyles.bodySm,
                 fontWeight: FontWeight.w700,
                 height: 1.25,
                 fontFamily: 'Cairo',
@@ -3071,14 +3088,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (specialist.ratingCount > 0) ...[
                   const Icon(
                     Icons.star_rounded,
-                    size: 14,
+                    size: 13,
                     color: AppColors.accent,
                   ),
                   const SizedBox(width: 3),
                   Text(
                     specialist.ratingLabel,
                     style: TextStyle(
-                      fontSize: AppTextStyles.bodySm,
+                      fontSize: AppTextStyles.caption,
                       fontWeight: FontWeight.w800,
                       fontFamily: 'Cairo',
                       color: isDark ? Colors.white : AppColors.grey900,
@@ -3088,7 +3105,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     '0 تقييم',
                     style: TextStyle(
-                      fontSize: AppTextStyles.bodySm,
+                      fontSize: AppTextStyles.caption,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Cairo',
                       color: isDark ? Colors.white60 : AppColors.grey500,
@@ -3129,20 +3146,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildReelsSkeleton(bool isDark) {
     return SizedBox(
-      height: 102,
+      height: 92,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 5,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        separatorBuilder: (_, __) => const SizedBox(width: 5),
         itemBuilder: (context, index) {
           return SizedBox(
-            width: 76,
+            width: 68,
             child: Column(
               children: [
                 _SkeletonBox(
-                  width: 70,
-                  height: 70,
+                  width: 62,
+                  height: 62,
                   radius: 999,
                   baseColor: isDark
                       ? const Color(0x33FFFFFF)
@@ -3151,7 +3168,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? const Color(0x66FFFFFF)
                       : const Color(0xFFF8F4FC),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 7),
                 _SkeletonBox(
                   width: 48,
                   height: 10,
@@ -3173,21 +3190,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCategoriesSkeleton(bool isDark) {
     return SizedBox(
-      height: 96,
+      height: 88,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 5,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        separatorBuilder: (_, __) => const SizedBox(width: 5),
         itemBuilder: (context, index) {
           return SizedBox(
-            width: 78,
+            width: 70,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _SkeletonBox(
-                  width: 50,
-                  height: 50,
+                  width: 44,
+                  height: 44,
                   radius: AppRadius.md,
                   baseColor: isDark
                       ? const Color(0x33FFFFFF)
@@ -3196,7 +3213,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? const Color(0x66FFFFFF)
                       : const Color(0xFFF8F4FC),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 const _SkeletonBox(
                   width: 52,
                   height: 9,
@@ -3218,16 +3235,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildProvidersSkeleton(bool isDark) {
     return SizedBox(
-      height: 208,
+      height: 180,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: 3,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           return Container(
-            width: 132,
-            padding: const EdgeInsets.all(12),
+            width: 118,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.04)
@@ -3237,16 +3254,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 const _SkeletonBox(
-                  width: 64,
-                  height: 64,
+                  width: 56,
+                  height: 56,
                   radius: 999,
                 ),
-                const SizedBox(height: 14),
-                const _SkeletonBox(width: 92, height: 11, radius: 6),
+                const SizedBox(height: 12),
+                const _SkeletonBox(width: 82, height: 10, radius: 6),
                 const Spacer(),
-                const _SkeletonBox(width: 64, height: 12, radius: 6),
+                const _SkeletonBox(width: 58, height: 10, radius: 6),
               ],
             ),
           );
@@ -3289,9 +3306,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _gradientPlaceholder() {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.deepPurple.shade200, Colors.deepPurple.shade100],
+          colors: [AppColors.primaryLight, AppColors.primarySurface],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),

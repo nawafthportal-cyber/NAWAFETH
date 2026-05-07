@@ -232,20 +232,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       case 0:
         return const Icon(
           Icons.widgets_rounded,
-          size: 56,
-          color: AppColors.deepPurple,
+          size: 42,
+          color: AppColors.primary,
         );
       case 1:
         return const FaIcon(
           FontAwesomeIcons.usersViewfinder,
-          size: 52,
-          color: AppColors.deepPurple,
+          size: 38,
+          color: AppColors.primary,
         );
       default:
         return const FaIcon(
           FontAwesomeIcons.rocket,
-          size: 52,
-          color: AppColors.deepPurple,
+          size: 38,
+          color: AppColors.primary,
         );
     }
   }
@@ -276,6 +276,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final compact = _isCompactPhone(size);
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -283,17 +284,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFF8F2FF),
-              Color(0xFFFDFBFF),
-              Colors.white,
+              AppColors.bgLight,
+              Color(0xFFFCFAFF),
+              AppColors.surfaceLight,
             ],
           ),
         ),
         child: SafeArea(
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: (size.width * 0.052).clamp(14.0, 24.0),
-              vertical: size.height < 700 ? 8.0 : 16.0,
+              horizontal: compact ? 12.0 : 16.0,
+              vertical: compact ? 6.0 : 12.0,
             ),
             child: _buildBody(),
           ),
@@ -301,6 +302,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
+
+  bool _isCompactPhone(Size size) => size.width < 380 || size.height < 720;
 
   Widget _buildBody() {
     if (_isLoading) {
@@ -372,17 +375,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Center(
       child: Container(
         width: double.infinity,
-        constraints: const BoxConstraints(maxWidth: 520),
-        padding: const EdgeInsets.all(24),
+        constraints: const BoxConstraints(maxWidth: 460),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.94),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: const Color(0xFFE8DBFF)),
-          boxShadow: const [
+          color: AppColors.surfaceLight.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          border: Border.all(color: AppColors.borderLight),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 34,
-              offset: Offset(0, 22),
+              color: AppColors.primary.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -390,43 +393,43 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 82,
-              height: 82,
+              width: 58,
+              height: 58,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFFF2E9FF), Color(0xFFE7DCFF)],
+                  colors: [AppColors.primarySurface, Color(0xFFEAF6F8)],
                 ),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
               ),
               child: const Icon(
                 Icons.auto_awesome_rounded,
-                color: AppColors.deepPurple,
-                size: 40,
+                color: AppColors.primary,
+                size: 28,
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             Text(
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 18,
+                fontSize: AppTextStyles.h2,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF24163C),
+                color: AppColors.grey900,
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 15,
-                height: 1.8,
-                color: Color(0xFF6F6482),
+                fontSize: AppTextStyles.bodyMd,
+                height: 1.65,
+                color: AppColors.grey600,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             footer,
           ],
         ),
@@ -439,31 +442,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     required bool isActive,
   }) {
     final size = MediaQuery.sizeOf(context);
-    final sw = size.width;
-    final sh = size.height;
-    final isSmall = sh < 700;
-    final double titleSize = (sw * 0.046).clamp(14.0, 18.0);
-    final double bodySize = (sw * 0.034).clamp(11.0, 13.0);
-    final double mediaBox = (sh * 0.18).clamp(90.0, 140.0);
-    final double cardPad = isSmall ? 10.0 : 14.0;
-    final double gapMedia = isSmall ? 8.0 : 14.0;
-    final double gapTitle = isSmall ? 4.0 : 8.0;
+    final isSmall = _isCompactPhone(size);
+    final double titleSize = isSmall ? 15.0 : AppTextStyles.h1;
+    final double bodySize = isSmall ? 11.0 : AppTextStyles.bodyMd;
+    final double mediaBox = isSmall ? 92.0 : 118.0;
+    final double cardPad = isSmall ? 10.0 : 12.0;
+    final double gapMedia = isSmall ? 8.0 : 12.0;
+    final double gapTitle = isSmall ? 4.0 : 6.0;
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4, vertical: isSmall ? 4 : 8),
+      padding: EdgeInsets.symmetric(horizontal: 2, vertical: isSmall ? 2 : 6),
       child: Container(
         width: double.infinity,
-        constraints: const BoxConstraints(maxWidth: 560),
+        constraints: const BoxConstraints(maxWidth: 480),
         padding: EdgeInsets.fromLTRB(cardPad, cardPad, cardPad, cardPad - 4),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.94),
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: const Color(0xFFE8DBFF)),
-          boxShadow: const [
+          color: AppColors.surfaceLight.withValues(alpha: 0.97),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          border: Border.all(color: AppColors.borderLight),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x1F6A3FB1),
-              blurRadius: 40,
-              offset: Offset(0, 24),
+              color: AppColors.primary.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -479,18 +480,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 7),
+                              horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF5EEFF),
+                            color: AppColors.primarySurface,
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             'الشاشة ${_currentPage + 1}',
                             style: const TextStyle(
                               fontFamily: 'Cairo',
-                              fontSize: 12,
+                              fontSize: AppTextStyles.caption,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.deepPurple,
+                              color: AppColors.primary,
                             ),
                           ),
                         ),
@@ -503,9 +504,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             textAlign: TextAlign.end,
                             style: const TextStyle(
                               fontFamily: 'Cairo',
-                              fontSize: 11,
+                              fontSize: AppTextStyles.caption,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF7B678F),
+                              color: AppColors.grey500,
                             ),
                           ),
                         ),
@@ -518,28 +519,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         mediaType: item.mediaType,
                         isActive: isActive,
                         borderRadius: 28,
-                        aspectRatio: 1.04,
+                        aspectRatio: 1.16,
                         fallback: Container(
                           width: mediaBox,
                           height: mediaBox,
-                          padding: EdgeInsets.all(isSmall ? 18.0 : 26.0),
+                          padding: EdgeInsets.all(isSmall ? 18.0 : 24.0),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                Color(0xFFF4EDFF),
-                                Color(0xFFECE3FF),
-                                Color(0xFFEAF2FF),
+                                AppColors.primarySurface,
+                                AppColors.tealSurface,
+                                Color(0xFFFFF8EF),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(999),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.deepPurple
-                                    .withValues(alpha: 0.16),
-                                blurRadius: 30,
-                                offset: const Offset(0, 12),
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.12),
+                                blurRadius: 18,
+                                offset: const Offset(0, 8),
                               ),
                             ],
                           ),
@@ -558,7 +559,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           fontSize: titleSize,
                           fontWeight: FontWeight.w800,
                           height: 1.35,
-                          color: const Color(0xFF24163C),
+                          color: AppColors.grey900,
                         ),
                       ),
                     ),
@@ -571,8 +572,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         style: TextStyle(
                           fontFamily: 'Cairo',
                           fontSize: bodySize,
-                          height: 1.85,
-                          color: const Color(0xFF6F6482),
+                          height: 1.7,
+                          color: AppColors.grey600,
                         ),
                       ),
                     ),
@@ -589,8 +590,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildStandaloneAppPreview(OnboardItem item) {
     final size = MediaQuery.sizeOf(context);
-    final sh = size.height;
-    final isSmall = sh < 700;
+    final isSmall = _isCompactPhone(size);
     final title =
         item.title.trim().isNotEmpty ? item.title.trim() : 'تعرف على نوافذ';
     final body = item.desc.trim().isNotEmpty
@@ -598,20 +598,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         : 'واجهة سريعة وواضحة تساعدك تبدأ مباشرة من التطبيق.';
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4, vertical: isSmall ? 4 : 8),
+      padding: EdgeInsets.symmetric(horizontal: 2, vertical: isSmall ? 2 : 6),
       child: Container(
         width: double.infinity,
-        constraints: const BoxConstraints(maxWidth: 560),
-        padding: EdgeInsets.all(isSmall ? 10.0 : 14.0),
+        constraints: const BoxConstraints(maxWidth: 480),
+        padding: EdgeInsets.all(isSmall ? 10.0 : 12.0),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.94),
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: const Color(0xFFE8DBFF)),
-          boxShadow: const [
+          color: AppColors.surfaceLight.withValues(alpha: 0.97),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          border: Border.all(color: AppColors.borderLight),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x1F6A3FB1),
-              blurRadius: 40,
-              offset: Offset(0, 24),
+              color: AppColors.primary.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
@@ -627,9 +627,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           : 'آخر خطوة قبل تسجيل الدخول',
                       style: TextStyle(
                         fontFamily: 'Cairo',
-                        fontSize: 11,
+                        fontSize: AppTextStyles.caption,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF7B678F),
+                        color: AppColors.grey500,
                       ),
                     ),
                     Spacer(),
@@ -643,7 +643,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     mediaType: item.mediaType,
                     isActive: true,
                     borderRadius: 28,
-                    aspectRatio: 0.78,
+                    aspectRatio: 0.84,
                     imageFit: BoxFit.contain,
                     videoFit: BoxFit.contain,
                     fallback: Container(
@@ -652,18 +652,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Color(0xFFF4EDFF),
-                            Color(0xFFECE3FF),
-                            Color(0xFFEAF2FF),
+                            AppColors.primarySurface,
+                            AppColors.tealSurface,
+                            Color(0xFFFFF8EF),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(28),
+                        borderRadius: BorderRadius.circular(AppRadius.xl),
                       ),
                       child: const Center(
                         child: Icon(
                           Icons.smartphone_rounded,
-                          color: AppColors.deepPurple,
-                          size: 54,
+                          color: AppColors.primary,
+                          size: 42,
                         ),
                       ),
                     ),
@@ -674,9 +674,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF9F4FF),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFE8DBFF)),
+                    color: AppColors.primarySurface.withValues(alpha: 0.62),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: AppColors.borderLight),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -685,9 +685,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         title,
                         style: const TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 14,
+                          fontSize: AppTextStyles.h3,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF24163C),
+                          color: AppColors.grey900,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -695,9 +695,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         body,
                         style: const TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 12,
-                          height: 1.75,
-                          color: Color(0xFF6F6482),
+                          fontSize: AppTextStyles.bodySm,
+                          height: 1.65,
+                          color: AppColors.grey600,
                         ),
                       ),
                     ],
@@ -713,10 +713,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildAppPreviewControls() {
     final size = MediaQuery.sizeOf(context);
-    final isSmall = size.height < 700;
+    final isSmall = _isCompactPhone(size);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(4, isSmall ? 10 : 18, 4, isSmall ? 6 : 10),
+      padding: EdgeInsets.fromLTRB(2, isSmall ? 8 : 14, 2, isSmall ? 4 : 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -728,9 +728,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               borderRadius: BorderRadius.circular(999),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x336A3FB1),
-                  blurRadius: 18,
-                  offset: Offset(0, 10),
+                  color: Color(0x2460269E),
+                  blurRadius: 14,
+                  offset: Offset(0, 8),
                 ),
               ],
             ),
@@ -740,7 +740,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
                 foregroundColor: Colors.white,
-                minimumSize: Size(148, isSmall ? 48 : 54),
+                minimumSize: Size(134, isSmall ? 44 : 48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(999),
                 ),
@@ -752,7 +752,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   _isLoggedIn ? 'الدخول للرئيسية' : 'تسجيل الدخول',
                   style: TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 14,
+                    fontSize: AppTextStyles.bodyMd,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -766,10 +766,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildBottomControls() {
     final size = MediaQuery.sizeOf(context);
-    final isSmall = size.height < 700;
+    final isSmall = _isCompactPhone(size);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(4, isSmall ? 10 : 18, 4, isSmall ? 6 : 10),
+      padding: EdgeInsets.fromLTRB(2, isSmall ? 8 : 14, 2, isSmall ? 4 : 8),
       child: Column(
         children: [
           Row(
@@ -778,9 +778,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               _slides.length,
               (index) => AnimatedContainer(
                 duration: const Duration(milliseconds: 320),
-                margin: const EdgeInsets.symmetric(horizontal: 5),
-                width: _currentPage == index ? 28 : 10,
-                height: 10,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: _currentPage == index ? 22 : 8,
+                height: 8,
                 decoration: BoxDecoration(
                   color: _currentPage == index
                       ? AppColors.deepPurple
@@ -799,7 +799,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ),
-          SizedBox(height: isSmall ? 14 : 24),
+          SizedBox(height: isSmall ? 10 : 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -814,8 +814,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x336A3FB1),
-                        blurRadius: 18,
-                        offset: Offset(0, 10),
+                        blurRadius: 14,
+                        offset: Offset(0, 8),
                       ),
                     ],
                   ),
@@ -825,7 +825,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      minimumSize: Size(148, isSmall ? 48 : 54),
+                      minimumSize: Size(134, isSmall ? 44 : 48),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(999),
                       ),
@@ -843,7 +843,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             : 'التالي',
                         style: const TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 14,
+                          fontSize: AppTextStyles.bodyMd,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -866,8 +866,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       onPressed: onPressed,
       style: TextButton.styleFrom(
         foregroundColor: const Color(0xFF7B678F),
-        minimumSize: const Size(96, 48),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        minimumSize: const Size(84, 42),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(999),
           side: const BorderSide(color: Color(0xFFE3D7F6)),
@@ -877,7 +877,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         label,
         style: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 13,
+          fontSize: AppTextStyles.bodyMd,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -893,18 +893,18 @@ class _OnboardMetaChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5EEFF),
+        color: AppColors.primarySurface,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 12,
+          fontSize: AppTextStyles.caption,
           fontWeight: FontWeight.w700,
-          color: AppColors.deepPurple,
+          color: AppColors.primary,
         ),
       ),
     );

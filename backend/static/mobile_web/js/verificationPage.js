@@ -618,6 +618,15 @@ const VerificationPage = (() => {
     if (content) content.classList.remove('hidden');
   }
 
+  function _setFlowStep(step) {
+    const currentStep = Number(step) || 1;
+    document.querySelectorAll('.verify-flow-step').forEach((item) => {
+      const itemStep = Number(item.dataset.step || 0);
+      item.classList.toggle('is-active', itemStep === currentStep);
+      item.classList.toggle('is-complete', itemStep > 0 && itemStep < currentStep);
+    });
+  }
+
   async function _loadProviderIdentity() {
     const [meResponse, providerResponse] = await Promise.all([
       ApiClient.get('/api/accounts/me/?mode=provider'),
@@ -783,9 +792,8 @@ const VerificationPage = (() => {
     if (toggle) {
       toggle.addEventListener('change', () => {
         if (!toggle.checked) {
-          _blue.files = [];
-          _blue.filesApplied = false;
-          if (input) input.value = '';
+          toggle.checked = true;
+          _showToast('المرفقات الرسمية مطلوبة لهذا النوع من التوثيق.', 'warning');
         }
         _renderBlueFiles();
       });
@@ -793,8 +801,9 @@ const VerificationPage = (() => {
 
     if (input) {
       input.addEventListener('change', () => {
-        _blue.files = Array.from(input.files || []);
+        _blue.files = _mergeSelectedFiles(_blue.files, input.files);
         _blue.filesApplied = false;
+        input.value = '';
         _renderBlueFiles();
       });
     }
@@ -819,7 +828,7 @@ const VerificationPage = (() => {
       clearBtn.addEventListener('click', () => {
         _blue.files = [];
         _blue.filesApplied = false;
-        if (toggle) toggle.checked = false;
+        if (toggle) toggle.checked = true;
         if (input) input.value = '';
         _renderBlueFiles();
       });
@@ -833,8 +842,9 @@ const VerificationPage = (() => {
 
     if (input) {
       input.addEventListener('change', () => {
-        _green.files = Array.from(input.files || []);
+        _green.files = _mergeSelectedFiles(_green.files, input.files);
         _green.filesApplied = false;
+        input.value = '';
         _renderGreenFiles();
       });
     }
@@ -898,6 +908,7 @@ const VerificationPage = (() => {
     if (detailActions) detailActions.classList.remove('hidden');
     if (summaryStep) summaryStep.classList.add('hidden');
     if (successStep) successStep.classList.add('hidden');
+    _setFlowStep(1);
     if (pricingStrip && _pricing && _pricing.has_active_subscription === true) {
       pricingStrip.classList.remove('hidden');
     }
@@ -921,6 +932,7 @@ const VerificationPage = (() => {
     if (successNote) {
       successNote.textContent = note || 'سيتم التواصل معكم بعد عملية التدقيق المعتمدة من منصة المختص.';
     }
+    _setFlowStep(3);
     _hideStatusNotice();
   }
 
@@ -1110,6 +1122,27 @@ const VerificationPage = (() => {
     return !!(toggle && toggle.checked);
   }
 
+  function _fileKey(file) {
+    return [
+      file && file.name ? file.name : '',
+      file && Number.isFinite(file.size) ? file.size : '',
+      file && Number.isFinite(file.lastModified) ? file.lastModified : '',
+    ].join('|');
+  }
+
+  function _mergeSelectedFiles(currentFiles, fileList) {
+    const nextFiles = Array.isArray(currentFiles) ? currentFiles.slice() : [];
+    const seen = new Set(nextFiles.map(_fileKey));
+    Array.from(fileList || []).forEach((file) => {
+      const key = _fileKey(file);
+      if (!seen.has(key)) {
+        seen.add(key);
+        nextFiles.push(file);
+      }
+    });
+    return nextFiles;
+  }
+
   function _renderBlueFiles() {
     const body = document.getElementById('blueAttachmentsBody');
     const list = document.getElementById('blueFileList');
@@ -1124,13 +1157,13 @@ const VerificationPage = (() => {
     }
     if (feedback) {
       if (!enabled) {
-        feedback.textContent = 'فعّل خيار المرفقات إذا رغبت بإرفاق مستندات رسمية.';
+        feedback.textContent = 'المرفقات الرسمية مطلوبة لإكمال طلب الشارة الزرقاء.';
         feedback.classList.remove('is-success');
       } else if (_blue.filesApplied && _blue.files.length) {
         feedback.textContent = `تم تجهيز ${_blue.files.length} ملف/ملفات للرفع مع الطلب.`;
         feedback.classList.add('is-success');
       } else if (_blue.files.length) {
-        feedback.textContent = 'اضغط تقديم لاعتماد المرفقات ضمن الطلب.';
+        feedback.textContent = 'اضغط رفع لاعتماد المرفقات ضمن الطلب.';
         feedback.classList.remove('is-success');
       } else {
         feedback.textContent = 'أرفق ملفًا رسميًا واحدًا على الأقل.';
@@ -1191,7 +1224,7 @@ const VerificationPage = (() => {
         feedback.textContent = `تم تجهيز ${_green.files.length} ملف/ملفات داعمة للرفع مع الطلب.`;
         feedback.classList.add('is-success');
       } else if (_green.files.length) {
-        feedback.textContent = 'اضغط تقديم لاعتماد المرفقات ضمن طلب الشارة الخضراء.';
+        feedback.textContent = 'اضغط رفع لاعتماد المرفقات ضمن طلب الشارة الخضراء.';
         feedback.classList.remove('is-success');
       } else {
         feedback.textContent = 'أرفق ملفًا داعمًا واحدًا على الأقل لطلب الشارة الخضراء.';
@@ -1241,7 +1274,7 @@ const VerificationPage = (() => {
       return null;
     }
     if (!_blue.filesApplied || !_blue.files.length) {
-      _showToast('أرفق المستندات الرسمية ثم اضغط "تقديم" داخل قسم المرفقات قبل الإرسال.', 'warning');
+      _showToast('أرفق المستندات الرسمية ثم اضغط "رفع" داخل قسم المرفقات قبل الإرسال.', 'warning');
       return null;
     }
 
@@ -1270,7 +1303,7 @@ const VerificationPage = (() => {
     }
 
     if (!_green.filesApplied || !_green.files.length) {
-      _showToast('أرفق المستندات الداعمة ثم اضغط "تقديم" داخل قسم المرفقات قبل الإرسال.', 'warning');
+      _showToast('أرفق المستندات الداعمة ثم اضغط "رفع" داخل قسم المرفقات قبل الإرسال.', 'warning');
       return null;
     }
 
@@ -1288,6 +1321,18 @@ const VerificationPage = (() => {
     };
   }
 
+  function _renderSummaryMeta(entries) {
+    const root = document.getElementById('verifySummaryMeta');
+    if (!root) return;
+    const rows = Array.isArray(entries) ? entries.filter(Boolean) : [];
+    root.innerHTML = rows.map((entry) => `
+      <span class="verify-summary-chip${entry.tone ? ` is-${_escapeHtml(entry.tone)}` : ''}">
+        <small>${_escapeHtml(entry.label)}</small>
+        <strong>${_escapeHtml(entry.value)}</strong>
+      </span>
+    `).join('');
+  }
+
   function _goToSummary() {
     const rowsRoot = document.getElementById('verifySummaryRows');
     const detailBoard = document.getElementById('verifyDetailBoard');
@@ -1302,20 +1347,32 @@ const VerificationPage = (() => {
       const itemLabel = payload.subject_type === 'business'
         ? 'توثيق الشارة الزرقاء للصفة التجارية'
         : 'توثيق الشارة الزرقاء للهوية الشخصية';
+      const subjectLabel = payload.subject_type === 'business' ? 'منشأة' : 'فرد';
       rowsRoot.innerHTML = `
         <tr><td>${_escapeHtml(itemLabel)}</td></tr>
       `;
+      _renderSummaryMeta([
+        { label: 'نوع الشارة', value: 'الزرقاء', tone: 'blue' },
+        { label: 'صفة التوثيق', value: subjectLabel },
+        { label: 'المرفقات', value: `${payload.files.length} ملف` },
+      ]);
     } else {
       const payload = _validatedGreenSubmission();
       if (!payload) return;
       rowsRoot.innerHTML = payload.items.map((row) => `
         <tr><td>${_escapeHtml(row.title)}</td></tr>
       `).join('');
+      _renderSummaryMeta([
+        { label: 'نوع الشارة', value: 'الخضراء', tone: 'green' },
+        { label: 'البنود المختارة', value: `${payload.items.length} بند` },
+        { label: 'المرفقات', value: `${payload.files.length} ملف` },
+      ]);
     }
 
     detailBoard.classList.add('hidden');
     detailActions.classList.add('hidden');
     summaryStep.classList.remove('hidden');
+    _setFlowStep(2);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 

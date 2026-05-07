@@ -4,6 +4,7 @@ from django.utils.text import slugify
 from apps.accounts.models import User
 from apps.accounts.role_context import get_active_role
 from apps.accounts.phone_validation import normalize_phone_local05, require_phone_local05
+from apps.accounts.presence import effective_last_seen as _presence_effective_last_seen
 from apps.accounts.presence import is_online_value as _presence_is_online_value
 from apps.reviews.services import provider_rating_values
 from apps.uploads.media_optimizer import optimize_upload_for_storage
@@ -25,6 +26,7 @@ from .models import (
     ProviderCategory,
     ProviderCoverImage,
     ProviderPortfolioItem,
+    ProviderPortfolioVisibilityBlock,
     ProviderProfile,
     RoleContext,
     ProviderService,
@@ -37,6 +39,9 @@ from .models import (
     sync_provider_accepts_urgent_flag,
 )
 from .location_formatter import format_city_display, resolve_country_city
+
+
+PROVIDER_COVERAGE_RADIUS_MAX_KM = 300
 
 
 def _normalize_location_payload(attrs, *, instance=None, require_coordinates=False):
@@ -309,6 +314,11 @@ class ProviderCoverImageUploadSerializer(serializers.Serializer):
 class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSerializer):
     whatsapp_url = serializers.SerializerMethodField(read_only=True)
     location_label = serializers.CharField(write_only=True, required=False, allow_blank=True, allow_null=True)
+    coverage_radius_km = serializers.IntegerField(
+        min_value=0,
+        max_value=PROVIDER_COVERAGE_RADIUS_MAX_KM,
+        required=False,
+    )
     subcategory_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -400,6 +410,11 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
     rating_count = serializers.SerializerMethodField()
     cover_gallery = serializers.SerializerMethodField()
     cover_images = serializers.SerializerMethodField()
+    coverage_radius_km = serializers.IntegerField(
+        min_value=0,
+        max_value=PROVIDER_COVERAGE_RADIUS_MAX_KM,
+        required=False,
+    )
 
     class Meta:
         model = ProviderProfile
@@ -726,11 +741,11 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
         return provider_rating_values(obj)["rating_count"]
 
     def get_is_online(self, obj):
-        last = getattr(getattr(obj, "user", None), "last_seen", None)
+        last = _presence_effective_last_seen(getattr(obj, "user", None))
         return _presence_is_online_value(last)
 
     def get_last_seen(self, obj):
-        last = getattr(getattr(obj, "user", None), "last_seen", None)
+        last = _presence_effective_last_seen(getattr(obj, "user", None))
         return last.isoformat() if last else None
 
     def get_cover_gallery(self, obj):
@@ -799,7 +814,7 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
         return bool(getattr(getattr(obj, "provider", None), "is_verified_green", False))
 
     def get_provider_is_online(self, obj):
-        last = getattr(getattr(getattr(obj, "provider", None), "user", None), "last_seen", None)
+        last = _presence_effective_last_seen(getattr(getattr(obj, "provider", None), "user", None))
         return _presence_is_online_value(last)
 
     def get_thumbnail_url(self, obj):
@@ -966,7 +981,7 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
         return bool(getattr(obj.provider, "is_verified_green", False))
 
     def get_provider_is_online(self, obj):
-        last = getattr(getattr(getattr(obj, "provider", None), "user", None), "last_seen", None)
+        last = _presence_effective_last_seen(getattr(getattr(obj, "provider", None), "user", None))
         return _presence_is_online_value(last)
 
     def get_file_url(self, obj):
@@ -1250,6 +1265,58 @@ class BlockedSpotlightSerializer(serializers.ModelSerializer):
 
     def get_thumbnail_url(self, obj):
         item = getattr(obj, "spotlight_item", None)
+        return _safe_file_url(getattr(item, "thumbnail", None))
+
+
+class BlockedPortfolioSerializer(serializers.ModelSerializer):
+    portfolio_item_id = serializers.IntegerField(source="portfolio_item.id", read_only=True)
+    provider_id = serializers.IntegerField(source="portfolio_item.provider.id", read_only=True)
+    provider_display_name = serializers.CharField(source="portfolio_item.provider.display_name", read_only=True)
+    provider_username = serializers.CharField(source="portfolio_item.provider.user.username", read_only=True)
+    provider_profile_image = serializers.SerializerMethodField()
+    is_verified_blue = serializers.SerializerMethodField()
+    is_verified_green = serializers.SerializerMethodField()
+    file_type = serializers.CharField(source="portfolio_item.file_type", read_only=True)
+    file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+    caption = serializers.CharField(source="portfolio_item.caption", read_only=True)
+    blocked_at = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = ProviderPortfolioVisibilityBlock
+        fields = (
+            "portfolio_item_id",
+            "provider_id",
+            "provider_display_name",
+            "provider_username",
+            "provider_profile_image",
+            "is_verified_blue",
+            "is_verified_green",
+            "file_type",
+            "file_url",
+            "thumbnail_url",
+            "caption",
+            "blocked_at",
+        )
+
+    def get_provider_profile_image(self, obj):
+        provider = getattr(getattr(obj, "portfolio_item", None), "provider", None)
+        return _safe_file_url(getattr(provider, "profile_image", None))
+
+    def get_is_verified_blue(self, obj):
+        provider = getattr(getattr(obj, "portfolio_item", None), "provider", None)
+        return bool(getattr(provider, "is_verified_blue", False))
+
+    def get_is_verified_green(self, obj):
+        provider = getattr(getattr(obj, "portfolio_item", None), "provider", None)
+        return bool(getattr(provider, "is_verified_green", False))
+
+    def get_file_url(self, obj):
+        item = getattr(obj, "portfolio_item", None)
+        return _safe_file_url(getattr(item, "file", None))
+
+    def get_thumbnail_url(self, obj):
+        item = getattr(obj, "portfolio_item", None)
         return _safe_file_url(getattr(item, "thumbnail", None))
 
 
@@ -1754,5 +1821,5 @@ class ProviderServicePublicDetailSerializer(ProviderServicePublicSerializer):
         return _safe_file_url(getattr(obj.provider, "profile_image", None))
 
     def get_provider_is_online(self, obj):
-        last = getattr(getattr(getattr(obj, "provider", None), "user", None), "last_seen", None)
+        last = _presence_effective_last_seen(getattr(getattr(obj, "provider", None), "user", None))
         return _presence_is_online_value(last)

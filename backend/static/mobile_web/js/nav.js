@@ -713,7 +713,11 @@ const Nav = (() => {
     })();
     const effectiveMode = (requestedMode === 'provider' && canUseProviderMode) ? 'provider' : 'client';
     try {
-      sessionStorage.setItem('nw_account_mode', effectiveMode);
+      if (window.Auth && typeof window.Auth.setActiveAccountMode === 'function') {
+        window.Auth.setActiveAccountMode(effectiveMode);
+      } else {
+        sessionStorage.setItem('nw_account_mode', effectiveMode);
+      }
     } catch (_) {}
     _setProfileNavHref(effectiveMode);
     _setOrdersNavVisibility(effectiveMode);

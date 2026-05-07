@@ -67,6 +67,7 @@ var ProviderProfileEditPage = (function () {
   var profileLocationDraft = { lat: null, lng: null };
   var profileLocationRequestId = 0;
   var serviceRadiusDraft = 0;
+  var SERVICE_RADIUS_MAX_KM = 300;
   var pendingPhoneOtp = { phone: "", active: false };
   var portfolioItems = [];
   var SAUDI_MAJOR_CITY_FALLBACKS = [
@@ -360,7 +361,7 @@ var ProviderProfileEditPage = (function () {
       { key: "languages", label: "لغات التواصل", icon: "language", hint: "اختر اللغات التي تتواصل بها مع العملاء.", languageField: true, wide: true },
       { key: "specialization", label: "تفاصيل إضافية", icon: "category", hint: "أضف وصفًا أوسع عن مجالك أو طريقة عملك.", multiline: true, wide: true },
       { key: "serviceLocation", label: "الموقع", icon: "map_pin", hint: "اضغط على الخريطة أو اسحب المؤشر لتحديد موقعك الدقيق داخل المدينة المختارة.", mapField: true, wide: true },
-      { key: "coverageRadius", label: "نطاق الخدمة", icon: "radius", hint: "اختر نصف قطر التغطية بالكيلومتر وسيظهر كنطاق دائري حول موقعك.", radiusField: true, wide: true, inputType: "number", inputMode: "numeric", min: "0", step: "1", placeholder: "مثال: 2" }
+      { key: "coverageRadius", label: "نطاق الخدمة", icon: "radius", hint: "اختر نصف قطر التغطية بالكيلومتر وسيظهر كنطاق دائري حول موقعك.", radiusField: true, wide: true, inputType: "number", inputMode: "numeric", min: "0", max: String(SERVICE_RADIUS_MAX_KM), step: "1", placeholder: "مثال: 2" }
     ],
     extra: [
       { key: "additionalOverview", label: "ملخص القسم", icon: "notes", readOnly: true, wide: true, additionalOverviewField: true },
@@ -1073,9 +1074,15 @@ var ProviderProfileEditPage = (function () {
 
   function getServiceRadiusKm() {
     var radius = Number.isFinite(Number(serviceRadiusDraft))
-      ? parseInt(serviceRadiusDraft, 10)
-      : parseInt(profile && profile.coverageRadius, 10);
-    return Number.isFinite(radius) && radius >= 0 ? radius : 0;
+      ? serviceRadiusDraft
+      : profile && profile.coverageRadius;
+    return clampServiceRadiusKm(radius);
+  }
+
+  function clampServiceRadiusKm(value) {
+    var radius = parseInt(value, 10);
+    if (!Number.isFinite(radius)) return 0;
+    return Math.min(SERVICE_RADIUS_MAX_KM, Math.max(0, radius));
   }
 
   function updateLanguageOtherVisibility() {
@@ -1097,7 +1104,7 @@ var ProviderProfileEditPage = (function () {
   }
 
   function syncRadiusInputs(value) {
-    var radius = Number.isFinite(Number(value)) ? Math.max(0, parseInt(value, 10)) : 0;
+    var radius = clampServiceRadiusKm(value);
     serviceRadiusDraft = radius;
     var range = document.getElementById("pe-radius-range");
     var numberInput = document.getElementById("pe-radius-number");
@@ -1110,7 +1117,7 @@ var ProviderProfileEditPage = (function () {
   }
 
   function updateServiceRadiusPreview(radiusKm) {
-    var radius = Math.max(0, parseInt(radiusKm, 10) || 0);
+    var radius = clampServiceRadiusKm(radiusKm);
     if (serviceMapCircle && serviceMapMarker) {
       serviceMapCircle.setLatLng(serviceMapMarker.getLatLng());
       serviceMapCircle.setRadius(radius * 1000);
@@ -3204,7 +3211,7 @@ var ProviderProfileEditPage = (function () {
       setProfileLocationDraft(prov.lat, prov.lng);
       serviceRadiusDraft = prov.coverage_radius_km === null || prov.coverage_radius_km === undefined
         ? 0
-        : Math.max(0, parseInt(prov.coverage_radius_km, 10) || 0);
+        : clampServiceRadiusKm(prov.coverage_radius_km);
       renderIdentityCard(prov, user);
       renderAll();
       applyEntryNavigation();
@@ -3744,8 +3751,8 @@ var ProviderProfileEditPage = (function () {
       '<div class="pe-radius-live">القيمة الحالية: <strong id="pe-radius-live-value">' + radius + ' كم</strong></div>' +
       '<div class="pe-geo-scope-explainer pe-geo-scope-explainer--compact" id="pe-radius-scope-summary"></div>' +
       '<div class="pe-radius-controls">' +
-        '<input type="range" min="0" max="100" step="1" value="' + radius + '" class="pe-radius-range" id="pe-radius-range">' +
-        '<input type="number" class="form-input pe-input pe-radius-number" id="pe-radius-number" data-key="coverageRadius" min="0" step="1" value="' + radius + '" inputmode="numeric">' +
+        '<input type="range" min="0" max="' + SERVICE_RADIUS_MAX_KM + '" step="1" value="' + radius + '" class="pe-radius-range" id="pe-radius-range">' +
+        '<input type="number" class="form-input pe-input pe-radius-number" id="pe-radius-number" data-key="coverageRadius" min="0" max="' + SERVICE_RADIUS_MAX_KM + '" step="1" value="' + radius + '" inputmode="numeric">' +
       '</div>' +
       '<div class="pe-radius-helper" id="pe-radius-helper"></div>' +
       '<div class="pe-field-actions">' +
@@ -4120,6 +4127,7 @@ var ProviderProfileEditPage = (function () {
           alert("أدخل نطاق خدمة صحيحًا");
           return;
         }
+        payload[apiKey] = clampServiceRadiusKm(payload[apiKey]);
         serviceRadiusDraft = payload[apiKey];
         nextValue = String(payload[apiKey]);
         break;

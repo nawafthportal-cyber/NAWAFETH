@@ -105,6 +105,24 @@ class SavedMediaEndpointsTests(TestCase):
         self.assertEqual(returned_ids, {self.spotlight_saved.id})
         self.assertTrue(response.json()[0]["is_saved"])
 
+    def test_liked_portfolio_endpoint_excludes_saved_only_items(self):
+        response = self.client.get(reverse("providers:my_liked_media") + "?mode=client")
+
+        self.assertEqual(response.status_code, 200)
+        returned_ids = {row["id"] for row in response.json()}
+        self.assertEqual(returned_ids, {self.portfolio_liked_only.id})
+        self.assertTrue(response.json()[0]["is_liked"])
+        self.assertFalse(response.json()[0]["is_saved"])
+
+    def test_liked_spotlights_endpoint_excludes_saved_only_items(self):
+        response = self.client.get(reverse("providers:my_liked_spotlights") + "?mode=client")
+
+        self.assertEqual(response.status_code, 200)
+        returned_ids = {row["id"] for row in response.json()}
+        self.assertEqual(returned_ids, {self.spotlight_liked_only.id})
+        self.assertTrue(response.json()[0]["is_liked"])
+        self.assertFalse(response.json()[0]["is_saved"])
+
 
 class ProviderSubcategoryPolicyTests(TestCase):
     def setUp(self):
@@ -1059,6 +1077,109 @@ class PortfolioModerationAndVisibilityTests(TestCase):
         self.assertEqual(detail_response.status_code, 404)
 
 
+class VisibilityBlocksRoleIsolationTests(TestCase):
+    def setUp(self):
+        self.viewer = User.objects.create_user(
+            phone="0503901011",
+            username="visibility.dual.viewer",
+            role_state=UserRole.CLIENT,
+        )
+        ProviderProfile.objects.create(
+            user=self.viewer,
+            provider_type="individual",
+            display_name="مزود ثنائي الدور",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.target_provider_user = User.objects.create_user(
+            phone="0503901012",
+            username="visibility.target.provider",
+            role_state=UserRole.PROVIDER,
+        )
+        self.target_provider = ProviderProfile.objects.create(
+            user=self.target_provider_user,
+            provider_type="individual",
+            display_name="مزود مستهدف",
+            bio="-",
+            city="جدة",
+            region="منطقة مكة",
+            accepts_urgent=True,
+        )
+        self.portfolio_item = ProviderPortfolioItem.objects.create(
+            provider=self.target_provider,
+            file_type="image",
+            file=SimpleUploadedFile("blocked-role-portfolio.jpg", b"img", content_type="image/jpeg"),
+            caption="عنصر محظور بوضع المزود",
+        )
+        self.spotlight_item = ProviderSpotlightItem.objects.create(
+            provider=self.target_provider,
+            file_type="image",
+            file=SimpleUploadedFile("blocked-role-spotlight.jpg", b"img", content_type="image/jpeg"),
+            caption="لمحة محظورة بوضع المزود",
+        )
+        self.client.force_login(self.viewer)
+
+    def test_provider_block_is_scoped_to_active_role(self):
+        response = self.client.post(
+            reverse("providers:provider_block", kwargs={"provider_id": self.target_provider.id}) + "?mode=provider"
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertTrue(
+            ProviderVisibilityBlock.objects.filter(
+                user=self.viewer,
+                provider=self.target_provider,
+                role_context="provider",
+            ).exists()
+        )
+
+        provider_blocks_response = self.client.get(reverse("providers:my_visibility_blocks") + "?mode=provider")
+        self.assertEqual(provider_blocks_response.status_code, 200)
+        self.assertEqual(len(provider_blocks_response.json()["blocked_providers"]), 1)
+
+        client_blocks_response = self.client.get(reverse("providers:my_visibility_blocks") + "?mode=client")
+        self.assertEqual(client_blocks_response.status_code, 200)
+        self.assertEqual(client_blocks_response.json()["blocked_providers"], [])
+
+    def test_content_blocks_are_scoped_to_active_role_and_include_portfolio(self):
+        portfolio_response = self.client.post(
+            reverse("providers:portfolio_hide", kwargs={"item_id": self.portfolio_item.id}) + "?mode=provider"
+        )
+        spotlight_response = self.client.post(
+            reverse("providers:spotlight_hide", kwargs={"item_id": self.spotlight_item.id}) + "?mode=provider"
+        )
+
+        self.assertEqual(portfolio_response.status_code, 200, portfolio_response.json())
+        self.assertEqual(spotlight_response.status_code, 200, spotlight_response.json())
+        self.assertTrue(
+            ProviderPortfolioVisibilityBlock.objects.filter(
+                user=self.viewer,
+                portfolio_item=self.portfolio_item,
+                role_context="provider",
+            ).exists()
+        )
+        self.assertTrue(
+            ProviderSpotlightVisibilityBlock.objects.filter(
+                user=self.viewer,
+                spotlight_item=self.spotlight_item,
+                role_context="provider",
+            ).exists()
+        )
+
+        provider_blocks_response = self.client.get(reverse("providers:my_visibility_blocks") + "?mode=provider")
+        self.assertEqual(provider_blocks_response.status_code, 200)
+        payload = provider_blocks_response.json()
+        self.assertEqual({row["portfolio_item_id"] for row in payload["blocked_portfolio"]}, {self.portfolio_item.id})
+        self.assertEqual({row["spotlight_id"] for row in payload["blocked_spotlights"]}, {self.spotlight_item.id})
+
+        client_blocks_response = self.client.get(reverse("providers:my_visibility_blocks") + "?mode=client")
+        self.assertEqual(client_blocks_response.status_code, 200)
+        self.assertEqual(client_blocks_response.json()["blocked_portfolio"], [])
+        self.assertEqual(client_blocks_response.json()["blocked_spotlights"], [])
+
+
 class ProviderServiceModerationReportTests(TestCase):
     def setUp(self):
         self.viewer = User.objects.create_user(
@@ -1679,6 +1800,76 @@ class ProviderRegistrationLocationTests(TestCase):
         self.assertEqual(profile.region, "")
         self.assertIsNone(profile.lat)
         self.assertIsNone(profile.lng)
+
+    def test_provider_registration_rejects_coverage_radius_above_300(self):
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            self.url,
+            {
+                "provider_type": "individual",
+                "display_name": "مزود نطاق واسع",
+                "bio": "نبذة مختصرة عن مزود الخدمة",
+                "country": "السعودية",
+                "city": "الرياض",
+                "location_label": "السعودية - الرياض",
+                "lat": "24.713552",
+                "lng": "46.675297",
+                "coverage_radius_km": 301,
+            },
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("coverage_radius_km", response.json())
+
+
+class MyProviderProfileCoverageRadiusTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            phone="0503300107",
+            password="StrongPass123!",
+            username="provider.radius.owner",
+            role_state=UserRole.PROVIDER,
+            first_name="مزود",
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.user,
+            provider_type="individual",
+            display_name="مزود نطاق الخدمة",
+            bio="نبذة مختصرة عن مزود الخدمة",
+            country="السعودية",
+            city="السعودية - الرياض",
+            coverage_radius_km=25,
+        )
+        self.url = reverse("providers:my_profile")
+
+    def test_profile_update_rejects_coverage_radius_above_300(self):
+        self.client.force_login(self.user)
+
+        response = self.client.patch(
+            self.url,
+            {"coverage_radius_km": 301},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("coverage_radius_km", response.json())
+        self.provider.refresh_from_db()
+        self.assertEqual(self.provider.coverage_radius_km, 25)
+
+    def test_profile_update_accepts_coverage_radius_300(self):
+        self.client.force_login(self.user)
+
+        response = self.client.patch(
+            self.url,
+            {"coverage_radius_km": 300},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        self.provider.refresh_from_db()
+        self.assertEqual(self.provider.coverage_radius_km, 300)
 
 
 class MyProviderSubcategoriesViewTests(TestCase):

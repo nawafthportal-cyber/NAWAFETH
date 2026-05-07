@@ -323,14 +323,20 @@ class ProviderVisibilityBlock(models.Model):
         on_delete=models.CASCADE,
         related_name="visibility_blocks",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "provider"], name="uniq_provider_visibility_block_user_provider"),
+            models.UniqueConstraint(fields=["user", "provider", "role_context"], name="uniq_provider_visibility_block_user_provider_role"),
         ]
         indexes = [
-            models.Index(fields=["user", "provider"]),
+            models.Index(fields=["user", "provider", "role_context"], name="provvis_user_provider_role_idx"),
         ]
 
 
@@ -345,14 +351,20 @@ class ProviderSpotlightVisibilityBlock(models.Model):
         on_delete=models.CASCADE,
         related_name="visibility_blocks",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "spotlight_item"], name="uniq_spotlight_visibility_block_user_item"),
+            models.UniqueConstraint(fields=["user", "spotlight_item", "role_context"], name="uniq_spotlight_visibility_block_user_item_role"),
         ]
         indexes = [
-            models.Index(fields=["user", "spotlight_item"]),
+            models.Index(fields=["user", "spotlight_item", "role_context"], name="provspt_user_item_role_idx"),
         ]
 
 
@@ -367,14 +379,20 @@ class ProviderPortfolioVisibilityBlock(models.Model):
         on_delete=models.CASCADE,
         related_name="visibility_blocks",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "portfolio_item"], name="uniq_portfolio_visibility_block_user_item"),
+            models.UniqueConstraint(fields=["user", "portfolio_item", "role_context"], name="uniq_portfolio_visibility_block_user_item_role"),
         ]
         indexes = [
-            models.Index(fields=["user", "portfolio_item"]),
+            models.Index(fields=["user", "portfolio_item", "role_context"], name="provprt_user_item_role_idx"),
         ]
 
 

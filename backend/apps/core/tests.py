@@ -1,9 +1,11 @@
 from django.test import TestCase
+from django.test import override_settings
 from django.http import QueryDict
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User, UserRole
 
+from . import db_outage
 from .views import HomeAggregateView
 
 
@@ -63,3 +65,29 @@ class RootServiceWorkerViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("application/javascript", response["Content-Type"])
+
+
+class DatabaseOutageTtlTests(TestCase):
+    @override_settings(
+        DEBUG=True,
+        DB_OUTAGE_TTL_SECONDS=30,
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+    )
+    def test_outage_ttl_is_short_in_local_debug_sqlite(self):
+        self.assertEqual(db_outage._outage_ttl_seconds(), 3)
+
+    @override_settings(
+        DEBUG=False,
+        DB_OUTAGE_TTL_SECONDS=30,
+        DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+    )
+    def test_outage_ttl_keeps_production_floor_for_sqlite(self):
+        self.assertEqual(db_outage._outage_ttl_seconds(), 30)
+
+    @override_settings(
+        DEBUG=True,
+        DB_OUTAGE_TTL_SECONDS=30,
+        DATABASES={"default": {"ENGINE": "django.db.backends.postgresql", "NAME": "nawafeth"}},
+    )
+    def test_outage_ttl_keeps_production_floor_for_non_sqlite(self):
+        self.assertEqual(db_outage._outage_ttl_seconds(), 30)

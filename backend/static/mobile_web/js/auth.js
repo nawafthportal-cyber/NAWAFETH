@@ -9,6 +9,7 @@ const Auth = (() => {
   const KEY_REFRESH = 'nw_refresh_token';
   const KEY_USER_ID = 'nw_user_id';
   const KEY_ROLE    = 'nw_role_state';
+  const KEY_MODE    = 'nw_account_mode';
   const AUTH_KEYS = [KEY_ACCESS, KEY_REFRESH, KEY_USER_ID, KEY_ROLE];
 
   function _serverAuth() {
@@ -56,7 +57,31 @@ const Auth = (() => {
       if (!sessionValue) _writeTo(session, key, effectiveValue);
       if (!localValue) _writeTo(local, key, effectiveValue);
     });
-    _writeModeCookie(_readStoredMode());
+    const mode = _readStoredMode();
+    _writeTo(session, KEY_MODE, mode);
+    _writeTo(local, KEY_MODE, mode);
+    _writeModeCookie(mode);
+  }
+
+  function _readModeCookie() {
+    try {
+      const match = window.document.cookie.match(/(?:^|; )nw_account_mode=([^;]+)/);
+      return match && match[1] ? decodeURIComponent(match[1]) : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function _writeModeStore(mode) {
+    const normalized = String(mode || '').trim().toLowerCase() === 'provider' ? 'provider' : 'client';
+    _writeTo(_sessionStore(), KEY_MODE, normalized);
+    _writeTo(_localStore(), KEY_MODE, normalized);
+    return normalized;
+  }
+
+  function _clearModeStore() {
+    _removeFrom(_sessionStore(), KEY_MODE);
+    _removeFrom(_localStore(), KEY_MODE);
   }
 
   function _readAuthValue(key) {
@@ -198,6 +223,7 @@ const Auth = (() => {
 
   function logout() {
     AUTH_KEYS.forEach(_clearAuthValue);
+    _clearModeStore();
     _profileCache = Object.create(null);
     _clearModeCookie();
     try { window.dispatchEvent(new Event('nw:auth-logout')); } catch {}
@@ -222,12 +248,13 @@ const Auth = (() => {
   }
 
   function _readStoredMode() {
-    try {
-      const mode = String(window.sessionStorage.getItem('nw_account_mode') || '').trim().toLowerCase();
-      return mode === 'provider' ? 'provider' : 'client';
-    } catch {
-      return 'client';
-    }
+    const sessionMode = String(_readFrom(_sessionStore(), KEY_MODE) || '').trim().toLowerCase();
+    if (sessionMode === 'provider' || sessionMode === 'client') return sessionMode;
+    const localMode = String(_readFrom(_localStore(), KEY_MODE) || '').trim().toLowerCase();
+    if (localMode === 'provider' || localMode === 'client') return localMode;
+    const cookieMode = String(_readModeCookie() || '').trim().toLowerCase();
+    if (cookieMode === 'provider' || cookieMode === 'client') return cookieMode;
+    return 'client';
   }
 
   function _writeModeCookie(mode) {
@@ -265,9 +292,7 @@ const Auth = (() => {
   function setActiveAccountMode(mode) {
     const normalized = String(mode || '').trim().toLowerCase() === 'provider' ? 'provider' : 'client';
     const previous = _readStoredMode();
-    try {
-      window.sessionStorage.setItem('nw_account_mode', normalized);
-    } catch {}
+    _writeModeStore(normalized);
     _writeModeCookie(normalized);
     if (previous !== normalized) {
       try {

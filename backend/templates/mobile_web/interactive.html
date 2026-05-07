@@ -181,6 +181,7 @@ body.page-interactive.page-interactive-x .page-content {
 .page-interactive-x .interactive-hero-summary-item[data-tab="following"]::before { background: linear-gradient(180deg,#c084fc,#7c3aed); }
 .page-interactive-x .interactive-hero-summary-item[data-tab="followers"]::before  { background: linear-gradient(180deg,#6ee7b7,#14958a); }
 .page-interactive-x .interactive-hero-summary-item[data-tab="favorites"]::before  { background: linear-gradient(180deg,#fde68a,#f59e0b); }
+.page-interactive-x .interactive-hero-summary-item[data-tab="likes"]::before      { background: linear-gradient(180deg,#fda4af,#e11d48); }
 .page-interactive-x .interactive-hero-summary-item[data-tab="blocks"]::before     { background: linear-gradient(180deg,#fca5a5,#dc2626); }
 .page-interactive-x .interactive-hero-summary-num {
   font-family: 'Cairo', sans-serif;
@@ -904,7 +905,7 @@ body.page-interactive.page-interactive-x .page-content {
 <main class="page-content">
   <div class="container">
     <div class="interactive-root" data-density="normal">
-      {% include "mobile_web/_auth_gate_unified.html" with gate_id="auth-gate" kicker="شبكة تفاعلك" title="سجّل دخولك لعرض تفاعلك على المنصة " description="يلزم تسجيل الدخول للوصول إلى المتابعة، المتابعين، والمفضلة." next_path="/interactive/" note="تابع المهتمين بك ووسائطك المفضلة من مكان واحد." %}
+      {% include "mobile_web/_auth_gate_unified.html" with gate_id="auth-gate" kicker="شبكة تفاعلك" title="سجّل دخولك لعرض تفاعلك على المنصة " description="يلزم تسجيل الدخول للوصول إلى المتابعة، المتابعين، والمفضلة، والإعجابات." next_path="/interactive/" note="تابع المهتمين بك ووسائطك المفضلة والمعجب بها من مكان واحد." %}
 
 <div id="interactive-content" class="interactive-content-shell hidden">
         <section class="interactive-hero">
@@ -924,6 +925,10 @@ body.page-interactive.page-interactive-x .page-content {
             <div class="interactive-hero-summary-item" data-tab="favorites">
               <span class="interactive-hero-summary-num" data-summary-for="favorites">0</span>
               <span class="interactive-hero-summary-label" id="interactive-summary-favorites">مفضلتي</span>
+            </div>
+            <div class="interactive-hero-summary-item" data-tab="likes">
+              <span class="interactive-hero-summary-num" data-summary-for="likes">0</span>
+              <span class="interactive-hero-summary-label" id="interactive-summary-likes">إعجاباتي</span>
             </div>
             <div class="interactive-hero-summary-item" data-tab="blocks">
               <span class="interactive-hero-summary-num" data-summary-for="blocks">0</span>
@@ -1042,6 +1047,25 @@ body.page-interactive.page-interactive-x .page-content {
           <div class="interactive-favorites-host" id="favorites-list"></div>
         </section>
 
+<section id="tab-likes" class="tab-panel interactive-panel-shell" data-panel-key="likes">
+          <div class="interactive-panel-head">
+            <div>
+              <h3 class="interactive-panel-title" id="interactive-panel-title-likes">إعجاباتي</h3>
+              <p class="interactive-panel-subtitle" id="interactive-panel-subtitle-likes">المحتوى الذي أظهرت إعجابك به ويمكنك الرجوع إليه أو إلغاء الإعجاب مباشرة.</p>
+            </div>
+            <div class="interactive-panel-toolbar">
+              <label class="inx-search" id="interactive-search-label-likes" aria-label="ابحث في الإعجابات">
+                <input type="search" id="interactive-search-input-likes" placeholder="ابحث في الإعجابات…" data-inx-search="likes" autocomplete="off" />
+                <svg class="inx-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              </label>
+              <span class="inx-counter" id="inx-counter-likes" aria-live="polite">
+                <b data-counter-visible="likes">0</b><span class="inx-counter-sep">/</span><b data-counter-total="likes">0</b>
+              </span>
+            </div>
+          </div>
+          <div class="interactive-favorites-host" id="likes-list"></div>
+        </section>
+
 <section id="tab-blocks" class="tab-panel interactive-panel-shell" data-panel-key="blocks">
           <div class="interactive-panel-head">
             <div>
@@ -1097,6 +1121,7 @@ body.page-interactive.page-interactive-x .page-content {
     following: 'following-list',
     followers: 'followers-list',
     favorites: 'favorites-list',
+    likes: 'likes-list',
     blocks: 'blocks-list'
   };
 
@@ -1116,6 +1141,7 @@ body.page-interactive.page-interactive-x .page-content {
     if (tabKey === 'following') return '.interactive-following-card';
     if (tabKey === 'followers') return '.interactive-follower-tile';
     if (tabKey === 'favorites') return '.interactive-favorite-card, .interactive-favorite-reel';
+    if (tabKey === 'likes') return '.interactive-favorite-card, .interactive-favorite-reel';
     if (tabKey === 'blocks') return '.interactive-blocked-provider-card, .interactive-blocked-spotlight-card';
     return '';
   }
@@ -1209,7 +1235,7 @@ body.page-interactive.page-interactive-x .page-content {
     });
   }
 
-  window.addEventListener('nawafeth:languagechange', function () {
+  document.addEventListener('nawafeth:languagechange', function () {
     $all('.inx-no-match').forEach(function (el) {
       el.innerHTML = inlineCopy('noMatch');
     });

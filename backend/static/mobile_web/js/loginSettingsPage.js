@@ -303,7 +303,11 @@ const LoginSettingsPage = (() => {
 
   function _saveMode(mode) {
     try {
-      sessionStorage.setItem("nw_account_mode", mode === "provider" ? "provider" : "client");
+      if (window.Auth && typeof window.Auth.setActiveAccountMode === "function") {
+        window.Auth.setActiveAccountMode(mode === "provider" ? "provider" : "client");
+      } else {
+        sessionStorage.setItem("nw_account_mode", mode === "provider" ? "provider" : "client");
+      }
     } catch (_) {
       // ignore storage failures
     }

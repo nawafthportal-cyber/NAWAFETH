@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.accounts.permissions import IsAtLeastPhoneOnly
+from apps.accounts.presence import effective_last_seen as _presence_effective_last_seen
 from apps.accounts.presence import is_online_value as _presence_is_online_value
 from apps.core.unread_badges import (
 	get_direct_messages_unread_payload,
@@ -683,7 +684,7 @@ class MyDirectThreadsListView(APIView):
 			peer_is_online = False
 			peer_last_seen = None
 			if peer_provider and not getattr(peer, "is_staff", False):
-				_last_seen_dt = getattr(peer, "last_seen", None)
+				_last_seen_dt = _presence_effective_last_seen(peer)
 				peer_is_online = _presence_is_online_value(_last_seen_dt)
 				peer_last_seen = _last_seen_dt.isoformat() if _last_seen_dt else None
 

@@ -75,7 +75,7 @@ const HomePage = (() => {
   const FEATURED_SPECIALISTS_ROTATE_MS = 5000;
   const FEATURED_SPECIALISTS_ANIMATE_MS = 380;
   const HOME_BANNERS_LIMIT = 16;
-  const PORTFOLIO_SHOWCASE_LIMIT = 16;
+  const PORTFOLIO_SHOWCASE_LIMIT = 24;
   const PORTFOLIO_SHOWCASE_FETCH_LIMIT = 40;
   const REELS_LIMIT = 50;
   const PROVIDERS_RESUME_DELAY_MS = 3000;
@@ -750,6 +750,37 @@ const HomePage = (() => {
     }
 
     return frame;
+  }
+
+  function _buildHomeProviderAvatarShell(options) {
+    const safe = options && typeof options === 'object' ? options : {};
+    const size = safe.size === 'md' ? 'md' : 'sm';
+    const displayName = _readBannerString(
+      safe.display_name || safe.provider_display_name || safe.name
+    ) || 'مقدم خدمة';
+    const profileUrl = ApiClient.mediaUrl(
+      _readBannerString(safe.profile_image || safe.provider_profile_image)
+    );
+    const shell = UI.el('div', {
+      className: 'home-provider-avatar-shell is-' + size,
+      title: displayName,
+      'aria-label': displayName,
+    });
+    const avatar = UI.el('div', { className: 'home-provider-avatar' });
+
+    if (profileUrl) {
+      avatar.appendChild(UI.lazyImg(profileUrl, displayName));
+    } else {
+      avatar.appendChild(UI.text((displayName || '؟').charAt(0)));
+    }
+
+    shell.appendChild(avatar);
+    if (typeof UI.presenceDot === 'function') {
+      shell.appendChild(UI.presenceDot(!!(safe.is_online || safe.provider_is_online), {
+        size: size === 'md' ? 'lg' : undefined,
+      }));
+    }
+    return shell;
   }
 
   /* ----------------------------------------------------------
@@ -2133,34 +2164,47 @@ const HomePage = (() => {
     const nested = rawPromo.portfolio_item && typeof rawPromo.portfolio_item === 'object'
       ? rawPromo.portfolio_item
       : null;
+    const directItem = !nested && (
+      rawPromo.file_url
+      || rawPromo.thumbnail_url
+      || rawPromo.provider_display_name
+      || rawPromo.likes_count !== undefined
+      || rawPromo.saves_count !== undefined
+      || rawPromo.comments_count !== undefined
+      || rawPromo.is_liked !== undefined
+      || rawPromo.is_saved !== undefined
+    )
+      ? rawPromo
+      : null;
+    const contentItem = nested || directItem;
     const fileUrl = _readBannerString(
-      nested ? nested.file_url : (rawPromo.file_url || rawPromo.target_portfolio_item_file)
+      contentItem ? contentItem.file_url : (rawPromo.file_url || rawPromo.target_portfolio_item_file)
     );
     if (!fileUrl) return null;
     return {
-      id: _readBannerInt(nested ? nested.id : (rawPromo.id || rawPromo.target_portfolio_item_id)),
-      provider_id: _readBannerInt(nested ? nested.provider_id : (rawPromo.provider_id || rawPromo.target_provider_id)),
+      id: _readBannerInt(contentItem ? contentItem.id : (rawPromo.target_portfolio_item_id || rawPromo.id)),
+      provider_id: _readBannerInt(contentItem ? contentItem.provider_id : (rawPromo.provider_id || rawPromo.target_provider_id)),
       provider_display_name: _readBannerString(
-        nested ? nested.provider_display_name : (rawPromo.provider_display_name || rawPromo.target_provider_display_name)
+        contentItem ? contentItem.provider_display_name : (rawPromo.provider_display_name || rawPromo.target_provider_display_name)
       ) || 'مقدم خدمة',
       provider_profile_image: _readBannerString(
-        nested ? nested.provider_profile_image : (rawPromo.provider_profile_image || rawPromo.target_provider_profile_image)
+        contentItem ? contentItem.provider_profile_image : (rawPromo.provider_profile_image || rawPromo.target_provider_profile_image)
       ),
-      is_verified_blue: !!(nested ? nested.is_verified_blue : rawPromo.is_verified_blue),
-      is_verified_green: !!(nested ? nested.is_verified_green : rawPromo.is_verified_green),
-      provider_is_online: !!(nested ? nested.provider_is_online : rawPromo.provider_is_online),
+      is_verified_blue: !!(contentItem ? contentItem.is_verified_blue : rawPromo.is_verified_blue),
+      is_verified_green: !!(contentItem ? contentItem.is_verified_green : rawPromo.is_verified_green),
+      provider_is_online: !!(contentItem ? contentItem.provider_is_online : rawPromo.provider_is_online),
       file_type: _readBannerString(
-        nested ? nested.file_type : (rawPromo.file_type || rawPromo.target_portfolio_item_file_type)
+        contentItem ? contentItem.file_type : (rawPromo.file_type || rawPromo.target_portfolio_item_file_type)
       ) || 'image',
       file_url: fileUrl,
-      thumbnail_url: _readBannerString(nested ? nested.thumbnail_url : rawPromo.thumbnail_url),
-      caption: _readBannerString(nested ? nested.caption : (rawPromo.caption || rawPromo.title)) || 'مشروع',
+      thumbnail_url: _readBannerString(contentItem ? contentItem.thumbnail_url : rawPromo.thumbnail_url),
+      caption: _readBannerString(contentItem ? contentItem.caption : (rawPromo.caption || rawPromo.title)) || 'مشروع',
       redirect_url: _readBannerString(rawPromo.redirect_url),
-      likes_count: _readBannerInt(nested ? nested.likes_count : 0),
-      saves_count: _readBannerInt(nested ? nested.saves_count : 0),
-      comments_count: _readBannerInt(nested ? nested.comments_count : 0),
-      is_liked: !!(nested && nested.is_liked),
-      is_saved: !!(nested && nested.is_saved),
+      likes_count: _readBannerInt(contentItem ? contentItem.likes_count : rawPromo.likes_count),
+      saves_count: _readBannerInt(contentItem ? contentItem.saves_count : rawPromo.saves_count),
+      comments_count: _readBannerInt(contentItem ? contentItem.comments_count : rawPromo.comments_count),
+      is_liked: !!(contentItem ? contentItem.is_liked : rawPromo.is_liked),
+      is_saved: !!(contentItem ? contentItem.is_saved : rawPromo.is_saved),
       source: 'portfolio',
     };
   }
@@ -2222,6 +2266,7 @@ const HomePage = (() => {
       provider_profile_image: _readBannerString(
         nested ? nested.provider_profile_image : rawPromo.target_provider_profile_image
       ),
+      provider_is_online: !!(nested ? nested.provider_is_online : rawPromo.target_provider_is_online),
       file_type: _readBannerString(
         nested ? nested.file_type : rawPromo.target_spotlight_item_file_type
       ) || 'image',
@@ -2307,6 +2352,19 @@ const HomePage = (() => {
       }
       card.appendChild(media);
 
+      const providerRow = UI.el('div', { className: 'showcase-provider-row' });
+      providerRow.appendChild(_buildHomeProviderAvatarShell({
+        provider_profile_image: item.provider_profile_image,
+        provider_display_name: item.provider_display_name,
+        provider_is_online: item.provider_is_online,
+        size: 'sm',
+      }));
+      providerRow.appendChild(UI.el('div', {
+        className: 'showcase-provider-name',
+        textContent: item.provider_display_name || 'مقدم خدمة',
+      }));
+      card.appendChild(providerRow);
+
       const openPortfolio = () => {
         if (typeof NwAnalytics !== 'undefined') {
           NwAnalytics.track('promo.portfolio_showcase_click', {
@@ -2361,14 +2419,53 @@ const HomePage = (() => {
     const body = _readBannerString(promo.message_body);
     const redirect = _readBannerString(promo.redirect_url);
     const providerId = _readBannerInt(promo.target_provider_id);
+    const providerDisplayName = _readBannerString(promo.target_provider_display_name || promo.provider_display_name);
+    const providerProfileImage = _readBannerString(promo.target_provider_profile_image || promo.provider_profile_image);
+    const providerIsOnline = !!(promo.target_provider_is_online || promo.provider_is_online);
 
     $promoMessageSection.style.display = '';
     _notifySectionShown($promoMessageSection);
     $promoMessageCard.textContent = '';
-    const chip = UI.el('span', { className: 'sponsor-chip', textContent: 'رسالة دعائية' });
-    const headline = UI.el('div', { className: 'sponsor-title', textContent: title });
-    const message = UI.el('div', { className: 'sponsor-body', textContent: body || 'عرض جديد مخصص لك.' });
-    const action = UI.el('a', { className: 'ghost-btn', href: '#', textContent: 'عرض التفاصيل' });
+    const chip = UI.el('span', { className: 'sponsor-chip', textContent: '★ رعاية خاصة' });
+    const eyebrow = UI.el('div', { className: 'sponsor-eyebrow' });
+    eyebrow.appendChild(chip);
+    eyebrow.appendChild(UI.el('span', {
+      className: 'sponsor-eyebrow-note',
+      textContent: 'رسالة من راعٍ موثوق',
+    }));
+
+    const providerRow = UI.el('div', { className: 'sponsor-provider-row' });
+    providerRow.appendChild(_buildHomeProviderAvatarShell({
+      provider_profile_image: providerProfileImage,
+      provider_display_name: providerDisplayName || 'مقدم خدمة',
+      provider_is_online: providerIsOnline,
+      size: 'md',
+    }));
+    const providerMeta = UI.el('div', { className: 'sponsor-provider-meta' });
+    providerMeta.appendChild(UI.el('div', {
+      className: 'sponsor-provider-name',
+      textContent: providerDisplayName || 'مقدم خدمة',
+    }));
+    providerMeta.appendChild(UI.el('div', {
+      className: 'sponsor-provider-status' + (providerIsOnline ? ' is-online' : ' is-offline'),
+      textContent: providerIsOnline ? 'متصل الآن' : 'جاهز لعرض التفاصيل',
+    }));
+    providerRow.appendChild(providerMeta);
+
+    const hero = UI.el('div', { className: 'sponsor-hero' });
+    hero.appendChild(providerRow);
+    hero.appendChild(UI.el('div', { className: 'sponsor-title', textContent: title }));
+
+    const messagePanel = UI.el('div', { className: 'sponsor-message-panel' });
+    messagePanel.appendChild(UI.el('div', { className: 'sponsor-quote-mark', textContent: '“' }));
+    messagePanel.appendChild(UI.el('div', { className: 'sponsor-body', textContent: body || 'عرض جديد مخصص لك.' }));
+
+    const footer = UI.el('div', { className: 'sponsor-footer' });
+    footer.appendChild(UI.el('div', {
+      className: 'sponsor-footer-note',
+      textContent: redirect ? 'رابط مباشر متاح' : 'افتح صفحة الراعي للتفاصيل',
+    }));
+    const action = UI.el('a', { className: 'sponsor-action-btn', href: '#', textContent: redirect ? 'زيارة الرابط' : 'عرض الملف الشخصي' });
     action.addEventListener('click', (event) => {
       event.preventDefault();
       if (redirect) {
@@ -2379,10 +2476,12 @@ const HomePage = (() => {
         window.location.href = '/provider/' + encodeURIComponent(String(providerId)) + '/';
       }
     });
-    $promoMessageCard.appendChild(chip);
-    $promoMessageCard.appendChild(headline);
-    $promoMessageCard.appendChild(message);
-    $promoMessageCard.appendChild(action);
+    footer.appendChild(action);
+
+    $promoMessageCard.appendChild(eyebrow);
+    $promoMessageCard.appendChild(hero);
+    $promoMessageCard.appendChild(messagePanel);
+    $promoMessageCard.appendChild(footer);
   }
 
   function _renderHeroBannerEmptyState() {
@@ -2759,7 +2858,6 @@ const HomePage = (() => {
 
       ring.appendChild(inner);
       reel.appendChild(ring);
-      reel.appendChild(UI.el('div', { className: 'reel-caption', textContent: caption }));
       reel.setAttribute('data-reel-index', String(idx));
 
       // Click → open SpotlightViewer at this index
@@ -3026,9 +3124,15 @@ const HomePage = (() => {
     const mediaUrl = asset ? ApiClient.mediaUrl(asset.file || asset.file_url) : null;
     const mediaType = String((asset && asset.file_type) || 'image').toLowerCase();
     const redirectUrl = promo.redirect_url || '';
-    const title = promo.title || '';
+    const title = _readBannerString(promo.message_title || promo.title) || 'رسالة الراعي';
+    const body = _readBannerString(promo.message_body) || '';
     const providerId = promo.target_provider_id ? String(promo.target_provider_id) : '';
     const providerHref = providerId ? ('/provider/' + encodeURIComponent(providerId) + '/') : '';
+    const providerDisplayName = _readBannerString(promo.target_provider_display_name || promo.provider_display_name) || 'مقدم خدمة';
+    const providerProfileImage = _readBannerString(promo.target_provider_profile_image || promo.provider_profile_image);
+    const providerIsOnline = !!(promo.target_provider_is_online || promo.provider_is_online);
+    const providerCity = _readBannerString(promo.target_provider_city_display || promo.target_provider_city);
+    const actionHref = redirectUrl || providerHref;
     if (typeof NwAnalytics !== 'undefined') {
       NwAnalytics.trackOnce(
         'promo.popup_open',
@@ -3049,11 +3153,39 @@ const HomePage = (() => {
 
     const overlay = UI.el('div', { className: 'promo-popup-overlay' });
     const modal = UI.el('div', { className: 'promo-popup-modal' });
+    const shell = UI.el('div', { className: 'promo-popup-shell' });
+
+    const topBar = UI.el('div', { className: 'promo-popup-topbar' });
+    topBar.appendChild(UI.el('span', { className: 'promo-popup-chip', textContent: '★ برعاية' }));
+    topBar.appendChild(UI.el('span', { className: 'promo-popup-topnote', textContent: 'رسالة الراعي الرسمي' }));
 
     const closeBtn = UI.el('button', { className: 'promo-popup-close', textContent: '✕', type: 'button' });
     closeBtn.setAttribute('aria-label', 'إغلاق');
     closeBtn.addEventListener('click', () => overlay.remove());
-    modal.appendChild(closeBtn);
+    topBar.appendChild(closeBtn);
+
+    const hero = UI.el('div', { className: 'promo-popup-hero' + (mediaUrl ? '' : ' no-media') });
+    const heroContent = UI.el('div', { className: 'promo-popup-hero-content' });
+    const providerRow = UI.el('div', { className: 'promo-popup-provider-row' });
+    providerRow.appendChild(_buildHomeProviderAvatarShell({
+      provider_profile_image: providerProfileImage,
+      provider_display_name: providerDisplayName,
+      provider_is_online: providerIsOnline,
+      size: 'md',
+    }));
+    const providerMeta = UI.el('div', { className: 'promo-popup-provider-meta' });
+    providerMeta.appendChild(UI.el('div', {
+      className: 'promo-popup-provider-name',
+      textContent: providerDisplayName,
+    }));
+    providerMeta.appendChild(UI.el('div', {
+      className: 'promo-popup-provider-status' + (providerIsOnline ? ' is-online' : ' is-offline'),
+      textContent: providerIsOnline ? 'متصل الآن' : (providerCity || 'جاهز لاستقبال الطلبات'),
+    }));
+    providerRow.appendChild(providerMeta);
+    heroContent.appendChild(providerRow);
+    heroContent.appendChild(UI.el('h3', { className: 'promo-popup-title', textContent: title }));
+    hero.appendChild(heroContent);
 
     if (mediaUrl) {
       const media = mediaType === 'video'
@@ -3070,9 +3202,8 @@ const HomePage = (() => {
         media.setAttribute('playsinline', 'playsinline');
         media.setAttribute('aria-label', title || 'فيديو ترويجي');
       }
-      const href = redirectUrl || providerHref;
-      if (href) {
-        const link = UI.el('a', { href, className: 'promo-popup-media-link' });
+      if (actionHref) {
+        const link = UI.el('a', { href: actionHref, className: 'promo-popup-media-link' });
         if (redirectUrl) {
           link.target = '_blank';
           link.rel = 'noopener';
@@ -3090,16 +3221,60 @@ const HomePage = (() => {
             },
           });
         });
-        link.appendChild(media);
-        modal.appendChild(link);
+        const mediaFrame = UI.el('div', { className: 'promo-popup-media-frame' });
+        mediaFrame.appendChild(media);
+        link.appendChild(mediaFrame);
+        hero.appendChild(link);
       } else {
-        modal.appendChild(media);
+        const mediaFrame = UI.el('div', { className: 'promo-popup-media-frame' });
+        mediaFrame.appendChild(media);
+        hero.appendChild(mediaFrame);
       }
     }
 
-    if (title) {
-      modal.appendChild(UI.el('p', { className: 'promo-popup-title', textContent: title }));
+    shell.appendChild(topBar);
+    shell.appendChild(hero);
+
+    if (body) {
+      const bodyPanel = UI.el('div', { className: 'promo-popup-body-panel' });
+      bodyPanel.appendChild(UI.el('div', { className: 'promo-popup-body-label', textContent: 'رسالة الراعي' }));
+      bodyPanel.appendChild(UI.el('p', { className: 'promo-popup-body', textContent: body }));
+      shell.appendChild(bodyPanel);
     }
+
+    const footer = UI.el('div', { className: 'promo-popup-footer' });
+    footer.appendChild(UI.el('div', {
+      className: 'promo-popup-footer-note',
+      textContent: redirectUrl ? 'سيتم فتح الرابط الخارجي مباشرة' : 'سيتم فتح صفحة الراعي داخل المنصة',
+    }));
+    if (actionHref) {
+      const action = UI.el('a', {
+        href: actionHref,
+        className: 'promo-popup-action',
+        textContent: redirectUrl ? 'زيارة الرابط' : 'عرض الملف',
+      });
+      if (redirectUrl) {
+        action.target = '_blank';
+        action.rel = 'noopener';
+      }
+      action.addEventListener('click', () => {
+        if (typeof NwAnalytics === 'undefined') return;
+        NwAnalytics.track('promo.popup_click', {
+          surface: 'mobile_web.home.popup',
+          source_app: 'promo',
+          object_type: 'ProviderProfile',
+          object_id: providerId,
+          payload: {
+            title: title,
+            redirect_url: redirectUrl,
+          },
+        });
+      });
+      footer.appendChild(action);
+    }
+    shell.appendChild(footer);
+
+    modal.appendChild(shell);
 
     overlay.appendChild(modal);
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });

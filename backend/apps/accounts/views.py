@@ -1296,7 +1296,11 @@ request_phone_change_view.throttle_scope = "otp"
 # Presence (online/offline indicator)
 # ────────────────────────────────────────────────
 
-from .presence import mark_seen as _presence_mark_seen, is_online as _presence_is_online, last_seen as _presence_last_seen
+from .presence import (
+    effective_last_seen as _presence_effective_last_seen,
+    is_online as _presence_is_online,
+    mark_seen as _presence_mark_seen,
+)
 
 
 @api_view(["POST"])
@@ -1310,7 +1314,7 @@ def heartbeat_view(request):
     """
     user = request.user
     _presence_mark_seen(user)
-    ts = _presence_last_seen(user)
+    ts = _presence_effective_last_seen(user)
     return Response(
         {
             "ok": True,

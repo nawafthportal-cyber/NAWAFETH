@@ -657,7 +657,11 @@ const ProviderDashboardPage = (() => {
     }
 
     if (!_providerProfile || !_providerProfile.id) {
-      sessionStorage.setItem('nw_account_mode', 'client');
+      if (window.Auth && typeof window.Auth.setActiveAccountMode === 'function') {
+        window.Auth.setActiveAccountMode('client');
+      } else {
+        sessionStorage.setItem('nw_account_mode', 'client');
+      }
       window.location.href = '/profile/';
       return;
     }
@@ -1077,11 +1081,19 @@ const ProviderDashboardPage = (() => {
     const clientBtn = document.getElementById('mode-client-btn');
     const provBtn = document.getElementById('mode-provider-btn');
     clientBtn.addEventListener('click', () => {
-      sessionStorage.setItem('nw_account_mode', 'client');
+      if (window.Auth && typeof window.Auth.setActiveAccountMode === 'function') {
+        window.Auth.setActiveAccountMode('client');
+      } else {
+        sessionStorage.setItem('nw_account_mode', 'client');
+      }
       window.location.href = '/profile/';
     });
     provBtn.addEventListener('click', () => {
-      sessionStorage.setItem('nw_account_mode', 'provider');
+      if (window.Auth && typeof window.Auth.setActiveAccountMode === 'function') {
+        window.Auth.setActiveAccountMode('provider');
+      } else {
+        sessionStorage.setItem('nw_account_mode', 'provider');
+      }
     });
   }
 

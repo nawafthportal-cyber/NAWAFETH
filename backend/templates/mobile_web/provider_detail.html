@@ -8,7 +8,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}?v=20260503-spotlight-comments-fix3" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="{% static 'mobile_web/css/provider-detail-polish.css' %}?v=20260506-provider-detail-polish-v3" />
+<link rel="stylesheet" href="{% static 'mobile_web/css/provider-detail-polish.css' %}?v=20260507-provider-top-profile-polish-v2" />
 <style>
   @media (max-width: 1023px) {
     body.page-provider-detail #top-navbar,
@@ -255,16 +255,26 @@
 <div class="container">
     <div class="pd-discovery-shell">
       <div class="pd-discovery-main">
+    <section class="pd-profile-summary-card" aria-label="ملخص سريع لمقدم الخدمة">
     <section class="pd-overview-strip" id="pd-overview-strip" aria-label="ملخص مقدم الخدمة">
       <article class="pd-overview-card">
+        <span class="pd-overview-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s7-4.9 7-11a7 7 0 1 0-14 0c0 6.1 7 11 7 11Z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="2.5" stroke="currentColor" stroke-width="2"/></svg>
+        </span>
         <span class="pd-overview-label" id="pd-overview-city-label">المدينة</span>
         <strong class="pd-overview-value" id="pd-overview-city">-</strong>
       </article>
       <article class="pd-overview-card">
+        <span class="pd-overview-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/></svg>
+        </span>
         <span class="pd-overview-label" id="pd-overview-experience-label">الخبرة</span>
         <strong class="pd-overview-value" id="pd-overview-experience">-</strong>
       </article>
       <article class="pd-overview-card">
+        <span class="pd-overview-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" opacity=".55"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
         <span class="pd-overview-label" id="pd-overview-range-label">نطاق الخدمة</span>
         <strong class="pd-overview-value" id="pd-overview-range">-</strong>
       </article>
@@ -313,21 +323,8 @@
         </span>
       </button>
     </div>
+    </section>
 
-<div class="pd-highlights-section" id="pd-highlights-section">
-      <div class="pd-section-header">
-        <h3 class="pd-section-title" id="pd-highlights-title">لمحات مقدم الخدمة</h3>
-        <span class="pd-section-hint" id="pd-highlights-hint">اسحب يمين/يسار</span>
-      </div>
-      <div class="pd-highlights-row" id="pd-highlights">
-        <div class="pd-highlights-empty" id="pd-highlights-empty">
-          <span class="pd-highlights-empty-icon" aria-hidden="true">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          </span>
-          <span class="pd-highlights-empty-text" id="pd-highlights-empty-text">لا توجد لمحات بعد</span>
-        </div>
-      </div>
-    </div>
       </div>
 
       <aside class="pd-discovery-side" aria-label="إجراءات سريعة">
@@ -379,6 +376,21 @@
       </div>
     </div>
       </aside>
+    </div>
+
+    <div class="pd-highlights-section" id="pd-highlights-section">
+      <div class="pd-section-header">
+        <h3 class="pd-section-title" id="pd-highlights-title">لمحات مقدم الخدمة</h3>
+        <span class="pd-section-hint" id="pd-highlights-hint">اسحب يمين/يسار</span>
+      </div>
+      <div class="pd-highlights-row" id="pd-highlights">
+        <div class="pd-highlights-empty" id="pd-highlights-empty">
+          <span class="pd-highlights-empty-icon" aria-hidden="true">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          </span>
+          <span class="pd-highlights-empty-text" id="pd-highlights-empty-text">لا توجد لمحات بعد</span>
+        </div>
+      </div>
     </div>
 
     <section class="pd-tabs-shell" aria-label="التنقل داخل ملف مقدم الخدمة">
@@ -499,17 +511,6 @@
       </div>
 
 <div id="tab-services" class="pd-panel" role="tabpanel" aria-labelledby="pd-tab-btn-services" tabindex="0" hidden>
-        <section class="pd-services-hero">
-          <div class="pd-services-hero-badge">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7L12 3 4 7l8 4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 17l8 4 8-4"/></svg>
-            <span id="pd-services-badge">خدمات المزود</span>
-          </div>
-          <div class="pd-services-hero-copy">
-            <h3 id="pd-services-hero-title">خدمات مرتبة وواضحة قبل بدء التواصل</h3>
-            <p id="pd-services-hero-subtitle">راجع ما يقدمه المزوّد، نطاق التسعير، ووصف كل خدمة قبل الانتقال إلى الرسائل أو طلب التنفيذ.</p>
-          </div>
-          <div class="pd-services-hero-count" id="pd-services-count">0 خدمة</div>
-        </section>
         <div class="pd-tab-loading-shell" id="pd-services-loading" aria-hidden="true">
           <div class="pd-list-skeleton-card nw-skeleton-surface">
             <span class="nw-skeleton-block title"></span>
@@ -531,20 +532,6 @@
       </div>
 
 <div id="tab-portfolio" class="pd-panel" role="tabpanel" aria-labelledby="pd-tab-btn-portfolio" tabindex="0" hidden>
-        <section class="pd-portfolio-hero">
-          <div class="pd-portfolio-hero-badge">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="4" ry="4"/><path d="M10 8l6 4-6 4z"/></svg>
-            <span id="pd-portfolio-badge">معرض خدماتي</span>
-          </div>
-          <div class="pd-portfolio-hero-copy">
-            <h3 id="pd-portfolio-hero-title">استعراض عمودي سريع بنفس روح المشاهد القصيرة</h3>
-            <p id="pd-portfolio-hero-subtitle">افتح أي بطاقة لمشاهدة الصور والفيديوهات بواجهة كاملة، مع بقاء الإعجاب والحفظ ظاهرين مباشرة على كل عنصر.</p>
-          </div>
-          <div class="pd-portfolio-hero-metrics">
-            <span class="pd-portfolio-hero-metric" id="pd-portfolio-total">0 عنصر</span>
-            <span class="pd-portfolio-hero-metric" id="pd-portfolio-sections-total">0 قسم</span>
-          </div>
-        </section>
         <div class="pd-tab-loading-shell pd-reel-loading-shell" id="pd-portfolio-loading" aria-hidden="true">
           <div class="pd-reel-skeleton-card nw-skeleton-surface"></div>
           <div class="pd-reel-skeleton-card nw-skeleton-surface"></div>
@@ -584,5 +571,5 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{% static 'mobile_web/js/spotlightViewer.js' %}?v=20260503-spotlight-comments-fix3"></script>
-  <script src="{% static 'mobile_web/js/providerDetailPage.js' %}?v=20260505-provider-cover-layered-render"></script>
+  <script src="{% static 'mobile_web/js/providerDetailPage.js' %}?v=20260507-remove-services-portfolio-hero-v1"></script>
 {% endblock %}

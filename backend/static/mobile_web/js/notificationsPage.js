@@ -179,7 +179,11 @@ const NotificationsPage = (() => {
       const params = new URLSearchParams(window.location.search || '');
       const modeFromUrl = (params.get('mode') || '').trim().toLowerCase();
       if (modeFromUrl === 'provider' || modeFromUrl === 'client') {
-        sessionStorage.setItem('nw_account_mode', modeFromUrl);
+        if (window.Auth && typeof window.Auth.setActiveAccountMode === 'function') {
+          window.Auth.setActiveAccountMode(modeFromUrl);
+        } else {
+          sessionStorage.setItem('nw_account_mode', modeFromUrl);
+        }
         return modeFromUrl;
       }
     } catch (_) {}

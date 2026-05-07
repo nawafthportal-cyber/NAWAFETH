@@ -992,7 +992,11 @@ var ProviderRegisterPage = (function () {
   }
 
   function showSuccessPanel() {
-    sessionStorage.setItem("nw_account_mode", "provider");
+    if (window.Auth && typeof window.Auth.setActiveAccountMode === "function") {
+      window.Auth.setActiveAccountMode("provider");
+    } else {
+      sessionStorage.setItem("nw_account_mode", "provider");
+    }
     if (window.Auth && typeof window.Auth.saveRoleState === "function") {
       window.Auth.saveRoleState("provider");
     } else {

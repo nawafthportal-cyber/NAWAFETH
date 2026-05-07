@@ -506,8 +506,24 @@ const ProviderDetailPage = (() => {
   let _coverGalleryIndex = 0;
   let _coverGalleryTimer = 0;
 
+  function _activeMode() {
+    if (typeof Auth !== 'undefined' && Auth && typeof Auth.getActiveAccountMode === 'function') {
+      const mode = _trimText(Auth.getActiveAccountMode()).toLowerCase();
+      if (mode === 'provider' || mode === 'client') return mode;
+    }
+    return _resolveMode();
+  }
+
+  function _syncMode(modeOverride) {
+    const nextMode = (modeOverride === 'provider' || modeOverride === 'client') ? modeOverride : _activeMode();
+    _mode = nextMode === 'provider' ? 'provider' : 'client';
+    return _mode;
+  }
+
   function init() {
     document.addEventListener('nawafeth:languagechange', _handleLanguageChange);
+    window.addEventListener('nw:account-mode-changed', _handleAccountModeChange);
+    window.addEventListener('pageshow', _handlePageShow);
     const match = window.location.pathname.match(/\/provider\/(\d+)(?:\/[^/?#]+)?\/?/);
     if (!match) {
       document.querySelector('.pd-page').textContent = '';
@@ -518,7 +534,7 @@ const ProviderDetailPage = (() => {
       return;
     }
     _providerId = match[1];
-    _mode = _resolveMode();
+    _syncMode();
     _returnNav = _resolveReturnNavigation();
 
     _bindTabs();
@@ -529,6 +545,15 @@ const ProviderDetailPage = (() => {
     _syncDirectChatAvailability();
     _applyStaticCopy();
     _loadAll();
+  }
+
+  function _handleAccountModeChange(event) {
+    const nextMode = event && event.detail && event.detail.mode;
+    _syncMode(nextMode);
+  }
+
+  function _handlePageShow() {
+    _syncMode();
   }
 
   async function _trackProviderShare(channel) {
@@ -920,6 +945,7 @@ const ProviderDetailPage = (() => {
 
       target.likes_count = _safeInt(detail.likes_count);
       target.saves_count = _safeInt(detail.saves_count);
+      target.comments_count = _safeInt(detail.comments_count);
       target.is_liked = _asBool(detail.is_liked);
       target.is_saved = _asBool(detail.is_saved);
 
@@ -1198,13 +1224,10 @@ const ProviderDetailPage = (() => {
     } else {
       avatarEl.textContent = displayName.charAt(0) || '؟';
     }
-    // Presence dot – this is always a provider page, so always render.
-    if (avatarEl && typeof UI.presenceDot === 'function') {
-      // Remove any existing dot before re-rendering.
-      const _old = avatarEl.querySelector('.nw-presence-dot');
-      if (_old) _old.remove();
-      avatarEl.style.position = 'relative';
-      avatarEl.appendChild(UI.presenceDot(!!p.is_online, { size: 'lg' }));
+    const avatarWrapEl = avatarEl ? avatarEl.closest('.pd-avatar-wrap') : null;
+    if (avatarWrapEl && typeof UI.presenceDot === 'function') {
+      avatarWrapEl.querySelectorAll('.nw-presence-dot').forEach((dot) => dot.remove());
+      avatarWrapEl.appendChild(UI.presenceDot(_asBool(p.is_online), { size: 'lg' }));
     }
 
     // ── Verification badges (blue/green unified style) ──
@@ -2300,7 +2323,6 @@ const ProviderDetailPage = (() => {
   async function _loadServices() {
     const container = document.getElementById('pd-services-list');
     const emptyEl = document.getElementById('pd-services-empty');
-    const countEl = document.getElementById('pd-services-count');
     _setTabLoadingState('services', true);
     const res = await ApiClient.get('/api/providers/' + _providerId + '/services/');
     if (!res.ok) {
@@ -2315,9 +2337,6 @@ const ProviderDetailPage = (() => {
     container.textContent = '';
     if (emptyEl) emptyEl.classList.add('hidden');
     _setTabLoadingState('services', false);
-    if (countEl) {
-      countEl.textContent = _serviceCountLabel(displayList.length);
-    }
     _setTabMeta('services', _formatTabCount(displayList.length));
 
     if (!displayList.length) {
@@ -2524,6 +2543,7 @@ const ProviderDetailPage = (() => {
         desc: description,
         likes_count: _safeInt(item.likes_count),
         saves_count: _safeInt(item.saves_count),
+        comments_count: _safeInt(item.comments_count),
         is_liked: _asBool(item.is_liked),
         is_saved: _asBool(item.is_saved),
       };
@@ -2573,61 +2593,20 @@ const ProviderDetailPage = (() => {
           frame.appendChild(UI.lazyImg(ApiClient.mediaUrl(displayUrl), item.desc || sectionTitle));
         }
 
-        const topline = UI.el('div', { className: 'pd-portfolio-topline' });
-        topline.appendChild(UI.el('span', { className: 'pd-portfolio-top-chip', textContent: sectionTitle }));
-        topline.appendChild(UI.el('span', { className: 'pd-portfolio-top-chip muted', textContent: item.type === 'video' ? _copy('videoShort') : _copy('image') }));
-        frame.appendChild(topline);
-
-        if (item.type === 'video') {
-          const badge = UI.el('div', { className: 'pd-portfolio-video-badge' });
-          badge.appendChild(_createSVG('<polygon points="5 3 19 12 5 21 5 3" fill="#fff"/>', 14));
-          frame.appendChild(badge);
-        }
-
-        const overlay = UI.el('div', { className: 'pd-portfolio-overlay' });
-        overlay.appendChild(UI.el('span', { className: 'pd-portfolio-overlay-kicker', textContent: item.type === 'video' ? _copy('watchVertical') : _copy('browseWork') }));
-        const overlayTitle = UI.el('strong', { className: 'pd-portfolio-overlay-title', textContent: (item.desc && item.desc !== _copy('noDescriptionGeneric')) ? item.desc : item.media_label });
-        _setAutoDirection(overlayTitle, item.desc || item.media_label);
-        overlay.appendChild(overlayTitle);
-        overlay.appendChild(UI.el('span', { className: 'pd-portfolio-open-indicator', textContent: _copy('openFullscreen') }));
-        frame.appendChild(overlay);
-
-        const stats = UI.el('div', { className: 'pd-portfolio-item-stats' });
-        const likesStat = UI.el('button', { className: 'pd-portfolio-item-stat pd-portfolio-item-action', type: 'button' });
-        if (item.is_liked) likesStat.classList.add('active');
-        likesStat.appendChild(_createSVG('<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>', 12));
-        likesStat.appendChild(UI.el('span', { textContent: String(_safeInt(item.likes_count)) }));
-        likesStat.dataset.stat = 'likes';
-        likesStat.setAttribute('aria-label', _copy('like'));
-        likesStat.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          _togglePortfolioLike(item, likesStat);
-        });
-        stats.appendChild(likesStat);
-
-        const savesStat = UI.el('button', { className: 'pd-portfolio-item-stat pd-portfolio-item-action', type: 'button' });
-        if (item.is_saved) savesStat.classList.add('active');
-        savesStat.appendChild(_createSVG('<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>', 12));
-        savesStat.appendChild(UI.el('span', { textContent: String(_safeInt(item.saves_count)) }));
-        savesStat.dataset.stat = 'saves';
-        savesStat.setAttribute('aria-label', _copy('saveToFavorites'));
-        savesStat.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          _togglePortfolioSave(item, savesStat);
-        });
-        stats.appendChild(savesStat);
-
-        frame.appendChild(stats);
         el.appendChild(frame);
         el.addEventListener('click', () => {
           if (typeof SpotlightViewer !== 'undefined') {
-            SpotlightViewer.open(items, index, {
+            const viewerItems = _portfolioItems.length ? _portfolioItems : items;
+            const viewerIndex = Math.max(
+              0,
+              viewerItems.findIndex((entry) => _safeInt(entry && entry.id) === _safeInt(item.id))
+            );
+            SpotlightViewer.open(viewerItems, viewerIndex, {
               source: 'portfolio',
               label: _copy('portfolioTab'),
               eventName: 'nw:portfolio-engagement-update',
               immersive: true,
+              tiktokMode: true,
               modeContext: _mode || 'client',
             });
           }
@@ -2841,6 +2820,7 @@ const ProviderDetailPage = (() => {
         provider_id: item.provider_id,
         likes_count: Number(item.likes_count) || 0,
         saves_count: Number(item.saves_count) || 0,
+        comments_count: Number(item.comments_count) || 0,
         is_liked: !!item.is_liked,
         is_saved: !!item.is_saved,
       },
@@ -3258,6 +3238,7 @@ const ProviderDetailPage = (() => {
   }
 
   function _withMode(path) {
+    _syncMode();
     const sep = path.includes('?') ? '&' : '?';
     return path + sep + 'mode=' + encodeURIComponent(_mode || 'client');
   }
@@ -3704,7 +3685,7 @@ const ProviderDetailPage = (() => {
   }
 
   function _getModeLabel() {
-    return String(_mode || 'client') === 'provider' ? _copy('providerMode') : _copy('clientMode');
+    return _syncMode() === 'provider' ? _copy('providerMode') : _copy('clientMode');
   }
 
   function _resolveServiceRangeKm(provider) {
@@ -4213,14 +4194,8 @@ const ProviderDetailPage = (() => {
     _setAttr('pd-social-open-instagram', 'aria-label', _copy('openInstagram'));
     _setAttr('pd-social-open-x', 'aria-label', _copy('openX'));
     _setAttr('pd-social-open-snapchat', 'aria-label', _copy('openSnapchat'));
-    _setText('pd-services-badge', _copy('servicesBadge'));
-    _setText('pd-services-hero-title', _copy('servicesHeroTitle'));
-    _setText('pd-services-hero-subtitle', _copy('servicesHeroSubtitle'));
     _setText('pd-services-empty-title', _copy('servicesEmptyTitle'));
     _setText('pd-services-empty-subtitle', _copy('servicesEmptySubtitle'));
-    _setText('pd-portfolio-badge', _copy('portfolioBadge'));
-    _setText('pd-portfolio-hero-title', _copy('portfolioHeroTitle'));
-    _setText('pd-portfolio-hero-subtitle', _copy('portfolioHeroSubtitle'));
     _setText('pd-portfolio-empty-title', _copy('portfolioEmptyTitle'));
     _setText('pd-portfolio-empty-subtitle', _copy('portfolioEmptySubtitle'));
     _setText('pd-reviews-empty-text', _copy('reviewsEmpty'));

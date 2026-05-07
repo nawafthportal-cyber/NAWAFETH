@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from .models import User, UserRole
-from .presence import is_online, is_online_value, mark_seen
+from .presence import effective_last_seen, is_online, is_online_value, mark_seen
 
 
 class PresenceHelperTests(TestCase):
@@ -49,6 +49,22 @@ class PresenceHelperTests(TestCase):
         mark_seen(self.user)
         self.user.refresh_from_db()
         self.assertEqual(self.user.last_seen, first_ts)
+
+    def test_repeated_mark_seen_keeps_effective_presence_fresh_while_db_write_is_throttled(self):
+        mark_seen(self.user)
+        self.user.refresh_from_db()
+        first_db_ts = self.user.last_seen
+
+        stale_db_ts = timezone.now() - timedelta(seconds=300)
+        User.objects.filter(pk=self.user.pk).update(last_seen=stale_db_ts)
+        self.user.refresh_from_db()
+
+        mark_seen(self.user)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.last_seen, stale_db_ts)
+        self.assertGreater(effective_last_seen(self.user), first_db_ts)
+        self.assertTrue(is_online(self.user))
 
 
 class HeartbeatEndpointTests(TestCase):

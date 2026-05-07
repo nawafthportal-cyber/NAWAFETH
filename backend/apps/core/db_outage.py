@@ -15,8 +15,17 @@ _local_outage_until = 0
 _local_log_throttle_until = 0
 
 
+def _uses_sqlite() -> bool:
+    default_db = getattr(settings, "DATABASES", {}).get("default", {})
+    engine = str(default_db.get("ENGINE", "") or "").strip().lower()
+    return engine == "django.db.backends.sqlite3"
+
+
 def _outage_ttl_seconds() -> int:
-    return max(10, int(getattr(settings, "DB_OUTAGE_TTL_SECONDS", 30) or 30))
+    configured = int(getattr(settings, "DB_OUTAGE_TTL_SECONDS", 30) or 30)
+    if getattr(settings, "DEBUG", False) and _uses_sqlite():
+        return max(1, min(configured, 3))
+    return max(10, configured)
 
 
 def _log_throttle_seconds() -> int:

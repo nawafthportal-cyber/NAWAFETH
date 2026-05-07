@@ -7,6 +7,7 @@ from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
 from apps.providers.location_formatter import format_city_display
 from apps.providers.serializers import ProviderPortfolioItemSerializer, ProviderSpotlightItemSerializer
 from apps.reviews.services import provider_rating_values
+from apps.accounts.presence import effective_last_seen as _presence_effective_last_seen
 from apps.accounts.presence import is_online_value as _presence_is_online_value
 from apps.subscriptions.capabilities import (
     promotional_chat_controls_enabled_for_user,
@@ -864,7 +865,7 @@ class PromoActivePlacementSerializer(serializers.Serializer):
 
     def _target_provider_user_last_seen(self, obj):
         provider = self._target_provider(obj)
-        return getattr(getattr(provider, "user", None), "last_seen", None)
+        return _presence_effective_last_seen(getattr(provider, "user", None))
 
     def get_target_provider_is_online(self, obj):
         return _presence_is_online_value(self._target_provider_user_last_seen(obj))

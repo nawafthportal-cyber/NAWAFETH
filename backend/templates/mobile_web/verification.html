@@ -38,7 +38,7 @@
           <p class="verify-page-kicker">نافذتي / التوثيق</p>
           <h1>طلب توثيق الحساب</h1>
           <p class="verify-page-subtitle">
-            اختر نوع الشارة وأكمل بيانات التحقق، ثم راجع الملخص وأرسل الطلب.
+            اختر نوع الشارة، أرفق الملفات المطلوبة، ثم راجع الطلب قبل الرفع والإرسال.
           </p>
         </div>
 
@@ -64,6 +64,30 @@
           <small>الاعتمادات والرخص والخبرة والشهادات</small>
         </span>
       </button>
+    </section>
+
+    <section class="verify-flow-steps" aria-label="خطوات طلب التوثيق">
+      <div class="verify-flow-step is-active" data-step="1">
+        <span class="verify-flow-index">1</span>
+        <span>
+          <strong>بيانات الطلب</strong>
+          <small>اختيار الشارة والمرفقات</small>
+        </span>
+      </div>
+      <div class="verify-flow-step" data-step="2">
+        <span class="verify-flow-index">2</span>
+        <span>
+          <strong>المراجعة</strong>
+          <small>تأكيد البنود والملفات</small>
+        </span>
+      </div>
+      <div class="verify-flow-step" data-step="3">
+        <span class="verify-flow-index">3</span>
+        <span>
+          <strong>الإرسال</strong>
+          <small>رفع الطلب للمعالجة</small>
+        </span>
+      </div>
     </section>
 
     <section class="verify-status-notice ux26-alert ux26-alert-info hidden" id="verifyStatusNotice" aria-live="polite">
@@ -117,7 +141,7 @@
 
             <div class="verify-inline-actions">
               <button type="button" class="btn btn-outline" id="blueIndividualResetBtn">إلغاء</button>
-              <button type="button" class="btn btn-primary" id="blueIndividualPreviewBtn">استمرار</button>
+              <button type="button" class="btn btn-primary" id="blueIndividualPreviewBtn">تحقق</button>
             </div>
 
             <div class="verify-preview-card hidden" id="blueIndividualResult">
@@ -151,7 +175,7 @@
 
             <div class="verify-inline-actions">
               <button type="button" class="btn btn-outline" id="blueBusinessResetBtn">إلغاء</button>
-              <button type="button" class="btn btn-primary" id="blueBusinessPreviewBtn">استمرار</button>
+              <button type="button" class="btn btn-primary" id="blueBusinessPreviewBtn">تحقق</button>
             </div>
 
             <div class="verify-preview-card hidden" id="blueBusinessResult">
@@ -169,8 +193,8 @@
           <aside class="verify-attachments-card">
             <div class="verify-card-head">
               <label class="verify-check-row">
-                <input type="checkbox" id="blueExtraDocsToggle">
-                <span>توثيق أوراق رسمية أخرى</span>
+                <input type="checkbox" id="blueExtraDocsToggle" checked>
+                <span>المرفقات الرسمية المطلوبة</span>
               </label>
               <p>
                 نرجو إرفاق مستندات إثبات الصفة الشخصية أو التجارية المراد التحقق منها بحيث يكون المستند واضحًا وتاريخه ساريًا.
@@ -178,16 +202,28 @@
             </div>
 
             <div class="verify-attachments-body" id="blueAttachmentsBody">
-              <label class="form-label" for="blueAttachmentsInput">المرفقات</label>
-              <input id="blueAttachmentsInput" class="form-input" type="file" multiple accept="image/*,.pdf">
-              <div class="verify-upload-hint">يمكن رفع أكثر من ملف.</div>
+              <label class="verify-upload-box" for="blueAttachmentsInput">
+                <span class="verify-upload-icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 16V4"></path>
+                    <path d="m7 9 5-5 5 5"></path>
+                    <path d="M20 16.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.5"></path>
+                  </svg>
+                </span>
+                <span class="verify-upload-copy">
+                  <strong>اختر المرفقات الرسمية</strong>
+                  <small>صور أو ملفات PDF، ويمكنك إضافة الملفات على دفعات.</small>
+                </span>
+              </label>
+              <input id="blueAttachmentsInput" class="form-input verify-file-input" type="file" multiple accept="image/*,.pdf">
+              <div class="verify-upload-hint">يجب رفع ملف رسمي واحد على الأقل قبل المتابعة.</div>
               <div class="verify-file-list" id="blueFileList"></div>
               <div class="verify-files-feedback ux26-alert" id="blueFilesFeedback"></div>
             </div>
 
             <div class="verify-inline-actions">
               <button type="button" class="btn btn-outline" id="blueFilesClearBtn">إلغاء</button>
-              <button type="button" class="btn btn-primary" id="blueFilesApplyBtn">تقديم</button>
+              <button type="button" class="btn btn-primary" id="blueFilesApplyBtn">رفع</button>
             </div>
           </aside>
         </div>
@@ -219,16 +255,28 @@
             </div>
 
             <div class="verify-attachments-body" id="greenAttachmentsBody">
-              <label class="form-label" for="greenAttachmentsInput">المرفقات</label>
-              <input id="greenAttachmentsInput" class="form-input" type="file" multiple accept="image/*,.pdf">
-              <div class="verify-upload-hint">يمكن رفع أكثر من ملف.</div>
+              <label class="verify-upload-box" for="greenAttachmentsInput">
+                <span class="verify-upload-icon is-green" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 16V4"></path>
+                    <path d="m7 9 5-5 5 5"></path>
+                    <path d="M20 16.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.5"></path>
+                  </svg>
+                </span>
+                <span class="verify-upload-copy">
+                  <strong>اختر المستندات الداعمة</strong>
+                  <small>أضف الشهادات والرخص بصيغة صورة أو PDF.</small>
+                </span>
+              </label>
+              <input id="greenAttachmentsInput" class="form-input verify-file-input" type="file" multiple accept="image/*,.pdf">
+              <div class="verify-upload-hint">يمكنك اختيار الملفات أكثر من مرة وسيتم جمعها في نفس الطلب.</div>
               <div class="verify-file-list" id="greenFileList"></div>
               <div class="verify-files-feedback ux26-alert" id="greenFilesFeedback"></div>
             </div>
 
             <div class="verify-inline-actions">
               <button type="button" class="btn btn-outline" id="greenFilesClearBtn">إلغاء</button>
-              <button type="button" class="btn btn-primary" id="greenFilesApplyBtn">تقديم</button>
+              <button type="button" class="btn btn-primary" id="greenFilesApplyBtn">رفع</button>
             </div>
           </aside>
         </div>
@@ -237,7 +285,7 @@
 
 <div class="verify-page-actions ux26-form-actions" id="verifyDetailActions">
       <button type="button" class="btn btn-outline" id="verifyDetailCancelBtn">إلغاء</button>
-      <button type="button" class="btn btn-primary" id="verifyToSummaryBtn">استمرار</button>
+      <button type="button" class="btn btn-primary" id="verifyToSummaryBtn">مراجعة الطلب</button>
     </div>
 
     <section class="verify-summary-step hidden" id="verifySummaryStep">
@@ -249,7 +297,9 @@
           <span class="verify-summary-provider-value" id="verifySummaryProviderHandle">@...</span>
         </div>
 
-        <p class="verify-summary-caption">عرض البنود التي تم اختيارها من الصفحة السابقة</p>
+        <div class="verify-summary-meta" id="verifySummaryMeta" aria-label="ملخص سريع"></div>
+
+        <p class="verify-summary-caption">راجع البنود والمرفقات قبل رفع الطلب للإدارة.</p>
 
         <div class="verify-summary-table-wrap ux26-table-wrap">
           <table class="verify-summary-table ux26-table">
@@ -264,8 +314,8 @@
       </div>
 
       <div class="verify-page-actions verify-summary-actions ux26-form-actions">
-        <button type="button" class="btn btn-outline" id="verifySummaryCancelBtn">إلغاء</button>
-        <button type="button" class="btn btn-primary" id="verifySubmitBtn">استمرار</button>
+        <button type="button" class="btn btn-outline" id="verifySummaryCancelBtn">رجوع للتعديل</button>
+        <button type="button" class="btn btn-primary" id="verifySubmitBtn">رفع وإرسال</button>
       </div>
     </section>
 
@@ -291,5 +341,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/verificationPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/verificationPage.js' %}?v=20260507-verification-ux-polish-v1"></script>
 {% endblock %}

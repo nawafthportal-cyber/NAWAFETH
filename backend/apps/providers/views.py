@@ -49,6 +49,7 @@ from .models import (
 	sync_provider_accepts_urgent_flag,
 )
 from .serializers import (
+	BlockedPortfolioSerializer,
     BlockedProviderSerializer,
     BlockedSpotlightSerializer,
 	CategorySerializer,
@@ -163,38 +164,45 @@ def _with_rating_annotations(qs):
 	)
 
 
-def _blocked_provider_ids_queryset(user):
-	return ProviderVisibilityBlock.objects.filter(user=user).values("provider_id")
+def _active_role_or_default(request, fallback: str = "client"):
+	return get_active_role(request, fallback=fallback) if request is not None else fallback
 
 
-def _blocked_spotlight_ids_queryset(user):
-	return ProviderSpotlightVisibilityBlock.objects.filter(user=user).values("spotlight_item_id")
+def _blocked_provider_ids_queryset(user, role_context: str):
+	return ProviderVisibilityBlock.objects.filter(user=user, role_context=role_context).values("provider_id")
 
 
-def _blocked_portfolio_ids_queryset(user):
-	return ProviderPortfolioVisibilityBlock.objects.filter(user=user).values("portfolio_item_id")
+def _blocked_spotlight_ids_queryset(user, role_context: str):
+	return ProviderSpotlightVisibilityBlock.objects.filter(user=user, role_context=role_context).values("spotlight_item_id")
+
+
+def _blocked_portfolio_ids_queryset(user, role_context: str):
+	return ProviderPortfolioVisibilityBlock.objects.filter(user=user, role_context=role_context).values("portfolio_item_id")
 
 
 def _filter_provider_queryset_for_user(qs, request):
 	user = getattr(request, "user", None)
 	if user and user.is_authenticated:
-		qs = qs.exclude(id__in=_blocked_provider_ids_queryset(user))
+		role = _active_role_or_default(request)
+		qs = qs.exclude(id__in=_blocked_provider_ids_queryset(user, role))
 	return qs
 
 
 def _filter_portfolio_queryset_for_user(qs, request):
 	user = getattr(request, "user", None)
 	if user and user.is_authenticated:
-		qs = qs.exclude(provider_id__in=_blocked_provider_ids_queryset(user))
-		qs = qs.exclude(id__in=_blocked_portfolio_ids_queryset(user))
+		role = _active_role_or_default(request)
+		qs = qs.exclude(provider_id__in=_blocked_provider_ids_queryset(user, role))
+		qs = qs.exclude(id__in=_blocked_portfolio_ids_queryset(user, role))
 	return qs
 
 
 def _filter_spotlight_queryset_for_user(qs, request):
 	user = getattr(request, "user", None)
 	if user and user.is_authenticated:
-		qs = qs.exclude(provider_id__in=_blocked_provider_ids_queryset(user))
-		qs = qs.exclude(id__in=_blocked_spotlight_ids_queryset(user))
+		role = _active_role_or_default(request)
+		qs = qs.exclude(provider_id__in=_blocked_provider_ids_queryset(user, role))
+		qs = qs.exclude(id__in=_blocked_spotlight_ids_queryset(user, role))
 	return qs
 
 
@@ -1317,6 +1325,22 @@ class MyLikedPortfolioItemsView(generics.ListAPIView):
 			)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
+			.annotate(
+				_is_liked=Exists(
+					ProviderPortfolioLike.objects.filter(
+						user=self.request.user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+				_is_saved=Exists(
+					ProviderPortfolioSave.objects.filter(
+						user=self.request.user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+			)
 			.select_related("provider", "provider__user")
 			.distinct()
 			.order_by("-created_at", "-id")
@@ -1375,6 +1399,22 @@ class MyLikedSpotlightItemsView(generics.ListAPIView):
 			)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
+			.annotate(
+				_is_liked=Exists(
+					ProviderSpotlightLike.objects.filter(
+						user=self.request.user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+				_is_saved=Exists(
+					ProviderSpotlightSave.objects.filter(
+						user=self.request.user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+			)
 			.select_related("provider", "provider__user")
 			.distinct()
 			.order_by("-created_at", "-id")
@@ -1635,7 +1675,8 @@ class ProviderPublicStatsView(APIView):
 	def get(self, request, provider_id: int):
 		from django.core.cache import cache as _cache
 		from apps.marketplace.client_relationships import provider_service_request_client_ids
-		if request.user.is_authenticated and ProviderVisibilityBlock.objects.filter(user=request.user, provider_id=provider_id).exists():
+		role = _active_role_or_default(request)
+		if request.user.is_authenticated and ProviderVisibilityBlock.objects.filter(user=request.user, provider_id=provider_id, role_context=role).exists():
 			raise NotFound("provider_not_found")
 
 		cache_key = f"provider:{provider_id}:public_stats:shared:v2"
@@ -2115,16 +2156,23 @@ class MyVisibilityBlocksView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get(self, request):
-		provider_blocks = ProviderVisibilityBlock.objects.filter(user=request.user).select_related("provider", "provider__user").order_by("-created_at")
-		spotlight_blocks = ProviderSpotlightVisibilityBlock.objects.filter(user=request.user).select_related(
+		role = get_active_role(request)
+		provider_blocks = ProviderVisibilityBlock.objects.filter(user=request.user, role_context=role).select_related("provider", "provider__user").order_by("-created_at")
+		spotlight_blocks = ProviderSpotlightVisibilityBlock.objects.filter(user=request.user, role_context=role).select_related(
 			"spotlight_item",
 			"spotlight_item__provider",
 			"spotlight_item__provider__user",
+		).order_by("-created_at")
+		portfolio_blocks = ProviderPortfolioVisibilityBlock.objects.filter(user=request.user, role_context=role).select_related(
+			"portfolio_item",
+			"portfolio_item__provider",
+			"portfolio_item__provider__user",
 		).order_by("-created_at")
 		return Response(
 			{
 				"blocked_providers": BlockedProviderSerializer(provider_blocks, many=True, context={"request": request}).data,
 				"blocked_spotlights": BlockedSpotlightSerializer(spotlight_blocks, many=True, context={"request": request}).data,
+				"blocked_portfolio": BlockedPortfolioSerializer(portfolio_blocks, many=True, context={"request": request}).data,
 			},
 			status=status.HTTP_200_OK,
 		)
@@ -2134,6 +2182,7 @@ class BlockSpotlightItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
+		role = get_active_role(request)
 		item = generics.get_object_or_404(
 			ProviderSpotlightItem.objects.select_related("provider", "provider__user"),
 			id=item_id,
@@ -2142,13 +2191,16 @@ class BlockSpotlightItemView(APIView):
 		block, created = ProviderSpotlightVisibilityBlock.objects.get_or_create(
 			user=request.user,
 			spotlight_item=item,
+			role_context=role,
 		)
 		return Response({"ok": True, "blocked": True, "created": created, "spotlight_id": block.spotlight_item_id}, status=status.HTTP_200_OK)
 
 	def delete(self, request, item_id: int):
+		role = get_active_role(request)
 		deleted_count, _ = ProviderSpotlightVisibilityBlock.objects.filter(
 			user=request.user,
 			spotlight_item_id=item_id,
+			role_context=role,
 		).delete()
 		return Response({"ok": True, "blocked": False, "deleted": bool(deleted_count), "spotlight_id": item_id}, status=status.HTTP_200_OK)
 
@@ -2157,6 +2209,7 @@ class BlockPortfolioItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
+		role = get_active_role(request)
 		item = generics.get_object_or_404(
 			ProviderPortfolioItem.objects.select_related("provider", "provider__user"),
 			id=item_id,
@@ -2165,13 +2218,16 @@ class BlockPortfolioItemView(APIView):
 		block, created = ProviderPortfolioVisibilityBlock.objects.get_or_create(
 			user=request.user,
 			portfolio_item=item,
+			role_context=role,
 		)
 		return Response({"ok": True, "blocked": True, "created": created, "portfolio_item_id": block.portfolio_item_id}, status=status.HTTP_200_OK)
 
 	def delete(self, request, item_id: int):
+		role = get_active_role(request)
 		deleted_count, _ = ProviderPortfolioVisibilityBlock.objects.filter(
 			user=request.user,
 			portfolio_item_id=item_id,
+			role_context=role,
 		).delete()
 		return Response({"ok": True, "blocked": False, "deleted": bool(deleted_count), "portfolio_item_id": item_id}, status=status.HTTP_200_OK)
 
@@ -2180,6 +2236,7 @@ class BlockProviderView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, provider_id: int):
+		role = get_active_role(request)
 		provider = generics.get_object_or_404(
 			ProviderProfile.objects.select_related("user"),
 			id=provider_id,
@@ -2190,13 +2247,16 @@ class BlockProviderView(APIView):
 		block, created = ProviderVisibilityBlock.objects.get_or_create(
 			user=request.user,
 			provider=provider,
+			role_context=role,
 		)
 		return Response({"ok": True, "blocked": True, "created": created, "provider_id": block.provider_id}, status=status.HTTP_200_OK)
 
 	def delete(self, request, provider_id: int):
+		role = get_active_role(request)
 		deleted_count, _ = ProviderVisibilityBlock.objects.filter(
 			user=request.user,
 			provider_id=provider_id,
+			role_context=role,
 		).delete()
 		return Response({"ok": True, "blocked": False, "deleted": bool(deleted_count), "provider_id": provider_id}, status=status.HTTP_200_OK)
 

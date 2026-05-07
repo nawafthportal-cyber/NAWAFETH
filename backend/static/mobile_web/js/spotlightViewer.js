@@ -1224,7 +1224,7 @@ const SpotlightViewer = (() => {
     _reportSubmitInFlight = true;
     try {
       const response = await ApiClient.request(
-        _withMode(_contentDetailPath(item, 'comments/' + encodeURIComponent(String(comment.id)) + '/report/'), _options.modeContext || 'client'),
+        _withMode(_contentDetailPath(item, 'comments/' + encodeURIComponent(String(comment.id)) + '/report/'), _activeMode(item)),
         {
           method: 'POST',
           body: {
@@ -1677,7 +1677,7 @@ const SpotlightViewer = (() => {
     _reportSubmitInFlight = true;
     try {
       const response = await ApiClient.request(
-        _withMode(_contentDetailPath(item, 'report/'), _options.modeContext || 'client'),
+        _withMode(_contentDetailPath(item, 'report/'), _activeMode(item)),
         {
           method: 'POST',
           body: {
@@ -1699,7 +1699,7 @@ const SpotlightViewer = (() => {
 
   async function _blockSpotlight(item) {
     const response = await ApiClient.request(
-      _withMode(_contentDetailPath(item, 'hide/'), _options.modeContext || 'client'),
+      _withMode(_contentDetailPath(item, 'hide/'), _activeMode(item)),
       {
         method: 'POST',
       }
@@ -1714,7 +1714,7 @@ const SpotlightViewer = (() => {
     const providerId = Number(item && item.provider_id);
     if (!providerId) throw new Error('provider_missing');
     const response = await ApiClient.request(
-      _withMode('/api/providers/' + encodeURIComponent(String(providerId)) + '/block/', _options.modeContext || 'client'),
+      _withMode('/api/providers/' + encodeURIComponent(String(providerId)) + '/block/', _activeMode(item)),
       {
         method: 'POST',
       }
@@ -2285,7 +2285,18 @@ const SpotlightViewer = (() => {
 
   function _buildReactionEndpoint(item, action, wasActive) {
     const endpoint = _contentApiBase(item) + encodeURIComponent(String(item.id)) + '/' + (wasActive ? 'un' + action : action) + '/';
-    return _withMode(endpoint, item?.mode_context || _options.modeContext || 'client');
+    return _withMode(endpoint, _activeMode(item));
+  }
+
+  function _activeMode(item) {
+    try {
+      if (typeof Auth !== 'undefined' && Auth && typeof Auth.getActiveAccountMode === 'function') {
+        const mode = String(Auth.getActiveAccountMode() || '').trim().toLowerCase();
+        if (mode === 'provider' || mode === 'client') return mode;
+      }
+    } catch (_) {}
+    const fallback = String(item?.mode_context || _options.modeContext || 'client').trim().toLowerCase();
+    return fallback === 'provider' ? 'provider' : 'client';
   }
 
   function _withMode(path, mode) {
@@ -2368,7 +2379,7 @@ const SpotlightViewer = (() => {
   }
 
   function _getModeLabel() {
-    return String(_options.modeContext || 'client') === 'provider' ? 'مزود' : 'عميل';
+    return _activeMode() === 'provider' ? 'مزود' : 'عميل';
   }
 
   function _showToast(message) {

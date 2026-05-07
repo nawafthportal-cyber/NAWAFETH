@@ -6,7 +6,8 @@ The implementation deliberately keeps the surface tiny:
   do not write to the database on every request).
 * ``is_online(user)``    – boolean: was the user active within the configured
   window (default 2 minutes)?
-* ``last_seen(user)``    – the raw timestamp (``datetime`` or ``None``).
+* ``last_seen(user)``    – the raw database timestamp (``datetime`` or ``None``).
+* ``effective_last_seen(user)`` – the freshest timestamp from cache or database.
 
 Only providers expose presence externally (per product decision), but the
 middleware records ``last_seen`` for every authenticated user so that a user
@@ -31,6 +32,8 @@ ONLINE_WINDOW_SECONDS: int = int(getattr(settings, "PRESENCE_ONLINE_WINDOW_SECON
 WRITE_THROTTLE_SECONDS: int = int(getattr(settings, "PRESENCE_WRITE_THROTTLE_SECONDS", 60))
 
 _THROTTLE_KEY = "presence:lastwrite:{user_id}"
+_SEEN_KEY = "presence:lastseen:{user_id}"
+_SEEN_CACHE_TTL_SECONDS = max(ONLINE_WINDOW_SECONDS + WRITE_THROTTLE_SECONDS, ONLINE_WINDOW_SECONDS * 2)
 
 
 def _is_authenticated(user) -> bool:
@@ -46,6 +49,11 @@ def mark_seen(user) -> None:
     """
     if not _is_authenticated(user):
         return
+    now = timezone.now()
+    try:
+        cache.set(_SEEN_KEY.format(user_id=user.pk), now, timeout=_SEEN_CACHE_TTL_SECONDS)
+    except Exception:
+        pass
     key = _THROTTLE_KEY.format(user_id=user.pk)
     try:
         if cache.get(key):
@@ -58,7 +66,6 @@ def mark_seen(user) -> None:
         # without the throttle.  Continue.
         pass
 
-    now = timezone.now()
     try:
         # Use update() to avoid loading/saving the whole user row (no signals,
         # no race with concurrent profile saves).
@@ -79,6 +86,18 @@ def last_seen(user) -> Optional[datetime]:
     return getattr(user, "last_seen", None)
 
 
+def effective_last_seen(user) -> Optional[datetime]:
+    if not _is_authenticated(user):
+        return None
+    try:
+        cached = cache.get(_SEEN_KEY.format(user_id=user.pk))
+        if cached:
+            return cached
+    except Exception:
+        pass
+    return last_seen(user)
+
+
 def is_online_value(value: Optional[datetime]) -> bool:
     """Pure helper that decides if a timestamp counts as 'online' right now."""
     if not value:
@@ -87,4 +106,4 @@ def is_online_value(value: Optional[datetime]) -> bool:
 
 
 def is_online(user) -> bool:
-    return is_online_value(last_seen(user))
+    return is_online_value(effective_last_seen(user))
