@@ -1276,27 +1276,35 @@
 <div class="topbar-sponsor-modal ux26-modal hidden" id="topbar-sponsor-modal" role="dialog" aria-modal="true" aria-labelledby="topbar-sponsor-modal-title">
   <button type="button" class="topbar-sponsor-modal-backdrop" id="topbar-sponsor-modal-backdrop" data-shell-i18n-aria-label="close" aria-label="إغلاق"></button>
   <div class="topbar-sponsor-modal-card ux26-modal-card">
-    <button type="button" class="topbar-sponsor-modal-close" id="topbar-sponsor-modal-close" data-shell-i18n-aria-label="close" aria-label="إغلاق">
+    <button type="button" class="topbar-sponsor-modal-close" id="topbar-sponsor-modal-close" data-topbar-sponsor-dismiss="true" data-shell-i18n-aria-label="close" aria-label="إغلاق">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <path d="M18 6 6 18"></path>
         <path d="m6 6 12 12"></path>
       </svg>
     </button>
     <div class="topbar-sponsor-modal-hero">
-      <div class="topbar-sponsor-modal-media" id="topbar-sponsor-modal-media" aria-hidden="true">
-        <span class="topbar-sponsor-modal-placeholder">ر</span>
-      </div>
       <div class="topbar-sponsor-modal-copy">
-        <div class="topbar-sponsor-modal-meta">
-          <span class="topbar-sponsor-modal-badge" data-shell-i18n="sponsorLabel">برعاية</span>
-          <p class="topbar-sponsor-modal-kicker" data-shell-i18n="officialSponsor">الراعي الرسمي</p>
-        </div>
+        <p class="topbar-sponsor-modal-kicker" data-shell-i18n="officialSponsor">الراعي الرسمي</p>
         <h3 id="topbar-sponsor-modal-title" data-shell-i18n="officialSponsor">الراعي الرسمي</h3>
       </div>
+      <div class="topbar-sponsor-modal-media-card">
+        <div class="topbar-sponsor-modal-media" id="topbar-sponsor-modal-media" aria-hidden="true">
+          <span class="topbar-sponsor-modal-placeholder">ر</span>
+        </div>
+        <p class="topbar-sponsor-modal-media-note" data-shell-i18n="officialSponsor">الراعي الرسمي</p>
+      </div>
     </div>
-    <p class="topbar-sponsor-modal-label" data-shell-i18n="sponsorMessageLabel">رسالة الراعي</p>
-    <div class="topbar-sponsor-modal-body" id="topbar-sponsor-modal-body" data-shell-i18n="sponsorMessageEmpty">تظهر تفاصيل الرعاية هنا عند توفر رسالة.</div>
-    <a class="topbar-sponsor-modal-link hidden" id="topbar-sponsor-modal-link" target="_blank" rel="noopener" data-shell-i18n="visitLink">زيارة الرابط</a>
+    <section class="topbar-sponsor-modal-panel" aria-labelledby="topbar-sponsor-modal-message-label">
+      <div class="topbar-sponsor-modal-panel-head">
+        <p class="topbar-sponsor-modal-label" id="topbar-sponsor-modal-message-label" data-shell-i18n="sponsorMessageLabel">رسالة الراعي</p>
+        <span class="topbar-sponsor-modal-quote" aria-hidden="true">“</span>
+      </div>
+      <div class="topbar-sponsor-modal-body" id="topbar-sponsor-modal-body" data-shell-i18n="sponsorMessageEmpty">تظهر تفاصيل الرعاية هنا عند توفر رسالة.</div>
+    </section>
+    <div class="topbar-sponsor-modal-actions">
+      <button type="button" class="topbar-sponsor-modal-secondary" data-topbar-sponsor-dismiss="true" data-shell-i18n="close">إغلاق</button>
+      <a class="topbar-sponsor-modal-link hidden" id="topbar-sponsor-modal-link" target="_blank" rel="noopener" data-shell-i18n="visitLink">زيارة الرابط</a>
+    </div>
   </div>
 </div>
 

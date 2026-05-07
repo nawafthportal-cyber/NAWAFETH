@@ -426,7 +426,7 @@ const Nav = (() => {
     _topbarSponsorDialogBound = true;
 
     const sponsor = document.getElementById('topbar-sponsor');
-    const closeBtn = document.getElementById('topbar-sponsor-modal-close');
+    const dismissButtons = Array.from(document.querySelectorAll('[data-topbar-sponsor-dismiss="true"]'));
     const backdrop = document.getElementById('topbar-sponsor-modal-backdrop');
     if (sponsor) {
       sponsor.addEventListener('click', (event) => {
@@ -438,9 +438,9 @@ const Nav = (() => {
         _openTopbarSponsorDialog(payload);
       });
     }
-    if (closeBtn) {
-      closeBtn.addEventListener('click', _closeTopbarSponsorDialog);
-    }
+    dismissButtons.forEach((button) => {
+      button.addEventListener('click', _closeTopbarSponsorDialog);
+    });
     if (backdrop) {
       backdrop.addEventListener('click', _closeTopbarSponsorDialog);
     }

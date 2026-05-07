@@ -128,197 +128,450 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     final title =
         sponsor.name.trim().isNotEmpty ? sponsor.name.trim() : 'الراعي الرسمي';
     final canOpen = sponsor.hasLink;
+    final dialogMessage = (message != null && message.isNotEmpty)
+        ? message
+        : 'لا توجد رسالة مضافة للرعاية حالياً.';
     final action = await showDialog<String>(
       context: context,
+      barrierColor: const Color(0xFF0A1024).withValues(alpha: 0.62),
       builder: (context) {
-        final dialogMessage = (message != null && message.isNotEmpty)
-            ? message
-            : 'لا توجد رسالة مضافة للرعاية حالياً.';
+        final screenSize = MediaQuery.sizeOf(context);
+        final dialogWidth = math.min(screenSize.width - 26, 560.0);
+        final maxDialogHeight = math.min(screenSize.height * 0.84, 760.0);
+        final hasProviderFallback =
+            sponsor.providerId?.trim().isNotEmpty == true && !canOpen;
         return Dialog(
           insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
           backgroundColor: Colors.transparent,
           child: Directionality(
             textDirection: TextDirection.rtl,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF1B1C3A),
-                    Color(0xFF26264C),
-                    Color(0xFF35235A)
-                  ],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1C163A).withValues(alpha: 0.30),
-                    blurRadius: 28,
-                    offset: const Offset(0, 16),
+            child: SizedBox(
+              width: dialogWidth,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxDialogHeight),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(34),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFFEFF), Color(0xFFF7F2FF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(color: const Color(0xFFE9DDFB)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF231942).withValues(alpha: 0.12),
+                        blurRadius: 36,
+                        offset: const Offset(0, 18),
+                      ),
+                      BoxShadow(
+                        color: const Color(0xFFFACC15).withValues(alpha: 0.10),
+                        blurRadius: 48,
+                        offset: const Offset(0, 8),
+                        spreadRadius: -18,
+                      ),
+                    ],
                   ),
-                ],
-                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: -80,
+                        right: -40,
+                        child: Container(
+                          width: 180,
+                          height: 180,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.12),
+                                const Color(0xFFE9D5FF)
+                                    .withValues(alpha: 0.04),
+                              ],
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                             ),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.26),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.workspace_premium_rounded,
-                            color: Colors.white,
-                            size: 22,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'الراعي الرسمي',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop('close'),
-                          splashRadius: 20,
-                          icon: const Icon(Icons.close_rounded,
-                              color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Container(
-                          width: 54,
-                          height: 54,
+                      ),
+                      Positioned(
+                        left: -36,
+                        bottom: 108,
+                        child: Container(
+                          width: 132,
+                          height: 132,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.10),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.18),
-                            ),
+                            color: const Color(0xFFD1FAE5)
+                                .withValues(alpha: 0.34),
                           ),
-                          alignment: Alignment.center,
-                          child: _SponsorBadge(
-                            assetUrl: sponsor.assetUrl,
-                            fallbackLabel: title,
-                            overlay: false,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.14)),
-                      ),
-                      child: Text(
-                        dialogMessage,
-                        style: const TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 13,
-                          height: 1.85,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFFEDE9FE),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.of(context).pop('close'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.34),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(26),
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFFFFEFF),
+                                    Color(0xFFF7F3FF),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                border: Border.all(
+                                  color: const Color(0xFFE8DEF8),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF2E1065)
+                                        .withValues(alpha: 0.08),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            _buildSponsorDialogPill(
+                                              icon:
+                                                  Icons.workspace_premium_rounded,
+                                              label: 'رعاية مميزة',
+                                              background:
+                                                  const Color(0xFFF3E8FF),
+                                              foreground:
+                                                  const Color(0xFF6D28D9),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Text(
+                                              'رسالة الراعي الرسمي',
+                                              style: const TextStyle(
+                                                fontFamily: 'Cairo',
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w800,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              title,
+                                              style: const TextStyle(
+                                                fontFamily: 'Cairo',
+                                                fontSize: 25,
+                                                fontWeight: FontWeight.w900,
+                                                color: Color(0xFF2E236D),
+                                                height: 1.15,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(18),
+                                          color: Colors.white,
+                                          border: Border.all(
+                                            color: const Color(0xFFE5E7EB),
+                                          ),
+                                        ),
+                                        child: IconButton(
+                                          onPressed: () =>
+                                              Navigator.of(context).pop('close'),
+                                          splashRadius: 20,
+                                          icon: const Icon(
+                                            Icons.close_rounded,
+                                            color: Color(0xFF667085),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Container(
+                                          height: 112,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(22),
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                Color(0xFFF8FAFC),
+                                                Color(0xFFF5F3FF),
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(0xFFE9DDFB),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 72,
+                                                height: 72,
+                                                padding:
+                                                    const EdgeInsets.all(10),
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(22),
+                                                  color: Colors.white,
+                                                  border: Border.all(
+                                                    color: const Color(0xFFE9DDFB),
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color:
+                                                          const Color(0xFF2E1065)
+                                                              .withValues(
+                                                                  alpha: 0.05),
+                                                      blurRadius: 18,
+                                                      offset:
+                                                          const Offset(0, 8),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: _SponsorBadge(
+                                                  assetUrl: sponsor.assetUrl,
+                                                  fallbackLabel: title,
+                                                  overlay: false,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 14),
+                                              Expanded(
+                                                child: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      title,
+                                                      maxLines: 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: const TextStyle(
+                                                        fontFamily: 'Cairo',
+                                                        fontSize: 18,
+                                                        fontWeight:
+                                                            FontWeight.w900,
+                                                        color:
+                                                            Color(0xFF2E236D),
+                                                        height: 1.2,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Text(
+                                                      canOpen
+                                                          ? 'يمكن الانتقال مباشرة إلى صفحة الراعي أو موقعه.'
+                                                          : 'هذه الرسالة مخصصة للتعريف بالراعي داخل المنصة.',
+                                                      style: const TextStyle(
+                                                        fontFamily: 'Cairo',
+                                                        fontSize: 12.5,
+                                                        height: 1.5,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color:
+                                                            Color(0xFF667085),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      _buildSponsorDialogPill(
+                                        icon: Icons.auto_awesome_rounded,
+                                        label: 'رسالة تعريفية',
+                                        background: const Color(0xFFEEF2FF),
+                                        foreground: const Color(0xFF4338CA),
+                                      ),
+                                      _buildSponsorDialogPill(
+                                        icon: canOpen
+                                            ? Icons.link_rounded
+                                            : Icons.visibility_outlined,
+                                        label: canOpen
+                                            ? 'يتضمن رابطًا مباشرًا'
+                                            : hasProviderFallback
+                                                ? 'يفتح ملف الراعي'
+                                                : 'عرض فقط',
+                                        background: canOpen
+                                            ? const Color(0xFFDCFCE7)
+                                            : const Color(0xFFF3F4F6),
+                                        foreground: canOpen
+                                            ? const Color(0xFF15803D)
+                                            : const Color(0xFF4B5563),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
-                            child: const Text(
-                              'إغلاق',
-                              style: TextStyle(
-                                fontFamily: 'Cairo',
-                                fontWeight: FontWeight.w900,
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(28),
+                                color: Colors.white.withValues(alpha: 0.84),
+                                border: Border.all(
+                                  color: const Color(0xFFE9DDFB),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF2E1065)
+                                        .withValues(alpha: 0.05),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Text(
+                                          'رسالة الراعي',
+                                          style: TextStyle(
+                                            fontFamily: 'Cairo',
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w900,
+                                            color: Color(0xFF344054),
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                          color: const Color(0xFFF5F3FF),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: const Icon(
+                                          Icons.format_quote_rounded,
+                                          color: Color(0xFF7C3AED),
+                                          size: 22,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    constraints: BoxConstraints(
+                                      maxHeight: math.max(
+                                        170,
+                                        maxDialogHeight * 0.32,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.fromLTRB(
+                                        16, 14, 16, 14),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(22),
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFFFFFEFF),
+                                          Color(0xFFF9FAFB),
+                                        ],
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                      ),
+                                      border: Border.all(
+                                        color: const Color(0xFFEDE9FE),
+                                      ),
+                                    ),
+                                    child: Scrollbar(
+                                      thumbVisibility: dialogMessage.length > 280,
+                                      child: SingleChildScrollView(
+                                        child: Text(
+                                          dialogMessage,
+                                          style: const TextStyle(
+                                            fontFamily: 'Cairo',
+                                            fontSize: 15,
+                                            height: 2,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF475467),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildSponsorDialogAction(
+                                    label: 'إغلاق',
+                                    icon: Icons.close_rounded,
+                                    foreground: const Color(0xFF344054),
+                                    background: Colors.white,
+                                    borderColor: const Color(0xFFE4E7EC),
+                                    onPressed: () =>
+                                        Navigator.of(context).pop('close'),
+                                  ),
+                                ),
+                                if (canOpen) ...[
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: _buildSponsorDialogAction(
+                                      label: 'زيارة الرابط',
+                                      icon: Icons.open_in_new_rounded,
+                                      foreground: Colors.white,
+                                      background: const Color(0xFF16A34A),
+                                      borderColor: const Color(0xFF86EFAC),
+                                      onPressed: () =>
+                                          Navigator.of(context).pop('open'),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
                         ),
-                        if (canOpen) ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: () =>
-                                  Navigator.of(context).pop('open'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF8B5CF6),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 12),
-                              ),
-                              icon: const Icon(Icons.open_in_new_rounded,
-                                  size: 16),
-                              label: const Text(
-                                'زيارة الراعي',
-                                style: TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -329,6 +582,105 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     if (action == 'open') {
       await _openSponsorDestination(sponsor);
     }
+  }
+
+  Widget _buildSponsorDialogPill({
+    required IconData icon,
+    required String label,
+    required Color background,
+    required Color foreground,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: foreground.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: foreground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSponsorDialogAction({
+    required String label,
+    required IconData icon,
+    required Color foreground,
+    required Color background,
+    required Color borderColor,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      height: 54,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: background == Colors.white
+              ? null
+              : LinearGradient(
+                  colors: [
+                    background,
+                    Color.alphaBlend(
+                      Colors.white.withValues(alpha: 0.16),
+                      background,
+                    ),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+          color: background == Colors.white ? background : null,
+          border: Border.all(color: borderColor),
+          boxShadow: [
+            BoxShadow(
+              color: background == Colors.white
+                  ? const Color(0xFF101828).withValues(alpha: 0.04)
+                  : background.withValues(alpha: 0.22),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onPressed,
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 18, color: foreground),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: foreground,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override

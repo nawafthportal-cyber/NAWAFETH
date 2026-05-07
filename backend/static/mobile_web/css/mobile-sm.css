@@ -1224,10 +1224,21 @@
     border-radius: 18px;
   }
 
+  .topbar-sponsor-modal-panel {
+    padding: 12px;
+    border-radius: 18px;
+    gap: 10px;
+  }
+
   .topbar-sponsor-modal-media {
     width: 80px;
     height: 80px;
     border-radius: 16px;
+  }
+
+  .topbar-sponsor-modal-media-card {
+    padding: 10px;
+    border-radius: 18px;
   }
 
   .topbar-sponsor-modal h3 {
@@ -1239,6 +1250,13 @@
     padding: 14px 12px 14px 16px;
     border-radius: 18px;
     max-height: min(44dvh, 250px);
+  }
+
+  .topbar-sponsor-modal-secondary,
+  .topbar-sponsor-modal-link {
+    min-height: 48px;
+    padding: 11px 16px;
+    font-size: 13px;
   }
 }
 

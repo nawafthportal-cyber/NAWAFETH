@@ -27,6 +27,14 @@ import '../services/content_service.dart';
 import '../services/unread_badge_service.dart';
 import '../services/auth_service.dart';
 
+// ── Premium home screen widgets ──────────────────────────────
+import '../widgets/home/home_header.dart';
+import '../widgets/home/hero_banner_carousel.dart';
+import '../widgets/home/search_cta_card.dart';
+import '../widgets/home/category_chips_section.dart';
+import '../widgets/home/verified_providers_section.dart';
+import '../widgets/home/home_content_section.dart';
+
 import 'search_provider_screen.dart';
 import 'provider_profile_screen.dart';
 import 'notifications_screen.dart';
@@ -1190,7 +1198,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const purple = AppColors.primary;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -1204,25 +1211,148 @@ class _HomeScreenState extends State<HomeScreen> {
             _loadHomeContent(forceRefresh: true),
           ]);
         },
-        color: purple,
+        color: AppColors.primary,
+        displacement: 80,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
           ),
           slivers: [
-            SliverToBoxAdapter(child: _buildHero()),
+            // ── 1. Premium Header ─────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: HomeHeader(
+                notificationCount: _notificationUnread,
+                chatCount: _chatUnread,
+                onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                onNotificationsTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen()),
+                  );
+                  _loadUnreadBadges();
+                },
+                onChatsTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MyChatsScreen()),
+                  );
+                  _loadUnreadBadges();
+                },
+              ),
+            ),
+
+            // ── Spacing after header ──────────────────────────────────────
+            const SliverToBoxAdapter(child: SizedBox(height: 10)),
+
+            // ── 2. Hero Banner Carousel ───────────────────────────────────
+            SliverToBoxAdapter(
+              child: HeroBannerCarousel(
+                banners: _heroBanners,
+                isLoading: _isBannersLoading,
+                onBannerTap: (banner) => _openBanner(banner),
+              ),
+            ),
+
+            // ── 3. Search CTA Card ────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: SearchCtaCard(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SearchProviderScreen()),
+                ),
+              ),
+            ),
+
+            // ── Sync notice (only when there's a message) ─────────────────
             if ((_syncMessage ?? '').trim().isNotEmpty)
               SliverToBoxAdapter(child: _buildSyncNotice(isDark)),
-            SliverToBoxAdapter(child: _buildReels(isDark)),
-            if (_promoMessagePlacement != null)
-              SliverToBoxAdapter(child: _buildPromoMessageCard(isDark, purple)),
-            SliverToBoxAdapter(child: _buildCategories(isDark, purple)),
-            SliverToBoxAdapter(child: _buildProviders(isDark, purple)),
-            if (_portfolioShowcase.isNotEmpty || !_isPortfolioShowcaseLoading)
-              SliverToBoxAdapter(
-                child: _buildPortfolioShowcase(isDark, purple),
+
+            // ── 4. Categories Chips ───────────────────────────────────────
+            SliverToBoxAdapter(
+              child: CategoryChipsSection(
+                categories: _categories,
+                isLoading: _isCategoriesLoading,
+                onCategoryTap: (cat) => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SearchProviderScreen(
+                      initialCategoryId: cat.id,
+                    ),
+                  ),
+                ),
+                onSeeAll: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SearchProviderScreen()),
+                ),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 30)),
+            ),
+
+            // ── 5. Verified Providers ─────────────────────────────────────
+            SliverToBoxAdapter(
+              child: VerifiedProvidersSection(
+                specialists: _visibleFeaturedSpecialists,
+                isLoading: _isFeaturedLoading,
+                onProviderTap: (specialist) async {
+                  if ((specialist.redirectUrl ?? '').trim().isNotEmpty) {
+                    await _openPromoPlacement(
+                      redirectUrl: specialist.redirectUrl,
+                      providerId: specialist.providerId,
+                      providerName: specialist.displayName,
+                    );
+                  } else {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProviderProfileScreen(
+                          providerId: specialist.providerId.toString(),
+                          providerName: specialist.displayName,
+                        ),
+                      ),
+                    );
+                  }
+                },
+                onSeeAll: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const SearchProviderScreen()),
+                ),
+              ),
+            ),
+
+            // ── 6. Spotlight Reels (original, kept intact) ───────────────
+            SliverToBoxAdapter(child: _buildReels(isDark)),
+
+            // ── Promo message card ────────────────────────────────────────
+            if (_promoMessagePlacement != null)
+              SliverToBoxAdapter(
+                child: _buildPromoMessageCard(isDark, AppColors.primary),
+              ),
+
+            // ── 7. Portfolio / Content Showcase ──────────────────────────
+            if (_portfolioShowcase.isNotEmpty ||
+                _isPortfolioShowcaseLoading)
+              SliverToBoxAdapter(
+                child: HomeContentSection(
+                  items: _portfolioShowcase,
+                  isLoading: _isPortfolioShowcaseLoading,
+                  title: 'أعمال المختصين',
+                  onItemTap: (item) {
+                    final idx = _portfolioShowcase.indexOf(item);
+                    if (idx >= 0) _openPortfolioShowcasePlacement(idx);
+                  },
+                  onSeeAll: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const SearchProviderScreen()),
+                  ),
+                ),
+              ),
+
+            // ── Bottom spacing for nav bar ────────────────────────────────
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
       ),
