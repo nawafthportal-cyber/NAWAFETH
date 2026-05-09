@@ -443,6 +443,7 @@ var ProviderPortfolioPage = (function () {
 
   async function init() {
     bindEvents();
+    bindToolbar();
     _bindSpotlightSync();
     window.addEventListener("resize", notifyEmbeddedHeight);
     window.addEventListener("message", function (event) {
@@ -579,10 +580,17 @@ var ProviderPortfolioPage = (function () {
     return "is-image";
   }
 
+  function itemTypeIconSvg(item) {
+    var type = String(item && item.file_type || "").toLowerCase();
+    if (type === "video") return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>';
+    if (type === "document") return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><polyline points="21 15 15 9 5 19"/></svg>';
+  }
+
   function renderItemStats(item) {
     return '<div class="pf-item-stat-list">' +
-      '<span class="pf-item-stat">إعجابات ' + toInt(item && item.likes_count) + '</span>' +
-      '<span class="pf-item-stat">حفظ ' + toInt(item && item.saves_count) + '</span>' +
+      '<span class="pf-item-stat" title="إعجابات"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>' + toInt(item && item.likes_count) + '</span>' +
+      '<span class="pf-item-stat" title="حفظ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>' + toInt(item && item.saves_count) + '</span>' +
     '</div>';
   }
 
@@ -593,84 +601,186 @@ var ProviderPortfolioPage = (function () {
     var isDocument = String(item.file_type || "").toLowerCase() === "document" || /\.pdf$/i.test(src);
     var typeLabel = itemTypeLabel(item);
     var typeClass = itemTypeClass(item);
+    var typeIcon = itemTypeIconSvg(item);
     var inner = mediaSrc
       ? (isDocument
-        ? '<div class="pf-item-doc"><span class="pf-item-doc-icon">PDF</span><span class="pf-item-doc-copy">فتح الملف أو استبداله من هذه البطاقة</span></div>'
+        ? '<div class="pf-item-doc"><span class="pf-item-doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="18" x2="13" y2="18"/></svg></span><span class="pf-item-doc-copy">ملف PDF — اضغط للفتح أو الاستبدال</span></div>'
         : (isVideo
           ? '<video src="' + mediaSrc + '" class="pf-item-video" muted playsinline preload="metadata"></video>'
           : '<img src="' + mediaSrc + '" class="pf-item-image" loading="lazy" alt="' + escapeHtml(item.description || section.title) + '">'))
       : '<div class="pf-item-doc"><span class="pf-item-doc-copy">لا توجد معاينة متاحة</span></div>';
     return '<div class="pf-item-preview">' +
-      '<span class="pf-item-preview-media-badge ' + typeClass + '">' + escapeHtml(typeLabel) + '</span>' +
-      '<button type="button" class="pf-item-preview-action" data-item-id="' + item.id + '" data-section-id="' + escapeHtml(section.id) + '" data-local-index="' + index + '" data-file-type="' + escapeHtml(String(item.file_type || '')) + '" data-file-url="' + escapeHtml(mediaSrc) + '">' + inner +
-        '<span class="pf-item-preview-overlay"><span class="pf-item-preview-overlay-copy"><strong>عرض سريع</strong><small>افتح العنصر بواجهة كاملة قبل التعديل</small></span><span class="pf-item-preview-overlay-cta">فتح</span></span>' +
+      inner +
+      '<span class="pf-item-preview-media-badge ' + typeClass + '">' + typeIcon + '<span>' + escapeHtml(typeLabel) + '</span></span>' +
+      '<button type="button" class="pf-item-preview-action" data-item-id="' + item.id + '" data-section-id="' + escapeHtml(section.id) + '" data-local-index="' + index + '" data-file-type="' + escapeHtml(String(item.file_type || '')) + '" data-file-url="' + escapeHtml(mediaSrc) + '" aria-label="عرض">' +
+        '<span class="pf-item-preview-overlay"><span class="pf-item-preview-overlay-cta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>عرض</span></span>' +
       '</button>' +
     '</div>';
+  }
+
+  function sectionIconSvg() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
   }
 
   function renderSection(section) {
     var items = Array.isArray(section.items) ? section.items : [];
     var cardTag = section.isAuxiliary ? 'قسم إضافي' : 'قسم رئيسي';
-    return '<section class="detail-card pf-content-card' + (section.isAuxiliary ? ' is-auxiliary' : '') + '" data-id="' + escapeHtml(section.id) + '">' +
+    return '<section class="detail-card pf-content-card' + (section.isAuxiliary ? ' is-auxiliary' : '') + '" data-id="' + escapeHtml(section.id) + '" data-drop-section="' + escapeHtml(section.id) + '">' +
       '<div class="pf-content-card-head">' +
+        '<div class="pf-section-icon" aria-hidden="true">' + sectionIconSvg() + '</div>' +
         '<div class="pf-content-card-copy">' +
           '<div class="pf-content-card-badges">' +
             '<span class="pf-content-card-tag' + (section.isAuxiliary ? ' is-auxiliary' : '') + '">' + cardTag + '</span>' +
-            '<span class="pf-content-card-count">' + items.length + ' ملف</span>' +
+            '<span class="pf-content-card-count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/></svg>' + items.length + ' ملف</span>' +
           '</div>' +
           '<h3 class="pf-content-card-title">' + escapeHtml(section.title) + '</h3>' +
           '<p class="pf-content-card-subtitle">' + escapeHtml(section.description || '') + '</p>' +
         '</div>' +
         '<div class="pf-content-card-tools">' +
-          (!section.isAuxiliary ? ('<label class="btn btn-secondary pf-upload-btn">' +
-          '<span class="pf-upload-label">إضافة ملفات</span>' +
+          (!section.isAuxiliary ? ('<label class="pf-upload-btn">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+          '<span class="pf-upload-label">رفع ملفات</span>' +
           '<input type="file" accept="image/*,video/*,.pdf" multiple hidden data-section="' + escapeHtml(section.id) + '">' +
           '</label>') : '') +
         '</div>' +
       '</div>' +
+      (!section.isAuxiliary ? '<div class="pf-dropzone-overlay" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>أفلت الملفات لإضافتها لهذا التصنيف</span></div>' : '') +
       (items.length ? ('<div class="pf-content-items-grid">' + items.map(function (item, index) {
-        return '<article class="pf-item" data-item-id="' + item.id + '">' +
+        return '<article class="pf-item" data-item-id="' + item.id + '" data-item-type="' + escapeHtml(String(item.file_type || 'image').toLowerCase()) + '">' +
           renderItemPreview(item, section, index) +
           '<div class="pf-item-meta">' +
             '<div class="pf-item-meta-main">' +
-              '<span class="pf-item-type ' + itemTypeClass(item) + '">' + escapeHtml(itemTypeLabel(item)) + '</span>' +
-              (item.file_url ? '<a class="pf-item-link" href="' + escapeHtml(mediaUrl(item.file_url)) + '" target="_blank" rel="noopener">فتح الملف الأصلي</a>' : '<span class="pf-item-link is-muted">المعاينة فقط</span>') +
+              (item.file_url ? '<a class="pf-item-link" href="' + escapeHtml(mediaUrl(item.file_url)) + '" target="_blank" rel="noopener">فتح الأصلي</a>' : '<span class="pf-item-link is-muted">معاينة فقط</span>') +
             '</div>' +
             renderItemStats(item) +
           '</div>' +
           '<div class="pf-item-desc-wrap">' +
-            '<label class="pf-item-desc-label">وصف البطاقة</label>' +
-            '<textarea class="form-input pf-item-desc" rows="2" placeholder="اكتب وصفًا مختصرًا لهذا الملف">' + escapeHtml(item.description || '') + '</textarea>' +
+            '<label class="pf-item-desc-label">وصف البطاقة <span class="pf-item-desc-status" data-status></span></label>' +
+            '<textarea class="form-input pf-item-desc" rows="2" placeholder="وصف مختصر يظهر للعملاء">' + escapeHtml(item.description || '') + '</textarea>' +
           '</div>' +
           '<div class="pf-item-actions">' +
-            '<button type="button" class="btn btn-primary pf-item-save" data-item-id="' + item.id + '" data-category="' + escapeHtml(section.title) + '">حفظ الوصف</button>' +
-            '<label class="btn btn-secondary pf-item-replace">' +
-              '<span class="pf-upload-label">استبدال الملف</span>' +
+            '<button type="button" class="btn pf-item-save" data-item-id="' + item.id + '" data-category="' + escapeHtml(section.title) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> حفظ الوصف</button>' +
+            '<label class="pf-icon-btn pf-item-replace" title="استبدال الملف" aria-label="استبدال الملف">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>' +
               '<input type="file" accept="image/*,video/*,.pdf" hidden class="pf-item-replace-input" data-item-id="' + item.id + '" data-category="' + escapeHtml(section.title) + '">' +
             '</label>' +
-            '<button type="button" class="btn btn-danger-outline pf-item-delete" data-item="' + item.id + '">حذف</button>' +
+            '<button type="button" class="pf-icon-btn is-danger pf-item-delete" data-item="' + item.id + '" title="حذف" aria-label="حذف"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>' +
           '</div>' +
         '</article>';
-      }).join('') + '</div>') : '<div class="pf-content-card-empty">لا توجد ملفات داخل هذا التصنيف بعد. ارفع أول صورة أو فيديو أو PDF للبدء.</div>') +
+      }).join('') + '</div>') : '<div class="pf-content-card-empty"><strong>لا توجد ملفات داخل هذا التصنيف بعد</strong>اضغط على «رفع ملفات» أو اسحب وأفلت ملفاتك هنا لإضافتها مباشرةً.</div>') +
     '</section>';
   }
 
   function render() {
     var emptyState = byId("pf-empty");
     var container = byId("pf-sections");
+    var toolbar = byId("pf-toolbar");
     renderStats();
     if (!container || !emptyState) return;
 
     if (!sections.length) {
       emptyState.style.display = "";
       container.innerHTML = "";
+      if (toolbar) toolbar.style.display = "none";
       return;
     }
 
     emptyState.style.display = "none";
-    container.innerHTML = '<div class="pf-content-manager">' + sections.map(renderSection).join("") + '</div>';
+    container.innerHTML = sections.map(renderSection).join("");
+    if (toolbar) toolbar.style.display = "";
     bindItemEvents();
+    bindSectionDropzones();
+    applyFilter();
     window.setTimeout(notifyEmbeddedHeight, 0);
+  }
+
+  var _activeFilter = "all";
+  var _activeQuery = "";
+
+  function applyFilter() {
+    var query = (_activeQuery || "").toLowerCase().trim();
+    var filter = _activeFilter || "all";
+    var anyVisible = false;
+    Array.prototype.forEach.call(document.querySelectorAll(".pf-content-card"), function (card) {
+      var sectionTitle = (card.querySelector(".pf-content-card-title") || {}).textContent || "";
+      var items = card.querySelectorAll(".pf-item");
+      var sectionHasVisible = false;
+      Array.prototype.forEach.call(items, function (itemEl) {
+        var type = (itemEl.getAttribute("data-item-type") || "image").toLowerCase();
+        var desc = ((itemEl.querySelector(".pf-item-desc") || {}).value || "").toLowerCase();
+        var matchesType = filter === "all" || type === filter;
+        var matchesQuery = !query || desc.indexOf(query) !== -1 || sectionTitle.toLowerCase().indexOf(query) !== -1;
+        var visible = matchesType && matchesQuery;
+        itemEl.classList.toggle("is-hidden", !visible);
+        if (visible) sectionHasVisible = true;
+      });
+      var sectionMatchesQuery = !query || sectionTitle.toLowerCase().indexOf(query) !== -1;
+      var hideSection = items.length > 0 && !sectionHasVisible && !sectionMatchesQuery;
+      card.style.display = hideSection ? "none" : "";
+      if (!hideSection) anyVisible = true;
+    });
+  }
+
+  function bindToolbar() {
+    var input = byId("pf-search-input");
+    if (input && !input.dataset.bound) {
+      input.dataset.bound = "1";
+      var debounceId = 0;
+      input.addEventListener("input", function () {
+        if (debounceId) clearTimeout(debounceId);
+        var value = this.value;
+        debounceId = window.setTimeout(function () {
+          _activeQuery = value;
+          applyFilter();
+        }, 140);
+      });
+    }
+    Array.prototype.forEach.call(document.querySelectorAll(".pf-filter-chip"), function (chip) {
+      if (chip.dataset.bound) return;
+      chip.dataset.bound = "1";
+      chip.addEventListener("click", function () {
+        Array.prototype.forEach.call(document.querySelectorAll(".pf-filter-chip"), function (other) {
+          other.classList.remove("is-active");
+          other.setAttribute("aria-selected", "false");
+        });
+        this.classList.add("is-active");
+        this.setAttribute("aria-selected", "true");
+        _activeFilter = this.getAttribute("data-filter") || "all";
+        applyFilter();
+      });
+    });
+  }
+
+  function bindSectionDropzones() {
+    Array.prototype.forEach.call(document.querySelectorAll(".pf-content-card[data-drop-section]"), function (card) {
+      if (card.dataset.dropBound) return;
+      var section = findSection(card.getAttribute("data-drop-section"));
+      if (!section || section.isAuxiliary) return;
+      card.dataset.dropBound = "1";
+      var counter = 0;
+      card.addEventListener("dragenter", function (event) {
+        event.preventDefault();
+        counter += 1;
+        card.classList.add("is-dragover");
+      });
+      card.addEventListener("dragover", function (event) {
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      });
+      card.addEventListener("dragleave", function () {
+        counter = Math.max(0, counter - 1);
+        if (counter === 0) card.classList.remove("is-dragover");
+      });
+      card.addEventListener("drop", function (event) {
+        event.preventDefault();
+        counter = 0;
+        card.classList.remove("is-dragover");
+        var files = event.dataTransfer && event.dataTransfer.files ? Array.prototype.slice.call(event.dataTransfer.files) : [];
+        if (!files.length) return;
+        var input = card.querySelector(".pf-upload-btn input");
+        uploadFiles(section, files, input);
+      });
+    });
   }
 
   function bindEvents() {
@@ -716,6 +826,18 @@ var ProviderPortfolioPage = (function () {
       });
     });
 
+    Array.prototype.forEach.call(document.querySelectorAll(".pf-item-desc"), function (input) {
+      var card = input.closest ? input.closest('.pf-item') : null;
+      var statusEl = card ? card.querySelector('[data-status]') : null;
+      input.dataset.initial = String(input.value || '');
+      input.addEventListener("input", function () {
+        if (!statusEl) return;
+        var dirty = String(this.value || '') !== (this.dataset.initial || '');
+        statusEl.textContent = dirty ? "تغييرات غير محفوظة" : "";
+        statusEl.className = "pf-item-desc-status" + (dirty ? " is-dirty" : "");
+      });
+    });
+
     Array.prototype.forEach.call(document.querySelectorAll(".pf-item-replace-input"), function (input) {
       input.addEventListener("change", function () {
         var file = this.files && this.files[0];
@@ -747,8 +869,7 @@ var ProviderPortfolioPage = (function () {
           label: "معرض",
           eventName: "nw:portfolio-engagement-update",
           modeContext: "provider",
-        });
-      });
+        });      });
     });
   }
 

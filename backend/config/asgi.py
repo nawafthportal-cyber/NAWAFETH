@@ -17,9 +17,13 @@ http_app = get_asgi_application()
 # Import websocket components only after Django is initialized.
 from apps.core.db_outage import is_database_outage_active, mark_database_outage  # noqa: E402
 from apps.messaging.jwt_auth import JwtAuthMiddleware, get_token_from_scope  # noqa: E402
+import apps.messaging.routing  # noqa: E402
 import apps.notifications.routing  # noqa: E402
 
-websocket_urlpatterns = list(apps.notifications.routing.websocket_urlpatterns)
+websocket_urlpatterns = [
+    *apps.notifications.routing.websocket_urlpatterns,
+    *apps.messaging.routing.websocket_urlpatterns,
+]
 
 
 class TokenAwareWebSocketAuthMiddleware:

@@ -7,10 +7,29 @@
 
 {% block extra_head %}
 <style>
+  body.page-loyalty-wallet {
+    --lw-ink: #1a1426;
+    --lw-ink-soft: #6c6580;
+    --lw-ink-muted: #9b95ad;
+    --lw-accent: #b8722a;
+    --lw-accent-soft: #e2a85c;
+    --lw-accent-pale: #fdf4e5;
+    --lw-accent-deep: #7a4615;
+    --lw-success: #16a34a;
+    --lw-success-pale: #ecfdf5;
+    --lw-surface: #ffffff;
+    --lw-surface-soft: #fbf9f4;
+    --lw-border: rgba(26, 20, 38, 0.06);
+    --lw-border-strong: rgba(184, 114, 42, 0.18);
+    --lw-shadow-sm: 0 1px 2px rgba(26, 20, 38, 0.04), 0 4px 12px rgba(26, 20, 38, 0.04);
+    --lw-shadow-md: 0 8px 24px rgba(26, 20, 38, 0.06);
+  }
   body.page-loyalty-wallet .page-content {
     padding: 18px 16px 96px;
     background:
-      linear-gradient(180deg, #fbfaf7 0%, #f6f7fb 46%, #ffffff 100%);
+      radial-gradient(1100px 320px at 100% -10%, rgba(226, 168, 92, 0.16), transparent 60%),
+      radial-gradient(900px 280px at 0% 0%, rgba(184, 114, 42, 0.10), transparent 60%),
+      linear-gradient(180deg, #fdfcf8 0%, #f8f5ef 50%, #ffffff 100%);
   }
   .loyalty-shell {
     width: min(980px, 100%);
@@ -18,40 +37,104 @@
     display: grid;
     gap: 14px;
   }
+
+  /* ── Page header ──────────────────────────── */
+  .loyalty-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 4px 0;
+  }
+  .loyalty-page-header h1 {
+    margin: 0;
+    color: var(--lw-ink);
+    font-size: clamp(20px, 3.4vw, 26px);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+  .loyalty-page-header .lw-back {
+    width: 40px; height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    border: 1px solid var(--lw-border);
+    background: var(--lw-surface);
+    color: var(--lw-ink);
+    box-shadow: var(--lw-shadow-sm);
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .loyalty-page-header .lw-back svg { transform: scaleX(-1); }
+
+  /* ── Hero ─────────────────────────────────── */
   .loyalty-hero {
+    position: relative;
     overflow: hidden;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    border-radius: 18px;
+    border: 1px solid var(--lw-border);
+    border-radius: 22px;
     background:
-      linear-gradient(135deg, rgba(17, 24, 39, 0.98), rgba(89, 40, 61, 0.94) 54%, rgba(194, 130, 67, 0.9));
-    color: #fff;
-    box-shadow: 0 22px 46px rgba(17, 24, 39, 0.16);
+      radial-gradient(720px 220px at 100% 0%, rgba(226, 168, 92, 0.22), transparent 60%),
+      linear-gradient(180deg, #ffffff 0%, #fbf6ed 100%);
+    box-shadow: var(--lw-shadow-md);
+    color: var(--lw-ink);
+  }
+  .loyalty-hero::before {
+    content: "";
+    position: absolute;
+    top: -160px;
+    inset-inline-start: -80px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(226,168,92,0.18) 0%, transparent 70%);
+    pointer-events: none;
   }
   .loyalty-hero-inner {
+    position: relative;
     display: grid;
-    gap: 18px;
-    padding: 22px;
+    gap: 22px;
+    padding: 24px;
   }
+  .lw-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--lw-border-strong);
+    background: var(--lw-accent-pale);
+    color: var(--lw-accent-deep);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+  }
+  .lw-hero-badge svg { width: 14px; height: 14px; color: var(--lw-accent); }
   .loyalty-eyebrow {
     margin: 0;
-    color: rgba(255, 255, 255, 0.72);
+    color: var(--lw-ink-muted);
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
   .loyalty-title {
-    margin: 6px 0 0;
-    font-size: clamp(24px, 4.6vw, 42px);
-    font-weight: 950;
-    line-height: 1.15;
-    letter-spacing: 0;
+    margin: 12px 0 0;
+    color: var(--lw-ink);
+    font-size: clamp(22px, 4vw, 32px);
+    font-weight: 900;
+    line-height: 1.22;
+    letter-spacing: -0.02em;
   }
   .loyalty-subtitle {
     max-width: 620px;
     margin: 8px 0 0;
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--lw-ink-soft);
     font-size: 13px;
-    line-height: 1.9;
-    font-weight: 700;
+    line-height: 1.85;
+    font-weight: 600;
   }
   .loyalty-summary-grid {
     display: grid;
@@ -59,115 +142,176 @@
     gap: 10px;
   }
   .loyalty-summary-tile {
-    min-height: 86px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 12px;
-    backdrop-filter: blur(12px);
+    position: relative;
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    align-items: center;
+    gap: 12px;
+    min-height: 76px;
+    border: 1px solid var(--lw-border);
+    border-radius: 16px;
+    background: var(--lw-surface);
+    padding: 12px 14px;
+    box-shadow: var(--lw-shadow-sm);
   }
+  .loyalty-summary-tile .lw-tile-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    background: var(--lw-accent-pale);
+    color: var(--lw-accent);
+  }
+  .loyalty-summary-tile .lw-tile-icon svg { width: 20px; height: 20px; }
+  .loyalty-summary-tile .lw-tile-body { display: grid; gap: 2px; min-width: 0; }
   .loyalty-summary-tile span {
-    display: block;
-    color: rgba(255, 255, 255, 0.72);
+    color: var(--lw-ink-soft);
     font-size: 11px;
-    font-weight: 900;
+    font-weight: 700;
   }
   .loyalty-summary-tile strong {
-    display: block;
-    margin-top: 8px;
-    font-size: 24px;
-    line-height: 1;
-    font-weight: 950;
+    color: var(--lw-ink);
+    font-size: 22px;
+    line-height: 1.1;
+    font-weight: 900;
+    letter-spacing: -0.01em;
   }
+
+  /* ── Provider cards ───────────────────────── */
   .loyalty-card {
-    border: 1px solid #e7e2d8;
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: 0 16px 34px rgba(17, 24, 39, 0.07);
+    border: 1px solid var(--lw-border);
+    border-radius: 20px;
+    background: var(--lw-surface);
+    box-shadow: var(--lw-shadow-sm);
     overflow: hidden;
+    transition: box-shadow .2s ease, transform .15s ease;
+  }
+  .loyalty-card:hover {
+    box-shadow: var(--lw-shadow-md);
+    transform: translateY(-1px);
   }
   .loyalty-provider-head {
     display: grid;
-    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
-    padding: 16px;
-    border-bottom: 1px solid #f0ece4;
+    gap: 14px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--lw-border);
+    background: linear-gradient(180deg, #fffdf8 0%, #ffffff 100%);
   }
   .loyalty-provider-avatar {
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #171717, #9a6b33);
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #1a1426, #b8722a);
     overflow: hidden;
     display: grid;
     place-items: center;
     color: #fff;
-    font-weight: 950;
+    font-size: 20px;
+    font-weight: 900;
+    box-shadow: 0 4px 12px rgba(184, 114, 42, 0.2);
   }
   .loyalty-provider-avatar img {
-    width: 100%;
-    height: 100%;
+    width: 100%; height: 100%;
     object-fit: cover;
     display: block;
   }
   .loyalty-provider-name {
     margin: 0;
-    color: #171717;
+    color: var(--lw-ink);
     font-size: 16px;
-    font-weight: 950;
+    font-weight: 900;
     line-height: 1.35;
+    letter-spacing: -0.01em;
   }
   .loyalty-provider-meta {
-    margin: 3px 0 0;
-    color: #7b6b5a;
-    font-size: 11px;
-    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 0;
+    color: var(--lw-ink-soft);
+    font-size: 12px;
+    font-weight: 600;
   }
+  .loyalty-provider-meta svg { width: 12px; height: 12px; opacity: .7; }
   .loyalty-points-pill {
-    min-width: 84px;
+    min-width: 96px;
     border-radius: 14px;
-    background: #fff7e6;
-    color: #8f5a08;
-    padding: 10px 12px;
+    background: linear-gradient(135deg, var(--lw-accent-pale) 0%, #fbe5c0 100%);
+    color: var(--lw-accent-deep);
+    padding: 12px 14px;
     text-align: center;
-    font-weight: 950;
+    font-weight: 900;
+    border: 1px solid var(--lw-border-strong);
+  }
+  .loyalty-points-pill .lw-points-num {
+    display: block;
+    font-size: 20px;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
   }
   .loyalty-points-pill span {
     display: block;
     margin-top: 2px;
-    color: #a67c3d;
+    color: var(--lw-accent);
     font-size: 10px;
-    font-weight: 900;
+    font-weight: 800;
   }
   .loyalty-card-body {
     display: grid;
-    gap: 14px;
-    padding: 16px;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  /* ── Level + progress ─────────────────────── */
+  .loyalty-level-block {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 14px;
+    background: var(--lw-surface-soft);
+    border: 1px solid var(--lw-border);
   }
   .loyalty-level-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 12px;
     align-items: center;
   }
+  .loyalty-level-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--lw-accent-pale);
+    color: var(--lw-accent);
+  }
+  .loyalty-level-icon svg { width: 18px; height: 18px; }
   .loyalty-level-label {
     margin: 0;
-    color: #24150f;
+    color: var(--lw-ink);
     font-size: 13px;
-    font-weight: 950;
+    font-weight: 900;
+    letter-spacing: -0.01em;
   }
   .loyalty-level-next {
-    margin: 4px 0 0;
-    color: #887565;
+    margin: 3px 0 0;
+    color: var(--lw-ink-soft);
     font-size: 11px;
     line-height: 1.6;
-    font-weight: 800;
+    font-weight: 600;
+  }
+  .loyalty-progress-wrap {
+    display: grid;
+    gap: 6px;
   }
   .loyalty-progress {
-    height: 10px;
+    height: 8px;
     border-radius: 999px;
-    background: #eee7dc;
+    background: rgba(26, 20, 38, 0.06);
     overflow: hidden;
   }
   .loyalty-progress span {
@@ -175,38 +319,94 @@
     height: 100%;
     width: 0;
     border-radius: inherit;
-    background: linear-gradient(90deg, #9f6b2f, #e2b96e);
+    background: linear-gradient(90deg, var(--lw-accent) 0%, var(--lw-accent-soft) 100%);
+    transition: width .5s ease;
   }
+  .loyalty-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--lw-ink-muted);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .loyalty-progress-meta strong {
+    color: var(--lw-accent-deep);
+    font-weight: 900;
+  }
+
+  /* ── Rewards ──────────────────────────────── */
+  .loyalty-rewards-section {
+    display: grid;
+    gap: 10px;
+  }
+  .loyalty-rewards-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--lw-ink);
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .loyalty-rewards-title svg { width: 16px; height: 16px; color: var(--lw-accent); }
   .loyalty-reward-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 8px;
   }
   .loyalty-reward {
-    min-height: 82px;
-    border: 1px solid #eee8dc;
-    border-radius: 12px;
-    background: #fcfaf6;
-    padding: 10px;
+    position: relative;
+    display: grid;
+    gap: 6px;
+    min-height: 90px;
+    border: 1px solid var(--lw-border);
+    border-radius: 14px;
+    background: var(--lw-surface);
+    padding: 12px;
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .loyalty-reward:hover {
+    border-color: var(--lw-border-strong);
+    transform: translateY(-1px);
   }
   .loyalty-reward.is-available {
-    border-color: #b7e4c7;
-    background: #f0fdf4;
+    border-color: rgba(22, 163, 74, 0.30);
+    background: var(--lw-success-pale);
   }
-  .loyalty-reward strong {
-    display: block;
-    color: #1f2937;
-    font-size: 12px;
-    font-weight: 950;
-  }
-  .loyalty-reward span {
-    display: block;
-    margin-top: 4px;
-    color: #8a7563;
-    font-size: 10px;
-    line-height: 1.5;
+  .loyalty-reward .lw-reward-flag {
+    position: absolute;
+    top: 8px;
+    inset-inline-end: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--lw-success);
+    color: #fff;
+    font-size: 9px;
     font-weight: 800;
   }
+  .loyalty-reward .lw-reward-flag svg { width: 10px; height: 10px; }
+  .loyalty-reward strong {
+    display: block;
+    color: var(--lw-ink);
+    font-size: 13px;
+    font-weight: 900;
+    padding-inline-end: 56px;
+  }
+  .loyalty-reward.is-available strong { padding-inline-end: 70px; }
+  .loyalty-reward span {
+    display: block;
+    color: var(--lw-ink-soft);
+    font-size: 11px;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+  .loyalty-reward.is-available span { color: #15803d; font-weight: 700; }
+
+  /* ── Actions ──────────────────────────────── */
   .loyalty-actions {
     display: flex;
     flex-wrap: wrap;
@@ -214,57 +414,100 @@
   }
   .loyalty-btn {
     display: inline-flex;
+    align-items: center;
+    gap: 6px;
     min-height: 42px;
+    border-radius: 12px;
+    padding: 0 16px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 800;
+    transition: transform .1s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .loyalty-btn svg { width: 16px; height: 16px; }
+  .loyalty-btn:hover { transform: translateY(-1px); }
+  .loyalty-btn-primary {
+    background: linear-gradient(135deg, var(--lw-accent-deep) 0%, var(--lw-accent) 100%);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(184, 114, 42, 0.25);
+  }
+  .loyalty-btn-primary:hover { box-shadow: 0 6px 16px rgba(184, 114, 42, 0.32); }
+  .loyalty-btn-soft {
+    background: var(--lw-accent-pale);
+    color: var(--lw-accent-deep);
+    border: 1px solid var(--lw-border-strong);
+  }
+  .loyalty-btn-soft:hover { background: #fbe5c0; }
+
+  /* ── Empty state ──────────────────────────── */
+  .loyalty-empty {
+    display: grid;
+    place-items: center;
+    gap: 14px;
+    border: 1px solid var(--lw-border);
+    border-radius: 22px;
+    background: var(--lw-surface);
+    padding: 36px 24px;
+    text-align: center;
+    box-shadow: var(--lw-shadow-sm);
+  }
+  .loyalty-empty-icon {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
-    padding: 0 14px;
-    text-decoration: none;
-    font-size: 12px;
-    font-weight: 950;
+    width: 80px; height: 80px;
+    border-radius: 24px;
+    background: var(--lw-accent-pale);
+    color: var(--lw-accent);
   }
-  .loyalty-btn-primary {
-    background: #171717;
-    color: #fff;
-  }
-  .loyalty-btn-soft {
-    background: #f4efe7;
-    color: #60472e;
-  }
-  .loyalty-empty {
-    border: 1px dashed #d6c8b7;
-    border-radius: 16px;
-    background: #fffaf2;
-    padding: 22px;
-    text-align: center;
-  }
+  .loyalty-empty-icon svg { width: 40px; height: 40px; }
   .loyalty-empty h2 {
     margin: 0;
-    color: #231b16;
+    color: var(--lw-ink);
     font-size: 18px;
-    font-weight: 950;
+    font-weight: 900;
   }
   .loyalty-empty p {
-    max-width: 520px;
-    margin: 8px auto 0;
-    color: #7b6b5a;
+    max-width: 480px;
+    margin: 0;
+    color: var(--lw-ink-soft);
     font-size: 13px;
     line-height: 1.8;
-    font-weight: 800;
+    font-weight: 600;
   }
+
   @media (min-width: 760px) {
     .loyalty-hero-inner {
-      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.85fr);
       align-items: end;
+      padding: 28px;
+    }
+    .loyalty-summary-grid {
+      grid-template-columns: 1fr;
     }
   }
   @media (max-width: 640px) {
     body.page-loyalty-wallet .page-content { padding-inline: 12px; }
-    .loyalty-hero-inner { padding: 18px; }
+    .loyalty-hero-inner { padding: 20px; gap: 18px; }
     .loyalty-summary-grid { grid-template-columns: 1fr; }
-    .loyalty-provider-head { grid-template-columns: 46px minmax(0, 1fr); }
-    .loyalty-points-pill { grid-column: 1 / -1; }
+    .loyalty-provider-head {
+      grid-template-columns: 48px minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      gap: 10px 12px;
+      padding: 14px;
+    }
+    .loyalty-points-pill {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+    }
+    .loyalty-points-pill .lw-points-num { font-size: 18px; }
+    .loyalty-card-body { padding: 14px; gap: 14px; }
     .loyalty-reward-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .loyalty-level-row { grid-template-columns: 32px minmax(0, 1fr); }
+    .loyalty-level-row > a { grid-column: 1 / -1; justify-content: center; }
   }
 </style>
 {% endblock %}
@@ -274,25 +517,52 @@
   {% if not request.user.is_authenticated %}
     {% include "mobile_web/_auth_gate_unified.html" with gate_id="loyalty-auth-gate" kicker="محفظة الولاء" title="سجّل دخولك لعرض نقاطك" description="نقاطك تظهر حسب كل مزود خدمة تعاملت معه وفعّل برنامج الولاء." next_path="/loyalty/" note="كل نقطة ظاهرة هنا مصدرها سجل الولاء المعتمد داخل بوابة المزود." %}
   {% else %}
+    <header class="loyalty-page-header">
+      <a href="/profile/" class="lw-back" aria-label="رجوع">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </a>
+      <h1>محفظة الولاء</h1>
+      <span aria-hidden="true" style="width:40px;"></span>
+    </header>
+
     <section class="loyalty-hero" aria-label="ملخص محفظة الولاء">
       <div class="loyalty-hero-inner">
         <div>
-          <p class="loyalty-eyebrow">محفظة العميل</p>
-          <h1 class="loyalty-title">نقاط ولاء واضحة من كل مزود خدمة.</h1>
-          <p class="loyalty-subtitle">تابع رصيدك، مستواك، والمكافآت المتاحة لك من مصدر واحد مرتبط بسجلات المزودين المعتمدة.</p>
+          <span class="lw-hero-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+            محفظة العميل
+          </span>
+          <p class="loyalty-eyebrow" style="margin-top:14px">نقاط ولاء موحّدة</p>
+          <h2 class="loyalty-title">تابع رصيدك ومستواك من كل مزود في مكان واحد.</h2>
+          <p class="loyalty-subtitle">رصيدك ومكافآتك المتاحة تُحدَّث مباشرة من سجلات الولاء المعتمدة لدى كل مزود خدمة تعاملت معه.</p>
         </div>
         <div class="loyalty-summary-grid">
           <div class="loyalty-summary-tile">
-            <span>الرصيد الكلي</span>
-            <strong>{{ loyalty_wallet.summary.total_balance }}</strong>
+            <span class="lw-tile-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </span>
+            <div class="lw-tile-body">
+              <span>الرصيد الكلي</span>
+              <strong>{{ loyalty_wallet.summary.total_balance }}</strong>
+            </div>
           </div>
           <div class="loyalty-summary-tile">
-            <span>مزودون نشطون</span>
-            <strong>{{ loyalty_wallet.summary.memberships_count }}</strong>
+            <span class="lw-tile-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </span>
+            <div class="lw-tile-body">
+              <span>مزودون نشطون</span>
+              <strong>{{ loyalty_wallet.summary.memberships_count }}</strong>
+            </div>
           </div>
           <div class="loyalty-summary-tile">
-            <span>أفضل مستوى</span>
-            <strong>{{ loyalty_wallet.summary.best_level.label }}</strong>
+            <span class="lw-tile-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+            </span>
+            <div class="lw-tile-body">
+              <span>أفضل مستوى</span>
+              <strong>{{ loyalty_wallet.summary.best_level.label }}</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -312,61 +582,111 @@
             <div>
               <h2 class="loyalty-provider-name">{{ membership.provider_name }}</h2>
               <p class="loyalty-provider-meta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
                 {{ membership.program_name }}
                 {% if membership.provider_city %} · {{ membership.provider_city }}{% endif %}
               </p>
             </div>
             <div class="loyalty-points-pill">
-              {{ membership.points_balance }}
+              <span class="lw-points-num">{{ membership.points_balance }}</span>
               <span>نقطة متاحة</span>
             </div>
           </div>
           <div class="loyalty-card-body">
-            <div class="loyalty-level-row">
-              <div>
-                <p class="loyalty-level-label">مستواك الحالي: {{ membership.level.label }}</p>
-                <p class="loyalty-level-next">
-                  {% if membership.level.next_label %}
-                    تحتاج {{ membership.level.points_to_next }} نقطة للوصول إلى {{ membership.level.next_label }}.
-                  {% else %}
-                    وصلت إلى أعلى مستوى في البرنامج.
-                  {% endif %}
-                </p>
-              </div>
-              <a class="loyalty-btn loyalty-btn-soft" href="/provider/{{ membership.provider_id }}/">عرض المزود</a>
-            </div>
-            <div class="loyalty-progress" aria-label="تقدم مستوى الولاء">
-              <span style="width: {{ membership.level.progress_percent }}%"></span>
-            </div>
-            <div class="loyalty-reward-grid">
-              {% for reward in membership.rewards %}
-                <div class="loyalty-reward {% if reward.available %}is-available{% endif %}">
-                  <strong>{{ reward.title }}</strong>
-                  <span>
-                    {{ reward.points }} نقطة
-                    {% if reward.available %}
-                      · متاحة الآن
+            <div class="loyalty-level-block">
+              <div class="loyalty-level-row">
+                <span class="loyalty-level-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6-6 6 6"/><path d="M6 15l6 6 6-6"/></svg>
+                </span>
+                <div>
+                  <p class="loyalty-level-label">مستواك الحالي: {{ membership.level.label }}</p>
+                  <p class="loyalty-level-next">
+                    {% if membership.level.next_label %}
+                      تحتاج <strong>{{ membership.level.points_to_next }}</strong> نقطة للوصول إلى {{ membership.level.next_label }}.
                     {% else %}
-                      · متبقي {{ reward.points_remaining }}
+                      وصلت إلى أعلى مستوى في البرنامج.
                     {% endif %}
-                  </span>
+                  </p>
                 </div>
-              {% endfor %}
+                <a class="loyalty-btn loyalty-btn-soft" href="/provider/{{ membership.provider_id }}/">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  عرض المزود
+                </a>
+              </div>
+              <div class="loyalty-progress-wrap">
+                <div class="loyalty-progress" aria-label="تقدم مستوى الولاء">
+                  <span style="width: {{ membership.level.progress_percent }}%"></span>
+                </div>
+                <div class="loyalty-progress-meta">
+                  <span><strong>{{ membership.level.progress_percent }}%</strong> من المستوى التالي</span>
+                  {% if membership.level.next_label %}
+                    <span>{{ membership.level.next_label }}</span>
+                  {% else %}
+                    <span>أعلى مستوى</span>
+                  {% endif %}
+                </div>
+              </div>
             </div>
+
+            {% if membership.rewards %}
+              <div class="loyalty-rewards-section">
+                <h3 class="loyalty-rewards-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+                  المكافآت المتاحة
+                </h3>
+                <div class="loyalty-reward-grid">
+                  {% for reward in membership.rewards %}
+                    <div class="loyalty-reward {% if reward.available %}is-available{% endif %}">
+                      {% if reward.available %}
+                        <span class="lw-reward-flag">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          متاحة
+                        </span>
+                      {% endif %}
+                      <strong>{{ reward.title }}</strong>
+                      <span>
+                        {{ reward.points }} نقطة
+                        {% if reward.available %}
+                          · يمكنك استبدالها الآن
+                        {% else %}
+                          · يتبقى {{ reward.points_remaining }} نقطة
+                        {% endif %}
+                      </span>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endif %}
+
             <div class="loyalty-actions">
-              <a class="loyalty-btn loyalty-btn-primary" href="/service-request/?provider={{ membership.provider_id }}">طلب خدمة جديدة</a>
-              <a class="loyalty-btn loyalty-btn-soft" href="/chats/">مراسلة المزود</a>
+              <a class="loyalty-btn loyalty-btn-primary" href="/service-request/?provider={{ membership.provider_id }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                طلب خدمة جديدة
+              </a>
+              <a class="loyalty-btn loyalty-btn-soft" href="/chats/">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                مراسلة المزود
+              </a>
             </div>
           </div>
         </article>
       {% endfor %}
     {% else %}
       <section class="loyalty-empty">
+        <div class="loyalty-empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+        </div>
         <h2>لا توجد نقاط ولاء حتى الآن</h2>
-        <p>عند حصولك على نقاط من مزود خدمة فعّل برنامج الولاء، ستظهر هنا مع المستوى والمكافآت المتاحة مباشرة.</p>
-        <div class="loyalty-actions" style="justify-content:center;margin-top:14px">
-          <a class="loyalty-btn loyalty-btn-primary" href="/search/">استكشف مزودي الخدمة</a>
-          <a class="loyalty-btn loyalty-btn-soft" href="/orders/">عرض طلباتي</a>
+        <p>عند حصولك على نقاط من مزود خدمة فعّل برنامج الولاء، ستظهر هنا تلقائيًا مع المستوى والمكافآت المتاحة لك.</p>
+        <div class="loyalty-actions" style="justify-content:center;">
+          <a class="loyalty-btn loyalty-btn-primary" href="/search/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            استكشف مزودي الخدمة
+          </a>
+          <a class="loyalty-btn loyalty-btn-soft" href="/orders/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-2"/><path d="M9 11V7a3 3 0 0 1 6 0v4"/></svg>
+            عرض طلباتي
+          </a>
         </div>
       </section>
     {% endif %}
