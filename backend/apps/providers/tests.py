@@ -40,6 +40,59 @@ from .models import (
 )
 
 
+class ProviderContentCommentProfileCompletionGateTests(TestCase):
+    def setUp(self):
+        provider_user = User.objects.create_user(
+            phone="0509200001",
+            username="comment.provider",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=provider_user,
+            provider_type="individual",
+            display_name="مزود التعليقات",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+        )
+        self.portfolio_item = ProviderPortfolioItem.objects.create(
+            provider=self.provider,
+            file_type="image",
+            file=SimpleUploadedFile("comment.jpg", b"img", content_type="image/jpeg"),
+        )
+
+    def test_partial_client_must_complete_registration_before_commenting(self):
+        user = User.objects.create_user(
+            phone="0509200002",
+            username="partial.commenter",
+            role_state=UserRole.CLIENT,
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("providers:portfolio_comments", kwargs={"item_id": self.portfolio_item.id}),
+            {"body": "تعليق من حساب ناقص"},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["error_code"], "profile_completion_required")
+
+    def test_phone_only_can_still_like_content(self):
+        user = User.objects.create_user(
+            phone="0509200003",
+            username="phone.only.like",
+            role_state=UserRole.PHONE_ONLY,
+        )
+        self.client.force_login(user)
+
+        response = self.client.post(
+            reverse("providers:portfolio_like", kwargs={"item_id": self.portfolio_item.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["ok"])
+
+
 class SavedMediaEndpointsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

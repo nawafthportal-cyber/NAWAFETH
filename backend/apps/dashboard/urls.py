@@ -35,6 +35,7 @@ urlpatterns = [
     path("content/categories/", views.content_categories, name="content_categories"),
     path("content/reviews/", views.content_reviews_dashboard, name="content_reviews_dashboard"),
     path("content/reviews/<int:ticket_id>/", views.content_reviews_dashboard, name="content_reviews_ticket_detail"),
+    path("content/reports/", views.content_reports_dashboard, name="content_reports_dashboard"),
     path("content/excellence/", views.content_excellence, name="content_excellence"),
     path("content/excellence/api/", views.content_excellence_api, name="content_excellence_api"),
     path("analytics/insights/", views.analytics_insights, name="analytics_insights"),

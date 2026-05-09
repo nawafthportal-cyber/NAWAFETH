@@ -4,7 +4,7 @@ import logging
 
 from django.db import DatabaseError, OperationalError, close_old_connections
 from rest_framework import status
-from rest_framework.exceptions import Throttled
+from rest_framework.exceptions import Throttled, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_exception_handler
 
@@ -13,6 +13,29 @@ from apps.core.throttling import build_retry_after_payload, normalize_retry_afte
 
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_first_error_code(detail) -> str:
+    """Return the first non-default code found inside a ValidationError detail tree."""
+    try:
+        codes = detail
+        if hasattr(detail, "get_codes"):
+            codes = detail.get_codes()
+        if isinstance(codes, dict):
+            for value in codes.values():
+                code = _extract_first_error_code(value)
+                if code:
+                    return code
+        elif isinstance(codes, (list, tuple)):
+            for item in codes:
+                code = _extract_first_error_code(item)
+                if code:
+                    return code
+        elif isinstance(codes, str) and codes and codes != "invalid":
+            return codes
+    except Exception:  # pragma: no cover - defensive
+        return ""
+    return ""
 
 
 def api_exception_handler(exc, context):
@@ -29,6 +52,13 @@ def api_exception_handler(exc, context):
             response.data = build_retry_after_payload(detail, wait_seconds, code="throttled")
             if wait_seconds is not None:
                 response["Retry-After"] = str(wait_seconds)
+        elif isinstance(exc, ValidationError):
+            try:
+                code = _extract_first_error_code(getattr(exc, "detail", None))
+                if code and isinstance(response.data, dict) and "error_code" not in response.data:
+                    response.data["error_code"] = code
+            except Exception:  # pragma: no cover - defensive
+                pass
         return response
 
     if isinstance(exc, (OperationalError, DatabaseError)):

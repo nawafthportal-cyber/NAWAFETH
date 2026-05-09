@@ -1688,6 +1688,12 @@ const SpotlightViewer = (() => {
         }
       );
       if (!response || !response.ok) throw new Error('report_failed');
+      const caseId = Number(response && response.data && response.data.case_id);
+      if (Number.isFinite(caseId) && caseId > 0) {
+        _closeDialogSheet();
+        window.location.href = '/contact/?case=' + encodeURIComponent(String(Math.floor(caseId)));
+        return;
+      }
       _showToast(_shareCopy('reportSuccess'));
       _closeDialogSheet();
     } catch (_) {

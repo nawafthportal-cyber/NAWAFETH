@@ -2,9 +2,9 @@
    Nawafeth — home-polish.css
    Additive finishing touches for the mobile web home page.
    Scoped under `body.home-mobile-layout` so global styles are not
-   affected. This file ONLY adds micro-interactions, refined focus
-   rings, smoother scrollbars, gentle entrance animations and
-   reduced-motion safeguards. It must NOT redefine layout sizes.
+   affected. This file adds micro-interactions, refined focus rings,
+   smoother scrollbars, gentle entrance animations, reduced-motion
+   safeguards, and conservative visual spacing refinements.
    =================================================================== */
 
 /* ── Section entrance: gentle fade + rise ──────────────────────────── */
@@ -273,4 +273,390 @@ body.home-mobile-layout #banners {
     width: min(680px, calc(100% - 32px));
     margin-inline: auto;
   }
+}
+
+/* =====================================================================
+   Premium UX pass - visual refinement only.
+   Keeps the same section order and data sources, but makes the home page
+   calmer, clearer, and more polished across mobile and desktop.
+   ===================================================================== */
+
+body.home-mobile-layout {
+  background:
+    radial-gradient(980px 420px at 85% 4%, rgba(20, 149, 138, .08), transparent 62%),
+    radial-gradient(920px 360px at 6% 18%, rgba(245, 158, 11, .055), transparent 58%),
+    linear-gradient(180deg, #fbfcff 0%, #f6f7fb 42%, #fbfcff 100%);
+}
+
+body.home-mobile-layout #main-content {
+  position: relative;
+  z-index: 4;
+}
+
+body.home-mobile-layout .home-sections-stack {
+  padding-top: clamp(10px, 2.8vw, 26px);
+  gap: clamp(18px, 3.2vw, 34px);
+}
+
+@media (min-width: 900px) {
+  body.home-mobile-layout .home-sections-stack {
+    width: min(1160px, calc(100% - 48px));
+    margin-inline: auto;
+  }
+
+  body.home-mobile-layout .home-section .container {
+    max-width: 100%;
+    padding-inline: 0;
+  }
+}
+
+body.home-mobile-layout .home-section-shell {
+  border-radius: 22px;
+  border-color: rgba(66, 82, 110, .1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(250, 252, 255, .94));
+  box-shadow:
+    0 18px 42px rgba(31, 41, 55, .08),
+    0 1px 0 rgba(255, 255, 255, .8) inset;
+}
+
+body.home-mobile-layout .home-section-shell::before {
+  opacity: .72;
+}
+
+body.home-mobile-layout .home-section-shell::after {
+  border-radius: 20px;
+  border-color: rgba(255, 255, 255, .62);
+}
+
+body.home-mobile-layout .home-section-header {
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+body.home-mobile-layout .home-section-kicker {
+  min-height: 28px;
+  padding-inline: 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, .045);
+}
+
+body.home-mobile-layout .home-section-title-static {
+  font-size: clamp(18px, 2.2vw, 23px);
+  letter-spacing: 0;
+}
+
+body.home-mobile-layout .home-section-note {
+  color: #667085;
+}
+
+body.home-mobile-layout .home-hero-section {
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, .04), rgba(255, 255, 255, 0));
+}
+
+body.home-mobile-layout .hero-banner-shell .carousel-wrapper {
+  border-radius: clamp(18px, 2.4vw, 28px);
+  box-shadow:
+    0 26px 68px rgba(15, 23, 42, .18),
+    0 0 0 1px rgba(255, 255, 255, .52) inset;
+}
+
+body.home-mobile-layout .carousel-media {
+  border-radius: clamp(14px, 1.8vw, 20px);
+  box-shadow:
+    0 18px 38px rgba(2, 6, 23, .24),
+    0 0 0 1px rgba(255, 255, 255, .12) inset;
+}
+
+body.home-mobile-layout .carousel-dots {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, .34);
+  border: 1px solid rgba(255, 255, 255, .14);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+body.home-mobile-layout .carousel-dot {
+  background: rgba(255, 255, 255, .52);
+}
+
+body.home-mobile-layout .carousel-dot.active {
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, .18);
+}
+
+body.home-mobile-layout .carousel-arrow {
+  background: rgba(15, 23, 42, .42);
+  border: 1px solid rgba(255, 255, 255, .18);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+body.home-mobile-layout .home-hero-fade {
+  height: 72px;
+  background: linear-gradient(180deg, rgba(251, 252, 255, 0) 0%, rgba(251, 252, 255, .86) 74%, #fbfcff 100%);
+}
+
+body.home-mobile-layout .reels-track {
+  gap: clamp(12px, 2vw, 18px);
+  padding-block: 2px 6px;
+}
+
+body.home-mobile-layout .reel-ring {
+  box-shadow:
+    0 12px 24px rgba(88, 28, 135, .12),
+    0 0 0 1px rgba(255, 255, 255, .78) inset;
+}
+
+body.home-mobile-layout .reel-item.is-active .reel-ring {
+  box-shadow:
+    0 14px 30px rgba(88, 28, 135, .18),
+    0 0 0 4px rgba(20, 149, 138, .1);
+}
+
+body.home-mobile-layout .categories-carousel.has-marquee .cat-item,
+body.home-mobile-layout .categories-scroll .cat-item {
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(248, 250, 252, .96));
+  border-color: rgba(15, 23, 42, .08);
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, .06),
+    0 1px 0 rgba(255, 255, 255, .9) inset;
+}
+
+body.home-mobile-layout .categories-carousel.has-marquee .cat-icon,
+body.home-mobile-layout .categories-scroll .cat-icon {
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(20, 149, 138, .12), rgba(103, 58, 183, .1));
+  box-shadow: 0 8px 18px rgba(20, 149, 138, .08);
+}
+
+body.home-mobile-layout .categories-carousel.has-marquee .cat-name,
+body.home-mobile-layout .categories-scroll .cat-name {
+  color: #182230;
+  letter-spacing: 0;
+}
+
+body.home-mobile-layout .view-all-btn {
+  border-color: rgba(20, 149, 138, .2);
+  background: rgba(20, 149, 138, .08);
+  color: #0f766e;
+  box-shadow: 0 8px 20px rgba(20, 149, 138, .08);
+}
+
+body.home-mobile-layout .view-all-btn:hover {
+  background: rgba(20, 149, 138, .13);
+}
+
+body.home-mobile-layout .featured-specialists-scroll {
+  padding-block: 6px 14px;
+}
+
+body.home-mobile-layout .featured-specialists-scroll .featured-specialist-card {
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fbf9ff 52%, #f7fbfa 100%);
+  border-color: rgba(15, 23, 42, .08);
+  box-shadow:
+    0 14px 30px rgba(44, 29, 82, .09),
+    0 1px 0 rgba(255, 255, 255, .9) inset;
+}
+
+body.home-mobile-layout .featured-specialists-scroll .featured-specialist-card::before {
+  height: 4px;
+  opacity: .9;
+  background: linear-gradient(90deg, #14958a, #673ab7 58%, #f59e0b);
+}
+
+body.home-mobile-layout .featured-specialists-scroll .featured-specialist-avatar-ring {
+  background: linear-gradient(135deg, #14958a, #673ab7 58%, #f59e0b);
+  animation: none;
+}
+
+body.home-mobile-layout .featured-specialists-scroll .featured-specialist-name {
+  color: #182230;
+  letter-spacing: 0;
+}
+
+body.home-mobile-layout .featured-specialists-scroll .featured-specialist-meta {
+  background: rgba(20, 149, 138, .08);
+  border-color: rgba(20, 149, 138, .16);
+  color: #0f766e;
+}
+
+body.home-mobile-layout .showcase-scroll {
+  padding-block: 4px 10px;
+}
+
+body.home-mobile-layout .showcase-card {
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, .08);
+  background: #ffffff;
+  box-shadow:
+    0 16px 34px rgba(15, 23, 42, .1),
+    0 1px 0 rgba(255, 255, 255, .86) inset;
+  overflow: hidden;
+}
+
+body.home-mobile-layout .showcase-media {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+body.home-mobile-layout .showcase-chip {
+  background: rgba(15, 23, 42, .58);
+  border: 1px solid rgba(255, 255, 255, .18);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+body.home-mobile-layout .sponsor-card {
+  border-radius: 18px;
+  background:
+    radial-gradient(520px 260px at 100% 0%, rgba(20, 149, 138, .24), transparent 62%),
+    radial-gradient(420px 240px at 0% 100%, rgba(245, 158, 11, .18), transparent 64%),
+    linear-gradient(145deg, #16172a 0%, #22173b 52%, #101827 100%);
+  box-shadow:
+    0 22px 48px rgba(15, 23, 42, .26),
+    0 0 0 1px rgba(255, 255, 255, .08) inset;
+}
+
+body.home-mobile-layout .sponsor-hero,
+body.home-mobile-layout .sponsor-message-panel {
+  border-radius: 14px;
+}
+
+body.home-mobile-layout .sponsor-title {
+  letter-spacing: 0;
+}
+
+body.home-mobile-layout .providers-empty,
+body.home-mobile-layout .reels-empty,
+body.home-mobile-layout .hero-banner-empty {
+  width: 100%;
+  min-height: 118px;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px dashed rgba(15, 23, 42, .14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .86), rgba(248, 250, 252, .78));
+  color: #667085;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+body.home-mobile-layout .hero-banner-empty {
+  min-height: 100%;
+  color: rgba(255, 255, 255, .84);
+  border-color: rgba(255, 255, 255, .18);
+  background:
+    radial-gradient(360px 180px at 50% 10%, rgba(20, 149, 138, .2), transparent 70%),
+    linear-gradient(145deg, rgba(15, 23, 42, .96), rgba(30, 41, 59, .92));
+}
+
+@media (max-width: 640px) {
+  body.home-mobile-layout .home-sections-stack {
+    gap: 16px;
+  }
+
+  body.home-mobile-layout .home-section-shell {
+    border-radius: 18px;
+    padding: 14px 12px 13px;
+  }
+
+  body.home-mobile-layout .home-section-shell::after {
+    border-radius: 16px;
+  }
+
+  body.home-mobile-layout .home-section-header {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  body.home-mobile-layout .home-section-title-static {
+    font-size: 18px;
+  }
+
+  body.home-mobile-layout .home-section-kicker {
+    min-height: 26px;
+    font-size: 10.5px;
+  }
+
+  body.home-mobile-layout .featured-specialists-scroll .featured-specialist-card {
+    border-radius: 16px;
+  }
+
+  body.home-mobile-layout .sponsor-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  body.home-mobile-layout .sponsor-action-btn {
+    width: 100%;
+  }
+}
+
+[data-theme="dark"] body.home-mobile-layout {
+  background:
+    radial-gradient(920px 420px at 85% 4%, rgba(20, 149, 138, .12), transparent 62%),
+    radial-gradient(820px 360px at 6% 18%, rgba(245, 158, 11, .08), transparent 58%),
+    linear-gradient(180deg, #0d111b 0%, #111827 54%, #0d111b 100%);
+}
+
+[data-theme="dark"] body.home-mobile-layout .home-hero-fade {
+  background: linear-gradient(180deg, rgba(13, 17, 27, 0) 0%, rgba(13, 17, 27, .86) 74%, #0d111b 100%);
+}
+
+[data-theme="dark"] body.home-mobile-layout .home-section-shell,
+body.home-mobile-layout [data-theme="dark"] .home-section-shell {
+  border-color: rgba(255, 255, 255, .08);
+  background:
+    linear-gradient(180deg, rgba(23, 29, 43, .96), rgba(15, 23, 42, .94));
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, .28),
+    0 1px 0 rgba(255, 255, 255, .05) inset;
+}
+
+[data-theme="dark"] body.home-mobile-layout .categories-carousel.has-marquee .cat-item,
+[data-theme="dark"] body.home-mobile-layout .categories-scroll .cat-item,
+[data-theme="dark"] body.home-mobile-layout .featured-specialists-scroll .featured-specialist-card,
+[data-theme="dark"] body.home-mobile-layout .showcase-card,
+body.home-mobile-layout [data-theme="dark"] .categories-carousel.has-marquee .cat-item,
+body.home-mobile-layout [data-theme="dark"] .categories-scroll .cat-item,
+body.home-mobile-layout [data-theme="dark"] .featured-specialists-scroll .featured-specialist-card,
+body.home-mobile-layout [data-theme="dark"] .showcase-card {
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, .96), rgba(17, 24, 39, .92));
+  border-color: rgba(255, 255, 255, .08);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, .28),
+    0 1px 0 rgba(255, 255, 255, .05) inset;
+}
+
+[data-theme="dark"] body.home-mobile-layout .categories-carousel.has-marquee .cat-name,
+[data-theme="dark"] body.home-mobile-layout .categories-scroll .cat-name,
+[data-theme="dark"] body.home-mobile-layout .featured-specialists-scroll .featured-specialist-name,
+body.home-mobile-layout [data-theme="dark"] .categories-carousel.has-marquee .cat-name,
+body.home-mobile-layout [data-theme="dark"] .categories-scroll .cat-name,
+body.home-mobile-layout [data-theme="dark"] .featured-specialists-scroll .featured-specialist-name {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] body.home-mobile-layout .providers-empty,
+[data-theme="dark"] body.home-mobile-layout .reels-empty,
+body.home-mobile-layout [data-theme="dark"] .providers-empty,
+body.home-mobile-layout [data-theme="dark"] .reels-empty {
+  background: rgba(15, 23, 42, .58);
+  border-color: rgba(255, 255, 255, .12);
+  color: #cbd5e1;
 }

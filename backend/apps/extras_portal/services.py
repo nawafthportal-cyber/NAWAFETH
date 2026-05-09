@@ -5,9 +5,9 @@ import logging
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 
+from apps.messaging.api import _apply_direct_thread_modes, _find_direct_thread_for_pair
 from apps.messaging.models import Message, Thread
 from apps.notifications.models import EventLog, EventType
 from apps.notifications.services import create_notification
@@ -20,17 +20,23 @@ logger = logging.getLogger(__name__)
 def get_or_create_direct_thread(user_a, user_b) -> Thread:
     if user_a.id == user_b.id:
         raise ValueError("cannot chat self")
-    thread = (
-        Thread.objects.filter(is_direct=True)
-        .filter(
-            Q(participant_1=user_a, participant_2=user_b)
-            | Q(participant_1=user_b, participant_2=user_a)
-        )
-        .first()
+    thread = _find_direct_thread_for_pair(
+        user_a=user_a,
+        user_b=user_b,
+        user_a_mode=Thread.ContextMode.PROVIDER,
+        user_b_mode=Thread.ContextMode.CLIENT,
     )
     if thread:
         return thread
-    return Thread.objects.create(is_direct=True, participant_1=user_a, participant_2=user_b)
+    thread = Thread.objects.create(is_direct=True, participant_1=user_a, participant_2=user_b)
+    _apply_direct_thread_modes(
+        thread=thread,
+        user_a=user_a,
+        user_b=user_b,
+        user_a_mode=Thread.ContextMode.PROVIDER,
+        user_b_mode=Thread.ContextMode.CLIENT,
+    )
+    return thread
 
 
 def _scheduled_message_notification_body(*, recipient_count: int) -> str:

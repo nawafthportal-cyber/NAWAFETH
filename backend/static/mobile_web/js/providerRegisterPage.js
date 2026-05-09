@@ -82,6 +82,10 @@ var ProviderRegisterPage = (function () {
   };
 
   function init() {
+    if (window.Auth && typeof Auth.needsCompletion === "function" && Auth.needsCompletion()) {
+      Auth.redirectToCompletion ? Auth.redirectToCompletion("/provider-register/") : (window.location.href = "/signup/?next=%2Fprovider-register%2F");
+      return;
+    }
     loadCategories();
     bindEvents();
     initLocationMap();

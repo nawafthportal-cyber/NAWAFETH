@@ -193,6 +193,10 @@ class ServiceRequest(models.Model):
 	provider_inputs_approved = models.BooleanField(null=True, blank=True)
 	provider_inputs_decided_at = models.DateTimeField(null=True, blank=True)
 	provider_inputs_decision_note = models.CharField(max_length=255, blank=True)
+	provider_inputs_has_financial_change = models.BooleanField(default=False)
+	client_response_note_required = models.BooleanField(default=False)
+	client_response_attachment_required = models.BooleanField(default=False)
+	client_response_question = models.CharField(max_length=255, blank=True)
 
 	def accept(self, provider: ProviderProfile) -> None:
 		if self.status != RequestStatus.NEW:
@@ -249,6 +253,10 @@ class ServiceRequest(models.Model):
 			self.provider_inputs_approved = None
 			self.provider_inputs_decided_at = None
 			self.provider_inputs_decision_note = ""
+			self.provider_inputs_has_financial_change = False
+			self.client_response_note_required = False
+			self.client_response_attachment_required = False
+			self.client_response_question = ""
 			update_fields.extend(
 				[
 					"provider",
@@ -259,6 +267,10 @@ class ServiceRequest(models.Model):
 					"provider_inputs_approved",
 					"provider_inputs_decided_at",
 					"provider_inputs_decision_note",
+					"provider_inputs_has_financial_change",
+					"client_response_note_required",
+					"client_response_attachment_required",
+					"client_response_question",
 				]
 			)
 		self.save(update_fields=update_fields)
@@ -276,6 +288,10 @@ class ServiceRequest(models.Model):
 		self.provider_inputs_approved = None
 		self.provider_inputs_decided_at = None
 		self.provider_inputs_decision_note = ""
+		self.provider_inputs_has_financial_change = False
+		self.client_response_note_required = False
+		self.client_response_attachment_required = False
+		self.client_response_question = ""
 		self.canceled_at = None
 		self.cancel_reason = ""
 		self.save(
@@ -289,6 +305,10 @@ class ServiceRequest(models.Model):
 				"provider_inputs_approved",
 				"provider_inputs_decided_at",
 				"provider_inputs_decision_note",
+				"provider_inputs_has_financial_change",
+				"client_response_note_required",
+				"client_response_attachment_required",
+				"client_response_question",
 				"canceled_at",
 				"cancel_reason",
 			]
@@ -379,10 +399,12 @@ class RequestStatusLog(models.Model):
 class ServiceRequestAttachment(models.Model):
 	# Source/role of the attachment so the client UI can group/label them
 	SOURCE_CLIENT = "client"
+	SOURCE_CLIENT_RESPONSE = "client_response"
 	SOURCE_PROVIDER_PROGRESS = "provider_progress"
 	SOURCE_PROVIDER_COMPLETION = "provider_completion"
 	SOURCE_CHOICES = (
 		(SOURCE_CLIENT, "Client"),
+		(SOURCE_CLIENT_RESPONSE, "Client response to provider input"),
 		(SOURCE_PROVIDER_PROGRESS, "Provider progress update"),
 		(SOURCE_PROVIDER_COMPLETION, "Provider completion"),
 	)
@@ -414,6 +436,124 @@ class ServiceRequestAttachment(models.Model):
 
 	def __str__(self):
 		return f"Attachment {self.id} for Request #{self.request_id}"
+
+
+class PaymentPlanStatus(models.TextChoices):
+	OPEN = "open", "مفتوحة"
+	PAID = "paid", "مدفوعة بالكامل"
+	CLOSED = "closed", "مغلقة"
+
+
+class PaymentInstallmentStatus(models.TextChoices):
+	PENDING_PAYMENT = "pending_payment", "بانتظار الدفع"
+	RECEIPT_UPLOADED = "receipt_uploaded", "بانتظار تأكيد المزود"
+	CONFIRMED = "confirmed", "مؤكدة"
+	REJECTED = "rejected", "مرفوضة"
+	CANCELLED = "cancelled", "ملغاة"
+
+
+class ServiceRequestPaymentPlan(models.Model):
+	request = models.OneToOneField(
+		ServiceRequest,
+		on_delete=models.CASCADE,
+		related_name="payment_plan",
+	)
+	provider = models.ForeignKey(
+		ProviderProfile,
+		on_delete=models.CASCADE,
+		related_name="service_request_payment_plans",
+	)
+	client = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.CASCADE,
+		related_name="service_request_payment_plans",
+	)
+	total_amount = models.DecimalField(max_digits=12, decimal_places=2)
+	confirmed_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+	remaining_amount = models.DecimalField(max_digits=12, decimal_places=2)
+	currency = models.CharField(max_length=10, default="SAR")
+	bank_name = models.CharField(max_length=120, blank=True, default="")
+	account_name = models.CharField(max_length=120, blank=True, default="")
+	account_number = models.CharField(max_length=30, blank=True, default="")
+	iban = models.CharField(max_length=34, blank=True, default="")
+	qr_image_name = models.CharField(max_length=255, blank=True, default="")
+	reference = models.CharField(max_length=40, unique=True)
+	status = models.CharField(
+		max_length=20,
+		choices=PaymentPlanStatus.choices,
+		default=PaymentPlanStatus.OPEN,
+	)
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		ordering = ("-id",)
+
+	def __str__(self) -> str:
+		return f"payment_plan#{self.id} request={self.request_id} status={self.status}"
+
+
+class ServiceRequestPaymentInstallment(models.Model):
+	plan = models.ForeignKey(
+		ServiceRequestPaymentPlan,
+		on_delete=models.CASCADE,
+		related_name="installments",
+	)
+	request = models.ForeignKey(
+		ServiceRequest,
+		on_delete=models.CASCADE,
+		related_name="payment_installments",
+	)
+	sequence = models.PositiveIntegerField()
+	title = models.CharField(max_length=120)
+	amount = models.DecimalField(max_digits=12, decimal_places=2)
+	status = models.CharField(
+		max_length=24,
+		choices=PaymentInstallmentStatus.choices,
+		default=PaymentInstallmentStatus.PENDING_PAYMENT,
+	)
+	provider_note = models.CharField(max_length=255, blank=True, default="")
+	client_note = models.CharField(max_length=255, blank=True, default="")
+	receipt = models.FileField(upload_to="marketplace/payment_receipts/%Y/%m/%d/", null=True, blank=True)
+	receipt_uploaded_by = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name="uploaded_payment_receipts",
+	)
+	receipt_uploaded_at = models.DateTimeField(null=True, blank=True)
+	confirmed_by = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name="confirmed_payment_installments",
+	)
+	confirmed_at = models.DateTimeField(null=True, blank=True)
+	rejected_by = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name="rejected_payment_installments",
+	)
+	rejected_at = models.DateTimeField(null=True, blank=True)
+	rejection_reason = models.CharField(max_length=255, blank=True, default="")
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		ordering = ("sequence", "id")
+		constraints = [
+			models.UniqueConstraint(
+				fields=["plan", "sequence"],
+				name="uniq_payment_installment_plan_sequence",
+			),
+		]
+
+	def __str__(self) -> str:
+		return f"installment#{self.id} plan={self.plan_id} amount={self.amount} status={self.status}"
 
 
 class ServiceRequestDispatch(models.Model):

@@ -95,6 +95,20 @@ const OrdersPage = (() => {
       openDetails: 'عرض التفاصيل',
       requestNumberPrefix: 'طلب',
       currency: 'ر.س',
+      attentionRequired: 'تحتاج اعتمادك',
+      nextAction: 'الإجراء التالي',
+      continueTracking: 'متابعة الطلب',
+      stepCreated: 'إنشاء',
+      stepAccepted: 'قبول',
+      stepProgress: 'تنفيذ',
+      stepCompleted: 'إغلاق',
+      stepCancelled: 'ملغي',
+      actionAwaitingClient: 'راجع تفاصيل التنفيذ واعتمدها أو ارفضها.',
+      actionAccepted: 'مزود الخدمة قبل الطلب وينتظر اعتماد تفاصيل التنفيذ.',
+      actionInProgress: 'تابع تقدم التنفيذ والدفعات والمرفقات.',
+      actionCompleted: 'الخدمة مكتملة ويمكنك مراجعة التقييم والتفاصيل.',
+      actionCancelled: 'الطلب متوقف ويمكنك مراجعة سبب الإلغاء.',
+      actionDefault: 'افتح التفاصيل لمتابعة الطلب.',
     },
     en: {
       pageTitle: 'Nawafeth — My Orders',
@@ -184,6 +198,20 @@ const OrdersPage = (() => {
       openDetails: 'Open details',
       requestNumberPrefix: 'Request',
       currency: 'SAR',
+      attentionRequired: 'Needs approval',
+      nextAction: 'Next action',
+      continueTracking: 'Track order',
+      stepCreated: 'Created',
+      stepAccepted: 'Accepted',
+      stepProgress: 'Execution',
+      stepCompleted: 'Closed',
+      stepCancelled: 'Cancelled',
+      actionAwaitingClient: 'Review execution details, then approve or reject.',
+      actionAccepted: 'The provider accepted and is waiting on execution details.',
+      actionInProgress: 'Track execution progress, payments, and attachments.',
+      actionCompleted: 'The service is complete. Review rating and details.',
+      actionCancelled: 'The order is stopped. Review the cancellation reason.',
+      actionDefault: 'Open details to continue tracking.',
     },
   };
 
@@ -574,7 +602,12 @@ const OrdersPage = (() => {
 
   function _buildCard(order) {
     const orderId = order.id || order.request_id;
-    const card = UI.el(orderId ? 'a' : 'article', { className: 'order-card' });
+    const statusGroup = _statusGroup(order);
+    const stage = _workflowStage(order);
+    const needsAttention = stage === 'awaiting_client';
+    const card = UI.el(orderId ? 'a' : 'article', {
+      className: 'order-card order-card-' + statusGroup + (needsAttention ? ' order-card-attention' : ''),
+    });
     if (orderId && card.tagName === 'A') {
       card.setAttribute('href', '/orders/' + orderId + '/');
     }
@@ -582,10 +615,18 @@ const OrdersPage = (() => {
     card.setAttribute('aria-label', _buildCardAriaLabel(order));
 
     const header = UI.el('div', { className: 'order-header' });
-    header.appendChild(UI.el('span', {
+    const headerCopy = UI.el('div', { className: 'order-header-copy' });
+    headerCopy.appendChild(UI.el('span', {
       className: 'order-date',
       textContent: _formatDateTime(order.created_at || order.created),
     }));
+    if (needsAttention) {
+      headerCopy.appendChild(UI.el('span', {
+        className: 'order-attention-pill',
+        textContent: _copy('attentionRequired'),
+      }));
+    }
+    header.appendChild(headerCopy);
 
     const badge = UI.el('span', {
       className: 'status-badge',
@@ -641,6 +682,13 @@ const OrdersPage = (() => {
     metaGrid.appendChild(_buildMetaItem(_copy('deadlineLabel'), _formatDeadlineText(order)));
     card.appendChild(metaGrid);
 
+    card.appendChild(_buildProgressRail(order));
+
+    const actionBox = UI.el('div', { className: 'order-next-action' });
+    actionBox.appendChild(UI.el('span', { className: 'order-next-action-label', textContent: _copy('nextAction') }));
+    actionBox.appendChild(UI.el('strong', { textContent: _nextActionText(order) }));
+    card.appendChild(actionBox);
+
     const footer = UI.el('div', { className: 'order-card-footer' });
     const footerCopy = UI.el('div', { className: 'order-footer-copy' });
     footerCopy.appendChild(UI.el('div', {
@@ -663,11 +711,47 @@ const OrdersPage = (() => {
 
     footer.appendChild(UI.el('span', {
       className: 'order-card-cta',
-      textContent: _copy('openDetails'),
+      textContent: _copy('continueTracking'),
     }));
 
     card.appendChild(footer);
     return card;
+  }
+
+  function _buildProgressRail(order) {
+    const group = _statusGroup(order);
+    const stage = _workflowStage(order);
+    const rail = UI.el('div', { className: 'order-progress-rail order-progress-' + group });
+    const steps = group === 'cancelled'
+      ? [
+        { key: 'created', label: _copy('stepCreated'), active: true },
+        { key: 'cancelled', label: _copy('stepCancelled'), active: true },
+      ]
+      : [
+        { key: 'created', label: _copy('stepCreated'), active: true },
+        { key: 'accepted', label: _copy('stepAccepted'), active: ['provider_accepted', 'awaiting_client', 'in_progress', 'completed'].includes(stage) || ['in_progress', 'completed'].includes(group) },
+        { key: 'progress', label: _copy('stepProgress'), active: ['in_progress', 'completed'].includes(group) },
+        { key: 'completed', label: _copy('stepCompleted'), active: group === 'completed' },
+      ];
+
+    steps.forEach((step) => {
+      const item = UI.el('span', { className: 'order-progress-step' + (step.active ? ' is-active' : '') });
+      item.appendChild(UI.el('span', { className: 'order-progress-dot' }));
+      item.appendChild(UI.el('span', { className: 'order-progress-label', textContent: step.label }));
+      rail.appendChild(item);
+    });
+    return rail;
+  }
+
+  function _nextActionText(order) {
+    const stage = _workflowStage(order);
+    const group = _statusGroup(order);
+    if (stage === 'awaiting_client') return _copy('actionAwaitingClient');
+    if (stage === 'provider_accepted') return _copy('actionAccepted');
+    if (group === 'in_progress') return _copy('actionInProgress');
+    if (group === 'completed') return _copy('actionCompleted');
+    if (group === 'cancelled') return _copy('actionCancelled');
+    return _copy('actionDefault');
   }
 
   function _buildMetaItem(label, value) {

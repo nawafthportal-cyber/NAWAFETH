@@ -27,7 +27,10 @@ const OnboardingOverlay = (() => {
       connectionFailed: 'حدث خطأ في الاتصال، حاول مرة أخرى',
       resend: 'إعادة إرسال رمز التحقق',
       resendAfter: 'يمكنك إعادة الإرسال بعد {time}',
-      stepLabel: '{index} / {total}',
+      counterLabel: 'الخطوة {index} من {total}',
+      stepLabel: 'الشاشة {index}',
+      readyNote: 'جاهز للانطلاق',
+      quickTour: 'جولة تعريفية سريعة',
     },
     en: {
       overlayLabel: 'Welcome to Nawafeth',
@@ -47,7 +50,10 @@ const OnboardingOverlay = (() => {
       connectionFailed: 'A connection error occurred. Please try again.',
       resend: 'Resend verification code',
       resendAfter: 'You can resend after {time}',
-      stepLabel: '{index} / {total}',
+      counterLabel: 'Step {index} of {total}',
+      stepLabel: 'Screen {index}',
+      readyNote: 'Ready to begin',
+      quickTour: 'Quick guided tour',
     },
   };
   const SLIDE_KEYS = [
@@ -229,12 +235,6 @@ const OnboardingOverlay = (() => {
     container.className = 'ob-container';
     _overlay.appendChild(container);
 
-    /* Page counter */
-    const counter = document.createElement('div');
-    counter.className = 'ob-counter';
-    counter.id = 'ob-counter';
-    container.appendChild(counter);
-
     /* Stage */
     const stage = document.createElement('div');
     stage.className = 'ob-stage';
@@ -247,9 +247,11 @@ const OnboardingOverlay = (() => {
     dots.className = 'ob-dots';
     dots.id = 'ob-dots';
     _slides.forEach((_, idx) => {
-      const dot = document.createElement('span');
+      const dot = document.createElement('button');
       dot.className = 'ob-dot';
+      dot.type = 'button';
       dot.dataset.index = String(idx);
+      dot.setAttribute('aria-label', _copy('stepLabel').replace('{index}', String(idx + 1)));
       dot.addEventListener('click', () => _goTo(idx));
       dots.appendChild(dot);
     });
@@ -285,19 +287,6 @@ const OnboardingOverlay = (() => {
     const el = document.createElement('article');
     el.className = 'ob-slide';
     el.dataset.index = String(idx);
-
-    const meta = document.createElement('div');
-    meta.className = 'ob-slide-meta';
-
-    const chip = document.createElement('span');
-    chip.className = 'ob-step-chip';
-     meta.appendChild(chip);
-
-    const caption = document.createElement('span');
-    caption.className = 'ob-step-caption';
-     meta.appendChild(caption);
-
-    el.appendChild(meta);
 
     const mediaWrap = document.createElement('div');
     mediaWrap.className = 'ob-media';
@@ -386,13 +375,9 @@ const OnboardingOverlay = (() => {
     const dots = _overlay.querySelectorAll('.ob-dot');
     dots.forEach((d, i) => d.classList.toggle('ob-dot--active', i === _index));
 
-    const counter = document.getElementById('ob-counter');
-    if (counter) {
-      const current = String(_index + 1).padStart(2, '0');
-      counter.textContent = _copy('stepLabel')
-        .replace('{index}', current)
-        .replace('{total}', String(_slides.length));
-    }
+    dots.forEach((d, i) => {
+      d.setAttribute('aria-current', i === _index ? 'step' : 'false');
+    });
 
     const nextBtn = document.getElementById('ob-btn-next');
     if (nextBtn) {

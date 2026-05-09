@@ -820,6 +820,372 @@ body.page-contact.page-contact-premium .contact-toast.error {
   body.page-contact.page-contact-premium .support-actions .btn-primary,
   body.page-contact.page-contact-premium .support-actions .btn-secondary { width: 100%; }
 }
+
+/* ===========================================================
+   Final contact polish - visual and UX only.
+   Keeps the same markup, endpoints, and support-ticket flow.
+   =========================================================== */
+body.page-contact.page-contact-premium {
+  --ct-accent: #14958a;
+  --ct-accent-2: #673ab7;
+  --ct-accent-strong: #0f766e;
+  --ct-accent-soft: rgba(20, 149, 138, .1);
+  --ct-card: rgba(255, 255, 255, .94);
+  --ct-line: rgba(15, 23, 42, .09);
+  --ct-shadow-sm: 0 14px 34px rgba(15, 23, 42, .07);
+  --ct-shadow-md: 0 22px 54px rgba(15, 23, 42, .11);
+  --ct-shadow-lg: 0 30px 76px rgba(15, 23, 42, .24);
+  background:
+    radial-gradient(900px 420px at 88% 0%, rgba(20, 149, 138, .12), transparent 62%),
+    radial-gradient(720px 360px at 0% 10%, rgba(245, 158, 11, .08), transparent 58%),
+    linear-gradient(180deg, #fbfcff 0%, #f4f7fb 48%, #fbfcff 100%);
+}
+
+body.page-contact.page-contact-premium .page-content {
+  padding-top: clamp(14px, 2.2vw, 28px);
+}
+
+body.page-contact.page-contact-premium .contact-shell {
+  gap: clamp(14px, 2vw, 22px);
+}
+
+body.page-contact.page-contact-premium .contact-hero,
+body.page-contact.page-contact-premium .contact-auth-gate {
+  border-radius: 22px;
+  background:
+    radial-gradient(620px 280px at 100% 0%, rgba(20, 149, 138, .28), transparent 64%),
+    radial-gradient(520px 260px at 0% 100%, rgba(245, 158, 11, .16), transparent 64%),
+    linear-gradient(145deg, #111827 0%, #172033 54%, #0f172a 100%);
+  box-shadow:
+    0 28px 68px rgba(15, 23, 42, .22),
+    0 0 0 1px rgba(255, 255, 255, .08) inset;
+}
+
+body.page-contact.page-contact-premium .contact-hero::before {
+  opacity: .62;
+}
+
+body.page-contact.page-contact-premium .contact-hero-title,
+body.page-contact.page-contact-premium .auth-gate-unified-title {
+  letter-spacing: 0;
+  background: linear-gradient(90deg, #ffffff 0%, #d2f7ef 58%, #ffe5a3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+body.page-contact.page-contact-premium .contact-hero-subtitle {
+  color: rgba(248, 250, 252, .84);
+}
+
+body.page-contact.page-contact-premium .contact-hero-tag,
+body.page-contact.page-contact-premium .contact-hero-highlight,
+body.page-contact.page-contact-premium .contact-hero-stat,
+body.page-contact.page-contact-premium .contact-hero-brief {
+  background: rgba(255, 255, 255, .075);
+  border-color: rgba(255, 255, 255, .14);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .06) inset;
+}
+
+body.page-contact.page-contact-premium .contact-hero-stat strong {
+  background: linear-gradient(90deg, #ffffff, #bef2e8 60%, #ffe5a3);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+body.page-contact.page-contact-premium .contact-hero-brief-index {
+  background: linear-gradient(135deg, #14958a, #673ab7);
+}
+
+body.page-contact.page-contact-premium .contact-toolbar,
+body.page-contact.page-contact-premium .contact-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(249, 251, 253, .92));
+  border-color: rgba(15, 23, 42, .08);
+  box-shadow:
+    var(--ct-shadow-sm),
+    0 1px 0 rgba(255, 255, 255, .8) inset;
+}
+
+@media (min-width: 901px) {
+  body.page-contact.page-contact-premium .contact-toolbar {
+    position: sticky;
+    top: calc(var(--top-nav-height, 72px) + 10px);
+    z-index: 12;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  body.page-contact.page-contact-premium .contact-panel-list {
+    position: sticky;
+    top: calc(var(--top-nav-height, 72px) + 92px);
+  }
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-btn,
+body.page-contact.page-contact-premium .btn-primary,
+body.page-contact.page-contact-premium .btn-secondary,
+body.page-contact.page-contact-premium .auth-gate-unified-btn {
+  min-height: 46px;
+  border-radius: 14px;
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-btn-primary,
+body.page-contact.page-contact-premium .btn-primary,
+body.page-contact.page-contact-premium .auth-gate-unified-btn {
+  background: linear-gradient(135deg, #14958a 0%, #157f78 42%, #673ab7 100%);
+  box-shadow: 0 14px 28px rgba(20, 149, 138, .18);
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-btn-secondary,
+body.page-contact.page-contact-premium .btn-secondary {
+  background: rgba(15, 23, 42, .045);
+  border: 1px solid rgba(15, 23, 42, .07);
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-btn:focus-visible,
+body.page-contact.page-contact-premium .btn-primary:focus-visible,
+body.page-contact.page-contact-premium .btn-secondary:focus-visible,
+body.page-contact.page-contact-premium .support-ticket-item:focus-visible,
+body.page-contact.page-contact-premium .ticket-attachment-link:focus-visible,
+body.page-contact.page-contact-premium .form-select:focus,
+body.page-contact.page-contact-premium .form-input:focus,
+body.page-contact.page-contact-premium .form-textarea:focus,
+body.page-contact.page-contact-premium .ticket-reply-input:focus {
+  outline: 2px solid rgba(20, 149, 138, .8);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 5px rgba(20, 149, 138, .12),
+    var(--ct-shadow-sm);
+}
+
+body.page-contact.page-contact-premium .contact-layout {
+  grid-template-columns: minmax(310px, .88fr) minmax(0, 1.34fr);
+  gap: clamp(14px, 2vw, 22px);
+}
+
+body.page-contact.page-contact-premium .contact-panel-head {
+  align-items: center;
+}
+
+body.page-contact.page-contact-premium .contact-panel-kicker,
+body.page-contact.page-contact-premium .contact-panel-note {
+  letter-spacing: 0;
+  color: #0f766e;
+  background: rgba(20, 149, 138, .08);
+  border-color: rgba(20, 149, 138, .18);
+}
+
+body.page-contact.page-contact-premium .support-ticket-list {
+  gap: 12px;
+  max-height: min(660px, calc(100vh - 250px));
+}
+
+body.page-contact.page-contact-premium .support-ticket-item {
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(248, 250, 252, .94));
+  box-shadow: 0 8px 22px rgba(15, 23, 42, .045);
+}
+
+body.page-contact.page-contact-premium .support-ticket-item:hover,
+body.page-contact.page-contact-premium .support-ticket-item.active {
+  border-color: rgba(20, 149, 138, .32);
+  background:
+    radial-gradient(240px 120px at 100% 0%, rgba(20, 149, 138, .08), transparent 68%),
+    linear-gradient(180deg, #ffffff, #f8fcfb);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, .085);
+}
+
+body.page-contact.page-contact-premium .support-ticket-item.active::before {
+  background: linear-gradient(180deg, #14958a, #673ab7);
+}
+
+body.page-contact.page-contact-premium .support-ticket-code,
+body.page-contact.page-contact-premium .ticket-detail-code {
+  color: #344054;
+  background: rgba(15, 23, 42, .045);
+  border: 1px solid rgba(15, 23, 42, .06);
+}
+
+body.page-contact.page-contact-premium .support-ticket-desc {
+  color: #1f2937;
+}
+
+body.page-contact.page-contact-premium .support-ticket-footer {
+  color: #0f766e;
+}
+
+body.page-contact.page-contact-premium .ticket-detail-body {
+  gap: 14px;
+}
+
+body.page-contact.page-contact-premium .ticket-detail-hero,
+body.page-contact.page-contact-premium .ticket-detail-section,
+body.page-contact.page-contact-premium .ticket-reply-box {
+  border-radius: 16px;
+  border-color: rgba(15, 23, 42, .08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(248, 250, 252, .94));
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .045);
+}
+
+body.page-contact.page-contact-premium .ticket-detail-title-wrap h3 {
+  margin: 2px 0 0;
+  color: #111827;
+  font-size: clamp(17px, 2vw, 21px);
+  font-weight: 900;
+}
+
+body.page-contact.page-contact-premium .ticket-detail-meta-card {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .78);
+}
+
+body.page-contact.page-contact-premium .ticket-section-head > *:first-child::before {
+  background: linear-gradient(180deg, #14958a, #673ab7);
+}
+
+body.page-contact.page-contact-premium .ticket-comment {
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .9), rgba(248, 250, 252, .84));
+}
+
+body.page-contact.page-contact-premium .ticket-reply-head {
+  display: grid;
+  gap: 3px;
+}
+
+body.page-contact.page-contact-premium .ticket-reply-head h4,
+body.page-contact.page-contact-premium .ticket-reply-head p {
+  margin: 0;
+}
+
+body.page-contact.page-contact-premium .contact-list-empty,
+body.page-contact.page-contact-premium .contact-detail-empty,
+body.page-contact.page-contact-premium .form-error {
+  border-radius: 16px;
+}
+
+body.page-contact.page-contact-premium .contact-empty-icon {
+  color: #0f766e;
+  background: rgba(20, 149, 138, .09);
+  border-color: rgba(20, 149, 138, .16);
+}
+
+body.page-contact.page-contact-premium .contact-file-input::file-selector-button {
+  background: rgba(20, 149, 138, .1);
+  color: #0f766e;
+  border: 1px solid rgba(20, 149, 138, .18);
+}
+
+@media (max-width: 900px) {
+  body.page-contact.page-contact-premium .contact-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-contact.page-contact-premium .support-ticket-list {
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  body.page-contact.page-contact-premium .container {
+    width: min(100% - 18px, 1200px);
+  }
+
+  body.page-contact.page-contact-premium .contact-hero {
+    padding: 18px 14px;
+    border-radius: 18px;
+  }
+
+  body.page-contact.page-contact-premium .contact-hero-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  body.page-contact.page-contact-premium .contact-hero-stat {
+    padding: 10px 4px;
+  }
+
+  body.page-contact.page-contact-premium .contact-hero-stat strong {
+    font-size: 20px;
+  }
+
+  body.page-contact.page-contact-premium .contact-hero-stat span {
+    font-size: 10px;
+  }
+
+  body.page-contact.page-contact-premium .contact-toolbar,
+  body.page-contact.page-contact-premium .contact-panel {
+    border-radius: 16px;
+  }
+
+  body.page-contact.page-contact-premium .contact-panel-head {
+    align-items: flex-start;
+  }
+
+  body.page-contact.page-contact-premium .contact-toolbar-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  body.page-contact.page-contact-premium .contact-toolbar-btn {
+    padding-inline: 10px;
+  }
+
+  body.page-contact.page-contact-premium .ticket-detail-head {
+    display: grid;
+  }
+
+  body.page-contact.page-contact-premium .ticket-reply-actions .btn-primary {
+    width: 100%;
+  }
+}
+
+[data-theme="dark"] body.page-contact.page-contact-premium {
+  --ct-card: rgba(17, 24, 39, .92);
+  --ct-ink: #f8fafc;
+  --ct-ink-2: #d0d5dd;
+  --ct-ink-3: #98a2b3;
+  --ct-line: rgba(255, 255, 255, .09);
+  background:
+    radial-gradient(900px 420px at 88% 0%, rgba(20, 149, 138, .14), transparent 62%),
+    radial-gradient(720px 360px at 0% 10%, rgba(245, 158, 11, .08), transparent 58%),
+    linear-gradient(180deg, #0d111b 0%, #111827 52%, #0d111b 100%);
+}
+
+[data-theme="dark"] body.page-contact.page-contact-premium .contact-toolbar,
+[data-theme="dark"] body.page-contact.page-contact-premium .contact-panel,
+[data-theme="dark"] body.page-contact.page-contact-premium .support-ticket-item,
+[data-theme="dark"] body.page-contact.page-contact-premium .ticket-detail-hero,
+[data-theme="dark"] body.page-contact.page-contact-premium .ticket-detail-section,
+[data-theme="dark"] body.page-contact.page-contact-premium .ticket-reply-box,
+[data-theme="dark"] body.page-contact.page-contact-premium .ticket-comment,
+[data-theme="dark"] body.page-contact.page-contact-premium .ticket-detail-meta-card {
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, .94), rgba(17, 24, 39, .9));
+  border-color: rgba(255, 255, 255, .09);
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, .28),
+    0 1px 0 rgba(255, 255, 255, .04) inset;
+}
+
+[data-theme="dark"] body.page-contact.page-contact-premium .support-card-title,
+[data-theme="dark"] body.page-contact.page-contact-premium .ticket-detail-title-wrap h3,
+[data-theme="dark"] body.page-contact.page-contact-premium .ticket-detail-description,
+[data-theme="dark"] body.page-contact.page-contact-premium .ticket-comment-text,
+[data-theme="dark"] body.page-contact.page-contact-premium .support-ticket-desc {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] body.page-contact.page-contact-premium .form-select,
+[data-theme="dark"] body.page-contact.page-contact-premium .form-input,
+[data-theme="dark"] body.page-contact.page-contact-premium .form-textarea,
+[data-theme="dark"] body.page-contact.page-contact-premium .ticket-reply-input {
+  background: rgba(15, 23, 42, .72);
+  border-color: rgba(255, 255, 255, .1);
+  color: #f8fafc;
+}
 </style>
 {% endblock %}
 
@@ -1033,5 +1399,5 @@ body.page-contact.page-contact-premium .contact-toast.error {
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/contactPage.js' %}?v=20260501-contact-i18n-stage1"></script>
+<script src="{% static 'mobile_web/js/contactPage.js' %}?v=20260509-contact-unified-tracking-v1"></script>
 {% endblock %}

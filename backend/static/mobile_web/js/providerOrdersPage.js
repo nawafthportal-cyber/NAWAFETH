@@ -59,6 +59,7 @@ const ProviderOrdersPage = (() => {
       statusFilterLabel: 'فلتر الحالة',
       statusAll: 'الكل',
       statusGroupNew: 'جديد',
+      statusGroupAwaitingClient: 'بانتظار اعتماد العميل',
       statusGroupInProgress: 'تحت التنفيذ',
       statusGroupCompleted: 'مكتمل',
       statusGroupCancelled: 'ملغي',
@@ -77,6 +78,7 @@ const ProviderOrdersPage = (() => {
       activeUrgentLabel: 'الطلبات العاجلة المتاحة',
       groupAllLabel: 'كل الحالات',
       groupNewLabel: 'جديد',
+      groupAwaitingClientLabel: 'بانتظار اعتماد العميل',
       groupInProgressLabel: 'تحت التنفيذ',
       groupCompletedLabel: 'مكتمل',
       groupCancelledLabel: 'ملغي',
@@ -91,6 +93,7 @@ const ProviderOrdersPage = (() => {
       activeBadgeUrgent: 'عاجل',
       loadUnavailable: 'تعذّر تحميل الطلبات بسبب عدم جاهزية الاتصال.',
       loadFailed: 'تعذّر تحميل الطلبات. حاول مرة أخرى.',
+      loadPartialFailed: 'تم تحديث بعض الأقسام، لكن تعذّر تحديث: {sections}.',
       unexpectedLoad: 'حدث خطأ غير متوقع أثناء تحميل الطلبات.',
       emptySearch: 'لا توجد نتائج مطابقة',
       emptyCompetitive: 'لا توجد طلبات عروض أسعار متاحة',
@@ -124,6 +127,12 @@ const ProviderOrdersPage = (() => {
       typeNormal: 'عادي',
       typeCompetitive: 'تنافسي',
       typeUrgent: 'عاجل',
+      nextActionAssignedNew: 'راجع الطلب واتخذ القرار المناسب',
+      nextActionAssignedAwaitingClient: 'بانتظار اعتماد العميل للمدخلات',
+      nextActionAssignedProgress: 'تابع الإنجاز والدفعات من التفاصيل',
+      nextActionAssignedDone: 'راجع سجل الطلب والأرشيف',
+      nextActionCompetitive: 'قدّم عرض السعر قبل انتهاء المهلة',
+      nextActionUrgent: 'استجب بسرعة للطلب العاجل',
       currency: 'ر.س',
     },
     en: {
@@ -177,6 +186,7 @@ const ProviderOrdersPage = (() => {
       statusFilterLabel: 'Status filter',
       statusAll: 'All',
       statusGroupNew: 'New',
+      statusGroupAwaitingClient: 'Awaiting client approval',
       statusGroupInProgress: 'In progress',
       statusGroupCompleted: 'Completed',
       statusGroupCancelled: 'Cancelled',
@@ -195,6 +205,7 @@ const ProviderOrdersPage = (() => {
       activeUrgentLabel: 'Available urgent requests',
       groupAllLabel: 'All statuses',
       groupNewLabel: 'New',
+      groupAwaitingClientLabel: 'Awaiting client approval',
       groupInProgressLabel: 'In progress',
       groupCompletedLabel: 'Completed',
       groupCancelledLabel: 'Cancelled',
@@ -209,6 +220,7 @@ const ProviderOrdersPage = (() => {
       activeBadgeUrgent: 'Urgent',
       loadUnavailable: 'Unable to load orders because the connection layer is not ready.',
       loadFailed: 'Unable to load orders. Please try again.',
+      loadPartialFailed: 'Some sections were refreshed, but these sections could not be updated: {sections}.',
       unexpectedLoad: 'An unexpected error occurred while loading orders.',
       emptySearch: 'No matching results',
       emptyCompetitive: 'No available price-offer requests',
@@ -242,6 +254,12 @@ const ProviderOrdersPage = (() => {
       typeNormal: 'Standard',
       typeCompetitive: 'Competitive',
       typeUrgent: 'Urgent',
+      nextActionAssignedNew: 'Review the request and choose the next step',
+      nextActionAssignedAwaitingClient: 'Waiting for the client to approve inputs',
+      nextActionAssignedProgress: 'Track progress and payments in details',
+      nextActionAssignedDone: 'Review the request record and archive',
+      nextActionCompetitive: 'Submit a price offer before the deadline',
+      nextActionUrgent: 'Respond quickly to the urgent request',
       currency: 'SAR',
     },
   };
@@ -260,6 +278,11 @@ const ProviderOrdersPage = (() => {
     assignedOrders: [],
     competitiveOrders: [],
     urgentOrders: [],
+    fetchErrors: {
+      assigned: false,
+      competitive: false,
+      urgent: false,
+    },
     activeTab: 'assigned',
     selectedStatusGroup: '',
     searchText: '',
@@ -290,6 +313,7 @@ const ProviderOrdersPage = (() => {
       Auth.isLoggedIn();
 
     if (!pageAuthenticated && !jsAuthenticated) {
+      _syncAuthGateLink();
       authGate.style.display = 'grid';
       content.style.display = 'none';
       return;
@@ -325,7 +349,7 @@ const ProviderOrdersPage = (() => {
       }
 
       const group = String(saved.selectedStatusGroup || '').trim();
-      if (['', 'new', 'in_progress', 'completed', 'cancelled'].includes(group)) {
+      if (['', 'new', 'awaiting_client', 'in_progress', 'completed', 'cancelled'].includes(group)) {
         state.selectedStatusGroup = group;
       }
 
@@ -406,7 +430,7 @@ const ProviderOrdersPage = (() => {
 
       const group = String(btn.dataset.group || '').trim();
 
-      if (!['', 'new', 'in_progress', 'completed', 'cancelled'].includes(group)) return;
+      if (!['', 'new', 'awaiting_client', 'in_progress', 'completed', 'cancelled'].includes(group)) return;
       if (state.selectedStatusGroup === group) return;
 
       state.selectedStatusGroup = group;
@@ -559,18 +583,34 @@ const ProviderOrdersPage = (() => {
 
       if (assignedOk) {
         state.assignedOrders = _extractList(assignedRes.value.data);
+        state.fetchErrors.assigned = false;
+      } else {
+        state.assignedOrders = [];
+        state.fetchErrors.assigned = true;
       }
 
       if (competitiveOk) {
         state.competitiveOrders = _extractList(competitiveRes.value.data);
+        state.fetchErrors.competitive = false;
+      } else {
+        state.competitiveOrders = [];
+        state.fetchErrors.competitive = true;
       }
 
       if (urgentOk) {
         state.urgentOrders = _extractList(urgentRes.value.data);
+        state.fetchErrors.urgent = false;
+      } else {
+        state.urgentOrders = [];
+        state.fetchErrors.urgent = true;
       }
 
       if (!assignedOk && !competitiveOk && !urgentOk) {
         _setError(_copy('loadFailed'));
+      } else if (!assignedOk || !competitiveOk || !urgentOk) {
+        _setError(_partialLoadMessage());
+      } else {
+        _setError('');
       }
 
       _updateCounts();
@@ -796,11 +836,12 @@ const ProviderOrdersPage = (() => {
     const safeId = String(safeOrder.id || '').trim();
 
     const card = _el('a', {
-      className: 'order-card po-card po-card-' + statusGroup,
+      className: 'order-card po-card po-card-' + statusGroup + ' po-card-type-' + (type || 'normal'),
       href: safeId ? '/provider-orders/' + encodeURIComponent(safeId) + '/' : '#',
     });
 
     card.style.setProperty('--po-card-delay', String(Math.min(index || 0, 10) * 28) + 'ms');
+    card.setAttribute('aria-label', String(safeOrder.title || _copy('cardUntitled')) + ' - ' + _copy('cardOpen'));
 
     const top = _el('div', { className: 'order-card-top po-card-top' });
     const start = _el('div', { className: 'po-card-head' });
@@ -905,6 +946,18 @@ const ProviderOrdersPage = (() => {
       body.appendChild(infoGrid);
     }
 
+    const nextAction = _nextActionLabel(safeOrder);
+    if (nextAction) {
+      const action = _el('div', { className: 'po-card-action' });
+      action.appendChild(
+        _el('span', {
+          className: 'po-card-action-label',
+          textContent: nextAction,
+        }),
+      );
+      body.appendChild(action);
+    }
+
     const footer = _el('div', { className: 'po-card-footer' });
 
     footer.appendChild(
@@ -927,6 +980,19 @@ const ProviderOrdersPage = (() => {
     card.appendChild(body);
 
     return card;
+  }
+
+  function _nextActionLabel(order) {
+    if (state.activeTab === 'competitive') return _copy('nextActionCompetitive');
+    if (state.activeTab === 'urgent') return _copy('nextActionUrgent');
+
+    const group = _statusGroup(order);
+
+    if (group === 'awaiting_client') return _copy('nextActionAssignedAwaitingClient');
+    if (group === 'in_progress') return _copy('nextActionAssignedProgress');
+    if (group === 'completed' || group === 'cancelled') return _copy('nextActionAssignedDone');
+
+    return _copy('nextActionAssignedNew');
   }
 
   function _metaLine(order) {
@@ -955,12 +1021,32 @@ const ProviderOrdersPage = (() => {
     const map = {
       '': _copy('groupAllLabel'),
       new: _copy('groupNewLabel'),
+      awaiting_client: _copy('groupAwaitingClientLabel'),
       in_progress: _copy('groupInProgressLabel'),
       completed: _copy('groupCompletedLabel'),
       cancelled: _copy('groupCancelledLabel'),
     };
 
     return map[String(state.selectedStatusGroup || '')] || 'كل الحالات';
+  }
+
+  function _partialLoadMessage() {
+    const failedSections = [];
+
+    if (state.fetchErrors.assigned) failedSections.push(_copy('tabAssignedLabel'));
+    if (state.fetchErrors.competitive) failedSections.push(_copy('tabCompetitiveLabel'));
+    if (state.fetchErrors.urgent) failedSections.push(_copy('tabUrgentLabel'));
+
+    return _copy('loadPartialFailed', { sections: failedSections.join('، ') });
+  }
+
+  function _syncAuthGateLink() {
+    const authGate = byId('auth-gate');
+    const authButton = authGate && authGate.querySelector('.auth-gate-unified-btn');
+    if (!authButton) return;
+
+    const next = window.location.pathname + window.location.search;
+    authButton.href = '/login/?next=' + encodeURIComponent(next);
   }
 
   function _updateSearchPlaceholder() {
@@ -1065,13 +1151,17 @@ const ProviderOrdersPage = (() => {
   function _statusGroup(order) {
     const explicit = String((order && order.status_group) || '').toLowerCase();
 
-    if (['new', 'in_progress', 'completed', 'cancelled'].includes(explicit)) {
+    if (['new', 'awaiting_client', 'in_progress', 'completed', 'cancelled'].includes(explicit)) {
       return explicit;
     }
 
     const status = String((order && order.status) || '').toLowerCase();
 
-    if (['pending', 'new', 'submitted', 'provider_accepted', 'awaiting_client'].includes(status)) {
+    if (status === 'awaiting_client') {
+      return 'awaiting_client';
+    }
+
+    if (['pending', 'new', 'submitted', 'provider_accepted'].includes(status)) {
       return 'new';
     }
 
@@ -1122,6 +1212,7 @@ const ProviderOrdersPage = (() => {
 
     if (group === 'completed') return '#2E7D32';
     if (group === 'cancelled') return '#C62828';
+    if (group === 'awaiting_client') return '#5B34B1';
     if (group === 'in_progress') return '#E67E22';
 
     return '#A56800';
@@ -1132,6 +1223,7 @@ const ProviderOrdersPage = (() => {
 
     if (group === 'completed') return 'rgba(46, 125, 50, 0.11)';
     if (group === 'cancelled') return 'rgba(198, 40, 40, 0.11)';
+    if (group === 'awaiting_client') return 'rgba(91, 52, 177, 0.11)';
     if (group === 'in_progress') return 'rgba(230, 126, 34, 0.11)';
 
     return 'rgba(165, 104, 0, 0.11)';
@@ -1412,6 +1504,7 @@ const ProviderOrdersPage = (() => {
     setText('po-status-filter-label', _copy('statusFilterLabel'));
     setText('po-status-all', _copy('statusAll'));
     setText('po-status-new', _copy('statusGroupNew'));
+    setText('po-status-awaiting-client', _copy('statusGroupAwaitingClient'));
     setText('po-status-in-progress', _copy('statusGroupInProgress'));
     setText('po-status-completed', _copy('statusGroupCompleted'));
     setText('po-status-cancelled', _copy('statusGroupCancelled'));

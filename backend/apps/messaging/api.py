@@ -390,6 +390,7 @@ class DirectThreadGetOrCreateView(APIView):
 
 		me = request.user
 		recipient_user = None
+		recipient_mode = Thread.ContextMode.CLIENT
 		analytics_payload = {}
 
 		if provider_id:
@@ -399,6 +400,7 @@ class DirectThreadGetOrCreateView(APIView):
 			if _is_provider_blocked_for_user(user=me, provider_id=provider_profile.id):
 				return Response({"error": "المزود غير موجود"}, status=status.HTTP_404_NOT_FOUND)
 			recipient_user = provider_profile.user
+			recipient_mode = Thread.ContextMode.PROVIDER
 			recipient_provider_profile = provider_profile
 			analytics_payload = {
 				"provider_profile_id": provider_profile.id,
@@ -415,6 +417,11 @@ class DirectThreadGetOrCreateView(APIView):
 			recipient_provider = getattr(recipient_user, "provider_profile", None)
 			if recipient_provider and _is_provider_blocked_for_user(user=me, provider_id=recipient_provider.id):
 				return Response({"error": "المستلم غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+			recipient_mode = (
+				Thread.ContextMode.PROVIDER
+				if recipient_provider
+				else Thread.ContextMode.CLIENT
+			)
 			analytics_payload = {
 				"recipient_user_id": recipient_user.id,
 			}
@@ -445,11 +452,6 @@ class DirectThreadGetOrCreateView(APIView):
 			active_mode
 			if active_mode in {Thread.ContextMode.CLIENT, Thread.ContextMode.PROVIDER}
 			else Thread.ContextMode.SHARED
-		)
-		recipient_mode = (
-			Thread.ContextMode.PROVIDER
-			if getattr(recipient_user, "provider_profile", None)
-			else Thread.ContextMode.CLIENT
 		)
 
 		if me.id == recipient_user.id:

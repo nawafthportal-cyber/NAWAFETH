@@ -4,217 +4,393 @@
 {% block header %}التقارير{% endblock %}
 {% block header_subtitle %}ملخص البيانات والمؤشرات المرتبطة بطلباتك المفعلة{% endblock %}
 
+{% block extra_head %}
+<style>
+  .reports-page {
+    --rp-ink: #0f172a;
+    --rp-muted: #64748b;
+    --rp-line: rgba(15, 23, 42, .09);
+    --rp-soft: #f8fafc;
+    --rp-teal: #14958a;
+    --rp-violet: #673ab7;
+    --rp-amber: #f59e0b;
+    --rp-shadow: 0 20px 48px rgba(15, 23, 42, .08);
+  }
+  .rp-panel {
+    border: 1px solid var(--rp-line);
+    background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,250,252,.94));
+    box-shadow: var(--rp-shadow);
+  }
+  .rp-hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.14);
+    background:
+      radial-gradient(620px 280px at 100% 0%, rgba(20,149,138,.28), transparent 64%),
+      radial-gradient(520px 260px at 0% 100%, rgba(245,158,11,.16), transparent 64%),
+      linear-gradient(145deg, #111827 0%, #172033 54%, #0f172a 100%);
+    box-shadow: 0 28px 70px rgba(15, 23, 42, .22);
+  }
+  .rp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.08);
+    padding: .38rem .75rem;
+    color: rgba(255,255,255,.88);
+    font-size: .75rem;
+    font-weight: 700;
+  }
+  .rp-chip::before {
+    content: "";
+    width: .42rem;
+    height: .42rem;
+    border-radius: 999px;
+    background: #4ade80;
+    box-shadow: 0 0 0 4px rgba(74, 222, 128, .18);
+  }
+  .rp-export-btn {
+    display: inline-flex;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: .45rem;
+    border-radius: .9rem;
+    border: 1px solid transparent;
+    padding: .55rem .9rem;
+    font-size: .78rem;
+    font-weight: 800;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+  }
+  .rp-export-btn:hover { transform: translateY(-1px); }
+  .rp-export-pdf {
+    border-color: rgba(220,38,38,.18);
+    background: #fff1f2;
+    color: #be123c;
+  }
+  .rp-export-xlsx {
+    border-color: rgba(20,149,138,.2);
+    background: #ecfdf5;
+    color: #0f766e;
+  }
+  .rp-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--rp-line);
+    background: linear-gradient(180deg, #fff, #fbfdff);
+    box-shadow: 0 14px 32px rgba(15,23,42,.06);
+  }
+  .rp-card::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--rp-teal), var(--rp-violet), var(--rp-amber));
+  }
+  .rp-kpi {
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.075);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .rp-table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .rp-table thead th {
+    background: #f4f7fb;
+    color: #334155;
+    font-weight: 800;
+  }
+  .rp-table tbody tr:nth-child(even) td { background: #fbfdff; }
+  .rp-table tbody tr:hover td { background: #f0fdfa; }
+  .rp-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    padding: .28rem .7rem;
+    font-size: .72rem;
+    font-weight: 800;
+  }
+  .rp-status-chip::before {
+    content: "";
+    width: .4rem;
+    height: .4rem;
+    border-radius: 999px;
+    background: currentColor;
+  }
+  .rp-option-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    border: 1px solid #dbeafe;
+    background: #f8fafc;
+    padding: .42rem .75rem;
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 800;
+  }
+  .rp-option-pill.is-active {
+    border-color: #99f6e4;
+    background: #ecfdf5;
+    color: #0f766e;
+  }
+  .rp-option-pill.is-inactive {
+    text-decoration: line-through;
+    opacity: .68;
+  }
+  @media (max-width: 640px) {
+    .rp-export-btn { width: 100%; }
+    .rp-hero { border-radius: 1.25rem; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-  
-  {% if report_options_status %}
-  <div class="mb-4 rounded-2xl border border-slate-200 bg-white p-5">
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-      <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-        <svg class="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        بنود التقارير في طلبك الحالي
-      </h4>
-      <span class="text-[11px] font-bold text-slate-500">
-        المفعّل: <span class="text-emerald-600">{{ report_active_count }}</span> من {{ report_total_count }}
-      </span>
-    </div>
-    <div class="flex flex-wrap gap-2 text-[11px]">
-      {% for opt in report_options_status %}
-        <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 font-bold
-          {% if opt.active %}bg-emerald-50 text-emerald-700 border border-emerald-200
-          {% else %}bg-slate-50 text-slate-400 border border-slate-200 line-through{% endif %}"
-          title="{% if opt.active %}مفعّل في الطلب الحالي{% else %}غير مفعّل في الطلب الحالي{% endif %}">
-          {% if opt.active %}
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          {% else %}
-            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-          {% endif %}
-          {{ opt.label }}
-        </span>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
+<div class="reports-page space-y-5">
   {% if bundle_context.request_obj %}
+    <section class="rp-hero rounded-[1.75rem] p-5 text-white sm:p-6">
+      <div class="relative z-10 grid gap-5 xl:grid-cols-[1.25fr_.75fr] xl:items-stretch">
+        <div class="space-y-4">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rp-chip">تقارير مفعلة</span>
+            <span class="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white/85">طلب {{ request_code }}</span>
+            {% if portal_subscription_active %}
+              <span class="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold text-emerald-100">الاشتراك نشط</span>
+            {% endif %}
+          </div>
 
-<div class="mb-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div class="h-1.5 bg-gradient-to-l from-violet-500 via-indigo-500 to-sky-500"></div>
-      <div class="flex flex-wrap items-center gap-4 px-5 py-4">
-        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 text-lg font-bold text-white">
-          {{ provider_display_name|slice:":1"|upper }}
-        </div>
-        <div class="flex-1 min-w-[180px]">
-          <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">المزود</div>
-          <div class="text-lg font-bold text-slate-900">{{ provider_display_name }}</div>
-          <div class="mt-0.5 text-xs text-slate-500">
-            بداية التقرير: <span class="font-bold text-violet-700">{{ bundle_context.start_label }}</span>
-            &nbsp;·&nbsp;
-            النهاية: <span class="font-bold text-violet-700">{{ bundle_context.end_label }}</span>
+          <div>
+            <p class="text-sm font-semibold text-white/65">مزود الخدمة</p>
+            <h2 class="mt-1 text-2xl font-black tracking-normal sm:text-3xl">{{ provider_display_name }}</h2>
+            <p class="mt-2 max-w-2xl text-sm leading-7 text-white/72">
+              تعرض هذه اللوحة بيانات التقارير المعتمدة حسب الطلب المدفوع والفترة المختارة، مع إمكانية تصدير كل بند بصيغة احترافية.
+            </p>
+          </div>
+
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="rp-kpi rounded-2xl p-4">
+              <span class="text-xs font-bold text-white/55">الفترة</span>
+              <strong class="mt-1 block text-sm leading-6 text-white">{{ bundle_context.start_label }} — {{ bundle_context.end_label }}</strong>
+            </div>
+            <div class="rp-kpi rounded-2xl p-4">
+              <span class="text-xs font-bold text-white/55">البنود الجاهزة</span>
+              <strong class="mt-1 block text-2xl font-black">{{ selected_option_count }}</strong>
+            </div>
+            <div class="rp-kpi rounded-2xl p-4">
+              <span class="text-xs font-bold text-white/55">السداد</span>
+              <strong class="mt-1 block text-sm leading-6 text-emerald-100">{{ payment_confirmed_label }}</strong>
+            </div>
           </div>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">{{ request_code }}</span>
-          {% if bundle_context.invoice %}
-            <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">تم السداد {{ payment_confirmed_label }}</span>
-          {% endif %}
-        </div>
-      </div>
-    </div>
 
-{% for request_group in report_request_groups %}
+        <aside class="rounded-3xl border border-white/10 bg-white/8 p-4 backdrop-blur">
+          <p class="text-xs font-bold text-white/55">تصدير شامل</p>
+          <h3 class="mt-1 text-lg font-black">ملف تقارير كامل</h3>
+          <p class="mt-2 text-xs leading-6 text-white/65">يشمل ملخص طلب التقارير وقائمة طلبات الخدمة المرتبطة بالفترة الحالية.</p>
+          <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+            <a class="rp-export-btn rp-export-pdf" href="{% url 'extras_portal:reports_export_pdf' %}?request={{ bundle_context.request_obj.id }}" title="تصدير تقرير PDF شامل">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4z"/></svg>
+              تصدير PDF
+            </a>
+            <a class="rp-export-btn rp-export-xlsx" href="{% url 'extras_portal:reports_export_xlsx' %}?request={{ bundle_context.request_obj.id }}" title="تصدير تقرير Excel شامل">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4z"/></svg>
+              تصدير Excel
+            </a>
+          </div>
+          <div class="mt-4 rounded-2xl bg-white/8 p-3 text-xs leading-6 text-white/68">
+            {{ payment_note }}
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    {% if report_options_status %}
+      <section class="rp-panel rounded-[1.5rem] p-4 sm:p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-xs font-black text-teal-700">بنود التقارير في طلبك الحالي</p>
+            <h3 class="mt-1 text-lg font-black text-slate-950">مراجعة التفعيل ومطابقة البنود</h3>
+          </div>
+          <span class="rounded-full bg-teal-50 px-3 py-1 text-xs font-black text-teal-700">
+            المفعّل {{ report_active_count }} من {{ report_total_count }}
+          </span>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          {% for opt in report_options_status %}
+            <span class="rp-option-pill {% if opt.active %}is-active{% else %}is-inactive{% endif %}" title="{% if opt.active %}مفعّل في الطلب الحالي{% else %}غير مفعّل في الطلب الحالي{% endif %}">
+              {% if opt.active %}
+                <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              {% else %}
+                <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+              {% endif %}
+              {{ opt.label }}
+            </span>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    {% if overview_cards %}
+      <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {% for item in overview_cards %}
+          <article class="rp-panel rounded-2xl p-4">
+            <span class="text-xs font-bold text-slate-500">{{ item.title }}</span>
+            <strong class="mt-2 block text-2xl font-black text-slate-950">{{ item.value }}</strong>
+            <div class="mt-3 h-1.5 rounded-full bg-gradient-to-l {{ item.tone }}"></div>
+          </article>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    {% for request_group in report_request_groups %}
       {% if report_request_groups|length > 1 %}
-        <div class="mt-7 flex items-center gap-3">
-          <span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">{{ request_group.request_code }}</span>
-          <span class="text-sm text-slate-500">{{ request_group.start_label }} — {{ request_group.end_label }}</span>
+        <div class="rp-panel rounded-2xl p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-black text-white">{{ request_group.request_code }}</span>
+              <p class="mt-2 text-sm font-semibold text-slate-500">{{ request_group.start_label }} — {{ request_group.end_label }}</p>
+            </div>
+            <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">تم السداد {{ request_group.payment_confirmed_label }}</span>
+          </div>
         </div>
       {% endif %}
 
       {% for group in request_group.option_groups %}
-        <div class="{% if forloop.first and report_request_groups|length <= 1 %}mt-6{% else %}mt-5{% endif %}">
-          <h3 class="text-lg font-bold text-slate-900">{{ group.title }}</h3>
-        </div>
-        <div class="mt-3 grid gap-4 lg:grid-cols-2">
-          {% for card in group.cards %}
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 transition hover:shadow-md {% if card.wide %}lg:col-span-2{% endif %}">
-              <div class="flex items-start justify-between gap-3">
-                <h4 class="text-base font-bold text-slate-900">{{ card.title }}</h4>
-                <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold {{ card.badge_class }}">{{ card.badge }}</span>
-              </div>
+        <section class="space-y-3">
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p class="text-xs font-black text-teal-700">{{ group.description }}</p>
+              <h3 class="mt-1 text-xl font-black text-slate-950">{{ group.title }}</h3>
+            </div>
+          </div>
 
-              {% if card.kind == 'stats' %}
-                
-                <div class="mt-4 overflow-x-auto">
-                  <table class="min-w-full border border-slate-200 text-sm">
-                    <thead class="bg-purple-50 text-purple-800">
-                      <tr>
-                        {% for stat in card.stats %}
-                          <th class="border border-slate-200 px-3 py-2 text-center font-semibold">{{ stat.label }}</th>
-                        {% endfor %}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        {% for stat in card.stats %}
-                          <td class="border border-slate-200 px-3 py-2 text-center text-lg font-bold text-slate-900">{{ stat.value }}</td>
-                        {% endfor %}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-              {% elif card.kind == 'detail_list' %}
-                
-                <p class="mt-2 text-sm text-slate-500">{{ card.helper_text }}</p>
-                <div class="mt-3 flex items-center gap-3">
-                  <a href="{% url 'extras_portal:report_option_export_pdf' option_key=card.key %}"
-                     class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100"
-                     title="تصدير PDF">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM8.5 13h1c.83 0 1.5.67 1.5 1.5S10.33 16 9.5 16H9v1.5H8V13h.5zm1 2H9v-1h.5c.28 0 .5.22.5.5s-.22.5-.5.5zM12 13h1.5c.83 0 1.5.67 1.5 1.5v1c0 .83-.67 1.5-1.5 1.5H12V13zm1.5 3c.28 0 .5-.22.5-.5v-1c0-.28-.22-.5-.5-.5H13v2h.5zM16 13h2v1h-1.5v.5H18v1h-1.5V17H16v-4z"/></svg>
-                    PDF
-                  </a>
-                  <a href="{% url 'extras_portal:report_option_export_xlsx' option_key=card.key %}"
-                     class="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-bold text-green-700 transition hover:bg-green-100"
-                     title="تصدير Excel">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM9.5 13L8 15.5 9.5 18H8.2l-1-1.7-1 1.7H5l1.5-2.5L5 13h1.3l.9 1.6.9-1.6h1.4zm3.5 0v4h-2v-4h2zm2 0c.83 0 1.5.67 1.5 1.5v1c0 .83-.67 1.5-1.5 1.5h-1V13h1zm0 3c.28 0 .5-.22.5-.5v-1c0-.28-.22-.5-.5-.5V16z"/></svg>
-                    Excel
-                  </a>
-                </div>
-                {% if card.table_rows %}
-                  <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
-                    <table class="min-w-full text-xs">
-                      <thead class="bg-slate-50 text-slate-500">
-                        <tr>
-                          {% for col in card.columns %}
-                            <th class="whitespace-nowrap border-b border-slate-200 px-3 py-2 text-right font-semibold">{{ col.label }}</th>
-                          {% endfor %}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for row in card.table_rows|slice:":20" %}
-                          <tr class="border-t border-slate-100 hover:bg-slate-50">
-                            {% for cell in row %}
-                              <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ cell }}</td>
-                            {% endfor %}
-                          </tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
+          <div class="grid gap-4 xl:grid-cols-2">
+            {% for card in group.cards %}
+              <article class="rp-card rounded-[1.35rem] p-5 {% if card.wide %}xl:col-span-2{% endif %}">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <span class="rp-status-chip {{ card.badge_class }}">{{ card.badge }}</span>
+                    <h4 class="mt-3 text-lg font-black text-slate-950">{{ card.title }}</h4>
+                    {% if card.helper_text %}
+                      <p class="mt-1 max-w-3xl text-sm leading-7 text-slate-500">{{ card.helper_text }}</p>
+                    {% endif %}
                   </div>
-                  {% if card.total_count > 20 %}
-                    <p class="mt-2 text-center text-xs text-slate-400">يظهر أول 20 سجلًا — صدّر الملف الكامل بصيغة PDF أو Excel للاطلاع على جميع البيانات.</p>
-                  {% endif %}
-                {% else %}
-                  <div class="mt-4 rounded-xl border border-dashed border-slate-200 py-4 text-center text-sm text-slate-400">{{ card.empty_message }}</div>
-                {% endif %}
-
-              {% elif card.kind == 'list' %}
-                
-                <div class="mt-3 flex items-center gap-3">
-                  <a href="{% url 'extras_portal:report_option_export_pdf' option_key=card.key %}"
-                     class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100"
-                     title="تصدير PDF">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM8.5 13h1c.83 0 1.5.67 1.5 1.5S10.33 16 9.5 16H9v1.5H8V13h.5zm1 2H9v-1h.5c.28 0 .5.22.5.5s-.22.5-.5.5zM12 13h1.5c.83 0 1.5.67 1.5 1.5v1c0 .83-.67 1.5-1.5 1.5H12V13zm1.5 3c.28 0 .5-.22.5-.5v-1c0-.28-.22-.5-.5-.5H13v2h.5zM16 13h2v1h-1.5v.5H18v1h-1.5V17H16v-4z"/></svg>
-                    PDF
-                  </a>
-                  <a href="{% url 'extras_portal:report_option_export_xlsx' option_key=card.key %}"
-                     class="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-bold text-green-700 transition hover:bg-green-100"
-                     title="تصدير Excel">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM9.5 13L8 15.5 9.5 18H8.2l-1-1.7-1 1.7H5l1.5-2.5L5 13h1.3l.9 1.6.9-1.6h1.4zm3.5 0v4h-2v-4h2zm2 0c.83 0 1.5.67 1.5 1.5v1c0 .83-.67 1.5-1.5 1.5h-1V13h1zm0 3c.28 0 .5-.22.5-.5v-1c0-.28-.22-.5-.5-.5V16z"/></svg>
-                    Excel
-                  </a>
+                  <div class="grid gap-2 sm:grid-cols-2">
+                    <a href="{% url 'extras_portal:report_option_export_pdf' option_key=card.key %}?request={{ request_group.request_id }}" class="rp-export-btn rp-export-pdf" title="تصدير PDF">
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4z"/></svg>
+                      PDF
+                    </a>
+                    <a href="{% url 'extras_portal:report_option_export_xlsx' option_key=card.key %}?request={{ request_group.request_id }}" class="rp-export-btn rp-export-xlsx" title="تصدير Excel">
+                      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4z"/></svg>
+                      Excel
+                    </a>
+                  </div>
                 </div>
-                {% if card.entries %}
-                  <div class="mt-4 grid gap-2 sm:grid-cols-2">
-                    {% for entry in card.entries %}
-                      <div class="rounded-xl bg-slate-50 px-3 py-3">
-                        <div class="text-sm font-bold text-slate-900">{{ entry.primary }}</div>
-                        <div class="text-xs text-slate-400">{{ entry.secondary }}</div>
+
+                {% if card.kind == 'stats' %}
+                  <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {% for stat in card.stats %}
+                      <div class="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                        <span class="text-xs font-bold text-slate-500">{{ stat.label }}</span>
+                        <strong class="mt-2 block text-2xl font-black text-slate-950">{{ stat.value }}</strong>
                       </div>
                     {% endfor %}
                   </div>
+
+                {% elif card.kind == 'detail_list' %}
+                  {% if card.table_rows %}
+                    <div class="mt-5 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                      <table class="rp-table min-w-full text-xs">
+                        <thead>
+                          <tr>
+                            {% for col in card.columns %}
+                              <th class="whitespace-nowrap border-b border-slate-200 px-3 py-3 text-right">{{ col.label }}</th>
+                            {% endfor %}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for row in card.table_rows|slice:":20" %}
+                            <tr>
+                              {% for cell in row %}
+                                <td class="whitespace-nowrap border-b border-slate-100 px-3 py-3 text-slate-700">{{ cell }}</td>
+                              {% endfor %}
+                            </tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                    {% if card.total_count > 20 %}
+                      <p class="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-center text-xs font-bold text-slate-500">
+                        يظهر أول 20 سجلًا فقط. استخدم PDF أو Excel للحصول على الملف الكامل.
+                      </p>
+                    {% endif %}
+                  {% else %}
+                    <div class="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-7 text-center text-sm font-bold text-slate-400">{{ card.empty_message }}</div>
+                  {% endif %}
+
+                {% elif card.kind == 'list' %}
+                  {% if card.entries %}
+                    <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {% for entry in card.entries %}
+                        <div class="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                          <div class="text-sm font-black text-slate-950">{{ entry.primary }}</div>
+                          <div class="mt-1 text-xs font-semibold text-slate-500">{{ entry.secondary }}</div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 py-7 text-center text-sm font-bold text-slate-400">{{ card.empty_message }}</div>
+                  {% endif %}
                 {% else %}
-                  <div class="mt-4 rounded-xl border border-dashed border-slate-200 py-4 text-center text-sm text-slate-400">{{ card.empty_message }}</div>
+                  <div class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700">{{ card.placeholder_text }}</div>
                 {% endif %}
-              {% else %}
-                <div class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">{{ card.placeholder_text }}</div>
-              {% endif %}
-            </div>
-          {% endfor %}
-        </div>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
       {% endfor %}
     {% endfor %}
 
-{% if selected_option_rows %}
-      <div class="mt-8">
-        <h3 class="text-lg font-bold text-slate-900">البنود المفعلة</h3>
-        <div class="mt-3 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-          <table class="min-w-full text-sm">
-            <thead class="bg-slate-50 text-slate-500">
+    {% if selected_option_rows %}
+      <section class="rp-panel rounded-[1.5rem] p-4 sm:p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-xs font-black text-teal-700">ملخص البنود المفعلة</p>
+            <h3 class="mt-1 text-lg font-black text-slate-950">جدول مراجعة وتصدير سريع</h3>
+          </div>
+        </div>
+        <div class="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+          <table class="rp-table min-w-full text-sm">
+            <thead>
               <tr>
-                <th class="px-4 py-3 text-right font-semibold">البند</th>
-                <th class="px-4 py-3 text-right font-semibold">الفترة</th>
-                <th class="px-4 py-3 text-right font-semibold">الحالة</th>
-                <th class="px-4 py-3 text-right font-semibold">تصدير</th>
+                <th class="px-4 py-3 text-right">البند</th>
+                <th class="px-4 py-3 text-right">الفترة</th>
+                <th class="px-4 py-3 text-right">الحالة</th>
+                <th class="px-4 py-3 text-right">تصدير</th>
               </tr>
             </thead>
             <tbody>
               {% for row in selected_option_rows %}
-                <tr class="border-t border-slate-100">
-                  <td class="px-4 py-3 font-bold text-slate-800">{{ row.label }}</td>
-                  <td class="px-4 py-3 text-slate-500">{{ row.start_label }} — {{ row.end_label }}</td>
-                  <td class="px-4 py-3"><span class="rounded-full px-2.5 py-0.5 text-xs font-bold {{ row.status_class }}">{{ row.status }}</span></td>
-                  <td class="px-4 py-3">
+                <tr>
+                  <td class="border-b border-slate-100 px-4 py-3">
+                    <div class="font-black text-slate-900">{{ row.label }}</div>
+                    <p class="mt-1 max-w-xl text-xs leading-6 text-slate-500">{{ row.summary }}</p>
+                  </td>
+                  <td class="whitespace-nowrap border-b border-slate-100 px-4 py-3 text-slate-500">{{ row.start_label }} — {{ row.end_label }}</td>
+                  <td class="border-b border-slate-100 px-4 py-3"><span class="rp-status-chip {{ row.status_class }}">{{ row.status }}</span></td>
+                  <td class="border-b border-slate-100 px-4 py-3">
                     {% if row.can_export %}
-                      <div class="flex items-center gap-2">
-                        <a href="{% url 'extras_portal:report_option_export_pdf' option_key=row.key %}" class="text-red-600 hover:text-red-800" title="PDF">
-                          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM8.5 13h1c.83 0 1.5.67 1.5 1.5S10.33 16 9.5 16H9v1.5H8V13h.5zm1 2H9v-1h.5c.28 0 .5.22.5.5s-.22.5-.5.5zM12 13h1.5c.83 0 1.5.67 1.5 1.5v1c0 .83-.67 1.5-1.5 1.5H12V13zm1.5 3c.28 0 .5-.22.5-.5v-1c0-.28-.22-.5-.5-.5H13v2h.5zM16 13h2v1h-1.5v.5H18v1h-1.5V17H16v-4z"/></svg>
-                        </a>
-                        <a href="{% url 'extras_portal:report_option_export_xlsx' option_key=row.key %}" class="text-green-600 hover:text-green-800" title="Excel">
-                          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zM9.5 13L8 15.5 9.5 18H8.2l-1-1.7-1 1.7H5l1.5-2.5L5 13h1.3l.9 1.6.9-1.6h1.4zm3.5 0v4h-2v-4h2zm2 0c.83 0 1.5.67 1.5 1.5v1c0 .83-.67 1.5-1.5 1.5h-1V13h1zm0 3c.28 0 .5-.22.5-.5v-1c0-.28-.22-.5-.5-.5V16z"/></svg>
-                        </a>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <a href="{% url 'extras_portal:report_option_export_pdf' option_key=row.key %}?request={{ row.request_id }}" class="rp-export-btn rp-export-pdf" title="PDF">PDF</a>
+                        <a href="{% url 'extras_portal:report_option_export_xlsx' option_key=row.key %}?request={{ row.request_id }}" class="rp-export-btn rp-export-xlsx" title="Excel">Excel</a>
                       </div>
                     {% else %}
-                      <span class="text-xs text-slate-400">—</span>
+                      <span class="text-xs font-bold text-slate-400">غير متاح</span>
                     {% endif %}
                   </td>
                 </tr>
@@ -222,20 +398,19 @@
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     {% endif %}
-
   {% else %}
-    
-    <div class="flex min-h-[400px] items-center justify-center">
+    <section class="rp-panel flex min-h-[420px] items-center justify-center rounded-[1.75rem] p-6">
       <div class="max-w-md text-center">
-        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
-          <svg class="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
+          <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         </div>
-        <h2 class="mt-4 text-xl font-bold text-slate-900">لا توجد تقارير مفعلة</h2>
-        <p class="mt-2 text-sm text-slate-500">ستظهر التقارير هنا بعد اعتماد طلب التقارير والسداد.</p>
-        <a href="/additional-services/" class="mt-5 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800">الخدمات الإضافية</a>
+        <h2 class="mt-4 text-2xl font-black text-slate-950">لا توجد تقارير مفعلة</h2>
+        <p class="mt-2 text-sm leading-7 text-slate-500">ستظهر التقارير هنا بعد اعتماد طلب التقارير والسداد.</p>
+        <a href="/additional-services/" class="mt-5 inline-flex rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800">الخدمات الإضافية</a>
       </div>
-    </div>
+    </section>
   {% endif %}
+</div>
 {% endblock %}

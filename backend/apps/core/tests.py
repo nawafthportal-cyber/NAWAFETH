@@ -1,11 +1,14 @@
 from django.test import TestCase
 from django.test import override_settings
+from django.test import RequestFactory
 from django.http import QueryDict
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User, UserRole
 
 from . import db_outage
+from .context_processors import safe_server_auth
 from .views import HomeAggregateView
 
 
@@ -91,3 +94,40 @@ class DatabaseOutageTtlTests(TestCase):
     )
     def test_outage_ttl_keeps_production_floor_for_non_sqlite(self):
         self.assertEqual(db_outage._outage_ttl_seconds(), 30)
+
+
+class SafeServerAuthTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_partial_client_is_exposed_as_phone_only_profile_status(self):
+        user = User.objects.create_user(
+            phone="0505500091",
+            username="partial.server.auth",
+            role_state=UserRole.CLIENT,
+        )
+        request = self.factory.get("/")
+        request.user = user
+
+        payload = safe_server_auth(request)["safe_server_auth"]
+
+        self.assertTrue(payload["is_authenticated"])
+        self.assertEqual(payload["role_state"], UserRole.CLIENT)
+        self.assertEqual(payload["profile_status"], "phone_only")
+
+    def test_completed_client_is_exposed_as_complete_profile_status(self):
+        user = User.objects.create_user(
+            phone="0505500092",
+            username="complete.server.auth",
+            first_name="عميل",
+            last_name="مكتمل",
+            email="complete.server.auth@example.com",
+            role_state=UserRole.CLIENT,
+            terms_accepted_at=timezone.now(),
+        )
+        request = self.factory.get("/")
+        request.user = user
+
+        payload = safe_server_auth(request)["safe_server_auth"]
+
+        self.assertEqual(payload["profile_status"], "complete")

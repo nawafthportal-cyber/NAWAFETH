@@ -15,6 +15,184 @@
   body.page-additional-services-premium .as-summary-card li,
   body.page-additional-services-premium .as-note{min-width:0;overflow-wrap:anywhere}
   body.page-additional-services-premium :is(.as-inline-fields input,.as-notes-field textarea){max-width:100%}
+  body.page-additional-services-premium .as-report-commercial{display:grid;gap:14px}
+  body.page-additional-services-premium .as-report-intro{border:1px solid #E5ECF3;border-radius:16px;background:linear-gradient(135deg,#ffffff,#F8FBFD);padding:14px 15px}
+  body.page-additional-services-premium .as-report-intro-kicker{margin:0 0 5px;color:#0F766E;font-size:11px;font-weight:900;letter-spacing:.03em;text-transform:uppercase}
+  body.page-additional-services-premium .as-report-intro-title{margin:0;color:#162033;font-size:16px;font-weight:950;line-height:1.5}
+  body.page-additional-services-premium .as-report-intro-copy{margin:5px 0 0;color:#667085;font-size:12px;font-weight:700;line-height:1.8}
+  body.page-additional-services-premium .as-report-group{display:grid;gap:8px}
+  body.page-additional-services-premium .as-report-group-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-inline:2px}
+  body.page-additional-services-premium .as-report-group-title{margin:0;color:#182034;font-size:13px;font-weight:950;line-height:1.45}
+  body.page-additional-services-premium .as-report-group-desc{margin:3px 0 0;color:#7A8797;font-size:11px;font-weight:700;line-height:1.65}
+  body.page-additional-services-premium .as-report-group-count{flex:0 0 auto;border:1px solid #D7E4ED;border-radius:999px;background:#fff;color:#536579;padding:5px 9px;font-size:10.5px;font-weight:900}
+  body.page-additional-services-premium .as-report-options{display:grid;gap:8px}
+  body.page-additional-services-premium .as-report-options.is-detail{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.page-additional-services-premium .as-report-option{align-items:flex-start;gap:10px;min-height:82px;padding:12px;border-color:#DDE8EF;background:#fff}
+  body.page-additional-services-premium .as-report-option.is-selected{border-color:#0F766E;background:#F0FDFA;box-shadow:0 10px 26px rgba(15,118,110,.08)}
+  body.page-additional-services-premium .as-report-option input{margin-top:3px}
+  body.page-additional-services-premium .as-report-option-main{display:grid;gap:6px;min-width:0}
+  body.page-additional-services-premium .as-report-option-title{display:block;color:#111827;font-size:12.8px;font-weight:950;line-height:1.55;overflow-wrap:anywhere}
+  body.page-additional-services-premium .as-report-option-desc{display:block;color:#6B7280;font-size:11px;font-weight:700;line-height:1.65}
+  body.page-additional-services-premium .as-report-option-tags{display:flex;flex-wrap:wrap;gap:5px}
+  body.page-additional-services-premium .as-report-option-tag{border-radius:999px;background:#F3F6F8;color:#526274;padding:3px 7px;font-size:10px;font-weight:900}
+  body.page-additional-services-premium .as-report-option-tag.is-accent{background:#ECFDF5;color:#047857}
+  body.page-additional-services-premium .as-report-option-tag.is-warm{background:#FFF7ED;color:#C2410C}
+  body.page-additional-services-premium .as-report-option-tag.is-blue{background:#EFF6FF;color:#1D4ED8}
+  body.page-additional-services-premium .as-report-option-tag.is-muted{background:#F3F4F6;color:#9CA3AF}
+
+  /* ── Reports: per-tone card styles ─────────────────────────────────────── */
+  body.page-additional-services-premium .as-report-option--executive{min-height:112px;border-color:#D8CDBE;background:linear-gradient(135deg,#FFFCF7,#FFFFFF)}
+  body.page-additional-services-premium .as-report-option--executive.is-selected{border-color:#B7791F;background:#FFFBEB;box-shadow:0 12px 30px rgba(180,83,9,.10)}
+  body.page-additional-services-premium .as-report-option--detail{border-color:#CCFBF1;background:#F0FDFA}
+  body.page-additional-services-premium .as-report-option--detail.is-selected{border-color:#0F766E;background:#CCFBF1;box-shadow:0 10px 26px rgba(15,118,110,.09)}
+  body.page-additional-services-premium .as-report-option--audience{border-color:#DBEAFE;background:#F5F9FF}
+  body.page-additional-services-premium .as-report-option--audience.is-selected{border-color:#0369A1;background:#EFF6FF;box-shadow:0 10px 26px rgba(3,105,161,.09)}
+  body.page-additional-services-premium .as-report-option--operations{border-color:#D8DEE8;background:#F8FAFC}
+  body.page-additional-services-premium .as-report-option--operations.is-selected{border-color:#4B5563;background:#F1F5F9;box-shadow:0 10px 26px rgba(75,85,99,.08)}
+
+  /* ── Reports intro theming ──────────────────────────────────────────────── */
+  body.page-additional-services-premium .as-reports-intro{border-color:#CCFBF1;background:linear-gradient(135deg,#F0FDFA,#FEFFFE)}
+  body.page-additional-services-premium .as-reports-intro .as-report-intro-kicker{color:#0F766E}
+
+  /* ── Tab buttons: per-section identity ──────────────────────────────────── */
+  body.page-additional-services-premium .as-main-card[data-section="reports"].is-active{border-color:#0F766E;background:linear-gradient(135deg,#ECFDF5,#FFFFFF);color:#0F766E}
+  body.page-additional-services-premium .as-main-card[data-section="clients"].is-active{border-color:#2563EB;background:linear-gradient(135deg,#EFF6FF,#FFFFFF);color:#1D4ED8}
+  body.page-additional-services-premium .as-main-card[data-section="finance"].is-active{border-color:#059669;background:linear-gradient(135deg,#ECFDF5,#FEFCE8);color:#065F46}
+  body.page-additional-services-premium .as-main-card[data-section="reports"] .as-main-card-count.is-filled{background:#0F766E;color:#fff;border-color:#0F766E}
+  body.page-additional-services-premium .as-main-card[data-section="clients"] .as-main-card-count.is-filled{background:#2563EB;color:#fff;border-color:#2563EB}
+  body.page-additional-services-premium .as-main-card[data-section="finance"] .as-main-card-count.is-filled{background:#059669;color:#fff;border-color:#059669}
+
+  /* ── Enable-toggle: per-section identity when checked ───────────────────── */
+  body.page-additional-services-premium .as-section-panel[data-section-panel="reports"] .as-enable-toggle:has(input:checked){border-color:#0F766E;background:#F0FDFA;color:#0F766E}
+  body.page-additional-services-premium .as-section-panel[data-section-panel="clients"] .as-enable-toggle:has(input:checked){border-color:#2563EB;background:#EFF6FF;color:#1D4ED8}
+  body.page-additional-services-premium .as-section-panel[data-section-panel="finance"] .as-enable-toggle:has(input:checked){border-color:#059669;background:#ECFDF5;color:#065F46}
+
+  /* ── Clients intro ─────────────────────────────────────────────────────── */
+  body.page-additional-services-premium .as-clients-intro{border-color:#DBEAFE;background:linear-gradient(135deg,#EFF6FF,#F8FBFF)}
+  body.page-additional-services-premium .as-clients-intro .as-report-intro-kicker{color:#1D4ED8}
+  body.page-additional-services-premium .as-clients-option--primary{border-color:#DBEAFE;background:#F5F9FF}
+  body.page-additional-services-premium .as-clients-option--primary.is-selected{border-color:#2563EB;background:#EFF6FF;box-shadow:0 10px 26px rgba(37,99,235,.08)}
+  body.page-additional-services-premium .as-clients-option--management{border-color:#E0E7FF;background:#F5F3FF}
+  body.page-additional-services-premium .as-clients-option--management.is-selected{border-color:#6366F1;background:#EEF2FF;box-shadow:0 10px 26px rgba(99,102,241,.08)}
+  body.page-additional-services-premium .as-clients-option--automation{border-color:#E9D5FF;background:#FAF5FF}
+  body.page-additional-services-premium .as-clients-option--automation.is-selected{border-color:#9333EA;background:#F3E8FF;box-shadow:0 10px 26px rgba(147,51,234,.08)}
+  body.page-additional-services-premium .as-clients-option--marketing{border-color:#FED7AA;background:#FFF7ED}
+  body.page-additional-services-premium .as-clients-option--marketing.is-selected{border-color:#EA580C;background:#FFF1E6;box-shadow:0 10px 26px rgba(234,88,12,.08)}
+  body.page-additional-services-premium .as-clients-option--premium{border-color:#D1FAE5;background:linear-gradient(135deg,#F0FDF4,#FFFFFF)}
+  body.page-additional-services-premium .as-clients-option--premium.is-selected{border-color:#059669;background:#ECFDF5;box-shadow:0 12px 30px rgba(5,150,105,.10)}
+  body.page-additional-services-premium .as-clients-option--export{border-color:#CFFAFE;background:#F0FDFF}
+  body.page-additional-services-premium .as-clients-option--export.is-selected{border-color:#0891B2;background:#E0F7FA;box-shadow:0 10px 26px rgba(8,145,178,.08)}
+
+  /* ── Finance intro ──────────────────────────────────────────────────────── */
+  body.page-additional-services-premium .as-finance-intro{border-color:#D1FAE5;background:linear-gradient(135deg,#F0FDF4,#FEFCE8)}
+  body.page-additional-services-premium .as-finance-intro .as-report-intro-kicker{color:#065F46}
+  body.page-additional-services-premium .as-finance-option--core{border-color:#A7F3D0;background:linear-gradient(135deg,#F0FDF4,#FFFFFF);min-height:112px}
+  body.page-additional-services-premium .as-finance-option--core.is-selected{border-color:#059669;background:#ECFDF5;box-shadow:0 12px 30px rgba(5,150,105,.12)}
+  body.page-additional-services-premium .as-finance-option--digital{border-color:#BFDBFE;background:#F0F9FF}
+  body.page-additional-services-premium .as-finance-option--digital.is-selected{border-color:#3B82F6;background:#EFF6FF;box-shadow:0 10px 26px rgba(59,130,246,.08)}
+  body.page-additional-services-premium .as-finance-option--statement{border-color:#FDE68A;background:linear-gradient(135deg,#FEFCE8,#FFFFFF)}
+  body.page-additional-services-premium .as-finance-option--statement.is-selected{border-color:#D97706;background:#FFFBEB;box-shadow:0 12px 30px rgba(217,119,6,.10)}
+  body.page-additional-services-premium .as-finance-option--export{border-color:#C7D2FE;background:#F5F3FF}
+  body.page-additional-services-premium .as-finance-option--export.is-selected{border-color:#6366F1;background:#EEF2FF;box-shadow:0 10px 26px rgba(99,102,241,.08)}
+
+  /* ── Muted tag (coming-soon context) ───────────────────────────────────── */
+  body.page-additional-services-premium .as-report-option-tag.is-muted{background:#F3F4F6;color:#9CA3AF}
+
+  /* ── Tab cards: equal-width grid + column layout ────────────────────────── */
+  body.page-additional-services-premium .as-main-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px;align-items:stretch}
+  body.page-additional-services-premium .as-main-card{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:6px;width:100%;min-width:0;box-sizing:border-box;transition:border-color .18s,background .18s,color .18s}
+  /* Active card shadow is vertical-only so it doesn't visually inflate card width */
+  body.page-additional-services-premium .as-main-card.is-active{box-shadow:0 6px 18px -2px rgba(0,0,0,.10)!important}
+  body.page-additional-services-premium .as-main-card-icon{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:rgba(0,0,0,.04);flex-shrink:0;transition:background .15s}
+  body.page-additional-services-premium .as-main-card[data-section="reports"].is-active .as-main-card-icon{background:rgba(15,118,110,.12);color:#0F766E}
+  body.page-additional-services-premium .as-main-card[data-section="clients"].is-active .as-main-card-icon{background:rgba(37,99,235,.12);color:#2563EB}
+  body.page-additional-services-premium .as-main-card[data-section="finance"].is-active .as-main-card-icon{background:rgba(5,150,105,.12);color:#059669}
+
+  /* ── Section config block (reports / clients / finance inline fields) ────── */
+  body.page-additional-services-premium .as-section-config-block{margin-top:14px;border:1px solid #E5ECF3;border-radius:14px;padding:12px 13px;background:#F8FBFD;display:grid;gap:10px}
+  body.page-additional-services-premium .as-section-config-hint{margin:0;color:#667085;font-size:11.5px;font-weight:700;line-height:1.75}
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     BUNDLE HISTORY — طلباتي التفصيلية
+  ══════════════════════════════════════════════════════════════════════════ */
+
+  /* Section header */
+  body.page-additional-services-premium #as-bundle-history-section{border:1px solid #E5ECF3;background:linear-gradient(180deg,#FAFCFF 0%,#FFFFFF 100%)}
+  body.page-additional-services-premium #as-bundle-history-section .as-block-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:14px;border-bottom:1px solid #EEF2F7;margin-bottom:14px}
+  body.page-additional-services-premium #as-bundle-history-section .as-block-head h3{margin:0;color:#111827;font-size:17px;font-weight:950;letter-spacing:-.01em}
+  body.page-additional-services-premium .as-history-count-badge{display:inline-flex;align-items:center;gap:5px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:900;color:#475569}
+  body.page-additional-services-premium .as-history-count-badge svg{width:12px;height:12px;opacity:.7}
+
+  /* Stack gap */
+  body.page-additional-services-premium .as-stack{display:grid;gap:14px}
+
+  /* Empty / loading state */
+  body.page-additional-services-premium .as-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:36px 16px;color:#94A3B8;font-size:13px;font-weight:700;text-align:center;border:1.5px dashed #E2E8F0;border-radius:16px;background:#F8FAFC}
+  body.page-additional-services-premium .as-empty-icon{width:40px;height:40px;opacity:.4}
+  body.page-additional-services-premium .as-empty.is-loading{border-style:solid;background:linear-gradient(90deg,#F1F5F9 25%,#E9EFF6 50%,#F1F5F9 75%);background-size:200% 100%;animation:as-shimmer 1.4s infinite}
+  @keyframes as-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+  /* Bundle card shell */
+  body.page-additional-services-premium .as-card-bundle{border:1px solid #E2EBF6;border-radius:18px;background:#FFFFFF;padding:0;overflow:hidden;box-shadow:0 2px 8px rgba(15,30,60,.04);transition:box-shadow .18s,border-color .18s;display:grid}
+  body.page-additional-services-premium .as-card-bundle:hover{box-shadow:0 6px 22px rgba(15,30,60,.09);border-color:#C7D8ED}
+
+  /* Card top strip — coloured by status */
+  body.page-additional-services-premium .as-card-strip{height:4px;background:#E2EBF6}
+  body.page-additional-services-premium .as-card-bundle[data-status="pending"]   .as-card-strip{background:linear-gradient(90deg,#F59E0B,#FBBF24)}
+  body.page-additional-services-premium .as-card-bundle[data-status="in_review"] .as-card-strip{background:linear-gradient(90deg,#3B82F6,#60A5FA)}
+  body.page-additional-services-premium .as-card-bundle[data-status="in_progress"].as-card-strip,
+  body.page-additional-services-premium .as-card-bundle[data-status="in_progress"] .as-card-strip{background:linear-gradient(90deg,#8B5CF6,#A78BFA)}
+  body.page-additional-services-premium .as-card-bundle[data-status="closed"]    .as-card-strip{background:linear-gradient(90deg,#10B981,#34D399)}
+  body.page-additional-services-premium .as-card-bundle[data-status="cancelled"] .as-card-strip{background:linear-gradient(90deg,#EF4444,#F87171)}
+
+  /* Card body padding */
+  body.page-additional-services-premium .as-card-body{padding:14px 15px}
+
+  /* Card header row */
+  body.page-additional-services-premium .as-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+  body.page-additional-services-premium .as-title-wrap{flex:1;min-width:0}
+  body.page-additional-services-premium .as-title-wrap strong{display:block;color:#0F172A;font-size:14.5px;font-weight:950;line-height:1.45;overflow-wrap:anywhere}
+  body.page-additional-services-premium .as-request-code{display:inline-flex;align-items:center;gap:4px;margin-top:5px;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:7px;padding:3px 8px;font-size:10.5px;font-weight:900;color:#64748B;font-variant-numeric:tabular-nums;cursor:default}
+  body.page-additional-services-premium .as-request-code svg{width:10px;height:10px;opacity:.6;flex-shrink:0}
+  body.page-additional-services-premium .as-card-head-side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+
+  /* Status pill */
+  body.page-additional-services-premium .as-pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:900;white-space:nowrap;border:1px solid transparent}
+  body.page-additional-services-premium .as-pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7;flex-shrink:0}
+
+  /* Portal entry icon button */
+  body.page-additional-services-premium .as-portal-entry{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;background:#F1F5F9;border:1px solid #E2E8F0;color:#475569;transition:background .15s,color .15s;text-decoration:none}
+  body.page-additional-services-premium .as-portal-entry:hover{background:#E0E7F0;color:#0F172A}
+  body.page-additional-services-premium .as-portal-entry svg{width:15px;height:15px}
+
+  /* Meta grid */
+  body.page-additional-services-premium .as-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;padding:11px 12px;border:1px solid #EEF2F7;border-radius:13px;background:#F8FAFC}
+  body.page-additional-services-premium .as-meta-row{display:flex;flex-direction:column;gap:2px}
+  body.page-additional-services-premium .as-meta-row span{color:#94A3B8;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  body.page-additional-services-premium .as-meta-row b{color:#1E293B;font-size:12.5px;font-weight:900;font-variant-numeric:tabular-nums}
+  body.page-additional-services-premium .as-meta-row--full{grid-column:1/-1}
+
+  /* Invoice inline status chip inside meta */
+  body.page-additional-services-premium .as-invoice-chip{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:2px 6px;font-size:10.5px;font-weight:900}
+
+  /* Section list — what was ordered */
+  body.page-additional-services-premium .as-section-list{display:grid;gap:8px;margin-bottom:12px}
+  body.page-additional-services-premium .as-section-list-label{margin:0 0 8px;color:#475569;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+  body.page-additional-services-premium .as-section-item{border:1px solid #EEF2F7;border-radius:13px;padding:11px 12px;background:#FAFBFC}
+  body.page-additional-services-premium .as-section-item h6{margin:0 0 7px;color:#1E293B;font-size:12px;font-weight:950;line-height:1.45}
+  body.page-additional-services-premium .as-section-item ul{margin:0;padding-inline-start:18px;display:grid;gap:3px}
+  body.page-additional-services-premium .as-section-item ul li{color:#475569;font-size:11.5px;font-weight:700;line-height:1.65}
+
+  /* Notes block */
+  body.page-additional-services-premium .as-note{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;font-size:12px;font-weight:700;line-height:1.65;min-width:0;overflow-wrap:anywhere;margin-bottom:12px}
+  body.page-additional-services-premium .as-note-icon{width:16px;height:16px;flex-shrink:0;margin-top:1px;color:#B45309}
+
+  /* Footer — pay button */
+  body.page-additional-services-premium .as-card-footer{padding:0 15px 14px}
+  body.page-additional-services-premium .as-buy-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;border-radius:13px;background:linear-gradient(135deg,#0F766E,#0D9488);color:#FFFFFF;font-size:13.5px;font-weight:950;text-decoration:none;border:none;transition:box-shadow .18s,transform .12s;box-shadow:0 4px 14px rgba(15,118,110,.22)}
+  body.page-additional-services-premium .as-buy-btn:hover{box-shadow:0 6px 20px rgba(15,118,110,.32);transform:translateY(-1px)}
+  body.page-additional-services-premium .as-buy-btn:active{transform:translateY(0)}
+  body.page-additional-services-premium .as-buy-btn svg{width:16px;height:16px;flex-shrink:0}
 
   @media (max-width:640px){
     body.page-additional-services-premium .page-shell.as-page{width:100%;padding-inline:10px;padding-bottom:calc(var(--bottom-nav-height,84px) + env(safe-area-inset-bottom,0px) + 18px);overflow-x:hidden}
@@ -40,7 +218,8 @@
 
     body.page-additional-services-premium .as-main-cards{display:flex;grid-template-columns:none;gap:8px;margin:0 -2px 12px;padding:2px 2px 8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
     body.page-additional-services-premium .as-main-cards::-webkit-scrollbar{height:0}
-    body.page-additional-services-premium .as-main-card{flex:0 0 min(72vw,220px);min-height:64px;padding:10px 12px;border-radius:15px;scroll-snap-align:start;flex-direction:row;align-items:center;justify-content:space-between;text-align:right}
+    body.page-additional-services-premium .as-main-card{flex:0 0 min(72vw,200px);width:min(72vw,200px);min-width:0;min-height:72px;padding:10px 12px;border-radius:15px;scroll-snap-align:start;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:5px}
+    body.page-additional-services-premium .as-main-card-icon{width:24px;height:24px;border-radius:7px}
     body.page-additional-services-premium .as-main-card-title{font-size:13px;line-height:1.35}
     body.page-additional-services-premium .as-main-card-count{width:30px;min-width:30px;height:30px}
 
@@ -55,6 +234,15 @@
     body.page-additional-services-premium .as-option-item{min-height:46px;align-items:center;padding:10px 11px;border-radius:13px;font-size:12.5px;line-height:1.55}
     body.page-additional-services-premium .as-option-item input{width:18px;height:18px;flex:0 0 18px;margin-top:0}
     body.page-additional-services-premium .as-coming-soon-badge{margin-right:0;margin-inline-start:auto;flex:0 0 auto}
+    body.page-additional-services-premium .as-report-commercial{gap:11px}
+    body.page-additional-services-premium .as-report-intro{padding:12px;border-radius:14px}
+    body.page-additional-services-premium .as-report-options.is-detail{grid-template-columns:1fr}
+    body.page-additional-services-premium .as-report-option{min-height:76px;align-items:flex-start;padding:11px}
+    body.page-additional-services-premium .as-report-group-head{align-items:flex-start}
+    body.page-additional-services-premium .as-report-group-count{font-size:10px;padding:4px 8px}
+
+    body.page-additional-services-premium .as-section-config-block{padding:10px 11px;border-radius:12px}
+    body.page-additional-services-premium .as-section-config-hint{font-size:11px}
 
     body.page-additional-services-premium .as-inline-fields{grid-template-columns:1fr;gap:9px}
     body.page-additional-services-premium .as-inline-fields label,
@@ -82,6 +270,14 @@
     body.page-additional-services-premium .as-meta-row b{text-align:left;overflow-wrap:anywhere}
     body.page-additional-services-premium .as-section-item{padding:9px;border-radius:12px}
 
+    body.page-additional-services-premium .as-meta-grid{grid-template-columns:1fr 1fr;gap:7px;padding:10px 11px}
+    body.page-additional-services-premium .as-meta-row b{font-size:11.5px}
+    body.page-additional-services-premium .as-card-body{padding:12px 13px}
+    body.page-additional-services-premium .as-card-footer{padding:0 13px 12px}
+    body.page-additional-services-premium .as-buy-btn{min-height:44px;font-size:13px;border-radius:12px}
+    body.page-additional-services-premium .as-section-item{padding:9px 10px;border-radius:12px}
+    body.page-additional-services-premium .as-note{padding:9px 11px;font-size:11.5px}
+
     body.page-additional-services-premium .as-success-modal{align-items:flex-end;padding:0}
     body.page-additional-services-premium .as-success-dialog{width:100%;max-width:none;border-width:0;border-top:3px solid #F97316;border-radius:20px 20px 0 0;padding:12px 12px calc(env(safe-area-inset-bottom,0px) + 16px)}
     body.page-additional-services-premium .as-success-dialog-head{border-radius:16px;font-size:16px}
@@ -91,7 +287,7 @@
 
   @media (max-width:380px){
     body.page-additional-services-premium .page-shell.as-page{padding-inline:8px}
-    body.page-additional-services-premium .as-main-card{flex-basis:min(78vw,210px)}
+    body.page-additional-services-premium .as-main-card{flex:0 0 min(78vw,190px);width:min(78vw,190px)}
     body.page-additional-services-premium .as-hero h2{font-size:16px}
     body.page-additional-services-premium .as-option-item{font-size:12px}
   }
@@ -145,14 +341,17 @@
 
       <div id="as-main-cards" class="as-main-cards" role="tablist" aria-label="أقسام الخدمات الإضافية">
         <button type="button" class="as-main-card is-active" data-section="reports" aria-selected="true">
+          <span class="as-main-card-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg></span>
           <span class="as-main-card-title">التقارير</span>
           <span class="as-main-card-count" id="as-card-count-reports">0</span>
         </button>
         <button type="button" class="as-main-card" data-section="clients" aria-selected="false">
+          <span class="as-main-card-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
           <span class="as-main-card-title">إدارة العملاء</span>
           <span class="as-main-card-count" id="as-card-count-clients">0</span>
         </button>
         <button type="button" class="as-main-card" data-section="finance" aria-selected="false">
+          <span class="as-main-card-icon" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span>
           <span class="as-main-card-title">الإدارة المالية</span>
           <span class="as-main-card-count" id="as-card-count-finance">0</span>
         </button>
@@ -168,15 +367,18 @@
             <span class="as-counter" id="as-reports-counter">0 خيار</span>
           </div>
           <div id="as-reports-options" class="as-options-grid"></div>
-          <div class="as-inline-fields">
-            <label>
-              <span>من تاريخ</span>
-              <input type="date" id="as-reports-start" />
-            </label>
-            <label>
-              <span>إلى تاريخ</span>
-              <input type="date" id="as-reports-end" />
-            </label>
+          <div class="as-section-config-block">
+            <p class="as-section-config-hint">حدّد الفترة الزمنية للتقارير حتى يتمكن الفريق من إعدادها بدقة.</p>
+            <div class="as-inline-fields">
+              <label>
+                <span>من تاريخ</span>
+                <input type="date" id="as-reports-start" />
+              </label>
+              <label>
+                <span>إلى تاريخ</span>
+                <input type="date" id="as-reports-end" />
+              </label>
+            </div>
           </div>
         </section>
 
@@ -189,15 +391,18 @@
             <span class="as-counter" id="as-clients-counter">0 خيار</span>
           </div>
           <div id="as-clients-options" class="as-options-grid"></div>
-          <div class="as-inline-fields">
-            <label>
-              <span>مدة الاشتراك (بالسنوات)</span>
-              <input type="number" id="as-clients-years" min="1" max="5" step="1" value="1" />
-            </label>
-            <label>
-              <span>عدد الرسائل الجماعية</span>
-              <input type="number" id="as-clients-bulk" min="0" step="1" value="0" />
-            </label>
+          <div class="as-section-config-block">
+            <p class="as-section-config-hint">حدّد مدة الاشتراك وعدد الرسائل الجماعية المطلوبة ليتمكن فريقنا من إعداد الباقة المناسبة لك.</p>
+            <div class="as-inline-fields">
+              <label>
+                <span>مدة الاشتراك (بالسنوات)</span>
+                <input type="number" id="as-clients-years" min="1" max="5" step="1" value="1" />
+              </label>
+              <label>
+                <span>عدد الرسائل الجماعية</span>
+                <input type="number" id="as-clients-bulk" min="0" step="1" value="0" />
+              </label>
+            </div>
           </div>
         </section>
 
@@ -210,11 +415,14 @@
             <span class="as-counter" id="as-finance-counter">0 خيار</span>
           </div>
           <div id="as-finance-options" class="as-options-grid"></div>
-          <div class="as-inline-fields as-inline-fields-single">
-            <label>
-              <span>مدة الاشتراك (بالسنوات)</span>
-              <input type="number" id="as-finance-years" min="1" max="5" step="1" value="1" />
-            </label>
+          <div class="as-section-config-block">
+            <p class="as-section-config-hint">حدّد مدة الاشتراك المطلوبة لتفعيل الخدمات المالية المختارة ضمن منصتك.</p>
+            <div class="as-inline-fields as-inline-fields-single">
+              <label>
+                <span>مدة الاشتراك (بالسنوات)</span>
+                <input type="number" id="as-finance-years" min="1" max="5" step="1" value="1" />
+              </label>
+            </div>
           </div>
         </section>
 
@@ -242,7 +450,10 @@
     <section id="as-bundle-history-section" class="detail-card as-block">
       <div class="as-block-head">
         <h3>طلباتي التفصيلية</h3>
-        <span class="text-muted" id="as-bundle-history-count"></span>
+        <span class="as-history-count-badge" id="as-bundle-history-count">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h6M9 16h4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
+          <span id="as-bundle-history-count-text">—</span>
+        </span>
       </div>
       <div id="as-bundle-history" class="as-stack"></div>
     </section>
@@ -284,5 +495,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/additionalServicesPage.js' %}?v=20260413-premium2"></script>
+<script src="{% static 'mobile_web/js/additionalServicesPage.js' %}?v=20260508-history-redesign"></script>
 {% endblock %}

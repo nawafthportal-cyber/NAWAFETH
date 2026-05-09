@@ -25,6 +25,235 @@ var AdditionalServicesPage = (function () {
     closed: "#15803D"
   };
 
+  var REPORT_OPTION_PRESENTATION = {
+    platform_metrics: {
+      description: "ملخص تنفيذي يجمع أهم أرقام الأداء في بطاقة واحدة خلال الفترة المختارة.",
+      tags: ["ملخص شامل", "تنفيذي"],
+      tone: "executive"
+    },
+    platform_visits: {
+      description: "عدد زيارات صفحة المزود لقياس حجم الوصول والاهتمام الأولي.",
+      tags: ["تفصيلي", "وصول"],
+      tone: "detail"
+    },
+    platform_favorites: {
+      description: "مؤشر اهتمام العملاء بالمحتوى والخدمات المعروضة داخل المنصة.",
+      tags: ["تفصيلي", "اهتمام"],
+      tone: "detail"
+    },
+    orders_breakdown: {
+      description: "توزيع الطلبات حسب الحالة: جديدة، تحت التنفيذ، مكتملة، وملغية.",
+      tags: ["تفصيلي", "تشغيلي"],
+      tone: "detail"
+    },
+    platform_shares: {
+      description: "عدد مرات مشاركة صفحة المزود أو محتواه لقياس الانتشار.",
+      tags: ["تفصيلي", "انتشار"],
+      tone: "detail"
+    },
+    service_requesters: {
+      description: "قائمة عملاء سبق أن أرسلوا طلبات خدمة ويمكن متابعتهم تجاريًا.",
+      tags: ["قائمة", "عملاء فعليون"],
+      tone: "audience"
+    },
+    potential_clients: {
+      description: "فرص بيع محتملة من العملاء الذين تم تمييزهم داخل النظام.",
+      tags: ["فرص بيع", "متابعة"],
+      tone: "audience"
+    },
+    content_favoriters: {
+      description: "مستخدمون أبدوا اهتمامًا بالمحتوى عبر التفضيل.",
+      tags: ["مهتمون", "محتوى"],
+      tone: "audience"
+    },
+    platform_followers: {
+      description: "جمهور دافئ يتابع حساب المزود ويمكن تحويله إلى طلبات.",
+      tags: ["جمهور دافئ", "تسويق"],
+      tone: "audience"
+    },
+    content_sharers: {
+      description: "مستخدمون ساهموا في نشر صفحة المزود أو محتواه.",
+      tags: ["انتشار", "مروجون"],
+      tone: "audience"
+    },
+    positive_reviewers: {
+      description: "عملاء راضون يمكن الاستفادة منهم في الولاء وإعادة الشراء.",
+      tags: ["ولاء", "ثقة"],
+      tone: "audience"
+    },
+    content_commenters: {
+      description: "مستخدمون تفاعلوا بالتعليق، وهم أقرب للحوار والمتابعة.",
+      tags: ["تفاعل", "حوار"],
+      tone: "audience"
+    },
+    service_orders_detail: {
+      description: "تقرير تشغيلي متقدم يتضمن تفاصيل الطلبات والحالات والمبالغ والتسليم.",
+      tags: ["PDF / Excel", "تشغيلي"],
+      tone: "operations"
+    }
+  };
+
+  var REPORT_OPTION_GROUPS = [
+    {
+      title: "ملخص الأداء التنفيذي",
+      description: "اختيار مناسب لمن يريد قراءة سريعة لأداء الحساب.",
+      layout: "executive",
+      keys: ["platform_metrics"]
+    },
+    {
+      title: "المؤشرات التفصيلية",
+      description: "أرقام مستقلة لمن يريد قياس كل جانب من الأداء على حدة.",
+      layout: "detail",
+      keys: ["platform_visits", "platform_favorites", "orders_breakdown", "platform_shares"]
+    },
+    {
+      title: "قوائم الجمهور القابل للتحويل",
+      description: "قوائم تساعد المزود على المتابعة والتسويق وتحويل المهتمين إلى عملاء.",
+      layout: "audience",
+      keys: [
+        "service_requesters",
+        "potential_clients",
+        "content_favoriters",
+        "platform_followers",
+        "content_sharers",
+        "positive_reviewers",
+        "content_commenters"
+      ]
+    },
+    {
+      title: "تفاصيل تشغيلية للطلبات",
+      description: "بيانات تفصيلية مناسبة للمراجعة والتصدير والمتابعة الداخلية.",
+      layout: "operations",
+      keys: ["service_orders_detail"]
+    }
+  ];
+
+  // ─── CLIENT MANAGEMENT ───────────────────────────────────────────────────────
+
+  var CLIENT_OPTION_PRESENTATION = {
+    platform_clients_list: {
+      description: "قائمة شاملة بعملاء المنصة مع بيانات التواصل الكاملة لمتابعة العلاقات التجارية.",
+      tags: ["قائمة", "عملاء المنصة"],
+      tone: "primary"
+    },
+    historical_clients: {
+      description: "جميع العملاء الذين قدّموا طلبات سابقة مع معرّفاتهم ووسائل التواصل معهم.",
+      tags: ["قائمة", "عملاء فعليون"],
+      tone: "primary"
+    },
+    all_followers: {
+      description: "قائمة كاملة بمتابعي حسابك — جمهور دافئ يمكن تحويله إلى عملاء.",
+      tags: ["جمهور دافئ", "متابعون"],
+      tone: "primary"
+    },
+    potential_clients_contact: {
+      description: "قائمة العملاء المحتملين المرشحين من قائمة التواصل وجاهزون للمتابعة.",
+      tags: ["فرص بيع", "متابعة"],
+      tone: "primary"
+    },
+    list_services: {
+      description: "إدارة وتنظيم قوائم عملائك لسهولة المتابعة والوصول السريع.",
+      tags: ["تنظيم", "إدارة"],
+      tone: "management"
+    },
+    grouping: {
+      description: "تصنيف العملاء ضمن مجموعات: خدمة محددة، مهم، متكرر، وغيرها حسب أولويتك.",
+      tags: ["تصنيف", "مجموعات"],
+      tone: "management"
+    },
+    recurring_reminders: {
+      description: "تذكيرات تلقائية مرتبطة بالعملاء وخدماتهم المتكررة مع مواعيد ورسائل تنبيه.",
+      tags: ["تذكير", "خدمات متكررة"],
+      tone: "automation"
+    },
+    bulk_messages: {
+      description: "إرسال رسائل جماعية مباشرة لعملائك لتعزيز التواصل وزيادة فرص البيع.",
+      tags: ["تسويق", "رسائل جماعية"],
+      tone: "marketing"
+    },
+    loyalty_program: {
+      description: "برنامج ولاء متكامل بنقاط ومكافآت يحفّز العملاء على التكرار والإحالة.",
+      tags: ["ولاء", "مكافآت"],
+      tone: "premium"
+    },
+    export_clients: {
+      description: "تصدير بيانات عملائك بصيغة PDF أو Excel للمراجعة والتحليل الخارجي.",
+      tags: ["PDF / Excel", "تصدير"],
+      tone: "export"
+    }
+  };
+
+  var CLIENT_OPTION_GROUPS = [
+    {
+      title: "قوائم العملاء والجمهور",
+      description: "بيانات تفصيلية بالعملاء والمتابعين ومن أبدوا اهتمامًا بخدماتك.",
+      keys: ["platform_clients_list", "historical_clients", "all_followers", "potential_clients_contact"]
+    },
+    {
+      title: "تصنيف وإدارة العلاقات",
+      description: "أدوات لتنظيم قوائم عملائك وتصنيفهم حسب الأولوية والخدمة.",
+      keys: ["list_services", "grouping"]
+    },
+    {
+      title: "التذكير التلقائي والتواصل",
+      description: "حلول مؤتمتة للتذكير والتواصل الجماعي لتعزيز العلاقات وتحويل الفرص.",
+      keys: ["recurring_reminders", "bulk_messages"]
+    },
+    {
+      title: "الولاء والتصدير",
+      description: "برامج الولاء لتحفيز العملاء وتصدير بياناتهم للمراجعة الخارجية.",
+      keys: ["loyalty_program", "export_clients"]
+    }
+  ];
+
+  // ─── FINANCIAL MANAGEMENT ─────────────────────────────────────────────────────
+
+  var FINANCE_OPTION_PRESENTATION = {
+    bank_qr_registration: {
+      description: "تسجيل الحساب البنكي للمختص وإصدار QR لاستقبال المدفوعات من العملاء بسهولة.",
+      tags: ["QR", "حساب بنكي"],
+      tone: "core"
+    },
+    electronic_payments: {
+      description: "بوابات دفع إلكتروني متكاملة لاستقبال مدفوعات العملاء عبر المنصة مباشرة.",
+      tags: ["قريباً", "دفع إلكتروني"],
+      tone: "digital"
+    },
+    electronic_invoices: {
+      description: "إصدار فواتير إلكترونية آلية لكل عملية دفع منجزة عبر منصة مختص.",
+      tags: ["قريباً", "فواتير"],
+      tone: "digital"
+    },
+    financial_statement: {
+      description: "كشف حساب شامل: اسم العميل، التاريخ، المبالغ المستلمة والمتبقية والنهائية.",
+      tags: ["تقرير مالي", "تفصيلي"],
+      tone: "statement"
+    },
+    finance_export: {
+      description: "تصدير كامل البيانات المالية للعمليات المنفذة عبر المنصة بصيغة PDF أو Excel.",
+      tags: ["PDF / Excel", "تصدير"],
+      tone: "export"
+    }
+  };
+
+  var FINANCE_OPTION_GROUPS = [
+    {
+      title: "البنية المالية الأساسية",
+      description: "إعداد الحساب البنكي والخدمات الجوهرية لاستقبال المدفوعات.",
+      keys: ["bank_qr_registration"]
+    },
+    {
+      title: "الخدمات الرقمية",
+      description: "بوابات الدفع والفواتير الإلكترونية — قريباً.",
+      keys: ["electronic_payments", "electronic_invoices"]
+    },
+    {
+      title: "التقارير والتصدير المالي",
+      description: "كشوف الحسابات وتصدير البيانات للمراجعة والإدارة المالية الاحترافية.",
+      keys: ["financial_statement", "finance_export"]
+    }
+  ];
+
   var endpoints = {
     catalogUrl: "/api/extras/catalog/",
     myUrl: "/api/extras/my/",
@@ -403,6 +632,21 @@ var AdditionalServicesPage = (function () {
       return;
     }
 
+    if (groupKey === "reports") {
+      renderReportOptions(root, items);
+      return;
+    }
+
+    if (groupKey === "clients") {
+      renderClientsOptions(root, items);
+      return;
+    }
+
+    if (groupKey === "finance") {
+      renderFinanceOptions(root, items);
+      return;
+    }
+
     root.innerHTML = items.map(function (item) {
       var isUnavailable = Boolean(item.unavailable);
       var checked = !isUnavailable && isOptionSelected(groupKey, item.key);
@@ -422,6 +666,150 @@ var AdditionalServicesPage = (function () {
         '</label>'
       ].join("");
     }).join("");
+  }
+
+  function optionByKey(items) {
+    var map = {};
+    for (var i = 0; i < items.length; i++) {
+      map[items[i].key] = items[i];
+    }
+    return map;
+  }
+
+  // ─── UNIFIED OPTION RENDERERS ────────────────────────────────────────────────
+
+  function optionTagClass(tag) {
+    if (tag === "ملخص شامل" || tag === "فرص بيع" || tag === "ولاء" || tag === "مكافآت" || tag === "QR" || tag === "حساب بنكي") return " is-accent";
+    if (tag === "تنفيذي" || tag === "PDF / Excel" || tag === "تسويق" || tag === "رسائل جماعية" || tag === "تصدير") return " is-warm";
+    if (tag === "تفصيلي" || tag === "جمهور دافئ" || tag === "قائمة" || tag === "عملاء فعليون" || tag === "متابعون" || tag === "تقرير مالي" || tag === "وصول") return " is-blue";
+    if (tag === "قريباً") return " is-muted";
+    return "";
+  }
+
+  function renderOptionCard(groupKey, item, presentationMap, cssPrefix) {
+    var isUnavailable = Boolean(item.unavailable);
+    var checked = !isUnavailable && isOptionSelected(groupKey, item.key);
+    var meta = presentationMap[item.key] || {};
+    var tone = asText(meta.tone);
+    var tags = Array.isArray(meta.tags) ? meta.tags : [];
+    var tagHtml = tags.map(function (tag) {
+      return '<span class="as-report-option-tag' + optionTagClass(tag) + '">' + escapeHtml(tag) + '</span>';
+    }).join("");
+    if (isUnavailable) {
+      tagHtml += '<span class="as-coming-soon-badge">قريباً</span>';
+    }
+    var toneClass = (cssPrefix && tone) ? (' ' + cssPrefix + '--' + tone) : '';
+    return [
+      '<label class="as-option-item as-report-option', toneClass, checked ? ' is-selected' : '', isUnavailable ? ' is-unavailable' : '', '"', isUnavailable ? ' title="قريباً"' : '', '>',
+        '<input class="as-option-checkbox" type="checkbox" data-group="', escapeHtml(groupKey), '" data-option="', escapeHtml(item.key), '"', checked ? ' checked' : '', isUnavailable ? ' disabled' : '', ' />',
+        '<span class="as-report-option-main">',
+          '<span class="as-report-option-title">', escapeHtml(item.label), '</span>',
+          '<span class="as-report-option-desc">', escapeHtml(meta.description || "خيار إضافي."), '</span>',
+          tagHtml ? '<span class="as-report-option-tags">' + tagHtml + '</span>' : '',
+        '</span>',
+      '</label>'
+    ].join("");
+  }
+
+  function renderSectionOptions(root, items, cfg) {
+    var itemMap = optionByKey(items);
+    var used = {};
+    var introClass = asText(cfg.introClass) ? (' ' + cfg.introClass) : '';
+    var html = [
+      '<div class="as-report-commercial">',
+        '<div class="as-report-intro', introClass, '">',
+          '<p class="as-report-intro-kicker">', escapeHtml(cfg.introKicker), '</p>',
+          '<h4 class="as-report-intro-title">', escapeHtml(cfg.introTitle), '</h4>',
+          cfg.introCopy ? '<p class="as-report-intro-copy">' + escapeHtml(cfg.introCopy) + '</p>' : '',
+        '</div>'
+    ];
+
+    cfg.optionGroups.forEach(function (group) {
+      var groupItems = group.keys.map(function (k) { return itemMap[k] || null; }).filter(Boolean);
+      if (!groupItems.length) return;
+      groupItems.forEach(function (it) { used[it.key] = true; });
+      var availableCount = groupItems.filter(function (it) { return !it.unavailable; }).length;
+      html.push(
+        '<section class="as-report-group">',
+          '<div class="as-report-group-head">',
+            '<div>',
+              '<h4 class="as-report-group-title">', escapeHtml(group.title), '</h4>',
+              '<p class="as-report-group-desc">', escapeHtml(group.description), '</p>',
+            '</div>',
+            '<span class="as-report-group-count">', availableCount, ' خيار</span>',
+          '</div>',
+          '<div class="as-report-options', group.layout === "detail" ? ' is-detail' : '', '">',
+            groupItems.map(function (it) { return renderOptionCard(cfg.groupKey, it, cfg.presentationMap, cfg.cssPrefix); }).join(""),
+          '</div>',
+        '</section>'
+      );
+    });
+
+    var remaining = items.filter(function (it) { return !used[it.key]; });
+    if (remaining.length) {
+      html.push(
+        '<section class="as-report-group">',
+          '<div class="as-report-group-head">',
+            '<div>',
+              '<h4 class="as-report-group-title">', escapeHtml(cfg.extraTitle || "بنود إضافية"), '</h4>',
+              '<p class="as-report-group-desc">', escapeHtml(cfg.extraDesc || "خيارات إضافية مستقلة."), '</p>',
+            '</div>',
+            '<span class="as-report-group-count">', remaining.length, ' خيار</span>',
+          '</div>',
+          '<div class="as-report-options">',
+            remaining.map(function (it) { return renderOptionCard(cfg.groupKey, it, cfg.presentationMap, cfg.cssPrefix); }).join(""),
+          '</div>',
+        '</section>'
+      );
+    }
+
+    html.push('</div>');
+    root.innerHTML = html.join("");
+  }
+
+  function renderReportOptions(root, items) {
+    renderSectionOptions(root, items, {
+      groupKey: "reports",
+      introClass: "as-reports-intro",
+      introKicker: "التقارير",
+      introTitle: "اختر بين ملخص تنفيذي، مؤشرات تفصيلية، قوائم جمهور، أو تقرير تشغيلي.",
+      introCopy: "كل تقرير مستقل يُعدّ حسب الفترة المختارة ويُسلَّم بعد اكتمال المراجعة.",
+      optionGroups: REPORT_OPTION_GROUPS,
+      presentationMap: REPORT_OPTION_PRESENTATION,
+      cssPrefix: "as-report-option",
+      extraTitle: "بنود إضافية",
+      extraDesc: "خيارات تقارير مستقلة مضافة للكتالوج."
+    });
+  }
+
+  function renderClientsOptions(root, items) {
+    renderSectionOptions(root, items, {
+      groupKey: "clients",
+      introClass: "as-clients-intro",
+      introKicker: "إدارة العملاء",
+      introTitle: "اختر الأدوات التي تناسب أسلوبك في إدارة علاقات العملاء وتنميتها.",
+      introCopy: "من قوائم العملاء والتصنيف إلى التذكير التلقائي والولاء — كل ما تحتاجه لبناء قاعدة عملاء راسخة.",
+      optionGroups: CLIENT_OPTION_GROUPS,
+      presentationMap: CLIENT_OPTION_PRESENTATION,
+      cssPrefix: "as-clients-option",
+      extraTitle: "بنود إضافية",
+      extraDesc: "خيارات إدارة عملاء مستقلة."
+    });
+  }
+
+  function renderFinanceOptions(root, items) {
+    renderSectionOptions(root, items, {
+      groupKey: "finance",
+      introClass: "as-finance-intro",
+      introKicker: "الإدارة المالية",
+      introTitle: "نظّم وضعك المالي وأتقن عرض الخدمات المدفوعة وإدارتها.",
+      introCopy: "من تسجيل الحساب البنكي والدفع الإلكتروني إلى الفواتير وكشوف الحساب — بنية مالية محترفة في مكان واحد.",
+      optionGroups: FINANCE_OPTION_GROUPS,
+      presentationMap: FINANCE_OPTION_PRESENTATION,
+      cssPrefix: "as-finance-option",
+      extraTitle: "بنود إضافية",
+      extraDesc: "خيارات مالية مستقلة مضافة للكتالوج."
+    });
   }
 
   function renderSectionVisibility() {
@@ -690,19 +1078,25 @@ var AdditionalServicesPage = (function () {
 
   function renderBundleHistory() {
     var root = document.getElementById("as-bundle-history");
-    var count = document.getElementById("as-bundle-history-count");
+    var countBadge = document.getElementById("as-bundle-history-count-text");
     if (!root) return;
 
     if (state.bundleHistoryLoading) {
-      if (count) count.textContent = "";
-      root.innerHTML = '<div class="as-empty">جاري تحميل الطلبات...</div>';
+      if (countBadge) countBadge.textContent = "—";
+      root.innerHTML = '<div class="as-empty is-loading">'
+        + '<svg class="as-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        + '<path d="M9 12h6M9 16h4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>'
+        + '<span>جاري تحميل الطلبات...</span></div>';
       return;
     }
 
-    if (count) count.textContent = state.bundleHistory.length + " طلب";
+    if (countBadge) countBadge.textContent = state.bundleHistory.length + " طلب";
 
     if (!state.bundleHistory.length) {
-      root.innerHTML = '<div class="as-empty">لا توجد طلبات تفصيلية مرسلة بعد.</div>';
+      root.innerHTML = '<div class="as-empty">'
+        + '<svg class="as-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        + '<path d="M9 12h6M9 16h4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>'
+        + '<span>لا توجد طلبات تفصيلية مرسلة بعد.</span></div>';
       return;
     }
 
@@ -722,44 +1116,91 @@ var AdditionalServicesPage = (function () {
       var invoiceSummary = item && typeof item.invoice_summary === "object" ? item.invoice_summary : null;
       var paymentUrl = asText(item && item.payment_url);
       var invoiceCode = asText(invoiceSummary && invoiceSummary.code) || "—";
-      var invoiceStatus = asText(invoiceSummary && invoiceSummary.status_label) || "لا توجد فاتورة";
+      var invoiceStatus = asText(invoiceSummary && invoiceSummary.status_label) || "—";
       var invoiceTotal = invoiceSummary ? formatPrice(invoiceSummary.total, invoiceSummary.currency) : "—";
       var canPay = !!paymentUrl && invoiceSummary && invoiceSummary.payment_effective !== true;
+      var isPaid = invoiceSummary && invoiceSummary.payment_effective === true;
+      var invoiceChipStyle = isPaid
+        ? 'background:#D1FAE5;color:#065F46'
+        : (invoiceSummary ? 'background:#FEF3C7;color:#92400E' : 'background:#F1F5F9;color:#64748B');
 
       return [
-        '<article class="as-card as-card-bundle" data-request-id="', escapeHtml(item && item.request_id), '">',
-          '<div class="as-card-head">',
-            '<div class="as-title-wrap">',
-              '<strong>', escapeHtml(summary), '</strong>',
-              '<div class="as-sub">رقم الطلب: ', escapeHtml(requestCode), '</div>',
+        '<article class="as-card-bundle" data-request-id="', escapeHtml(item && item.request_id), '"',
+          status ? ' data-status="' + escapeHtml(status) + '"' : '',
+        '>',
+
+          /* top colour strip */
+          '<div class="as-card-strip" aria-hidden="true"></div>',
+
+          '<div class="as-card-body">',
+
+            /* ── header row ── */
+            '<div class="as-card-head">',
+              '<div class="as-title-wrap">',
+                '<strong>', escapeHtml(summary), '</strong>',
+                '<span class="as-request-code">',
+                  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M8 8h5"/></svg>',
+                  escapeHtml(requestCode),
+                '</span>',
+              '</div>',
+              '<div class="as-card-head-side">',
+                showPortalEntry
+                  ? '<a class="as-portal-entry" href="' + escapeHtml(portalUrl) + '" title="بوابة الخدمات الإضافية" aria-label="الانتقال إلى بوابة الخدمات الإضافية">'
+                      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                        + '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>'
+                        + '<rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'
+                      + '</svg></a>'
+                  : '',
+                '<span class="as-pill" style="color:', statusColor, ';background:', statusColor, '1A;border-color:', statusColor, '33">',
+                  escapeHtml(statusLabel),
+                '</span>',
+              '</div>',
             '</div>',
-            '<div class="as-card-head-side">',
-              showPortalEntry
-                ? '<a class="as-portal-entry" href="' + escapeHtml(portalUrl) + '" title="الانتقال إلى بوابة الخدمات الإضافية" aria-label="الانتقال إلى بوابة الخدمات الإضافية">'
-                    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-                      + '<rect x="3" y="3" width="7" height="7" rx="1.5"></rect>'
-                      + '<rect x="14" y="3" width="7" height="7" rx="1.5"></rect>'
-                      + '<rect x="3" y="14" width="7" height="7" rx="1.5"></rect>'
-                      + '<rect x="14" y="14" width="7" height="7" rx="1.5"></rect>'
-                    + '</svg>'
-                  + '</a>'
-                : '',
-              '<span class="as-pill" style="color:', statusColor, ';background:', statusColor, '1F">', escapeHtml(statusLabel), '</span>',
+
+            /* ── meta grid ── */
+            '<div class="as-meta-grid">',
+              '<div class="as-meta-row"><span>تاريخ الإرسال</span><b>', escapeHtml(submittedAt), '</b></div>',
+              '<div class="as-meta-row"><span>إجمالي الفاتورة</span><b>', escapeHtml(invoiceTotal), '</b></div>',
+              '<div class="as-meta-row"><span>رقم الفاتورة</span><b>', escapeHtml(invoiceCode), '</b></div>',
+              '<div class="as-meta-row"><span>حالة الدفع</span>',
+                '<b><span class="as-invoice-chip" style="', invoiceChipStyle, '">', escapeHtml(invoiceStatus), '</span></b>',
+              '</div>',
             '</div>',
-          '</div>',
-          '<div class="as-meta-grid">',
-            '<div class="as-meta-row"><span>تاريخ الإرسال</span><b>', escapeHtml(submittedAt), '</b></div>',
-            '<div class="as-meta-row"><span>رقم الفاتورة</span><b>', escapeHtml(invoiceCode), '</b></div>',
-            '<div class="as-meta-row"><span>حالة الفاتورة</span><b>', escapeHtml(invoiceStatus), '</b></div>',
-            '<div class="as-meta-row"><span>إجمالي الفاتورة</span><b>', escapeHtml(invoiceTotal), '</b></div>',
-          '</div>',
-          sections.length ? '<div class="as-section-list">' + sections.map(function (section) {
-            return '<div class="as-section-item"><h6>' + escapeHtml(section.title) + '</h6><ul>' + section.items.map(function (it) {
-              return '<li>' + escapeHtml(it) + '</li>';
-            }).join("") + '</ul></div>';
-          }).join("") + '</div>' : '',
-          notes ? '<div class="as-note"><b>ملاحظات:</b> ' + escapeHtml(notes) + '</div>' : '',
-          canPay ? '<div class="as-card-footer"><a class="as-buy-btn" href="' + escapeHtml(paymentUrl) + '">دفع الفاتورة</a></div>' : '',
+
+            /* ── sections ordered ── */
+            sections.length
+              ? '<div class="as-section-list">'
+                  + '<p class="as-section-list-label">الخدمات المطلوبة</p>'
+                  + sections.map(function (section) {
+                      return '<div class="as-section-item"><h6>' + escapeHtml(section.title) + '</h6>'
+                        + '<ul>' + section.items.map(function (it) {
+                            return '<li>' + escapeHtml(it) + '</li>';
+                          }).join("") + '</ul>'
+                        + '</div>';
+                    }).join("")
+                  + '</div>'
+              : '',
+
+            /* ── notes ── */
+            notes
+              ? '<div class="as-note">'
+                  + '<svg class="as-note-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>'
+                  + '<span>' + escapeHtml(notes) + '</span>'
+                  + '</div>'
+              : '',
+
+          '</div>', /* end as-card-body */
+
+          /* ── footer pay button ── */
+          canPay
+            ? '<div class="as-card-footer">'
+                + '<a class="as-buy-btn" href="' + escapeHtml(paymentUrl) + '">'
+                  + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>'
+                  + 'دفع الفاتورة'
+                + '</a>'
+                + '</div>'
+            : '',
+
         '</article>'
       ].join("");
     }).join("");

@@ -448,7 +448,7 @@ if _r2_media_ready:
             pass
 
         if _is_head_bucket_forbidden and not R2_HEAD_BUCKET_STRICT:
-            _logger.warning(
+            _logger.debug(
                 "R2/S3 HeadBucket returned %s. Keeping S3 storage enabled (set R2_HEAD_BUCKET_STRICT=1 to force fallback).",
                 _error_code or "403",
             )

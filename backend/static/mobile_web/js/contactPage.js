@@ -1,12 +1,14 @@
 /* ===================================================================
-   contactPage.js — Support tickets page
-   GET  /api/support/teams/
-   GET  /api/support/tickets/my/
-   GET  /api/support/tickets/<id>/
-   POST /api/support/tickets/create/
-   POST /api/support/tickets/<id>/comments/
-   POST /api/support/tickets/<id>/attachments/ (multipart)
-   =================================================================== */
+  contactPage.js — Support tickets & report tracking page
+  GET  /api/support/teams/
+  GET  /api/support/tickets/my/
+  GET  /api/support/tickets/<id>/
+  POST /api/support/tickets/create/
+  POST /api/support/tickets/<id>/comments/
+  POST /api/support/tickets/<id>/attachments/ (multipart)
+  GET  /api/moderation/cases/my/
+  GET  /api/moderation/cases/<id>/
+  =================================================================== */
 'use strict';
 
 const ContactPage = (() => {
@@ -56,9 +58,15 @@ const ContactPage = (() => {
       statusInProgress: 'تحت المعالجة',
       statusReturned: 'معاد',
       statusClosed: 'مغلق',
+      statusUnderReview: 'قيد المراجعة',
+      statusActionTaken: 'تم اتخاذ إجراء',
+      statusDismissed: 'مرفوض / بدون إجراء',
+      statusEscalated: 'مصعّد',
       createdAtLabel: 'تاريخ الإنشاء',
       attachmentsCountLabel: 'المرفقات',
       commentsCountLabel: 'التعليقات',
+      actionsCountLabel: 'سجل المعالجة',
+      decisionsCountLabel: 'القرارات',
       statusLabel: 'الحالة',
       descriptionSectionTitle: 'وصف البلاغ',
       noTicketDescription: 'لا يوجد وصف مرفق لهذا البلاغ.',
@@ -66,6 +74,16 @@ const ContactPage = (() => {
       attachmentFallback: 'مرفق',
       commentsSectionTitle: 'التعليقات',
       noComments: 'لا توجد تعليقات بعد',
+      activitySectionTitle: 'سجل المعالجة',
+      noActivity: 'لا توجد تحديثات تشغيلية بعد',
+      sourceLabel: 'المصدر',
+      reasonLabel: 'سبب البلاغ',
+      linkedTicketLabel: 'التذكرة المرتبطة',
+      categoryService: 'بلاغ خدمة',
+      categorySpotlight: 'بلاغ لمحة',
+      categoryPortfolio: 'بلاغ خدمات ومشاريع',
+      categoryComplaint: 'بلاغ محتوى',
+      caseFallback: 'بلاغ محتوى',
       userFallback: 'مستخدم',
       originalLanguageNotice: 'بعض تفاصيل البلاغ والأسماء والتعليقات تُعرض بلغتها الأصلية.',
       replyTitle: 'أضف تعليقًا جديدًا',
@@ -132,9 +150,15 @@ const ContactPage = (() => {
       statusInProgress: 'In progress',
       statusReturned: 'Returned',
       statusClosed: 'Closed',
+      statusUnderReview: 'Under review',
+      statusActionTaken: 'Action taken',
+      statusDismissed: 'Dismissed',
+      statusEscalated: 'Escalated',
       createdAtLabel: 'Created at',
       attachmentsCountLabel: 'Attachments',
       commentsCountLabel: 'Comments',
+      actionsCountLabel: 'Activity',
+      decisionsCountLabel: 'Decisions',
       statusLabel: 'Status',
       descriptionSectionTitle: 'Ticket description',
       noTicketDescription: 'No description is attached to this ticket.',
@@ -142,6 +166,16 @@ const ContactPage = (() => {
       attachmentFallback: 'Attachment',
       commentsSectionTitle: 'Comments',
       noComments: 'No comments yet',
+      activitySectionTitle: 'Activity log',
+      noActivity: 'No operational updates yet',
+      sourceLabel: 'Source',
+      reasonLabel: 'Reason',
+      linkedTicketLabel: 'Linked ticket',
+      categoryService: 'Service report',
+      categorySpotlight: 'Spotlight report',
+      categoryPortfolio: 'Portfolio report',
+      categoryComplaint: 'Content report',
+      caseFallback: 'Content report',
       userFallback: 'User',
       originalLanguageNotice: 'Some ticket details, names, and comments are shown in their original language.',
       replyTitle: 'Add a new comment',
@@ -201,11 +235,13 @@ const ContactPage = (() => {
 
   let _teams = [];
   let _tickets = [];
-  let _selectedTicket = null;
+  let _cases = [];
+  let _records = [];
+  let _selectedRecord = null;
   let _content = {};
   let _contentBlocks = {};
   let _toastTimer = null;
-  let _preferredTicketId = _ticketIdFromUrl();
+  let _preferredSelection = _selectionFromUrl();
 
   async function init() {
     _applyStaticCopy();
@@ -378,30 +414,30 @@ const ContactPage = (() => {
     await Promise.all([
       _loadTeams(),
       _loadTickets(),
+      _loadCases(),
     ]);
 
+    _records = _mergeRecords();
     _setListLoading(false);
     _renderSummary();
     _renderTickets();
-    if (!_tickets.length) {
-      _selectedTicket = null;
-      _preferredTicketId = null;
-      _syncTicketQueryParam(null);
+    if (!_records.length) {
+      _selectedRecord = null;
+      _preferredSelection = null;
+      _syncSelectionQueryParam(null);
       _renderTicketDetail();
       return;
     }
 
-    const currentSelectedId = _selectedTicket && _tickets.some((ticket) => ticket && ticket.id === _selectedTicket.id)
-      ? _selectedTicket.id
-      : null;
-    const preferredId = _preferredTicketId || currentSelectedId || _tickets[0].id;
-    if (preferredId) {
-      const selected = await _selectTicket(preferredId, { silent: true });
+    const currentSelected = _currentSelectedSummary();
+    const preferredSelection = _preferredSelection || currentSelected || _recordSelection(_records[0]);
+    if (preferredSelection) {
+      const selected = await _selectRecord(preferredSelection, { silent: true });
       if (selected) return;
     }
 
-    if (_tickets[0] && _tickets[0].id && _tickets[0].id !== preferredId) {
-      await _selectTicket(_tickets[0].id, { silent: true });
+    if (_records[0]) {
+      await _selectRecord(_recordSelection(_records[0]), { silent: true });
     }
   }
 
@@ -462,6 +498,32 @@ const ContactPage = (() => {
     _tickets = Array.isArray(res.data && res.data.results) ? res.data.results : [];
   }
 
+  async function _loadCases() {
+    const res = await ApiClient.get('/api/moderation/cases/my/');
+    if (!res.ok) {
+      _cases = [];
+      return;
+    }
+
+    if (Array.isArray(res.data)) {
+      _cases = res.data;
+      return;
+    }
+
+    _cases = Array.isArray(res.data && res.data.results) ? res.data.results : [];
+  }
+
+  function _mergeRecords() {
+    const ticketRows = _tickets.map((ticket) => ({ ...ticket, _recordKind: 'ticket' }));
+    const caseRows = _cases.map((item) => ({ ...item, _recordKind: 'case' }));
+    return ticketRows.concat(caseRows).sort((left, right) => {
+      const leftTime = _timestamp(left && left.created_at);
+      const rightTime = _timestamp(right && right.created_at);
+      if (rightTime !== leftTime) return rightTime - leftTime;
+      return _toPositiveInt(right && right.id) < _toPositiveInt(left && left.id) ? -1 : 1;
+    });
+  }
+
   function _setListLoading(loading) {
     const el = document.getElementById('support-list-loading');
     if (!el) return;
@@ -486,7 +548,7 @@ const ContactPage = (() => {
     if (!list || !empty) return;
     list.innerHTML = '';
 
-    if (!_tickets.length) {
+    if (!_records.length) {
       empty.classList.remove('hidden');
       list.classList.add('hidden');
       return;
@@ -495,8 +557,8 @@ const ContactPage = (() => {
     empty.classList.add('hidden');
     list.classList.remove('hidden');
     const frag = document.createDocumentFragment();
-    _tickets.forEach((ticket) => {
-      frag.appendChild(_buildTicketItem(ticket));
+    _records.forEach((record) => {
+      frag.appendChild(_buildTicketItem(record));
     });
     list.appendChild(frag);
   }
@@ -505,11 +567,11 @@ const ContactPage = (() => {
     const totalEl = document.getElementById('support-total-count');
     const openEl = document.getElementById('support-open-count');
     const closedEl = document.getElementById('support-closed-count');
-    const total = _tickets.length;
+    const total = _records.length;
     let closed = 0;
 
-    _tickets.forEach((ticket) => {
-      if (String(ticket && ticket.status || '').toLowerCase() === 'closed') {
+    _records.forEach((record) => {
+      if (_isClosedRecord(record)) {
         closed += 1;
       }
     });
@@ -530,23 +592,26 @@ const ContactPage = (() => {
 
   function _buildTicketItem(ticket) {
     const button = UI.el('button', {
-      className: 'support-ticket-item' + (_selectedTicket && _selectedTicket.id === ticket.id ? ' active' : ''),
+      className: 'support-ticket-item' + (_isSelectedRecord(ticket) ? ' active' : ''),
       type: 'button',
     });
-    button.addEventListener('click', () => _selectTicket(ticket.id));
+    const isSelected = _isSelectedRecord(ticket);
+    button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    button.setAttribute('aria-label', _recordCodeLabel(ticket) + ' - ' + _recordTitle(ticket));
+    button.addEventListener('click', () => _selectRecord(_recordSelection(ticket)));
 
     const top = UI.el('div', { className: 'support-ticket-top' });
-    top.appendChild(UI.el('span', { className: 'support-ticket-code', textContent: _ticketCodeLabel(ticket) }));
-    top.appendChild(
-      UI.el('span', {
-        className: 'support-ticket-status',
-        textContent: _statusLabel(ticket.status),
-        style: { backgroundColor: _statusColor(ticket.status) + '1A', color: _statusColor(ticket.status) },
-      }),
-    );
+    top.appendChild(UI.el('span', { className: 'support-ticket-code', textContent: _recordCodeLabel(ticket) }));
+    const statusBadge = UI.el('span', {
+      className: 'support-ticket-status',
+      textContent: _statusLabel(ticket.status),
+      style: { backgroundColor: _statusColor(ticket.status) + '1A', color: _statusColor(ticket.status) },
+    });
+    statusBadge.dataset.status = String(ticket.status || '').toLowerCase();
+    top.appendChild(statusBadge);
 
-    const typeLabel = _ticketTypeLabel(ticket.ticket_type);
-    const desc = String(ticket.description || '').trim();
+    const typeLabel = _recordMetaLabel(ticket);
+    const desc = _recordDescription(ticket);
     const text = desc.length > 80 ? desc.slice(0, 80) + '...' : desc;
     const meta = UI.el('div', { className: 'support-ticket-meta' });
     meta.appendChild(UI.el('span', { className: 'support-ticket-type', textContent: typeLabel }));
@@ -569,6 +634,10 @@ const ContactPage = (() => {
       in_progress: _copy().statusInProgress,
       returned: _copy().statusReturned,
       closed: _copy().statusClosed,
+      under_review: _copy().statusUnderReview,
+      action_taken: _copy().statusActionTaken,
+      dismissed: _copy().statusDismissed,
+      escalated: _copy().statusEscalated,
     };
     return map[String(status || '').toLowerCase()] || String(status || '');
   }
@@ -579,6 +648,10 @@ const ContactPage = (() => {
     if (s === 'in_progress') return '#7C3AED';
     if (s === 'returned') return '#F59E0B';
     if (s === 'closed') return '#6B7280';
+    if (s === 'under_review') return '#7C3AED';
+    if (s === 'action_taken') return '#059669';
+    if (s === 'dismissed') return '#6B7280';
+    if (s === 'escalated') return '#DC2626';
     return '#6B7280';
   }
 
@@ -602,13 +675,38 @@ const ContactPage = (() => {
       if (!opts.silent) _notify(_copy().loadDetailsFailed, 'error');
       return false;
     }
-    _selectedTicket = detailRes.data;
-    _preferredTicketId = _selectedTicket && _selectedTicket.id ? _selectedTicket.id : ticketId;
-    _syncTicketQueryParam(_preferredTicketId);
+    _selectedRecord = { ...detailRes.data, _recordKind: 'ticket' };
+    _preferredSelection = _recordSelection(_selectedRecord);
+    _syncSelectionQueryParam(_preferredSelection);
     _closeNewTicketForm();
     _renderTickets();
     _renderTicketDetail();
     return true;
+  }
+
+  async function _selectCase(caseId, options) {
+    const opts = options || {};
+    const detailRes = await ApiClient.get('/api/moderation/cases/' + caseId + '/');
+    if (!detailRes.ok || !detailRes.data) {
+      if (!opts.silent) _notify((detailRes.data && detailRes.data.detail) || _copy().loadDetailsFailed, 'error');
+      return false;
+    }
+    _selectedRecord = { ...detailRes.data, _recordKind: 'case' };
+    _preferredSelection = _recordSelection(_selectedRecord);
+    _syncSelectionQueryParam(_preferredSelection);
+    _closeNewTicketForm();
+    _renderTickets();
+    _renderTicketDetail();
+    return true;
+  }
+
+  async function _selectRecord(selection, options) {
+    const normalized = _normalizeSelection(selection);
+    if (!normalized) return false;
+    if (normalized.kind === 'case') {
+      return _selectCase(normalized.id, options);
+    }
+    return _selectTicket(normalized.id, options);
   }
 
   function _renderTicketDetail() {
@@ -616,7 +714,7 @@ const ContactPage = (() => {
     const body = document.getElementById('ticket-detail-body');
     if (!empty || !body) return;
 
-    if (!_selectedTicket) {
+    if (!_selectedRecord) {
       empty.classList.remove('hidden');
       body.classList.add('hidden');
       body.innerHTML = '';
@@ -628,7 +726,13 @@ const ContactPage = (() => {
     body.classList.remove('hidden');
     body.innerHTML = '';
 
-    const ticket = _selectedTicket;
+    const ticket = _selectedRecord;
+    if (_isCaseRecord(ticket)) {
+      _renderCaseDetail(body, ticket);
+      _updateOriginalLanguageNotice();
+      return;
+    }
+
     const attachments = Array.isArray(ticket.attachments) ? ticket.attachments : [];
     const comments = Array.isArray(ticket.comments) ? ticket.comments : [];
     const hero = UI.el('section', { className: 'ticket-detail-hero' });
@@ -638,11 +742,15 @@ const ContactPage = (() => {
     titleWrap.appendChild(UI.el('h3', { textContent: _ticketTypeLabel(ticket.ticket_type) }));
     head.appendChild(titleWrap);
     head.appendChild(
-      UI.el('span', {
+      (() => {
+        const statusBadge = UI.el('span', {
         className: 'support-ticket-status',
         textContent: _statusLabel(ticket.status),
         style: { backgroundColor: _statusColor(ticket.status) + '1A', color: _statusColor(ticket.status) },
-      }),
+        });
+        statusBadge.dataset.status = String(ticket.status || '').toLowerCase();
+        return statusBadge;
+      })(),
     );
     hero.appendChild(head);
 
@@ -743,6 +851,84 @@ const ContactPage = (() => {
     _updateOriginalLanguageNotice();
   }
 
+  function _renderCaseDetail(body, item) {
+    const actionLogs = Array.isArray(item.action_logs) ? item.action_logs : [];
+    const decisions = Array.isArray(item.decisions) ? item.decisions : [];
+
+    const hero = UI.el('section', { className: 'ticket-detail-hero' });
+    const head = UI.el('div', { className: 'ticket-detail-head' });
+    const titleWrap = UI.el('div', { className: 'ticket-detail-title-wrap' });
+    titleWrap.appendChild(UI.el('span', { className: 'ticket-detail-code', textContent: _recordCodeLabel(item) }));
+    titleWrap.appendChild(UI.el('h3', { textContent: _recordTitle(item) }));
+    head.appendChild(titleWrap);
+    head.appendChild(
+      (() => {
+        const statusBadge = UI.el('span', {
+          className: 'support-ticket-status',
+          textContent: _statusLabel(item.status),
+          style: { backgroundColor: _statusColor(item.status) + '1A', color: _statusColor(item.status) },
+        });
+        statusBadge.dataset.status = String(item.status || '').toLowerCase();
+        return statusBadge;
+      })(),
+    );
+    hero.appendChild(head);
+
+    const metaGrid = UI.el('div', { className: 'ticket-detail-meta-grid' });
+    metaGrid.appendChild(_buildDetailMetaCard(_copy().createdAtLabel, _formatDate(item.created_at) || '—'));
+    metaGrid.appendChild(_buildDetailMetaCard(_copy().actionsCountLabel, String(actionLogs.length)));
+    metaGrid.appendChild(_buildDetailMetaCard(_copy().decisionsCountLabel, String(decisions.length)));
+    metaGrid.appendChild(_buildDetailMetaCard(_copy().statusLabel, _statusLabel(item.status)));
+    hero.appendChild(metaGrid);
+    body.appendChild(hero);
+
+    const descriptionSection = UI.el('div', { className: 'ticket-detail-section' });
+    descriptionSection.appendChild(_buildSectionHead(_copy().descriptionSectionTitle));
+    const descriptionText = (item.details || item.summary || item.reason || '').trim() || _copy().noTicketDescription;
+    const descriptionEl = UI.el('div', {
+      className: 'ticket-detail-description',
+      textContent: descriptionText,
+    });
+    _setAutoDirection(descriptionEl, descriptionText);
+    descriptionSection.appendChild(descriptionEl);
+    body.appendChild(descriptionSection);
+
+    const infoSection = UI.el('div', { className: 'ticket-detail-section' });
+    infoSection.appendChild(_buildSectionHead(_copy().reasonLabel));
+    const infoList = UI.el('div', { className: 'ticket-comments-list' });
+    infoList.appendChild(_buildInfoRow(_copy().reasonLabel, item.reason || '—'));
+    infoList.appendChild(_buildInfoRow(_copy().sourceLabel, item.source_label || item.source_model || '—'));
+    if (item.linked_support_ticket_code) {
+      infoList.appendChild(_buildInfoRow(_copy().linkedTicketLabel, item.linked_support_ticket_code));
+    }
+    infoSection.appendChild(infoList);
+    body.appendChild(infoSection);
+
+    const activitySection = UI.el('div', { className: 'ticket-detail-section' });
+    const activities = _buildCaseActivities(item);
+    activitySection.appendChild(_buildSectionHead(_copy().activitySectionTitle, activities.length));
+    if (!activities.length) {
+      activitySection.appendChild(UI.el('p', { className: 'ticket-muted', textContent: _copy().noActivity }));
+    } else {
+      const activityList = UI.el('div', { className: 'ticket-comments-list' });
+      activities.forEach((activity) => {
+        const row = UI.el('div', { className: 'ticket-comment' });
+        const metaEl = UI.el('div', {
+          className: 'ticket-comment-meta',
+          textContent: activity.meta,
+        });
+        _setAutoDirection(metaEl, activity.meta);
+        row.appendChild(metaEl);
+        const textEl = UI.el('div', { className: 'ticket-comment-text', textContent: activity.text });
+        _setAutoDirection(textEl, activity.text);
+        row.appendChild(textEl);
+        activityList.appendChild(row);
+      });
+      activitySection.appendChild(activityList);
+    }
+    body.appendChild(activitySection);
+  }
+
   function _buildDetailMetaCard(label, value) {
     const card = UI.el('div', { className: 'ticket-detail-meta-card' });
     card.appendChild(UI.el('span', { textContent: label }));
@@ -766,7 +952,7 @@ const ContactPage = (() => {
     if (form) form.classList.remove('hidden');
     if (detail) detail.classList.add('hidden');
     if (newBtn) newBtn.classList.add('is-active');
-    _syncTicketQueryParam(null);
+    _syncSelectionQueryParam(null);
     _clearCreateError();
 
     const desc = document.getElementById('support-description');
@@ -780,7 +966,7 @@ const ContactPage = (() => {
     if (form) form.classList.add('hidden');
     if (detail) detail.classList.remove('hidden');
     if (newBtn) newBtn.classList.remove('is-active');
-    _syncTicketQueryParam(_selectedTicket && _selectedTicket.id ? _selectedTicket.id : _preferredTicketId);
+    _syncSelectionQueryParam(_preferredSelection || (_selectedRecord ? _recordSelection(_selectedRecord) : null));
     _clearCreateError();
   }
 
@@ -868,7 +1054,7 @@ const ContactPage = (() => {
     filesEl.value = '';
     _setCreateLoading(false);
     _closeNewTicketForm();
-    await _loadTickets();
+    await _loadInitial();
     _renderSummary();
     _renderTickets();
     if (ticketId) {
@@ -935,30 +1121,185 @@ const ContactPage = (() => {
     _toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2400);
   }
 
-  function _ticketIdFromUrl() {
+  function _selectionFromUrl() {
     try {
       const params = new URLSearchParams(window.location.search || '');
+      const caseRaw = String(params.get('case') || '').trim();
+      const caseId = _toPositiveInt(caseRaw);
+      if (caseId) {
+        return { kind: 'case', id: caseId };
+      }
       const raw = String(params.get('ticket') || '').trim();
-      const parsed = Number(raw);
-      if (Number.isFinite(parsed) && parsed > 0) {
-        return Math.floor(parsed);
+      const ticketId = _toPositiveInt(raw);
+      if (ticketId) {
+        return { kind: 'ticket', id: ticketId };
       }
     } catch (_) {}
     return null;
   }
 
-  function _syncTicketQueryParam(ticketId) {
+  function _syncSelectionQueryParam(selection) {
     if (!window.history || typeof window.history.replaceState !== 'function') return;
     try {
       const url = new URL(window.location.href);
-      if (ticketId) {
-        url.searchParams.set('ticket', String(ticketId));
-      } else {
-        url.searchParams.delete('ticket');
+      url.searchParams.delete('ticket');
+      url.searchParams.delete('case');
+      const normalized = _normalizeSelection(selection);
+      if (normalized) {
+        url.searchParams.set(normalized.kind, String(normalized.id));
       }
       const nextUrl = url.pathname + url.search + url.hash;
       window.history.replaceState({}, '', nextUrl);
     } catch (_) {}
+  }
+
+  function _recordSelection(record) {
+    if (!record) return null;
+    const kind = _isCaseRecord(record) ? 'case' : 'ticket';
+    const id = _toPositiveInt(record.id);
+    if (!id) return null;
+    return { kind, id };
+  }
+
+  function _normalizeSelection(selection) {
+    if (!selection || typeof selection !== 'object') return null;
+    const kind = selection.kind === 'case' ? 'case' : selection.kind === 'ticket' ? 'ticket' : '';
+    const id = _toPositiveInt(selection.id);
+    if (!kind || !id) return null;
+    return { kind, id };
+  }
+
+  function _currentSelectedSummary() {
+    if (!_selectedRecord) return null;
+    const selection = _recordSelection(_selectedRecord);
+    if (!selection) return null;
+    const found = _records.some((record) => {
+      const current = _recordSelection(record);
+      return current && current.kind === selection.kind && current.id === selection.id;
+    });
+    return found ? selection : null;
+  }
+
+  function _isTicketRecord(record) {
+    return !!record && record._recordKind !== 'case';
+  }
+
+  function _isCaseRecord(record) {
+    return !!record && record._recordKind === 'case';
+  }
+
+  function _isSelectedRecord(record) {
+    const recordSelection = _recordSelection(record);
+    const selectedSelection = _recordSelection(_selectedRecord);
+    return !!recordSelection && !!selectedSelection && recordSelection.kind === selectedSelection.kind && recordSelection.id === selectedSelection.id;
+  }
+
+  function _recordCodeLabel(record) {
+    return record && record.code ? record.code : (_isCaseRecord(record) ? 'MC' + record.id : _ticketCodeLabel(record));
+  }
+
+  function _recordTitle(record) {
+    if (_isCaseRecord(record)) {
+      return _caseCategoryLabel(record) || record.source_label || _copy().caseFallback;
+    }
+    return _ticketTypeLabel(record && record.ticket_type);
+  }
+
+  function _recordMetaLabel(record) {
+    if (_isCaseRecord(record)) {
+      return record.source_label || record.source_model || _copy().caseFallback;
+    }
+    return _ticketTypeLabel(record && record.ticket_type);
+  }
+
+  function _recordDescription(record) {
+    if (_isCaseRecord(record)) {
+      return String(record.summary || record.reason || record.details || '').trim();
+    }
+    return String(record && record.description || '').trim();
+  }
+
+  function _caseCategoryLabel(record) {
+    const category = String(record && record.category || '').trim().toLowerCase();
+    if (category === 'service') return _copy().categoryService;
+    if (category === 'spotlight') return _copy().categorySpotlight;
+    if (category === 'portfolio') return _copy().categoryPortfolio;
+    if (category === 'complaint') return _copy().categoryComplaint;
+    return record && record.source_label ? String(record.source_label).trim() : _copy().caseFallback;
+  }
+
+  function _isClosedRecord(record) {
+    const status = String(record && record.status || '').toLowerCase();
+    if (_isCaseRecord(record)) {
+      return status === 'action_taken' || status === 'dismissed' || status === 'escalated';
+    }
+    return status === 'closed';
+  }
+
+  function _buildInfoRow(label, value) {
+    const row = UI.el('div', { className: 'ticket-comment' });
+    row.appendChild(UI.el('div', { className: 'ticket-comment-meta', textContent: label }));
+    const textEl = UI.el('div', { className: 'ticket-comment-text', textContent: value || '—' }));
+    _setAutoDirection(textEl, value);
+    row.appendChild(textEl);
+    return row;
+  }
+
+  function _buildCaseActivities(item) {
+    const rows = [];
+    const actionLogs = Array.isArray(item && item.action_logs) ? item.action_logs : [];
+    const decisions = Array.isArray(item && item.decisions) ? item.decisions : [];
+
+    actionLogs.forEach((log) => {
+      const actionType = String(log && log.action_type || '').trim();
+      const actor = String(log && log.created_by_phone || '').trim() || _copy().userFallback;
+      const when = _formatDate(log && log.created_at) || '—';
+      const text = String(log && log.note || '').trim() || _statusLabel(log && log.to_status) || actionType || _copy().noActivity;
+      rows.push({
+        meta: actor + ' • ' + when,
+        text,
+        timestamp: _timestamp(log && log.created_at),
+      });
+    });
+
+    decisions.forEach((decision) => {
+      const actor = String(decision && decision.applied_by_phone || '').trim() || _copy().userFallback;
+      const when = _formatDate(decision && (decision.applied_at || decision.created_at)) || '—';
+      const label = _decisionLabel(decision && decision.decision_code);
+      const note = String(decision && decision.note || '').trim();
+      rows.push({
+        meta: actor + ' • ' + when,
+        text: note ? label + ' - ' + note : label,
+        timestamp: _timestamp(decision && (decision.applied_at || decision.created_at)),
+      });
+    });
+
+    return rows.sort((left, right) => right.timestamp - left.timestamp);
+  }
+
+  function _decisionLabel(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    const map = {
+      hide: _currentLang() === 'en' ? 'Hide content' : 'إخفاء المحتوى',
+      delete: _currentLang() === 'en' ? 'Delete content' : 'حذف المحتوى',
+      warn: _currentLang() === 'en' ? 'Warn account' : 'تنبيه الحساب',
+      no_action: _currentLang() === 'en' ? 'No action' : 'بدون إجراء',
+      escalate: _currentLang() === 'en' ? 'Escalate' : 'تصعيد',
+      close: _currentLang() === 'en' ? 'Close' : 'إغلاق',
+    };
+    return map[normalized] || normalized || _copy().caseFallback;
+  }
+
+  function _timestamp(value) {
+    const dt = value ? new Date(value) : null;
+    if (!dt || Number.isNaN(dt.getTime())) return 0;
+    return dt.getTime();
+  }
+
+  function _toPositiveInt(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    return Math.floor(parsed);
   }
 
   function _resolve(block, fallbackAr, fallbackEn) {
@@ -1016,10 +1357,17 @@ const ContactPage = (() => {
   }
 
   function _hasOriginalLanguageContent() {
-    if (!_selectedTicket || _currentLang() !== 'en') return false;
-    if (_containsArabicScript(_selectedTicket.description)) return true;
-    return Array.isArray(_selectedTicket.comments) && _selectedTicket.comments.some((comment) => {
+    if (!_selectedRecord || _currentLang() !== 'en') return false;
+    if (_containsArabicScript(_selectedRecord.description) || _containsArabicScript(_selectedRecord.details) || _containsArabicScript(_selectedRecord.summary) || _containsArabicScript(_selectedRecord.reason)) {
+      return true;
+    }
+    if (Array.isArray(_selectedRecord.comments) && _selectedRecord.comments.some((comment) => {
       return _containsArabicScript(comment && comment.text) || _containsArabicScript(comment && comment.created_by_name);
+    })) {
+      return true;
+    }
+    return Array.isArray(_selectedRecord.action_logs) && _selectedRecord.action_logs.some((entry) => {
+      return _containsArabicScript(entry && entry.note) || _containsArabicScript(entry && entry.created_by_phone);
     });
   }
 

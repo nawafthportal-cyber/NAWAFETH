@@ -23,6 +23,7 @@ from .models import (
     request_status_group_value,
     service_request_status_label,
 )
+from .payments import serialize_payment_plan
 from apps.providers.models import ProviderCategory, ProviderProfile, SubCategory
 from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import (
@@ -194,7 +195,12 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
                 attrs["city"] = requester_city
             elif not (request_type == "urgent" and dispatch_mode == "nearest"):
                 raise serializers.ValidationError(
-                    {"city": "هذا التصنيف يتطلب مدينة واضحة أو مدينة مسجلة في حسابك."}
+                    {
+                        "city": serializers.ErrorDetail(
+                            "هذه الخدمة تتطلب تحديد موقعك على الخريطة لمتابعة الطلب.",
+                            code="profile_location_required",
+                        )
+                    }
                 )
 
         # City rules:
@@ -534,6 +540,10 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
             "provider_inputs_approved",
             "provider_inputs_decided_at",
             "provider_inputs_decision_note",
+            "provider_inputs_has_financial_change",
+            "client_response_note_required",
+            "client_response_attachment_required",
+            "client_response_question",
             "review_id",
             "review_rating",
             "review_response_speed",
@@ -615,11 +625,65 @@ class RequestStartSerializer(RequestActionSerializer):
 
 class ProviderInputsDecisionSerializer(RequestActionSerializer):
     approved = serializers.BooleanField(required=True)
+    attachments = serializers.ListField(
+        child=serializers.FileField(allow_empty_file=False),
+        required=False,
+        allow_empty=True,
+    )
 
     def validate(self, attrs):
         approved = attrs.get("approved")
         note = (attrs.get("note") or "").strip()
         if approved is False and not note:
+            raise serializers.ValidationError({"note": "سبب الرفض مطلوب"})
+        optimized = []
+        for attachment in attrs.get("attachments") or []:
+            validate_secure_upload(
+                attachment,
+                allowed_extensions=ALL_SAFE_EXTENSIONS,
+                allowed_mime_types=ALL_SAFE_MIME_TYPES,
+                max_size_mb=25,
+                rename=True,
+                rename_prefix="client_response",
+            )
+            optimized.append(optimize_upload_for_storage(attachment))
+        attrs["attachments"] = optimized
+        return attrs
+
+
+class PaymentInstallmentCreateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=True)
+    note = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("قيمة الدفعة يجب أن تكون أكبر من صفر")
+        return value
+
+
+class PaymentReceiptUploadSerializer(serializers.Serializer):
+    receipt = serializers.FileField(required=True, allow_empty_file=False)
+    note = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+    def validate_receipt(self, value):
+        validate_secure_upload(
+            value,
+            allowed_extensions=ALL_SAFE_EXTENSIONS,
+            allowed_mime_types=ALL_SAFE_MIME_TYPES,
+            max_size_mb=25,
+            rename=True,
+            rename_prefix="payment_receipt",
+        )
+        return optimize_upload_for_storage(value)
+
+
+class PaymentInstallmentDecisionSerializer(serializers.Serializer):
+    approved = serializers.BooleanField(required=True)
+    note = serializers.CharField(max_length=255, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        if attrs.get("approved") is False and not (attrs.get("note") or "").strip():
             raise serializers.ValidationError({"note": "سبب الرفض مطلوب"})
         return attrs
 
@@ -669,6 +733,9 @@ class ProviderProgressUpdateSerializer(RequestActionSerializer):
         decimal_places=2,
         required=False,
     )
+    client_note_required = serializers.BooleanField(required=False, default=False)
+    client_attachment_required = serializers.BooleanField(required=False, default=False)
+    client_question = serializers.CharField(max_length=255, required=False, allow_blank=True)
     attachments = serializers.ListField(
         child=serializers.FileField(allow_empty_file=False),
         required=False,
@@ -682,6 +749,15 @@ class ProviderProgressUpdateSerializer(RequestActionSerializer):
         has_received = "received_amount" in attrs
         attachments = attrs.get("attachments") or []
         has_attachments = bool(attachments)
+        client_question = (attrs.get("client_question") or "").strip()
+        client_note_required = bool(attrs.get("client_note_required"))
+        client_attachment_required = bool(attrs.get("client_attachment_required"))
+        if client_question:
+            client_note_required = True
+        attrs["client_question"] = client_question
+        attrs["client_note_required"] = client_note_required
+        attrs["client_attachment_required"] = client_attachment_required
+        has_client_requirements = client_note_required or client_attachment_required or bool(client_question)
 
         if has_estimated != has_received:
             raise serializers.ValidationError(
@@ -713,7 +789,7 @@ class ProviderProgressUpdateSerializer(RequestActionSerializer):
                 )
             attrs["remaining_amount"] = estimated - received
 
-        if not note and not has_expected and not has_estimated and not has_attachments:
+        if not note and not has_expected and not has_estimated and not has_attachments and not has_client_requirements:
             raise serializers.ValidationError(
                 {"note": "أدخل ملاحظة أو حدّث بيانات التنفيذ أو أرفق ملفات"}
             )
@@ -782,6 +858,7 @@ class ProviderRequestDetailSerializer(ServiceRequestListSerializer):
     status_logs = RequestStatusLogSerializer(many=True, read_only=True)
     available_actions = serializers.SerializerMethodField()
     provider_inputs_stage = serializers.SerializerMethodField()
+    payment_plan = serializers.SerializerMethodField()
 
     def get_available_actions(self, obj):
         request = self.context.get("request")
@@ -797,10 +874,20 @@ class ProviderRequestDetailSerializer(ServiceRequestListSerializer):
             logs = prefetched.get("status_logs")
         return service_request_pending_input_stage(obj, status_logs=logs)
 
+    def get_payment_plan(self, obj):
+        try:
+            plan = getattr(obj, "payment_plan", None)
+        except Exception:
+            plan = None
+        if plan is None:
+            return None
+        return serialize_payment_plan(plan, request=self.context.get("request"))
+
     class Meta(ServiceRequestListSerializer.Meta):
         fields = ServiceRequestListSerializer.Meta.fields + (
             "attachments",
             "status_logs",
             "available_actions",
             "provider_inputs_stage",
+            "payment_plan",
         )

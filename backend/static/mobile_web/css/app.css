@@ -2510,11 +2510,16 @@ body.mobile-web-parity :where(
   #site-footer .footer-links {
     position: relative;
     padding-top: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    text-align: start;
   }
 
   #site-footer .footer-links h4 {
     position: relative;
-    margin: 0 0 18px;
+    margin: 0 0 10px;
     padding-bottom: 12px;
     font-family: 'Cairo', sans-serif;
     font-size: 13px;
@@ -2537,30 +2542,39 @@ body.mobile-web-parity :where(
 
   #site-footer .footer-links a {
     position: relative;
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 0;
+    width: min(100%, 220px);
+    min-height: 38px;
+    gap: 10px;
+    padding: 0 12px;
+    border-radius: 12px;
     font-family: 'Cairo', sans-serif;
     font-size: 13.5px;
-    font-weight: 600;
-    color: rgba(226, 232, 240, 0.7);
-    transition: color 0.2s ease, transform 0.2s ease, padding 0.2s ease;
+    font-weight: 800;
+    color: rgba(226, 232, 240, 0.76);
+    text-decoration: none;
+    border: 1px solid transparent;
+    background: transparent;
+    transition: color 0.2s ease, transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
   }
 
   #site-footer .footer-links a::before {
     content: "";
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: rgba(167, 139, 250, 0.45);
-    transition: transform 0.2s ease, background 0.2s ease;
+    width: 14px;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(167, 139, 250, 0.85), rgba(244, 114, 182, 0.75));
+    opacity: 0.68;
+    transition: width 0.2s ease, opacity 0.2s ease, background 0.2s ease;
     flex-shrink: 0;
   }
 
   #site-footer .footer-links a:hover {
     color: #ffffff;
     transform: translateX(-3px);
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
   [dir="rtl"] #site-footer .footer-links a:hover {
@@ -2568,8 +2582,9 @@ body.mobile-web-parity :where(
   }
 
   #site-footer .footer-links a:hover::before {
-    transform: scale(1.4);
-    background: #f472b6;
+    width: 22px;
+    opacity: 1;
+    background: linear-gradient(90deg, #a78bfa, #f472b6);
   }
 
   #site-footer .footer-bottom {

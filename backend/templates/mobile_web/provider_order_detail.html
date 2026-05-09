@@ -870,6 +870,174 @@
     transform: translateY(0);
   }
 
+  .pod-payment-card {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(240,253,250,0.9)),
+      radial-gradient(circle at 88% 8%, rgba(20,184,166,0.12), transparent 30%);
+    border-color: rgba(20, 184, 166, 0.18);
+  }
+
+  .pod-payment-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .pod-payment-tile,
+  .pod-payment-empty,
+  .pod-payment-item {
+    border-radius: 16px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.82);
+    padding: 12px;
+  }
+
+  .pod-payment-tile span,
+  .pod-payment-item-head span {
+    display: block;
+    color: var(--pod-muted);
+    font-size: .74rem;
+    font-weight: 800;
+  }
+
+  .pod-payment-tile strong,
+  .pod-payment-item-head strong,
+  .pod-payment-amount {
+    color: var(--pod-text);
+    font-weight: 900;
+  }
+
+  .pod-payment-installments {
+    display: grid;
+    gap: 10px;
+  }
+
+  .pod-payment-item-head,
+  .pod-payment-decision-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .pod-payment-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    color: #0f766e;
+    background: rgba(20,184,166,0.12);
+    border: 1px solid rgba(20,184,166,0.22);
+    font-size: .72rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .pod-payment-badge.is-warm {
+    color: #9a3412;
+    background: rgba(251, 146, 60, 0.15);
+    border-color: rgba(251, 146, 60, 0.28);
+  }
+
+  .pod-payment-amount {
+    margin-top: 10px;
+    font-size: 1.2rem;
+  }
+
+  .pod-payment-note {
+    margin: 8px 0 0;
+    color: var(--pod-muted);
+    line-height: 1.7;
+    font-size: .86rem;
+  }
+
+  .pod-payment-note.is-danger {
+    color: var(--pod-danger);
+  }
+
+  .pod-payment-link {
+    display: inline-flex;
+    margin-top: 10px;
+    color: #0f766e;
+    font-weight: 900;
+    text-decoration: none;
+  }
+
+  .pod-payment-upsell-card {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,247,237,0.92)),
+      radial-gradient(circle at 8% 12%, rgba(251,146,60,0.16), transparent 28%);
+    border-color: rgba(251, 146, 60, 0.22);
+    box-shadow: 0 18px 34px rgba(148, 64, 18, 0.10);
+  }
+
+  .pod-payment-upsell-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .pod-payment-upsell-title {
+    margin: 0;
+    color: var(--pod-text);
+    font-size: 1rem;
+    font-weight: 900;
+  }
+
+  .pod-payment-upsell-desc {
+    margin: 10px 0 0;
+    color: #475569;
+    line-height: 1.8;
+    font-size: .9rem;
+  }
+
+  .pod-payment-upsell-points {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .pod-payment-upsell-points span {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    color: #7c2d12;
+    font-size: .85rem;
+    font-weight: 700;
+    line-height: 1.7;
+  }
+
+  .pod-payment-upsell-points span::before {
+    content: '\2726';
+    color: #ea580c;
+    font-size: .85rem;
+    line-height: 1.6;
+  }
+
+  .pod-payment-upsell-actions {
+    margin-top: 12px;
+  }
+
+  .pod-payment-upsell-hint {
+    margin: 10px 2px 0;
+    color: #64748b;
+    line-height: 1.7;
+    font-size: .83rem;
+    text-align: center;
+  }
+
+  .pod-payment-decision-note {
+    margin-top: 10px;
+  }
+
+  .pod-payment-decision-actions {
+    margin-top: 10px;
+  }
+
   .pod-error-retry {
     margin-inline-start: 10px;
     border: 0;
@@ -941,12 +1109,246 @@
       grid-template-columns: 18px minmax(0, 1fr);
     }
 
+    .pod-payment-summary,
+    .pod-payment-decision-actions {
+      grid-template-columns: 1fr;
+      display: grid;
+    }
+
     .pod-info-label {
       display: none;
     }
 
     .pod-chat-btn {
       min-height: 46px;
+    }
+  }
+
+  /* Provider detail premium harmony - May 2026 */
+  body.page-provider-order-detail-v2 {
+    --pod-primary: #4f2f9f;
+    --pod-primary-strong: #321b68;
+    --pod-accent: #087f8c;
+    --pod-gold: #b9812f;
+    --pod-text: #171426;
+    --pod-muted: #5f6072;
+    --pod-bg: #f6f7fb;
+    --pod-card: rgba(255, 255, 255, 0.94);
+    --pod-line: rgba(34, 24, 65, 0.1);
+    --pod-shadow-lg: 0 24px 56px rgba(24, 20, 38, 0.1);
+    --pod-shadow-md: 0 16px 36px rgba(24, 20, 38, 0.075);
+    background: linear-gradient(180deg, #f8f8fb 0%, #f2f7f7 44%, #f7f5fb 100%);
+  }
+
+  body.page-provider-order-detail-v2 * {
+    letter-spacing: 0 !important;
+  }
+
+  .pod-shell {
+    width: min(1220px, calc(100% - 32px));
+    padding-top: 12px;
+  }
+
+  .pod-topbar {
+    border-radius: 22px;
+    border-color: rgba(34, 24, 65, 0.08);
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: 0 14px 34px rgba(24, 20, 38, 0.08);
+  }
+
+  .pod-icon-link,
+  .pod-icon-btn {
+    border-radius: 14px;
+    color: var(--pod-primary-strong);
+    border-color: rgba(34, 24, 65, 0.09);
+    box-shadow: 0 10px 22px rgba(24, 20, 38, 0.06);
+  }
+
+  .pod-title-stack h1 {
+    color: var(--pod-text);
+  }
+
+  .pod-title-stack span {
+    color: var(--pod-muted);
+  }
+
+  .pod-workspace {
+    gap: 20px;
+  }
+
+  .pod-card {
+    border-radius: 22px;
+    border-color: rgba(34, 24, 65, 0.09);
+    background: var(--pod-card);
+    box-shadow: var(--pod-shadow-md);
+  }
+
+  .pod-card::before {
+    display: none;
+  }
+
+  .pod-hero {
+    border-radius: 28px;
+    border: 1px solid rgba(34, 24, 65, 0.09);
+    background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(247,250,250,0.95));
+    color: var(--pod-text);
+    box-shadow: var(--pod-shadow-lg);
+  }
+
+  .pod-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--pod-primary), var(--pod-accent), var(--pod-gold));
+  }
+
+  .pod-chip,
+  .pod-meta-chip,
+  .pod-type-badge {
+    color: var(--pod-primary-strong);
+    border-color: rgba(79, 47, 159, 0.12);
+    background: rgba(79, 47, 159, 0.07);
+  }
+
+  .pod-display-id {
+    color: var(--pod-text);
+  }
+
+  .pod-hero-facts {
+    color: var(--pod-muted);
+  }
+
+  .pod-status-pill {
+    min-height: 42px;
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.28) !important;
+    background: linear-gradient(135deg, var(--pod-primary), var(--pod-accent)) !important;
+  }
+
+  .pod-chat-btn {
+    border-radius: 14px;
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--pod-primary), var(--pod-primary-strong));
+    box-shadow: 0 14px 28px rgba(50, 27, 104, 0.16);
+  }
+
+  .pod-overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pod-overview-tile,
+  .pod-readonly-box,
+  .pod-log-body,
+  .pod-info-line,
+  .pod-payment-tile,
+  .pod-payment-empty,
+  .pod-payment-item {
+    border-radius: 16px;
+    border-color: rgba(34, 24, 65, 0.08);
+    background: linear-gradient(180deg, rgba(248,250,252,0.92), rgba(255,255,255,0.98));
+  }
+
+  .pod-overview-tile span,
+  .pod-readonly-box label,
+  .pod-info-label,
+  .pod-payment-tile span,
+  .pod-payment-item-head span {
+    color: var(--pod-muted);
+    font-weight: 850;
+  }
+
+  .pod-overview-tile strong,
+  .pod-readonly-box p,
+  .pod-info-value,
+  .pod-payment-tile strong,
+  .pod-payment-item-head strong {
+    color: var(--pod-text);
+  }
+
+  .pod-client-card {
+    border-color: rgba(8, 127, 140, 0.14);
+    background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(236,249,249,0.72));
+  }
+
+  .pod-client-avatar {
+    color: var(--pod-accent);
+    border: 1px solid rgba(8, 127, 140, 0.12);
+    background: rgba(8, 127, 140, 0.08);
+  }
+
+  #pod-actions-section {
+    border-color: rgba(185, 129, 47, 0.16);
+  }
+
+  #pod-actions-section .pod-readonly-box:first-child {
+    border-color: rgba(185, 129, 47, 0.18);
+    background: rgba(255, 247, 237, 0.72);
+  }
+
+  .pod-btn {
+    border-radius: 13px;
+  }
+
+  .pod-btn-primary {
+    background: linear-gradient(135deg, var(--pod-primary), var(--pod-primary-strong));
+  }
+
+  .pod-btn-warning {
+    background: linear-gradient(135deg, var(--pod-gold), #9d6320);
+  }
+
+  .pod-btn-success {
+    background: linear-gradient(135deg, #1f8d5a, #156640);
+  }
+
+  .pod-payment-card {
+    border-color: rgba(8, 127, 140, 0.16);
+    background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(236,249,249,0.78));
+  }
+
+  .pod-payment-badge,
+  .pod-count-pill {
+    color: var(--pod-accent);
+    background: rgba(8, 127, 140, 0.08);
+    border-color: rgba(8, 127, 140, 0.16);
+  }
+
+  .pod-attachment-row {
+    border-radius: 18px;
+    border-color: rgba(34, 24, 65, 0.08);
+    background: rgba(255,255,255,0.94);
+    box-shadow: 0 14px 30px rgba(24, 20, 38, 0.07);
+  }
+
+  .pod-attachment-preview {
+    background: linear-gradient(135deg, rgba(79,47,159,0.08), rgba(8,127,140,0.08));
+  }
+
+  .pod-back-wrap .pod-btn {
+    max-width: 360px;
+  }
+
+  @media (min-width: 1101px) {
+    .pod-workspace {
+      grid-template-columns: minmax(0, 1.7fr) 360px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .pod-shell {
+      width: min(100% - 18px, 100%);
+    }
+
+    .pod-hero,
+    .pod-card,
+    .pod-auth-card {
+      border-radius: 20px;
+    }
+
+    .pod-overview-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>
@@ -1117,6 +1519,16 @@
             </div>
           </div>
         </section>
+
+        <section id="pod-payment-section" class="pod-card orders-mobile-sheet pod-payment-card" style="display:none">
+          <div class="pod-head">
+            <h3 id="pod-payment-heading">دفعات الطلب</h3>
+            <span id="pod-payment-status" class="pod-count-pill">-</span>
+          </div>
+          <div id="pod-payment-summary" class="pod-payment-summary"></div>
+          <div id="pod-payment-installments" class="pod-payment-installments"></div>
+          <div id="pod-payment-actions" class="pod-payment-actions"></div>
+        </section>
       </aside>
     </div>
   </div>
@@ -1125,6 +1537,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260505-progress-attachments-v1"></script>
+<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260508-detail-premium-v1"></script>
 {% endblock %}
 

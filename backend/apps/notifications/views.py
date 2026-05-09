@@ -28,7 +28,7 @@ from .services import (
 )
 from .selectors import filter_notification_ids_by_mode
 
-from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly
+from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsCompleteClient
 from apps.core.unread_badges import (
     get_notifications_unread_payload,
     invalidate_unread_badge_cache,
@@ -184,7 +184,7 @@ class NotificationActionView(APIView):
 
 
 class NotificationPreferencesView(APIView):
-    permission_classes = [IsAtLeastClient]
+    permission_classes = [IsCompleteClient]
 
     def get(self, request):
         mode = normalize_preference_mode(request.query_params.get("mode"))

@@ -1,4 +1,7 @@
 from django.core.files.uploadedfile import SimpleUploadedFile
+from decimal import Decimal
+from datetime import timedelta
+
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -7,7 +10,7 @@ from apps.accounts.models import OTP, User, UserRole
 from apps.analytics.models import AnalyticsEvent
 from apps.billing.models import Invoice, InvoiceStatus, PaymentAttempt, PaymentAttemptStatus, PaymentProvider
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
-from apps.dashboard.views import EXTRAS_REPORT_OPTIONS, _collect_reports, _extras_report_option_groups
+from apps.dashboard.views import EXTRAS_REPORT_OPTIONS, _collect_reports, _extras_report_option_groups, _extras_request_rows
 from apps.extras.services import extras_bundle_payload_for_request
 from apps.extras.option_catalog import EXTRAS_REPORT_OPTIONS as CATALOG_EXTRAS_REPORT_OPTIONS
 from apps.extras_portal.models import ExtrasPortalSubscription
@@ -29,11 +32,137 @@ from apps.providers.models import (
     ProviderSpotlightLike,
     SubCategory,
 )
+from apps.promo.models import (
+    PromoAdType,
+    PromoOpsStatus,
+    PromoPosition,
+    PromoRequest,
+    PromoRequestItem,
+    PromoRequestStatus,
+    PromoSearchScope,
+    PromoServiceType,
+)
 from apps.reviews.models import Review
 from apps.subscriptions.models import PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 from apps.support.models import SupportTicket, SupportTicketEntrypoint, SupportTicketType
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestStatus, UnifiedRequestType
 from apps.verification.models import VerificationBadgeType, VerificationRequest
+
+
+class DashboardPromoSearchModuleActivationTests(TestCase):
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            phone="0503300001",
+            username="promo.search.staff",
+            password="pass1234",
+            role_state=UserRole.STAFF,
+        )
+        self.staff.is_staff = True
+        self.staff.is_superuser = True
+        self.staff.save(update_fields=["is_staff", "is_superuser"])
+
+        self.provider_user = User.objects.create_user(
+            phone="0503300002",
+            username="promo.search.provider",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مختص بحث",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+        )
+        self.client.force_login(self.staff)
+        session = self.client.session
+        session[SESSION_OTP_VERIFIED_KEY] = True
+        session.save()
+
+    def _paid_search_request(self) -> PromoRequest:
+        invoice = Invoice.objects.create(
+            user=self.provider_user,
+            title="فاتورة ترويج البحث",
+            description="فاتورة",
+            currency="SAR",
+            subtotal=Decimal("100.00"),
+            vat_percent=Decimal("15.00"),
+            vat_amount=Decimal("15.00"),
+            total=Decimal("115.00"),
+            reference_type="promo_request",
+            status=InvoiceStatus.PAID,
+            payment_confirmed=True,
+            payment_confirmed_at=timezone.now(),
+        )
+        now = timezone.now()
+        return PromoRequest.objects.create(
+            requester=self.provider_user,
+            invoice=invoice,
+            title="حملة بحث",
+            ad_type=PromoAdType.BUNDLE,
+            start_at=now,
+            end_at=now + timedelta(days=7),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.IN_PROGRESS,
+            target_provider=self.provider,
+        )
+
+    def _ops_token(self, request_obj: PromoRequest) -> str:
+        response = self.client.get(
+            reverse("dashboard:promo_module", kwargs={"module_key": "search_results"}),
+            {"request_id": str(request_obj.id)},
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.context["promo_ops_form_token"]
+
+    def test_search_module_blocks_activation_without_search_item(self):
+        request_obj = self._paid_search_request()
+
+        response = self.client.post(
+            reverse("dashboard:promo_module", kwargs={"module_key": "search_results"}),
+            {
+                "action": "update_ops_status",
+                "promo_request_id": str(request_obj.id),
+                "promo_ops_form_token": self._ops_token(request_obj),
+                "ops_status": PromoOpsStatus.COMPLETED,
+            },
+        )
+
+        request_obj.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(request_obj.ops_status, PromoOpsStatus.IN_PROGRESS)
+        self.assertEqual(request_obj.status, PromoRequestStatus.NEW)
+        self.assertIsNone(request_obj.activated_at)
+
+    def test_search_module_completion_activates_valid_paid_campaign(self):
+        request_obj = self._paid_search_request()
+        PromoRequestItem.objects.create(
+            request=request_obj,
+            service_type=PromoServiceType.SEARCH_RESULTS,
+            title="ظهور البحث",
+            start_at=request_obj.start_at,
+            end_at=request_obj.end_at,
+            search_scope=PromoSearchScope.DEFAULT,
+            search_position=PromoPosition.FIRST,
+            target_provider=self.provider,
+            sort_order=10,
+        )
+
+        response = self.client.post(
+            reverse("dashboard:promo_module", kwargs={"module_key": "search_results"}),
+            {
+                "action": "update_ops_status",
+                "promo_request_id": str(request_obj.id),
+                "promo_ops_form_token": self._ops_token(request_obj),
+                "ops_status": PromoOpsStatus.COMPLETED,
+            },
+        )
+
+        request_obj.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(request_obj.ops_status, PromoOpsStatus.COMPLETED)
+        self.assertEqual(request_obj.status, PromoRequestStatus.ACTIVE)
+        self.assertIsNotNone(request_obj.activated_at)
 
 
 class DashboardExtrasSpecialistTests(TestCase):
@@ -203,6 +332,41 @@ class DashboardExtrasCatalogParityTests(TestCase):
 
         self.assertEqual(grouped_keys, catalog_keys)
         self.assertIn("service_orders_detail", grouped_keys)
+
+
+class DashboardExtrasRequestRowsTests(TestCase):
+    def test_bundle_request_rows_use_request_invoice_for_payment_status(self):
+        requester = User.objects.create_user(
+            phone="0503200991",
+            username="extras.bundle.requester",
+            role_state=UserRole.PROVIDER,
+        )
+        request_obj = UnifiedRequest.objects.create(
+            request_type=UnifiedRequestType.EXTRAS,
+            status=UnifiedRequestStatus.IN_PROGRESS,
+            priority="normal",
+            requester=requester,
+            source_app="dashboard",
+            source_model="ExtrasServiceRequest",
+            source_object_id="bundle-dashboard-rows-1",
+            summary="طلب خدمات إضافية: الإدارة المالية",
+        )
+        Invoice.objects.create(
+            user=requester,
+            title="فاتورة خدمات إضافية",
+            description="فاتورة الطلب",
+            currency="SAR",
+            subtotal="100.00",
+            vat_percent="15.00",
+            reference_type="extras_bundle_request",
+            reference_id=request_obj.code,
+            status=InvoiceStatus.PAID,
+            payment_confirmed=True,
+        )
+
+        row = _extras_request_rows([request_obj])[0]
+
+        self.assertEqual(row["payment_status"], "مدفوع ومعتمد")
 
 
 class AdminControlReportsCollectionTests(TestCase):
@@ -592,12 +756,34 @@ class DashboardContentReviewsModerationCasesTests(TestCase):
         )
         case.refresh_from_db()
 
-        response = self.client.get(reverse("dashboard:content_reviews_dashboard"))
+        response = self.client.get(reverse("dashboard:content_reports_dashboard"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "بلاغات المحتوى المباشرة")
         self.assertContains(response, case.code)
         self.assertContains(response, "لمحة مزود مختبَر")
+
+    def test_content_reports_page_lists_legacy_direct_content_reports_from_extras_team(self):
+        case = ModerationCase.objects.create(
+            reporter=self.reporter,
+            reported_user=self.reported_user,
+            source_app="providers",
+            source_model="ProviderSpotlightItem",
+            source_object_id="144",
+            source_label="بلاغ قديم من اللمحات",
+            category="spotlight",
+            reason="محتوى غير مناسب",
+            details="حالة قديمة كانت تتبع فريق extras",
+            summary="بلاغ مباشر قديم",
+            assigned_team_code="extras",
+            assigned_team_name="الإضافات والخدمات",
+        )
+
+        response = self.client.get(reverse("dashboard:content_reports_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, case.code)
+        self.assertContains(response, "بلاغ قديم من اللمحات")
 
     def test_content_reviews_page_shows_selected_direct_report_details(self):
         item = ProviderPortfolioItem.objects.create(
@@ -622,7 +808,7 @@ class DashboardContentReviewsModerationCasesTests(TestCase):
         )
         case.refresh_from_db()
 
-        response = self.client.get(reverse("dashboard:content_reviews_dashboard"), {"case": case.id})
+        response = self.client.get(reverse("dashboard:content_reports_dashboard"), {"case": case.id})
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f"تفاصيل بلاغ المحتوى: {case.code}")
@@ -653,7 +839,7 @@ class DashboardContentReviewsModerationCasesTests(TestCase):
         )
 
         response = self.client.post(
-            reverse("dashboard:content_reviews_dashboard"),
+            reverse("dashboard:content_reports_dashboard"),
             {
                 "case_id": str(case.id),
                 "redirect_query": f"case={case.id}",
@@ -697,7 +883,7 @@ class DashboardContentReviewsModerationCasesTests(TestCase):
         )
 
         response = self.client.post(
-            reverse("dashboard:content_reviews_dashboard"),
+            reverse("dashboard:content_reports_dashboard"),
             {
                 "case_id": str(case.id),
                 "redirect_query": f"case={case.id}",
@@ -717,6 +903,71 @@ class DashboardContentReviewsModerationCasesTests(TestCase):
         self.assertFalse(service.is_active)
         self.assertEqual(case.status, ModerationStatus.ACTION_TAKEN)
         self.assertEqual(case.decisions.first().decision_code, ModerationDecisionCode.HIDE)
+
+    def test_content_reviews_page_keeps_selected_case_visible_after_it_leaves_content_queue(self):
+        case = ModerationCase.objects.create(
+            reporter=self.reporter,
+            reported_user=self.reported_user,
+            source_app="providers",
+            source_model="ProviderSpotlightItem",
+            source_object_id="77",
+            source_label="بلاغ انتقل لفريق آخر",
+            category="spotlight",
+            reason="محتوى غير مناسب",
+            details="يجب أن يبقى ظاهرًا للمتابعة",
+            summary="بلاغ مباشر",
+            assigned_team_code="support",
+            assigned_team_name="فريق الدعم والمساعدة",
+        )
+
+        response = self.client.get(reverse("dashboard:content_reviews_dashboard"), {"case": case.id})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, f"{reverse('dashboard:content_reports_dashboard')}?case={case.id}")
+
+    def test_content_reviews_page_no_longer_lists_direct_content_reports(self):
+        case = ModerationCase.objects.create(
+            reporter=self.reporter,
+            reported_user=self.reported_user,
+            source_app="providers",
+            source_model="ProviderSpotlightItem",
+            source_object_id="55",
+            source_label="بلاغ منفصل عن شاشة المراجعات",
+            category="spotlight",
+            reason="محتوى غير مناسب",
+            summary="بلاغ مباشر",
+            assigned_team_code="content",
+            assigned_team_name="المحتوى والمراجعات",
+        )
+
+        response = self.client.get(reverse("dashboard:content_reviews_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, case.code)
+
+    def test_content_reports_page_keeps_selected_case_visible_after_it_leaves_content_queue(self):
+        case = ModerationCase.objects.create(
+            reporter=self.reporter,
+            reported_user=self.reported_user,
+            source_app="providers",
+            source_model="ProviderSpotlightItem",
+            source_object_id="77",
+            source_label="بلاغ انتقل لفريق آخر",
+            category="spotlight",
+            reason="محتوى غير مناسب",
+            details="يجب أن يبقى ظاهرًا للمتابعة",
+            summary="بلاغ مباشر",
+            assigned_team_code="support",
+            assigned_team_name="فريق الدعم والمساعدة",
+        )
+
+        response = self.client.get(reverse("dashboard:content_reports_dashboard"), {"case": case.id})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"تفاصيل بلاغ المحتوى: {case.code}")
+        self.assertContains(response, "تم تحويل هذا البلاغ إلى فريق الدعم والمساعدة")
+        self.assertContains(response, "عرض للمتابعة فقط")
+
 
 
 class DashboardSupportMessagingReportsTests(TestCase):

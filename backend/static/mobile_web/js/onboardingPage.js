@@ -248,16 +248,6 @@ const OnboardingPage = (() => {
 
     stage.appendChild(
       UI.el('article', { className: 'onboard-slide active', 'data-index': 'preview' }, [
-        UI.el('div', { className: 'onboard-slide-meta' }, [
-          UI.el('span', {
-            className: 'onboard-step-chip',
-            textContent: _copy('previewChip'),
-          }),
-          UI.el('span', {
-            className: 'onboard-step-note',
-            textContent: _copy('previewNote'),
-          }),
-        ]),
         _buildMedia(_introBlock),
         UI.el('div', { className: 'onboard-copy-card' }, [
           UI.el('h1', { textContent: _resolveSlideTitle(_introBlock, 'previewTitle') }),
@@ -323,16 +313,6 @@ const OnboardingPage = (() => {
       'data-index': String(idx),
     });
 
-    article.appendChild(UI.el('div', { className: 'onboard-slide-meta' }, [
-      UI.el('span', {
-        className: 'onboard-step-chip',
-        textContent: _copy('stepLabel').replace('{index}', String(idx + 1)),
-      }),
-      UI.el('span', {
-        className: 'onboard-step-note',
-        textContent: idx >= _slidesData.length - 1 ? _copy('readyNote') : _copy('quickTour'),
-      }),
-    ]));
     article.appendChild(_buildMedia(slide));
 
     article.appendChild(UI.el('div', { className: 'onboard-copy-card' }, [
@@ -367,7 +347,6 @@ const OnboardingPage = (() => {
       video.loop = true;
       video.playsInline = true;
       wrap.appendChild(video);
-      wrap.appendChild(UI.el('span', { className: 'onboard-media-badge', textContent: _copy('videoBadge') }));
       return wrap;
     }
 
@@ -377,7 +356,6 @@ const OnboardingPage = (() => {
       alt: _resolveSlideTitle(slide, 'mediaAlt'),
       loading: 'lazy',
     }));
-    wrap.appendChild(UI.el('span', { className: 'onboard-media-badge', textContent: _copy('imageBadge') }));
     return wrap;
   }
 

@@ -18,6 +18,7 @@ from apps.dashboard.security import is_safe_redirect_url
 from apps.dashboard.exports import pdf_response, xlsx_response
 from apps.extras.option_catalog import (
     EXTRAS_CLIENT_OPTIONS,
+    EXTRAS_CLIENT_OPTION_ALIASES,
     EXTRAS_FINANCE_OPTIONS,
     EXTRAS_REPORT_OPTIONS,
     UNAVAILABLE_CLIENT_OPTIONS,
@@ -26,6 +27,7 @@ from apps.extras.option_catalog import (
     option_label_for,
     section_title_for,
 )
+from apps.extras.loyalty import LOYALTY_REWARDS, loyalty_level_for_points
 from apps.extras.services import (
     _extras_bundle_section_access_deadline,
     extras_bundle_invoice_for_request,
@@ -66,9 +68,12 @@ from .models import (
     ExtrasPortalSubscriptionStatus,
     LoyaltyMembership,
     LoyaltyProgram,
+    LoyaltyTransaction,
+    LoyaltyTransactionType,
     ProviderPotentialClient,
     ReportDataSnapshot,
 )
+from .services import get_or_create_direct_thread
 
 
 PORTAL_OTP_RESEND_COOLDOWN_SECONDS = 60
@@ -201,7 +206,17 @@ def _portal_section_payload(section_context: dict[str, object] | None) -> dict[s
 def _portal_section_option_keys(section_context: dict[str, object] | None) -> list[str]:
     if not isinstance(section_context, dict):
         return []
-    return [str(key or "").strip() for key in list(section_context.get("option_keys") or []) if str(key or "").strip()]
+    section_key = str(section_context.get("section_key") or "").strip()
+    aliases = EXTRAS_CLIENT_OPTION_ALIASES if section_key == PORTAL_SECTION_CLIENTS else {}
+    option_keys: list[str] = []
+    for raw_key in list(section_context.get("option_keys") or []):
+        key = str(raw_key or "").strip()
+        if not key:
+            continue
+        key = aliases.get(key, key)
+        if key not in option_keys:
+            option_keys.append(key)
+    return option_keys
 
 
 def _portal_section_has_option(section_context: dict[str, object] | None, option_key: str) -> bool:
@@ -306,6 +321,13 @@ def _latest_portal_section_context(provider: ProviderProfile, section_key: str) 
             for key in list(section_payload.get("options") or [])
             if str(key or "").strip()
         ]
+        if section_key == PORTAL_SECTION_CLIENTS:
+            normalized_option_keys: list[str] = []
+            for key in option_keys:
+                key = EXTRAS_CLIENT_OPTION_ALIASES.get(key, key)
+                if key not in normalized_option_keys:
+                    normalized_option_keys.append(key)
+            option_keys = normalized_option_keys
         if not option_keys:
             continue
 
@@ -439,19 +461,7 @@ def _portal_require_section(provider: ProviderProfile, section_key: str):
 
 
 def _get_or_create_direct_thread(user_a: User, user_b: User) -> Thread:
-    if user_a.id == user_b.id:
-        raise ValueError("cannot chat self")
-    thread = (
-        Thread.objects.filter(is_direct=True)
-        .filter(
-            Q(participant_1=user_a, participant_2=user_b)
-            | Q(participant_1=user_b, participant_2=user_a)
-        )
-        .first()
-    )
-    if thread:
-        return thread
-    return Thread.objects.create(is_direct=True, participant_1=user_a, participant_2=user_b)
+    return get_or_create_direct_thread(user_a, user_b)
 
 
 def portal_home(request: HttpRequest) -> HttpResponse:
@@ -1328,6 +1338,228 @@ def portal_reports(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _reports_export_metadata(provider: ProviderProfile, bundle_context: dict[str, object], title: str) -> list[tuple[str, str]]:
+    request_obj = bundle_context.get("request_obj")
+    exported_at = _format_datetime_label(timezone.now())
+    return [
+        ("التقرير", str(title or "التقارير")),
+        ("مزود الخدمة", str(getattr(provider, "display_name", "") or getattr(provider.user, "username", "") or provider.id)),
+        ("رقم الطلب", str(getattr(request_obj, "code", "") or "-")),
+        ("بداية الفترة", str(bundle_context.get("start_label") or "-")),
+        ("نهاية الفترة", str(bundle_context.get("end_label") or "-")),
+        ("تاريخ التصدير", exported_at),
+    ]
+
+
+def _export_cell_value(value):
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        localized = timezone.localtime(value) if timezone.is_aware(value) else value
+        return localized.strftime("%Y-%m-%d %H:%M")
+    return value
+
+
+def _premium_reports_xlsx_response(
+    *,
+    filename: str,
+    sheet_name: str,
+    title: str,
+    headers: list[str],
+    rows: list[list],
+    metadata: list[tuple[str, str]],
+) -> HttpResponse:
+    from io import BytesIO
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = (sheet_name or "reports")[:31]
+    ws.sheet_view.rightToLeft = True
+    ws.freeze_panes = None
+
+    column_count = max(2, len(headers))
+    last_col = get_column_letter(column_count)
+
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=column_count)
+    title_cell = ws.cell(row=1, column=1, value=title)
+    title_cell.font = Font(bold=True, color="FFFFFF", size=16)
+    title_cell.fill = PatternFill("solid", fgColor="0F172A")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 32
+
+    meta_fill = PatternFill("solid", fgColor="ECFDF5")
+    meta_label_font = Font(bold=True, color="0F766E", size=10)
+    meta_value_font = Font(bold=True, color="334155", size=10)
+    thin_line = Side(style="thin", color="D9E2EC")
+    border = Border(left=thin_line, right=thin_line, top=thin_line, bottom=thin_line)
+
+    row_index = 3
+    for label, value in metadata:
+        ws.cell(row=row_index, column=1, value=label)
+        ws.cell(row=row_index, column=2, value=value)
+        ws.cell(row=row_index, column=1).font = meta_label_font
+        ws.cell(row=row_index, column=2).font = meta_value_font
+        ws.cell(row=row_index, column=1).fill = meta_fill
+        ws.cell(row=row_index, column=2).fill = PatternFill("solid", fgColor="F8FAFC")
+        ws.cell(row=row_index, column=1).border = border
+        ws.cell(row=row_index, column=2).border = border
+        ws.cell(row=row_index, column=1).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        ws.cell(row=row_index, column=2).alignment = Alignment(horizontal="right", vertical="center", wrap_text=True)
+        row_index += 1
+
+    header_row = row_index + 1
+    header_fill = PatternFill("solid", fgColor="14958A")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    body_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for col_index, header in enumerate(headers, start=1):
+        cell = ws.cell(row=header_row, column=col_index, value=str(header or ""))
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_alignment
+        cell.border = border
+
+    data_start_row = header_row + 1
+    for row_offset, row in enumerate(rows, start=data_start_row):
+        fill = PatternFill("solid", fgColor="FFFFFF" if (row_offset - data_start_row) % 2 == 0 else "F8FAFC")
+        for col_index, value in enumerate(row, start=1):
+            cell = ws.cell(row=row_offset, column=col_index, value=_export_cell_value(value))
+            cell.fill = fill
+            cell.alignment = body_alignment
+            cell.border = border
+            cell.font = Font(color="1F2937", size=10)
+
+    if rows:
+        ws.auto_filter.ref = f"A{header_row}:{last_col}{max(header_row, data_start_row + len(rows) - 1)}"
+        ws.freeze_panes = f"A{data_start_row}"
+
+    for col_index in range(1, column_count + 1):
+        col_letter = get_column_letter(col_index)
+        sample_values = [
+            ws.cell(row=row, column=col_index).value
+            for row in range(1, min(ws.max_row, data_start_row + 80) + 1)
+        ]
+        max_len = max((len(str(value or "")) for value in sample_values), default=10)
+        ws.column_dimensions[col_letter].width = min(max(max_len + 5, 14), 46)
+
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.page_margins.left = 0.25
+    ws.page_margins.right = 0.25
+    ws.page_margins.top = 0.45
+    ws.page_margins.bottom = 0.45
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _premium_reports_pdf_response(
+    *,
+    filename: str,
+    title: str,
+    headers: list[str],
+    rows: list[list],
+    metadata: list[tuple[str, str]],
+    landscape: bool = False,
+) -> HttpResponse:
+    from io import BytesIO
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape as rl_landscape
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Spacer, Table, TableStyle
+
+    from apps.dashboard import exports as dashboard_exports
+
+    page_size = rl_landscape(A4) if landscape else A4
+    font = dashboard_exports._get_font_name(bold=False)
+    font_bold = dashboard_exports._get_font_name(bold=True)
+    shape = dashboard_exports._shape_ar
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=page_size,
+        rightMargin=10 * mm,
+        leftMargin=10 * mm,
+        topMargin=31 * mm,
+        bottomMargin=18 * mm,
+    )
+
+    content: list = []
+    meta_table_data = [[shape(label), shape(value)] for label, value in metadata]
+    meta_table = Table(meta_table_data, colWidths=[34 * mm, None], hAlign="RIGHT")
+    meta_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#ECFDF5")),
+                ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#0F766E")),
+                ("FONTNAME", (0, 0), (-1, -1), font_bold),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("GRID", (0, 0), (-1, -1), .35, colors.HexColor("#D9E2EC")),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    content.append(meta_table)
+    content.append(Spacer(1, 5 * mm))
+
+    if rows:
+        table_rows = [[shape(header) for header in headers]]
+        for row in rows:
+            table_rows.append([shape(str(_export_cell_value(value) or "")) for value in row])
+    else:
+        table_rows = [[shape("الحالة")], [shape("لا توجد بيانات ضمن الفترة المحددة")]]
+
+    page_width = page_size[0] - (20 * mm)
+    col_count = max(1, len(table_rows[0]))
+    col_widths = [page_width / col_count for _ in range(col_count)]
+    data_table = Table(table_rows, repeatRows=1, colWidths=col_widths)
+    body_font_size = 6.5 if col_count > 8 else 8
+    data_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#14958A")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), font_bold),
+                ("FONTSIZE", (0, 0), (-1, 0), 8),
+                ("FONTNAME", (0, 1), (-1, -1), font),
+                ("FONTSIZE", (0, 1), (-1, -1), body_font_size),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("GRID", (0, 0), (-1, -1), .3, colors.HexColor("#D9E2EC")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    content.append(data_table)
+
+    on_page = dashboard_exports._build_header_footer_func(title, page_size)
+    doc.build(content, onFirstPage=on_page, onLaterPages=on_page)
+    buffer.seek(0)
+    response = HttpResponse(buffer.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 @extras_portal_login_required
 def portal_reports_export_xlsx(request: HttpRequest) -> HttpResponse:
     provider = _get_provider_or_403(request)
@@ -1358,11 +1590,14 @@ def portal_reports_export_xlsx(request: HttpRequest) -> HttpResponse:
             ]
         )
 
-    return xlsx_response(
+    title = "تقرير الخدمات الإضافية - التقارير"
+    return _premium_reports_xlsx_response(
         filename=f"extras-portal-reports-provider-{provider.id}.xlsx",
         sheet_name="التقارير",
+        title=title,
         headers=["رقم", "العنوان", "الحالة", "جوال العميل", "التاريخ", "المستلم", "المتبقي"],
         rows=rows,
+        metadata=_reports_export_metadata(provider, bundle_context, title),
     )
 
 
@@ -1385,11 +1620,13 @@ def portal_reports_export_pdf(request: HttpRequest) -> HttpResponse:
     for r in qs:
         rows.append([r.id, r.title, r.get_status_display(), getattr(r.client, "phone", ""), r.created_at])
 
-    return pdf_response(
+    title = "تقرير الخدمات الإضافية - التقارير"
+    return _premium_reports_pdf_response(
         filename=f"extras-portal-reports-provider-{provider.id}.pdf",
-        title="التقارير",
+        title=title,
         headers=["رقم", "العنوان", "الحالة", "جوال العميل", "التاريخ"],
         rows=rows,
+        metadata=_reports_export_metadata(provider, bundle_context, title),
         landscape=True,
     )
 
@@ -1525,22 +1762,26 @@ def portal_report_option_export_xlsx(request: HttpRequest, option_key: str) -> H
         detail_rows = _build_service_orders_detail_rows(qs)
         headers = [c["label"] for c in SERVICE_ORDERS_DETAIL_COLUMNS]
         rows = [[r.get(c["key"], "") for c in SERVICE_ORDERS_DETAIL_COLUMNS] for r in detail_rows]
-        return xlsx_response(
+        return _premium_reports_xlsx_response(
             filename=f"report-{option_key}-provider-{provider.id}.xlsx",
             sheet_name=label[:31],
+            title=label,
             headers=headers,
             rows=rows,
+            metadata=_reports_export_metadata(provider, bundle_context, label),
         )
 
     if option_key in OPTION_EXPORT_HEADERS_MAP:
         hdrs, row_fn = OPTION_EXPORT_HEADERS_MAP[option_key]
         entries = _get_full_identity_entries(provider, option_key, start_at, end_at)
         rows = [row_fn(e) for e in entries]
-        return xlsx_response(
+        return _premium_reports_xlsx_response(
             filename=f"report-{option_key}-provider-{provider.id}.xlsx",
             sheet_name=label[:31],
+            title=label,
             headers=hdrs,
             rows=rows,
+            metadata=_reports_export_metadata(provider, bundle_context, label),
         )
 
     # Stats-type cards (platform_metrics, platform_visits, etc.)
@@ -1549,11 +1790,13 @@ def portal_report_option_export_xlsx(request: HttpRequest, option_key: str) -> H
         stats = card.get("stats", [])
         headers = ["المؤشر", "القيمة"]
         rows = [[s.get("label", ""), s.get("value", "")] for s in stats]
-        return xlsx_response(
+        return _premium_reports_xlsx_response(
             filename=f"report-{option_key}-provider-{provider.id}.xlsx",
             sheet_name=label[:31],
+            title=label,
             headers=headers,
             rows=rows,
+            metadata=_reports_export_metadata(provider, bundle_context, label),
         )
 
     return HttpResponse("لا يمكن تصدير هذا الخيار.", status=400)
@@ -1583,11 +1826,12 @@ def portal_report_option_export_pdf(request: HttpRequest, option_key: str) -> Ht
         detail_rows = _build_service_orders_detail_rows(qs)
         headers = [c["label"] for c in SERVICE_ORDERS_DETAIL_COLUMNS]
         rows = [[r.get(c["key"], "") for c in SERVICE_ORDERS_DETAIL_COLUMNS] for r in detail_rows]
-        return pdf_response(
+        return _premium_reports_pdf_response(
             filename=f"report-{option_key}-provider-{provider.id}.pdf",
             title=label,
             headers=headers,
             rows=rows,
+            metadata=_reports_export_metadata(provider, bundle_context, label),
             landscape=True,
         )
 
@@ -1595,11 +1839,12 @@ def portal_report_option_export_pdf(request: HttpRequest, option_key: str) -> Ht
         hdrs, row_fn = OPTION_EXPORT_HEADERS_MAP[option_key]
         entries = _get_full_identity_entries(provider, option_key, start_at, end_at)
         rows = [row_fn(e) for e in entries]
-        return pdf_response(
+        return _premium_reports_pdf_response(
             filename=f"report-{option_key}-provider-{provider.id}.pdf",
             title=label,
             headers=hdrs,
             rows=rows,
+            metadata=_reports_export_metadata(provider, bundle_context, label),
             landscape=False,
         )
 
@@ -1609,11 +1854,12 @@ def portal_report_option_export_pdf(request: HttpRequest, option_key: str) -> Ht
         stats = card.get("stats", [])
         headers = ["المؤشر", "القيمة"]
         rows = [[s.get("label", ""), s.get("value", "")] for s in stats]
-        return pdf_response(
+        return _premium_reports_pdf_response(
             filename=f"report-{option_key}-provider-{provider.id}.pdf",
             title=label,
             headers=headers,
             rows=rows,
+            metadata=_reports_export_metadata(provider, bundle_context, label),
             landscape=False,
         )
 
@@ -1931,8 +2177,18 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
         )
 
     # ── Loyalty summary ──
-    clients_supports_points = _portal_section_has_option(section_context, "loyalty_points")
+    clients_supports_points = clients_supports_loyalty
     loyalty_summary: dict[str, int] = {"members": 0, "total_earned": 0, "total_redeemed": 0}
+    loyalty_top_members: list[dict[str, object]] = []
+    loyalty_level_counts: list[dict[str, object]] = []
+    loyalty_reward_tiles = [
+        {
+            "title": reward["title"],
+            "points": reward["points"],
+            "description": reward["description"],
+        }
+        for reward in LOYALTY_REWARDS
+    ]
     if clients_supports_points and loyalty_program:
         memberships_qs = LoyaltyMembership.objects.filter(program=loyalty_program)
         agg = memberships_qs.aggregate(
@@ -1944,6 +2200,21 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             "total_earned": agg["total_earned"] or 0,
             "total_redeemed": agg["total_redeemed"] or 0,
         }
+        level_count_map: dict[str, dict[str, object]] = {}
+        for membership in memberships_qs.only("points_balance"):
+            level = loyalty_level_for_points(int(membership.points_balance or 0))
+            label = str(level["label"])
+            entry = level_count_map.setdefault(label, {"label": label, "count": 0})
+            entry["count"] = int(entry["count"]) + 1
+        loyalty_level_counts = list(level_count_map.values())
+        loyalty_top_members = [
+            {
+                "name": _client_display_name(member.user),
+                "points": int(member.points_balance or 0),
+                "level": loyalty_level_for_points(int(member.points_balance or 0)),
+            }
+            for member in memberships_qs.select_related("user").order_by("-points_balance", "-updated_at")[:5]
+        ]
 
     # ── Subscription info ──
     subscription = getattr(provider, "extras_portal_subscription", None)
@@ -2044,6 +2315,9 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             "loyalty_program": loyalty_program,
             "clients_supports_points": clients_supports_points,
             "loyalty_summary": loyalty_summary,
+            "loyalty_top_members": loyalty_top_members,
+            "loyalty_level_counts": loyalty_level_counts,
+            "loyalty_reward_tiles": loyalty_reward_tiles,
             # subscription
             "subscription_end": subscription_end,
         },
@@ -2142,7 +2416,13 @@ def _save_client_records(request: HttpRequest, provider: ProviderProfile) -> Non
     section_context = _latest_portal_section_context(provider, PORTAL_SECTION_CLIENTS)
     can_grouping = _portal_section_has_option(section_context, "grouping")
     can_reminders = _portal_section_has_option(section_context, "recurring_reminders")
-    can_points = _portal_section_has_option(section_context, "loyalty_points")
+    can_points = _portal_section_has_option(section_context, "loyalty_program")
+    loyalty_program = None
+    if can_points:
+        loyalty_program, _created = LoyaltyProgram.objects.get_or_create(
+            provider=provider,
+            defaults={"name": "برنامج الولاء", "points_per_completed_request": 10, "is_active": True},
+        )
 
     client_ids = request.POST.getlist("record_client_ids")
     for cid_str in client_ids:
@@ -2188,7 +2468,8 @@ def _save_client_records(request: HttpRequest, provider: ProviderProfile) -> Non
 
         if can_points:
             loyalty_pts_str = request.POST.get(f"loyalty_points_{cid}", "0").strip()
-            defaults["loyalty_points_added"] = int(loyalty_pts_str) if loyalty_pts_str.isdigit() else 0
+            new_points = int(loyalty_pts_str) if loyalty_pts_str.isdigit() else 0
+            defaults["loyalty_points_added"] = new_points
 
         if not defaults:
             # Nothing editable; skip to avoid creating empty rows for unrelated clients.
@@ -2199,6 +2480,41 @@ def _save_client_records(request: HttpRequest, provider: ProviderProfile) -> Non
             user_id=cid,
             defaults=defaults,
         )
+        if can_points and loyalty_program is not None:
+            _sync_loyalty_membership_points(
+                program=loyalty_program,
+                user_id=cid,
+                earned_points=int(defaults.get("loyalty_points_added") or 0),
+            )
+
+
+def _sync_loyalty_membership_points(*, program: LoyaltyProgram, user_id: int, earned_points: int) -> None:
+    """Mirror the editable points column into the actual loyalty membership ledger."""
+    membership, _created = LoyaltyMembership.objects.get_or_create(
+        program=program,
+        user_id=user_id,
+        defaults={
+            "points_balance": max(0, int(earned_points or 0)),
+            "total_earned": max(0, int(earned_points or 0)),
+            "total_redeemed": 0,
+        },
+    )
+    earned_points = max(0, int(earned_points or 0))
+    previous_earned = int(membership.total_earned or 0)
+    if previous_earned == earned_points:
+        return
+
+    delta = earned_points - previous_earned
+    membership.total_earned = earned_points
+    membership.points_balance = max(0, int(membership.points_balance or 0) + delta)
+    membership.save(update_fields=["total_earned", "points_balance", "updated_at"])
+
+    LoyaltyTransaction.objects.create(
+        membership=membership,
+        transaction_type=LoyaltyTransactionType.ADJUSTMENT,
+        points=delta,
+        description="مزامنة نقاط الولاء من بوابة إدارة العملاء",
+    )
 
 
 def _send_loyalty_message(request: HttpRequest, provider: ProviderProfile, provider_user: User) -> None:

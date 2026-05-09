@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 from apps.accounts.models import User, UserRole
@@ -22,7 +22,16 @@ from apps.providers.models import (
 from apps.messaging.models import Message, Thread
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestStatus, UnifiedRequestType
 
-from .views import _build_clients_dataset, _build_reports_dashboard_context, _latest_portal_section_context, _portal_shell_context, _report_option_card_catalog
+from .models import ClientRecord, LoyaltyMembership, LoyaltyProgram, LoyaltyTransaction
+from .services import get_or_create_direct_thread
+from .views import (
+    _build_clients_dataset,
+    _build_reports_dashboard_context,
+    _latest_portal_section_context,
+    _portal_shell_context,
+    _report_option_card_catalog,
+    _save_client_records,
+)
 
 
 class ReportsVisitMetricsTests(TestCase):
@@ -578,3 +587,207 @@ class ReportsBundleContextSelectionTests(TestCase):
             dashboard_context.get("report_request_groups", [])[0]["option_groups"][0]["cards"][0]["stats"][3],
             {"label": "عدد الطلبات الجديدة", "value": "1"},
         )
+
+
+class LoyaltyAutoAwardTests(TestCase):
+    def setUp(self):
+        self.client_user = User.objects.create_user(
+            phone="0503000901",
+            username="loyalty.auto.client",
+            role_state=UserRole.CLIENT,
+        )
+        self.provider_user = User.objects.create_user(
+            phone="0503000902",
+            username="loyalty.auto.provider",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود نقاط تلقائي",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        category = Category.objects.create(name="خدمات")
+        self.subcategory = SubCategory.objects.create(category=category, name="خدمة ولاء")
+        self.program = LoyaltyProgram.objects.create(
+            provider=self.provider,
+            name="برنامج الولاء",
+            points_per_completed_request=25,
+            is_active=True,
+        )
+
+    def test_completed_request_awards_points_once_and_updates_client_record(self):
+        service_request = ServiceRequest.objects.create(
+            client=self.client_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب ولاء",
+            description="طلب لاختبار نقاط الولاء",
+            request_type=RequestType.NORMAL,
+            city="الرياض",
+            status=RequestStatus.IN_PROGRESS,
+        )
+
+        service_request.complete()
+        service_request.save(update_fields=["status"])
+
+        membership = LoyaltyMembership.objects.get(program=self.program, user=self.client_user)
+        self.assertEqual(membership.points_balance, 25)
+        self.assertEqual(membership.total_earned, 25)
+        self.assertEqual(
+            LoyaltyTransaction.objects.filter(membership=membership, request=service_request).count(),
+            1,
+        )
+        self.assertEqual(
+            ClientRecord.objects.get(provider=self.provider, user=self.client_user).loyalty_points_added,
+            25,
+        )
+
+
+class ClientLoyaltyPointsTests(TestCase):
+    def setUp(self):
+        self.provider_user = User.objects.create_user(
+            phone="0503000201",
+            username="provider.clients.points",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود نقاط",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.client_user = User.objects.create_user(
+            phone="0503000202",
+            username="client.points",
+            role_state=UserRole.CLIENT,
+        )
+        request_obj = UnifiedRequest.objects.create(
+            request_type=UnifiedRequestType.EXTRAS,
+            status=UnifiedRequestStatus.CLOSED,
+            priority="normal",
+            requester=self.provider_user,
+            source_app="extras",
+            source_model="ExtrasBundleRequest",
+            source_object_id="clients-points-bundle",
+            summary="طلب إدارة عملاء",
+        )
+        UnifiedRequestMetadata.objects.create(
+            request=request_obj,
+            payload={
+                "bundle": {
+                    "reports": {"options": []},
+                    "clients": {"options": ["loyalty_points"], "subscription_years": 1},
+                    "finance": {"options": []},
+                }
+            },
+            updated_by=self.provider_user,
+        )
+        Invoice.objects.create(
+            user=self.provider_user,
+            title="فاتورة إدارة عملاء",
+            description="فاتورة",
+            currency="SAR",
+            subtotal="100.00",
+            vat_percent="15.00",
+            reference_type="extras_bundle_request",
+            reference_id=request_obj.code,
+            status=InvoiceStatus.PAID,
+            payment_confirmed=True,
+            payment_confirmed_at=timezone.now(),
+        )
+
+    def test_saved_loyalty_points_sync_to_membership_summary(self):
+        request = RequestFactory().post(
+            "/portal/extras/clients/",
+            {
+                "record_client_ids": [str(self.client_user.id)],
+                f"loyalty_points_{self.client_user.id}": "25",
+            },
+        )
+
+        _save_client_records(request, self.provider)
+
+        record = ClientRecord.objects.get(provider=self.provider, user=self.client_user)
+        program = LoyaltyProgram.objects.get(provider=self.provider)
+        membership = LoyaltyMembership.objects.get(program=program, user=self.client_user)
+        self.assertEqual(record.loyalty_points_added, 25)
+        self.assertEqual(membership.total_earned, 25)
+        self.assertEqual(membership.points_balance, 25)
+
+        request = RequestFactory().post(
+            "/portal/extras/clients/",
+            {
+                "record_client_ids": [str(self.client_user.id)],
+                f"loyalty_points_{self.client_user.id}": "10",
+            },
+        )
+
+        _save_client_records(request, self.provider)
+
+        membership.refresh_from_db()
+        self.assertEqual(membership.total_earned, 10)
+        self.assertEqual(membership.points_balance, 10)
+
+
+class BulkMessagingDirectThreadModeTests(TestCase):
+    def setUp(self):
+        self.provider_user = User.objects.create_user(
+            phone="0503999001",
+            username="bulk.portal.provider",
+            role_state=UserRole.PROVIDER,
+        )
+        ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود البوابة",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.client_user = User.objects.create_user(
+            phone="0503999002",
+            username="bulk.portal.client",
+            role_state=UserRole.CLIENT,
+        )
+        ProviderProfile.objects.create(
+            user=self.client_user,
+            provider_type="individual",
+            display_name="عميل لديه حساب مزود",
+            bio="-",
+            city="جدة",
+            region="منطقة مكة المكرمة",
+            accepts_urgent=True,
+        )
+
+    def test_creates_client_mode_thread_for_dual_role_recipient(self):
+        thread = get_or_create_direct_thread(self.provider_user, self.client_user)
+
+        self.assertTrue(thread.is_direct)
+        self.assertEqual(thread.participant_mode_for_user(self.provider_user), Thread.ContextMode.PROVIDER)
+        self.assertEqual(thread.participant_mode_for_user(self.client_user), Thread.ContextMode.CLIENT)
+
+    def test_does_not_reuse_provider_mode_thread_for_dual_role_recipient(self):
+        existing_thread = Thread.objects.create(
+            is_direct=True,
+            participant_1=self.provider_user,
+            participant_2=self.client_user,
+        )
+        existing_thread.set_participant_modes(
+            participant_1_mode=Thread.ContextMode.PROVIDER,
+            participant_2_mode=Thread.ContextMode.PROVIDER,
+            save=True,
+        )
+
+        thread = get_or_create_direct_thread(self.provider_user, self.client_user)
+
+        self.assertNotEqual(thread.id, existing_thread.id)
+        self.assertEqual(thread.participant_mode_for_user(self.provider_user), Thread.ContextMode.PROVIDER)
+        self.assertEqual(thread.participant_mode_for_user(self.client_user), Thread.ContextMode.CLIENT)

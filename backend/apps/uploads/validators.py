@@ -12,7 +12,8 @@ from django.core.exceptions import ValidationError
 
 IMAGE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"})
 VIDEO_EXTENSIONS = frozenset({".mp4", ".mov", ".avi", ".webm", ".mkv", ".m4v"})
-AUDIO_EXTENSIONS = frozenset({".aac", ".mp3", ".wav", ".ogg", ".m4a"})
+# Browser voice recordings on web commonly arrive as .webm/audio-webm.
+AUDIO_EXTENSIONS = frozenset({".aac", ".mp3", ".wav", ".ogg", ".m4a", ".webm"})
 DOCUMENT_EXTENSIONS = frozenset({".pdf", ".doc", ".docx", ".txt", ".csv", ".xlsx"})
 
 IMAGE_MIME_TYPES = frozenset(
@@ -44,6 +45,8 @@ AUDIO_MIME_TYPES = frozenset(
         "audio/x-wav",
         "audio/ogg",
         "audio/mp4",
+        "audio/webm",
+        "video/webm",
     }
 )
 DOCUMENT_MIME_TYPES = frozenset(

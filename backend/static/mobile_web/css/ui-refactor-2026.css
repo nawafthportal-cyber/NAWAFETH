@@ -319,6 +319,173 @@ body.mobile-web-parity .topbar-sponsor-modal-card {
   max-width: 520px;
 }
 
+/* Sponsor dialog: clearer hierarchy, no nested-scroll reading trap */
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-card {
+  width: min(560px, calc(100vw - 28px));
+  max-width: min(560px, calc(100vw - 28px));
+  box-sizing: border-box;
+  max-height: none;
+  overflow: hidden;
+  padding: clamp(16px, 3vw, 22px);
+  gap: 14px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 88% 4%, rgba(103, 58, 183, 0.11), transparent 34%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.99), rgba(248, 245, 255, 0.96));
+}
+
+body.mobile-web-parity .topbar-sponsor-modal {
+  z-index: 1800;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-hero {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 142px;
+  padding: clamp(16px, 3vw, 22px);
+  border-radius: 24px;
+  box-shadow: none;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-media-card {
+  min-width: 124px;
+  padding: 0;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-media {
+  width: 96px;
+  height: 96px;
+  padding: 8px;
+  border-radius: 22px;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-media-note {
+  font-size: 11.5px;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal h3,
+body.mobile-web-parity .topbar-sponsor-modal h3 {
+  font-size: clamp(22px, 4vw, 30px);
+  line-height: 1.25;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-panel {
+  gap: 10px;
+  padding: clamp(14px, 2.4vw, 18px);
+  border-radius: 22px;
+  box-shadow: none;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-panel-head {
+  justify-content: flex-start;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-label {
+  font-size: 14px;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-quote {
+  display: none;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-body {
+  max-height: 11.4em;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+  color: #4f4665;
+  line-height: 1.9;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-body.is-expanded {
+  max-height: none;
+  overflow: visible;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-panel.has-collapsible-message .topbar-sponsor-modal-body:not(.is-expanded) {
+  mask-image: linear-gradient(180deg, #000 72%, transparent 100%);
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-more {
+  justify-self: start;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 58, 183, 0.14);
+  background: rgba(103, 58, 183, 0.07);
+  color: #5b36ab;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-more.hidden {
+  display: none;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-link,
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-secondary {
+  min-height: 48px;
+  border-radius: 16px;
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-link {
+  width: 100%;
+  min-width: 0;
+  margin-inline-start: 0;
+  background: linear-gradient(135deg, #e8fbdf, #f5fff0);
+}
+
+body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-secondary {
+  min-width: 116px;
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-card {
+    width: calc(100dvw - 24px) !important;
+    max-width: calc(100dvw - 24px) !important;
+    margin-inline: auto !important;
+    border-radius: 22px;
+    transform: translateX(12px);
+  }
+
+  body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding-inline-start: 54px;
+  }
+
+  body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-media-card {
+    justify-items: start;
+    width: auto;
+  }
+
+  body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-secondary {
+    width: 100%;
+  }
+
+  [dir="ltr"] body.mobile-web-parity .topbar-sponsor-modal .topbar-sponsor-modal-card {
+    transform: none;
+  }
+}
+
 /* Empty/loading states look cleaner */
 body.mobile-web-parity .empty-state {
   border: 1px dashed var(--ux26-border-strong);

@@ -1153,6 +1153,328 @@
     }
   }
 
+  /* Provider orders premium operations refresh - May 2026 */
+  body.page-provider-orders {
+    --po-ink: #171321;
+    --po-muted: #625a70;
+    --po-primary: #5634a6;
+    --po-primary-strong: #321b69;
+    --po-accent: #0b8793;
+    --po-success: #147a50;
+    --po-warning: #bd7a10;
+    --po-danger: #bf3535;
+    --po-line: rgba(44, 31, 78, 0.12);
+    --po-card-bg: rgba(255, 255, 255, 0.92);
+    background:
+      linear-gradient(135deg, rgba(86, 52, 166, 0.08), transparent 32%),
+      linear-gradient(225deg, rgba(11, 135, 147, 0.08), transparent 30%),
+      linear-gradient(180deg, #fbfbfd 0%, #f5f7fb 46%, #f2f4f8 100%) !important;
+  }
+
+  body.page-provider-orders .page-content {
+    padding-top: 22px !important;
+  }
+
+  body.page-provider-orders .page-shell {
+    width: min(1420px, calc(100% - 28px)) !important;
+  }
+
+  body.page-provider-orders .po-app-shell {
+    gap: 16px;
+  }
+
+  body.page-provider-orders .po-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    min-height: 340px;
+    padding: clamp(22px, 3vw, 34px);
+    border-radius: 28px;
+    border: 1px solid rgba(255, 255, 255, 0.72);
+    color: var(--po-ink);
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.98), rgba(246,250,252,0.92)),
+      linear-gradient(135deg, rgba(86,52,166,0.12), rgba(11,135,147,0.1));
+    box-shadow: 0 26px 56px rgba(28, 21, 48, 0.1);
+  }
+
+  body.page-provider-orders .po-hero::before,
+  body.page-provider-orders .po-hero::after {
+    display: none;
+  }
+
+  body.page-provider-orders .po-hero::marker {
+    display: none;
+  }
+
+  body.page-provider-orders .po-hero-copy {
+    order: 1;
+    gap: 16px;
+  }
+
+  body.page-provider-orders .po-hero-side {
+    order: 2;
+  }
+
+  body.page-provider-orders .po-hero h1 {
+    color: var(--po-ink);
+    font-size: clamp(2.25rem, 4vw, 4.2rem);
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+
+  body.page-provider-orders .po-header-subtitle {
+    max-width: 72ch;
+    color: rgba(23, 19, 33, 0.68);
+    font-size: 15px;
+    line-height: 1.9;
+  }
+
+  body.page-provider-orders .po-hero-kicker,
+  body.page-provider-orders .po-hero-pill {
+    border-color: rgba(86, 52, 166, 0.13);
+    color: var(--po-primary-strong);
+    background: rgba(86, 52, 166, 0.07);
+  }
+
+  body.page-provider-orders .po-back-btn {
+    color: var(--po-primary-strong);
+    border-color: rgba(86, 52, 166, 0.14);
+    background: #fff;
+    box-shadow: 0 12px 24px rgba(31, 24, 54, 0.08);
+  }
+
+  body.page-provider-orders .po-hero-panel {
+    border-radius: 24px;
+    border-color: rgba(255,255,255,0.84);
+    background:
+      linear-gradient(160deg, rgba(50,27,105,0.95), rgba(11,135,147,0.9));
+    box-shadow: 0 22px 44px rgba(35, 22, 70, 0.18);
+  }
+
+  body.page-provider-orders .po-header-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  body.page-provider-orders .po-header-stat {
+    min-height: 104px;
+    border-radius: 20px;
+    border-color: rgba(44, 31, 78, 0.09);
+    background: rgba(255, 255, 255, 0.78);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 12px 24px rgba(31, 24, 54, 0.06);
+  }
+
+  body.page-provider-orders .po-header-stat span,
+  body.page-provider-orders .po-header-stat small {
+    color: rgba(23, 19, 33, 0.58);
+  }
+
+  body.page-provider-orders .po-header-stat strong {
+    color: var(--po-ink);
+  }
+
+  body.page-provider-orders .po-command-bar,
+  body.page-provider-orders .po-controls-panel,
+  body.page-provider-orders .po-results-board {
+    border-radius: 24px;
+    border-color: var(--po-line);
+    background: var(--po-card-bg);
+    box-shadow: 0 20px 42px rgba(28, 21, 48, 0.08);
+  }
+
+  body.page-provider-orders .po-command-bar {
+    position: sticky;
+    top: 10px;
+    z-index: 8;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  body.page-provider-orders .po-main-tabs-wrap {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  body.page-provider-orders .po-main-tabs .status-tab {
+    min-height: 62px;
+    border-radius: 18px;
+    background: rgba(86, 52, 166, 0.05);
+    border: 1px solid rgba(86, 52, 166, 0.08);
+  }
+
+  body.page-provider-orders .po-main-tabs .status-tab.active {
+    background: linear-gradient(135deg, var(--po-primary-strong), var(--po-primary) 58%, var(--po-accent));
+  }
+
+  body.page-provider-orders .po-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) 330px;
+  }
+
+  body.page-provider-orders .po-controls-panel {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  body.page-provider-orders .po-results-board {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 560px;
+  }
+
+  body.page-provider-orders .po-results-hero {
+    border-radius: 20px;
+    background:
+      linear-gradient(135deg, rgba(86,52,166,0.08), rgba(11,135,147,0.07)),
+      rgba(255,255,255,0.82);
+  }
+
+  body.page-provider-orders #po-list {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  }
+
+  body.page-provider-orders .po-card {
+    min-height: 100%;
+    border-radius: 22px;
+    border-color: rgba(44, 31, 78, 0.1);
+    background: linear-gradient(180deg, #fff, #fbfcff);
+    box-shadow: 0 16px 32px rgba(25, 20, 40, 0.07);
+  }
+
+  body.page-provider-orders .po-card::before {
+    right: 0;
+    left: auto;
+    top: 0;
+    width: 7px;
+    height: 100%;
+    border-radius: 0;
+    background: linear-gradient(180deg, var(--po-primary), var(--po-accent));
+  }
+
+  body.page-provider-orders .po-card-new::before { background: linear-gradient(180deg, #c58a22, #f0bd52); }
+  body.page-provider-orders .po-card-awaiting_client::before { background: linear-gradient(180deg, #5634a6, #7c57d1); }
+  body.page-provider-orders .po-card-in_progress::before { background: linear-gradient(180deg, #d9781e, #f2a44b); }
+  body.page-provider-orders .po-card-completed::before { background: linear-gradient(180deg, #147a50, #2fb173); }
+  body.page-provider-orders .po-card-cancelled::before { background: linear-gradient(180deg, #bf3535, #dc6969); }
+
+  body.page-provider-orders .po-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(86, 52, 166, 0.18);
+    box-shadow: 0 24px 44px rgba(25, 20, 40, 0.12);
+  }
+
+  body.page-provider-orders .po-card-top {
+    gap: 12px;
+  }
+
+  body.page-provider-orders .po-card-head {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  body.page-provider-orders .order-card h4 {
+    color: var(--po-ink);
+    font-size: 17px;
+    line-height: 1.55;
+  }
+
+  body.page-provider-orders .order-meta,
+  body.page-provider-orders .order-date {
+    color: rgba(23, 19, 33, 0.58);
+  }
+
+  body.page-provider-orders .po-card-meta {
+    border-radius: 14px;
+    background: #f7f8fb;
+    border-color: rgba(44, 31, 78, 0.08);
+  }
+
+  body.page-provider-orders .po-card-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 2px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    color: var(--po-primary-strong);
+    background: linear-gradient(135deg, rgba(86,52,166,0.08), rgba(11,135,147,0.07));
+    border: 1px solid rgba(86, 52, 166, 0.1);
+    font-size: 12px;
+    font-weight: 850;
+  }
+
+  body.page-provider-orders .po-card-action::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: currentColor;
+    box-shadow: 0 0 0 5px rgba(86, 52, 166, 0.08);
+    flex-shrink: 0;
+  }
+
+  body.page-provider-orders .po-card-action-label {
+    flex: 1;
+    min-width: 0;
+  }
+
+  body.page-provider-orders .po-card-footer {
+    align-items: center;
+  }
+
+  body.page-provider-orders .po-card-link {
+    background: var(--po-ink);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  @media (max-width: 1180px) {
+    body.page-provider-orders .po-dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+
+    body.page-provider-orders .po-controls-panel,
+    body.page-provider-orders .po-results-board {
+      grid-column: auto;
+      grid-row: auto;
+    }
+
+    body.page-provider-orders .po-command-bar {
+      position: static;
+    }
+  }
+
+  @media (max-width: 760px) {
+    body.page-provider-orders .page-shell {
+      width: calc(100% - 16px) !important;
+    }
+
+    body.page-provider-orders .po-hero {
+      min-height: 0;
+      grid-template-columns: 1fr;
+      padding: 18px;
+      border-radius: 22px;
+    }
+
+    body.page-provider-orders .po-hero-side {
+      display: none;
+    }
+
+    body.page-provider-orders .po-hero h1 {
+      font-size: 2rem;
+    }
+
+    body.page-provider-orders .po-header-stats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    body.page-provider-orders .po-header-stat {
+      min-height: 88px;
+      padding: 12px 8px;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     body.page-provider-orders *,
     body.page-provider-orders *::before,
@@ -1210,12 +1532,12 @@
                   <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
               </a>
-              <span class="po-hero-kicker" id="po-hero-kicker">
+              <span class="po-hero-kicker">
                 <svg class="po-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M3 7h18"></path>
                   <path d="M6 3h12l3 4v11a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7l3-4z"></path>
                 </svg>
-                مركز تشغيل طلباتك
+                <span id="po-hero-kicker">مركز تشغيل طلباتك</span>
               </span>
             </div>
 
@@ -1320,6 +1642,7 @@
                 <div class="status-tabs tabs-row ux26-status-tabs" id="po-status-tabs">
                   <button class="status-tab active" data-group="" type="button" id="po-status-all">الكل</button>
                   <button class="status-tab" data-group="new" type="button" id="po-status-new">جديد</button>
+                  <button class="status-tab" data-group="awaiting_client" type="button" id="po-status-awaiting-client">بانتظار اعتماد العميل</button>
                   <button class="status-tab" data-group="in_progress" type="button" id="po-status-in-progress">تحت التنفيذ</button>
                   <button class="status-tab" data-group="completed" type="button" id="po-status-completed">مكتمل</button>
                   <button class="status-tab" data-group="cancelled" type="button" id="po-status-cancelled">ملغي</button>
@@ -1387,5 +1710,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerOrdersPage.js' %}?v=20260502-provider-orders-i18n-stage1"></script>
+<script src="{% static 'mobile_web/js/providerOrdersPage.js' %}?v=20260508-provider-orders-premium-v1"></script>
 {% endblock %}

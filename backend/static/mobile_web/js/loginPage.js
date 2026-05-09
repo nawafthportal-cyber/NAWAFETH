@@ -223,6 +223,7 @@ const LoginPage = (() => {
         refresh: res.data.refresh,
         user_id: res.data.user_id,
         role_state: res.data.role_state,
+        profile_status: res.data.profile_status,
       });
 
       try {

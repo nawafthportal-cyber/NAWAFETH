@@ -212,6 +212,28 @@ const ApiClient = (() => {
     return { ok: res.ok, status: res.status, data, headers: res.headers };
   }
 
+  function _isProfileCompletionRequired(parsed) {
+    const data = parsed && parsed.data;
+    if (!data || typeof data !== 'object') return false;
+    return parsed.status === 403 && (
+      data.requires_completion === true
+      || String(data.error_code || '').trim() === 'profile_completion_required'
+    );
+  }
+
+  function _maybeRedirectToCompletion(parsed, path, opts) {
+    if (!_isProfileCompletionRequired(parsed) || opts.disableCompletionRedirect) return;
+    try {
+      const currentPath = window.location.pathname || '/';
+      if (currentPath.indexOf('/signup') === 0) return;
+      if (window.Auth && typeof window.Auth.redirectToCompletion === 'function') {
+        window.Auth.redirectToCompletion(currentPath + (window.location.search || ''));
+      } else {
+        window.location.href = '/signup/?next=' + encodeURIComponent(currentPath + (window.location.search || ''));
+      }
+    } catch (_) {}
+  }
+
   /**
    * Core fetch helper with timeout support and automatic 401 retry.
    * On 401: tries to refresh the JWT token and retries the request.
@@ -271,7 +293,9 @@ const ApiClient = (() => {
         return request(path, Object.assign({}, opts, { _retried: true, _refreshChecked: true, omitAuth: true }));
       }
 
-      return _parseResponse(res);
+      const parsed = await _parseResponse(res);
+      _maybeRedirectToCompletion(parsed, path, opts);
+      return parsed;
     } catch (err) {
       if (timeoutId) clearTimeout(timeoutId);
       return { ok: false, status: 0, data: null, error: err.message };

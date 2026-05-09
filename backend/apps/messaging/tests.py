@@ -545,3 +545,83 @@ class DirectThreadsClientClassificationTests(TestCase):
         rows_by_peer = {row["peer_id"]: row for row in response.json()}
         self.assertEqual(rows_by_peer[self.follower_user.id]["peer_kind"], "member")
         self.assertEqual(rows_by_peer[self.cancelled_client_user.id]["peer_kind"], "client")
+
+
+class DirectThreadRequestRecipientModeTests(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(name="خدمات")
+        self.subcategory = SubCategory.objects.create(category=self.category, name="استشارات")
+
+        self.provider_user = User.objects.create_user(
+            phone="0503902001",
+            username="request.mode.provider",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود اختبار الرسائل",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.client_user = User.objects.create_user(
+            phone="0503902002",
+            username="request.mode.client",
+            role_state=UserRole.CLIENT,
+        )
+        ProviderProfile.objects.create(
+            user=self.client_user,
+            provider_type="individual",
+            display_name="عميل ثنائي الدور",
+            bio="-",
+            city="جدة",
+            region="منطقة مكة المكرمة",
+            accepts_urgent=True,
+        )
+        self.request_obj = ServiceRequest.objects.create(
+            client=self.client_user,
+            provider=self.provider,
+            subcategory=self.subcategory,
+            title="طلب مراسلة مباشر",
+            description="اختبار نمط المستلم",
+            request_type=RequestType.NORMAL,
+            status=RequestStatus.NEW,
+            city="الرياض",
+        )
+        self.client.force_login(self.provider_user)
+
+    def test_request_based_direct_thread_creates_client_mode_for_dual_role_client(self):
+        response = self.client.post(
+            reverse("messaging:direct_thread_get_or_create") + "?mode=provider",
+            data={"request_id": self.request_obj.id},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        thread = Thread.objects.get(id=response.json()["id"])
+        self.assertEqual(thread.participant_mode_for_user(self.provider_user), Thread.ContextMode.PROVIDER)
+        self.assertEqual(thread.participant_mode_for_user(self.client_user), Thread.ContextMode.CLIENT)
+
+    def test_request_based_direct_thread_repairs_legacy_wrong_recipient_mode(self):
+        legacy_thread = Thread.objects.create(
+            is_direct=True,
+            context_mode=Thread.ContextMode.PROVIDER,
+            participant_1=self.provider_user,
+            participant_2=self.client_user,
+            participant_1_mode=Thread.ContextMode.PROVIDER,
+            participant_2_mode=Thread.ContextMode.PROVIDER,
+        )
+
+        response = self.client.post(
+            reverse("messaging:direct_thread_get_or_create") + "?mode=provider",
+            data={"request_id": self.request_obj.id},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()["id"], legacy_thread.id)
+        legacy_thread.refresh_from_db()
+        self.assertEqual(legacy_thread.participant_mode_for_user(self.provider_user), Thread.ContextMode.PROVIDER)
+        self.assertEqual(legacy_thread.participant_mode_for_user(self.client_user), Thread.ContextMode.CLIENT)

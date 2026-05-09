@@ -12,6 +12,7 @@ from apps.marketplace.models import (
     RequestStatusLog,
     RequestType,
     ServiceRequest,
+    ServiceRequestAttachment,
     service_request_pending_input_return_status,
     service_request_pending_input_stage,
 )
@@ -26,6 +27,19 @@ from .dispatch import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _infer_attachment_type(uploaded_file) -> str:
+    name = (getattr(uploaded_file, "name", "") or "").lower()
+    content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
+
+    if content_type.startswith("image/") or name.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp")):
+        return "image"
+    if content_type.startswith("video/") or name.endswith((".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v")):
+        return "video"
+    if content_type.startswith("audio/") or name.endswith((".mp3", ".wav", ".aac", ".ogg", ".m4a")):
+        return "audio"
+    return "document"
 
 
 def _notify_provider_inputs_decision(*, sr: ServiceRequest, actor, approved: bool, note: str = "", stage: str = "") -> None:
@@ -440,6 +454,7 @@ def execute_action(
     action: str,
     provider_profile: ProviderProfile | None = None,
     note: str = "",
+    response_attachments: list | None = None,
 ) -> ActionResult:
     sr = (
         ServiceRequest.objects.select_for_update()
@@ -450,6 +465,7 @@ def execute_action(
     )
 
     is_staff, is_client, is_provider = _role_flags(user, sr)
+    response_attachments = list(response_attachments or [])
 
     # send — backward-compatible no-op for competitive/new flow
     if action == "send":
@@ -637,8 +653,29 @@ def execute_action(
         sr.provider_inputs_approved = True
         sr.provider_inputs_decided_at = timezone.now()
         sr.provider_inputs_decision_note = clean_note[:255]
-        sr.save(update_fields=["status", "provider_inputs_approved", "provider_inputs_decided_at", "provider_inputs_decision_note"])
-        RequestStatusLog.objects.create(
+        sr.provider_inputs_has_financial_change = False
+        sr.client_response_note_required = False
+        sr.client_response_attachment_required = False
+        sr.client_response_question = ""
+        sr.save(
+            update_fields=[
+                "status",
+                "provider_inputs_approved",
+                "provider_inputs_decided_at",
+                "provider_inputs_decision_note",
+                "provider_inputs_has_financial_change",
+                "client_response_note_required",
+                "client_response_attachment_required",
+                "client_response_question",
+            ]
+        )
+        try:
+            from apps.marketplace.payments import ensure_payment_plan_for_request
+
+            ensure_payment_plan_for_request(sr)
+        except Exception:
+            logger.exception("failed to ensure payment plan request_id=%s", sr.id)
+        log = RequestStatusLog.objects.create(
             request=sr,
             actor=user,
             from_status=old,
@@ -649,6 +686,19 @@ def execute_action(
                 else ("العميل وافق على تحديث التقدم ويمكن متابعة التنفيذ" if stage == "progress_update" else "العميل وافق على مدخلات المزود وبدأ التنفيذ")
             )[:255],
         )
+        if response_attachments:
+            ServiceRequestAttachment.objects.bulk_create(
+                [
+                    ServiceRequestAttachment(
+                        request=sr,
+                        status_log=log,
+                        source=ServiceRequestAttachment.SOURCE_CLIENT_RESPONSE,
+                        file=attachment,
+                        file_type=_infer_attachment_type(attachment),
+                    )
+                    for attachment in response_attachments
+                ]
+            )
         transaction.on_commit(
             lambda: _notify_provider_inputs_decision(
                 sr=sr,
@@ -675,8 +725,23 @@ def execute_action(
         sr.provider_inputs_approved = False
         sr.provider_inputs_decided_at = timezone.now()
         sr.provider_inputs_decision_note = clean_note[:255]
-        sr.save(update_fields=["status", "provider_inputs_approved", "provider_inputs_decided_at", "provider_inputs_decision_note"])
-        RequestStatusLog.objects.create(
+        sr.provider_inputs_has_financial_change = False
+        sr.client_response_note_required = False
+        sr.client_response_attachment_required = False
+        sr.client_response_question = ""
+        sr.save(
+            update_fields=[
+                "status",
+                "provider_inputs_approved",
+                "provider_inputs_decided_at",
+                "provider_inputs_decision_note",
+                "provider_inputs_has_financial_change",
+                "client_response_note_required",
+                "client_response_attachment_required",
+                "client_response_question",
+            ]
+        )
+        log = RequestStatusLog.objects.create(
             request=sr,
             actor=user,
             from_status=old,
@@ -687,6 +752,19 @@ def execute_action(
                 else ("العميل رفض تحديث التقدم" if stage == "progress_update" else "العميل رفض مدخلات المزود")
             )[:255],
         )
+        if response_attachments:
+            ServiceRequestAttachment.objects.bulk_create(
+                [
+                    ServiceRequestAttachment(
+                        request=sr,
+                        status_log=log,
+                        source=ServiceRequestAttachment.SOURCE_CLIENT_RESPONSE,
+                        file=attachment,
+                        file_type=_infer_attachment_type(attachment),
+                    )
+                    for attachment in response_attachments
+                ]
+            )
         transaction.on_commit(
             lambda: _notify_provider_inputs_decision(
                 sr=sr,

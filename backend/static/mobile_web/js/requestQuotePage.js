@@ -93,6 +93,8 @@ const RequestQuotePage = (() => {
       validationDetailsTooLong: 'تفاصيل الطلب يجب ألا تتجاوز 500 حرف',
       validationTitleTooLong: 'عنوان الطلب يجب ألا يتجاوز 50 حرفًا',
       enableLocationGeoScope: 'فعّل خدمة الموقع لتحديد مدينة الطلب تلقائيًا قبل إرسال طلب عروض الأسعار',
+      locationRequiredTitle: 'حدد موقعك لمتابعة الطلب',
+      locationRequiredBody: 'هذه الخدمة تتطلب تحديد موقعك على الخريطة لإرسال طلب عرض السعر لمزودي مدينتك.',
       detectLocationFailed: 'تعذر تحديد مدينة واضحة من موقعك الحالي. حاول مرة أخرى.',
       submitUploadingWithAttachments: 'يتم الآن رفع {count} مع بيانات الطلب. لا تغلق الصفحة حتى يكتمل الإرسال.',
       submitUploadingNoAttachments: 'يتم الآن إرسال بيانات الطلب. لا تغلق الصفحة حتى يكتمل الإرسال.',
@@ -190,6 +192,8 @@ const RequestQuotePage = (() => {
       validationDetailsTooLong: 'Request details must not exceed 500 characters',
       validationTitleTooLong: 'Request title must not exceed 50 characters',
       enableLocationGeoScope: 'Enable location access so the request city can be detected automatically before submitting the quote request.',
+      locationRequiredTitle: 'Set your location to continue',
+      locationRequiredBody: 'This service requires you to pin your location on the map so the quote request can reach providers in your city.',
       detectLocationFailed: 'Could not determine a clear city from your current location. Please try again.',
       submitUploadingWithAttachments: 'Uploading {count} with the request data. Do not close the page until sending is complete.',
       submitUploadingNoAttachments: 'Sending your request data now. Do not close the page until it finishes.',
@@ -566,6 +570,177 @@ const RequestQuotePage = (() => {
     return '';
   }
 
+  function _scopeAliasKey(value) {
+    return _normalizeScopeText(value)
+      .toLowerCase()
+      .replace(/[إأآ]/g, 'ا')
+      .replace(/ة/g, 'ه')
+      .replace(/[^\u0600-\u06FFa-z0-9\s-]/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function _locationAlias(value) {
+    const key = _scopeAliasKey(value);
+    const aliases = {
+      'الرياض': 'الرياض',
+      'مكه': 'مكة',
+      'جده': 'جدة',
+      'الدمام': 'الدمام',
+      'الخبر': 'الخبر',
+      'المدينه المنوره': 'المدينة المنورة',
+      'القصيم': 'القصيم',
+      'تبوك': 'تبوك',
+      'حائل': 'حائل',
+      'حايل': 'حائل',
+      'عسير': 'عسير',
+      'ابها': 'أبها',
+      'جازان': 'جازان',
+      'جيزان': 'جازان',
+      'نجران': 'نجران',
+      'الباحه': 'الباحة',
+      'الجوف': 'الجوف',
+      'الحدود الشماليه': 'الحدود الشمالية',
+      'عرعر': 'عرعر',
+      'riyadh': 'الرياض',
+      'riyadh city': 'الرياض',
+      'riyadh region': 'الرياض',
+      'riyadh province': 'الرياض',
+      'riyadh governorate': 'الرياض',
+      'makkah': 'مكة',
+      'mecca': 'مكة',
+      'makkah region': 'مكة',
+      'mecca region': 'مكة',
+      'jeddah': 'جدة',
+      'jedda': 'جدة',
+      'dammam': 'الدمام',
+      'eastern province': 'الدمام',
+      'ash sharqiyah': 'الدمام',
+      'khobar': 'الخبر',
+      'al khobar': 'الخبر',
+      'madinah': 'المدينة المنورة',
+      'medina': 'المدينة المنورة',
+      'al madinah': 'المدينة المنورة',
+      'qassim': 'القصيم',
+      'al qassim': 'القصيم',
+      'tabuk': 'تبوك',
+      'hail': 'حائل',
+      'ha il': 'حائل',
+      'asir': 'عسير',
+      'aseer': 'عسير',
+      'abha': 'أبها',
+      'jazan': 'جازان',
+      'jizan': 'جازان',
+      'najran': 'نجران',
+      'al baha': 'الباحة',
+      'baha': 'الباحة',
+      'jawf': 'الجوف',
+      'al jawf': 'الجوف',
+      'northern borders': 'الحدود الشمالية',
+      'arar': 'عرعر',
+    };
+    return aliases[key] || '';
+  }
+
+  function _cleanReverseGeocodeCity(value) {
+    let text = _normalizeScopeText(value);
+    if (!text) return '';
+
+    const directAlias = _locationAlias(text);
+    if (directAlias) return directAlias;
+
+    text = text
+      .replace(/^(إمارة|امارة)\s+منطقة\s+/u, '')
+      .replace(/^(منطقة|محافظة|مدينة|بلدية|أمانة|امانة)\s+/u, '')
+      .replace(/\s+(Province|Region|Governorate|Municipality|City)$/i, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return _locationAlias(text) || text;
+  }
+
+  function _extractCityFromReverseGeocode(data, address) {
+    const candidates = [
+      address.city,
+      address.town,
+      address.village,
+      address.municipality,
+      address.city_district,
+      address.county,
+      address.state_district,
+      address.state,
+      address.region,
+      address.province,
+    ];
+
+    for (const candidate of candidates) {
+      const city = _cleanReverseGeocodeCity(candidate);
+      if (city) return city;
+    }
+
+    const displayParts = _normalizeScopeText(data?.display_name || '')
+      .split(',')
+      .map((part) => _cleanReverseGeocodeCity(part))
+      .filter(Boolean);
+    for (const part of displayParts) {
+      const city = _locationAlias(part);
+      if (city) return city;
+    }
+    return '';
+  }
+
+  function _distanceKm(lat1, lng1, lat2, lng2) {
+    const toRad = (value) => (Number(value) * Math.PI) / 180;
+    const earth = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * earth * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function _nearestKnownSaudiCity(location) {
+    const lat = Number(location?.lat);
+    const lng = Number(location?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+
+    const knownCities = [
+      ['الرياض', 24.7136, 46.6753],
+      ['الخرج', 24.1554, 47.3346],
+      ['جدة', 21.4858, 39.1925],
+      ['مكة المكرمة', 21.3891, 39.8579],
+      ['الطائف', 21.4373, 40.5127],
+      ['المدينة المنورة', 24.5247, 39.5692],
+      ['ينبع', 24.0895, 38.0618],
+      ['الدمام', 26.4207, 50.0888],
+      ['الخبر', 26.2172, 50.1971],
+      ['الظهران', 26.2361, 50.0393],
+      ['الجبيل', 27.0046, 49.6460],
+      ['حفر الباطن', 28.4342, 45.9636],
+      ['الأحساء', 25.3832, 49.5860],
+      ['بريدة', 26.3592, 43.9818],
+      ['عنيزة', 26.0880, 43.9930],
+      ['حائل', 27.5114, 41.7208],
+      ['تبوك', 28.3838, 36.5662],
+      ['أبها', 18.2164, 42.5053],
+      ['خميس مشيط', 18.3000, 42.7333],
+      ['جازان', 16.8892, 42.5511],
+      ['نجران', 17.5656, 44.2289],
+      ['الباحة', 20.0129, 41.4677],
+      ['عرعر', 30.9753, 41.0381],
+      ['سكاكا', 29.9697, 40.2064],
+      ['القريات', 31.3318, 37.3428],
+    ];
+
+    let nearest = null;
+    knownCities.forEach(([city, cityLat, cityLng]) => {
+      const distance = _distanceKm(lat, lng, cityLat, cityLng);
+      if (!nearest || distance < nearest.distance) nearest = { city, distance };
+    });
+
+    return nearest && nearest.distance <= 260 ? nearest.city : '';
+  }
+
   async function _resolveClientLocation(forcePrompt) {
     if (_clientLocation) return _clientLocation;
     if (!navigator.geolocation) return null;
@@ -615,23 +790,23 @@ const RequestQuotePage = (() => {
         addressdetails: '1',
         'accept-language': _currentLang() === 'ar' ? 'ar' : 'en',
       });
-      const response = await fetch('https://nominatim.openstreetmap.org/reverse?' + params.toString(), {
-        headers: {
-          Accept: 'application/json',
-        },
-      });
-      if (!response.ok) throw new Error('reverse_geocode_failed');
+      let city = '';
+      let address = {};
+      try {
+        const response = await fetch('https://nominatim.openstreetmap.org/reverse?' + params.toString(), {
+          headers: {
+            Accept: 'application/json',
+          },
+        });
+        if (!response.ok) throw new Error('reverse_geocode_failed');
 
-      const data = await response.json();
-      const address = data && typeof data === 'object' ? (data.address || {}) : {};
-      const city = _firstNonEmpty([
-        address.city,
-        address.town,
-        address.municipality,
-        address.county,
-        address.village,
-        address.state_district,
-      ]);
+        const data = await response.json();
+        address = data && typeof data === 'object' ? (data.address || {}) : {};
+        city = _extractCityFromReverseGeocode(data, address);
+      } catch (_) {
+        city = '';
+      }
+      city = city || _nearestKnownSaudiCity(location);
       if (!city) throw new Error('city_not_found');
 
       _resolvedScopeLocation = {
@@ -1289,6 +1464,15 @@ const RequestQuotePage = (() => {
         success?.classList.add('visible');
         setTimeout(() => { window.location.href = '/orders/'; }, 2000);
       } else {
+        if (res.data && res.data.error_code === 'profile_completion_required') {
+          _showToast(_extractApiError(res.data) || _copy('submitErrorFallback'), 'warning', { duration: 5200 });
+          return;
+        }
+        if (res.data && res.data.error_code === 'profile_location_required') {
+          _showToast(_copy('locationRequiredBody'), 'warning', { duration: 5500 });
+          try { await _resolveCompetitiveRequestScope(true); } catch (_) {}
+          return;
+        }
         const apiFieldMessage = _applyApiFieldErrors(res.data);
         _showToast(apiFieldMessage || _extractApiError(res.data) || _copy('submitErrorFallback'), 'error', { duration: 5200 });
       }

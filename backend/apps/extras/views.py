@@ -16,6 +16,7 @@ from apps.billing.models import Invoice, InvoiceLineItem, PaymentAttempt
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
 from apps.unified_requests.services import upsert_unified_request
 
+from .loyalty import loyalty_wallet_for_user
 from .option_catalog import build_summary_sections
 from .permissions import IsOwnerOrBackofficeExtras
 from .serializers import (
@@ -263,6 +264,13 @@ class MyExtrasListView(generics.ListAPIView):
 
     def get_queryset(self):
         return ExtraPurchase.objects.filter(user=self.request.user).order_by("-id")
+
+
+class MyLoyaltyWalletView(APIView):
+    permission_classes = [IsOwnerOrBackofficeExtras]
+
+    def get(self, request):
+        return Response(loyalty_wallet_for_user(request.user, request=request), status=status.HTTP_200_OK)
 
 
 class BuyExtraView(APIView):

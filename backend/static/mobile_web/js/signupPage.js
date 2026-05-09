@@ -9,6 +9,8 @@ const SignupPage = (() => {
   let _next = '/';
   let _debounce = null;
   let _usernameAvailable = null;
+  let _usernameCheckPending = false;
+  let _usernameCheckToken = 0;
   let _skipLoading = false;
   let _locationMap = null;
   let _locationMarker = null;
@@ -43,10 +45,9 @@ const SignupPage = (() => {
     }
     _loadContent();
     _bindEvents();
-    _initLocationMap();
     _setLocationLoadingState(false);
     _setCityInputManualMode(true);
-    _updateCountryHint('اختياري. حدّد نقطة على الخريطة إذا أردت تعبئة الدولة تلقائيًا.', null);
+    _updateCountryHint('اختيارية. حدّد نقطة على الخريطة لتعبئتها تلقائيًا أو اكتبها يدويًا.', null);
     _updateCityHint('', '');
     _setLocationCalloutText('', '', { state: 'idle' });
     _initMotion();
@@ -75,6 +76,13 @@ const SignupPage = (() => {
 
     const skipBtn = document.getElementById('btn-skip-signup');
     if (skipBtn) skipBtn.addEventListener('click', _skipCompletion);
+
+    const locationToggleBtn = document.getElementById('btn-toggle-location-map');
+    if (locationToggleBtn) {
+      locationToggleBtn.addEventListener('click', () => {
+        _setLocationDetailsOpen(locationToggleBtn.getAttribute('aria-expanded') !== 'true');
+      });
+    }
 
     const usernameInput = document.getElementById('username');
     if (usernameInput) {
@@ -111,6 +119,28 @@ const SignupPage = (() => {
     }
 
     _bindFieldMotion();
+  }
+
+  function _setLocationDetailsOpen(open) {
+    const shouldOpen = !!open;
+    const panel = document.getElementById('signup-map-panel');
+    const fields = document.getElementById('signup-location-fields');
+    const toggle = document.getElementById('btn-toggle-location-map');
+
+    if (panel) panel.classList.toggle('is-collapsed', !shouldOpen);
+    if (fields) fields.classList.toggle('is-collapsed', !shouldOpen);
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+      toggle.textContent = shouldOpen ? 'إخفاء الموقع' : 'إضافة الموقع من الخريطة';
+    }
+
+    if (!shouldOpen) return;
+    if (!_locationMap) {
+      _initLocationMap();
+    }
+    window.setTimeout(() => {
+      if (_locationMap) _locationMap.invalidateSize();
+    }, 120);
   }
 
   function _initMotion() {
@@ -572,6 +602,8 @@ const SignupPage = (() => {
     const username = _value('username').trim();
     const hint = document.getElementById('username-hint');
     _usernameAvailable = null;
+    _usernameCheckPending = false;
+    const checkToken = ++_usernameCheckToken;
 
     if (hint) {
       hint.textContent = '';
@@ -590,10 +622,13 @@ const SignupPage = (() => {
     }
 
     if (_debounce) clearTimeout(_debounce);
+    _usernameCheckPending = true;
     _debounce = setTimeout(async () => {
       _setUsernameHint('جاري التحقق...', null);
       const encoded = encodeURIComponent(username);
       const res = await ApiClient.get('/api/accounts/username-availability/?username=' + encoded);
+      if (checkToken !== _usernameCheckToken || _value('username').trim() !== username) return;
+      _usernameCheckPending = false;
       if (!res.ok || !res.data) {
         _setUsernameHint('تعذر التحقق من اسم المستخدم', false);
         return;
@@ -644,6 +679,7 @@ const SignupPage = (() => {
     if (passwordIssue) valid = _setError('password', passwordIssue) && false;
     if (password !== passwordConfirm) valid = _setError('password-confirm', 'كلمة المرور وتأكيدها غير متطابقين') && false;
     if (!acceptTerms) valid = _setError('accept-terms', 'يجب الموافقة على الشروط والأحكام') && false;
+    if (_usernameCheckPending) valid = _setError('username', 'انتظر لحظة حتى يكتمل التحقق من اسم المستخدم') && false;
     if (_usernameAvailable === false) valid = _setError('username', 'اسم المستخدم محجوز') && false;
 
     return valid;
@@ -683,7 +719,10 @@ const SignupPage = (() => {
 
     if (res.ok) {
       if (typeof Auth.saveTokens === 'function') {
-        Auth.saveTokens({ role_state: (res.data && res.data.role_state) || 'client' });
+        Auth.saveTokens({
+          role_state: (res.data && res.data.role_state) || 'client',
+          profile_status: (res.data && res.data.profile_status) || 'complete',
+        });
       }
       if (typeof Auth.clearProfileCache === 'function') {
         Auth.clearProfileCache();
@@ -745,7 +784,10 @@ const SignupPage = (() => {
     }
 
     if (typeof Auth.saveTokens === 'function') {
-      Auth.saveTokens({ role_state: (res.data && res.data.role_state) || 'client' });
+      Auth.saveTokens({
+        role_state: (res.data && res.data.role_state) || 'client',
+        profile_status: (res.data && res.data.profile_status) || 'phone_only',
+      });
     }
     if (typeof Auth.clearProfileCache === 'function') {
       Auth.clearProfileCache();

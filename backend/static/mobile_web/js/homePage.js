@@ -21,13 +21,13 @@ const HomePage = (() => {
       promoTitle: 'مساحة ترويجية نشطة',
       promoNote: 'إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون تشويش.',
       categoriesKicker: 'التصنيفات',
-      categoriesTitle: 'التصنيفات',
+      categoriesTitle: ' ',
       viewAll: 'عرض الكل',
       viewAllCategoriesAria: 'عرض كل التصنيفات',
       previous: 'السابق',
       next: 'التالي',
       providersKicker: 'مقدمو الخدمة',
-      providersTitle: 'أبرز المختصين',
+      providersTitle: '   ',
       portfolioKicker: 'خدمات ومشاريع',
       portfolioTitle: '',
       bannersTitle: 'عروض ترويجية',
@@ -1720,11 +1720,13 @@ const HomePage = (() => {
     return {
       id: _readBannerInt(raw.id || raw.item_id || providerId),
       provider_id: providerId,
-      display_name: _readBannerString(raw.display_name || raw.target_provider_display_name) || 'مختص',
-      profile_image: _readBannerString(raw.profile_image || raw.target_provider_profile_image),
+      display_name: _readBannerString(
+        raw.target_provider_display_name || raw.provider_display_name || raw.display_name
+      ) || 'مختص',
+      profile_image: _readBannerString(raw.target_provider_profile_image || raw.profile_image),
       city: UI.formatCityDisplay(
-        _readBannerString(raw.city || raw.target_provider_city_display || raw.target_provider_city),
-        _readBannerString(raw.region || raw.target_provider_region)
+        _readBannerString(raw.target_provider_city_display || raw.target_provider_city || raw.city),
+        _readBannerString(raw.target_provider_region || raw.region)
       ),
       redirect_url: _readBannerString(raw.redirect_url),
       is_verified_blue: !!(raw.is_verified_blue || raw.target_provider_is_verified_blue),
@@ -2183,16 +2185,30 @@ const HomePage = (() => {
     if (!fileUrl) return null;
     return {
       id: _readBannerInt(contentItem ? contentItem.id : (rawPromo.target_portfolio_item_id || rawPromo.id)),
-      provider_id: _readBannerInt(contentItem ? contentItem.provider_id : (rawPromo.provider_id || rawPromo.target_provider_id)),
+      provider_id: _readBannerInt(
+        contentItem
+          ? (contentItem.provider_id || contentItem.target_provider_id || rawPromo.target_provider_id)
+          : (rawPromo.target_provider_id || rawPromo.provider_id)
+      ),
       provider_display_name: _readBannerString(
-        contentItem ? contentItem.provider_display_name : (rawPromo.provider_display_name || rawPromo.target_provider_display_name)
+        contentItem
+          ? (contentItem.target_provider_display_name || contentItem.provider_display_name || rawPromo.target_provider_display_name)
+          : (rawPromo.target_provider_display_name || rawPromo.provider_display_name)
       ) || 'مقدم خدمة',
       provider_profile_image: _readBannerString(
-        contentItem ? contentItem.provider_profile_image : (rawPromo.provider_profile_image || rawPromo.target_provider_profile_image)
+        contentItem
+          ? (contentItem.target_provider_profile_image || contentItem.provider_profile_image || rawPromo.target_provider_profile_image)
+          : (rawPromo.target_provider_profile_image || rawPromo.provider_profile_image)
       ),
-      is_verified_blue: !!(contentItem ? contentItem.is_verified_blue : rawPromo.is_verified_blue),
-      is_verified_green: !!(contentItem ? contentItem.is_verified_green : rawPromo.is_verified_green),
-      provider_is_online: !!(contentItem ? contentItem.provider_is_online : rawPromo.provider_is_online),
+      is_verified_blue: !!(contentItem
+        ? (contentItem.target_provider_is_verified_blue || contentItem.is_verified_blue || rawPromo.target_provider_is_verified_blue)
+        : (rawPromo.target_provider_is_verified_blue || rawPromo.is_verified_blue)),
+      is_verified_green: !!(contentItem
+        ? (contentItem.target_provider_is_verified_green || contentItem.is_verified_green || rawPromo.target_provider_is_verified_green)
+        : (rawPromo.target_provider_is_verified_green || rawPromo.is_verified_green)),
+      provider_is_online: !!(contentItem
+        ? (contentItem.target_provider_is_online || contentItem.provider_is_online || rawPromo.target_provider_is_online)
+        : (rawPromo.target_provider_is_online || rawPromo.provider_is_online)),
       file_type: _readBannerString(
         contentItem ? contentItem.file_type : (rawPromo.file_type || rawPromo.target_portfolio_item_file_type)
       ) || 'image',
@@ -2320,15 +2336,8 @@ const HomePage = (() => {
       .filter(Boolean);
     _portfolioShowcaseData = items;
     if (!items.length) {
-      $portfolioShowcaseSection.style.display = '';
-      _notifySectionShown($portfolioShowcaseSection);
+      $portfolioShowcaseSection.style.display = 'none';
       $portfolioShowcaseList.textContent = '';
-      $portfolioShowcaseList.appendChild(
-        UI.el('div', {
-          className: 'providers-empty',
-          textContent: 'لا توجد خدمات أو مشاريع حالياً',
-        })
-      );
       return;
     }
     $portfolioShowcaseSection.style.display = '';

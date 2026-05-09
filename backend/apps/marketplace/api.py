@@ -12,7 +12,7 @@ from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -30,7 +30,7 @@ from apps.subscriptions.capabilities import (
 )
 from apps.subscriptions.services import user_has_active_subscription
 
-from apps.accounts.permissions import IsAtLeastClient
+from apps.accounts.permissions import IsAtLeastClient, IsCompleteClient
 
 from .models import (
 	PRE_EXECUTION_REQUEST_STATUSES,
@@ -43,6 +43,7 @@ from .models import (
 	ServiceRequest,
 	ServiceRequestDispatch,
 	ServiceRequestAttachment,
+	ServiceRequestPaymentPlan,
 	service_request_pending_input_stage,
 )
 from .serializers import (
@@ -50,6 +51,9 @@ from .serializers import (
 	OfferCreateSerializer,
 	OfferListSerializer,
 	ProviderInputsDecisionSerializer,
+	PaymentInstallmentCreateSerializer,
+	PaymentInstallmentDecisionSerializer,
+	PaymentReceiptUploadSerializer,
 	ProviderProgressUpdateSerializer,
 	ProviderRejectSerializer,
 	RequestCompleteSerializer,
@@ -72,6 +76,13 @@ from .services.dispatch import (
 	provider_can_access_urgent_request,
 	provider_dispatch_tier,
 	provider_matches_request_scope,
+)
+from .payments import (
+	create_installment,
+	decide_installment_receipt,
+	revise_payment_plan_total,
+	serialize_payment_plan,
+	upload_installment_receipt,
 )
 
 from .views import (
@@ -163,11 +174,21 @@ def _notify_client_provider_inputs_pending(*, sr: ServiceRequest, actor, stage: 
 	title = "تحديث جديد بانتظار اعتمادك" if is_progress_update else "تفاصيل التنفيذ بانتظار اعتمادك"
 	body = (
 		f"أرسل {_provider_display_name(sr)} {'تحديثًا جديدًا على الطلب' if is_progress_update else 'تفاصيل التنفيذ للطلب'}: {sr.title}. "
-		f"راجع التفاصيل لاعتمادها أو رفضها."
+		f"راجع التفاصيل لاعتمادها أو رفضها. وأي تعديل مالي لن يسري حتى تعتمد هذا التحديث."
 	)
 	clean_note = (note or "").strip()
 	if clean_note:
 		body += f" ملاحظة المزود: {clean_note}"
+	required_bits = []
+	question = (getattr(sr, "client_response_question", "") or "").strip()
+	if getattr(sr, "client_response_note_required", False):
+		required_bits.append("ملاحظة أو إجابة")
+	if getattr(sr, "client_response_attachment_required", False):
+		required_bits.append("مرفقات")
+	if question:
+		required_bits.append(f"الإجابة على سؤال محدد: {question}")
+	if required_bits:
+		body += " المطلوب منك مع قرارك: " + "، ".join(required_bits) + "."
 
 	create_notification(
 		user=client_user,
@@ -203,7 +224,7 @@ class IsProviderPermission(permissions.BasePermission):
 
 class ServiceRequestCreateView(generics.CreateAPIView):
 	serializer_class = ServiceRequestCreateSerializer
-	permission_classes = [IsAtLeastClient]
+	permission_classes = [IsCompleteClient]
 
 	def perform_create(self, serializer):
 		request_type = serializer.validated_data["request_type"]
@@ -326,6 +347,7 @@ class MyClientRequestDetailView(generics.RetrieveUpdateAPIView):
 			"attachments",
 			"status_logs",
 			"status_logs__actor",
+			"payment_plan__installments",
 		).filter(client=self.request.user)
 
 	def update(self, request, *args, **kwargs):
@@ -618,7 +640,7 @@ class ProviderRequestDetailView(generics.RetrieveAPIView):
 			"review",
 			"subcategory",
 			"subcategory__category",
-		).prefetch_related("attachments", "status_logs", "status_logs__actor")
+		).prefetch_related("attachments", "status_logs", "status_logs__actor", "payment_plan__installments")
 
 	def get_object(self):
 		obj = super().get_object()
@@ -825,21 +847,69 @@ class ProviderProgressUpdateView(APIView):
 
 			old = sr.status
 			update_fields = []
+			has_financial_change = False
+
+			def sync_request_finance_from_payment_plan(plan: ServiceRequestPaymentPlan) -> list[str]:
+				synced_fields: list[str] = []
+				for field, value in (
+					("estimated_service_amount", plan.total_amount),
+					("received_amount", plan.confirmed_amount),
+					("remaining_amount", plan.remaining_amount),
+				):
+					if getattr(sr, field) != value:
+						setattr(sr, field, value)
+						synced_fields.append(field)
+				return synced_fields
+
+			try:
+				payment_plan = sr.payment_plan
+			except ServiceRequestPaymentPlan.DoesNotExist:
+				payment_plan = None
+
 			if "expected_delivery_at" in s.validated_data:
 				sr.expected_delivery_at = s.validated_data["expected_delivery_at"]
 				update_fields.append("expected_delivery_at")
 
+			for field_name, serializer_key in (
+				("client_response_note_required", "client_note_required"),
+				("client_response_attachment_required", "client_attachment_required"),
+				("client_response_question", "client_question"),
+			):
+				value = s.validated_data.get(serializer_key)
+				if getattr(sr, field_name) != value:
+					setattr(sr, field_name, value)
+					update_fields.append(field_name)
+
 			if "estimated_service_amount" in s.validated_data:
-				sr.estimated_service_amount = s.validated_data["estimated_service_amount"]
-				sr.received_amount = s.validated_data["received_amount"]
-				sr.remaining_amount = s.validated_data["remaining_amount"]
-				update_fields.extend(
-					[
-						"estimated_service_amount",
-						"received_amount",
-						"remaining_amount",
-					]
-				)
+				requested_total = s.validated_data["estimated_service_amount"]
+				if payment_plan is None:
+					has_financial_change = sr.estimated_service_amount != requested_total
+					sr.estimated_service_amount = s.validated_data["estimated_service_amount"]
+					sr.received_amount = s.validated_data["received_amount"]
+					sr.remaining_amount = s.validated_data["remaining_amount"]
+					update_fields.extend(
+						[
+							"estimated_service_amount",
+							"received_amount",
+							"remaining_amount",
+						]
+					)
+				else:
+					has_financial_change = payment_plan.total_amount != requested_total
+					try:
+						payment_plan = revise_payment_plan_total(
+							payment_plan,
+							total_amount=requested_total,
+						)
+					except ValidationError as e:
+						return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+					update_fields.extend(sync_request_finance_from_payment_plan(payment_plan))
+			elif payment_plan is not None:
+				update_fields.extend(sync_request_finance_from_payment_plan(payment_plan))
+
+			if sr.provider_inputs_has_financial_change != has_financial_change:
+				sr.provider_inputs_has_financial_change = has_financial_change
+				update_fields.append("provider_inputs_has_financial_change")
 
 			if sr.status in (*PRE_EXECUTION_REQUEST_STATUSES, RequestStatus.IN_PROGRESS):
 				sr.provider_inputs_approved = None
@@ -914,12 +984,21 @@ class ProviderProgressUpdateView(APIView):
 
 class ProviderInputsDecisionView(APIView):
 	permission_classes = [IsAtLeastClient]
+	parser_classes = [JSONParser, MultiPartParser, FormParser]
 
 	def post(self, request, request_id):
+		service_request = get_object_or_404(ServiceRequest, id=request_id)
 		s = ProviderInputsDecisionSerializer(data=request.data)
 		s.is_valid(raise_exception=True)
 		approved = s.validated_data["approved"]
 		note = (s.validated_data.get("note") or "").strip()
+		attachments = s.validated_data.get("attachments") or []
+
+		if approved:
+			if service_request.client_response_note_required and not note:
+				return Response({"note": ["إجابة العميل أو ملاحظته مطلوبة قبل الاعتماد"]}, status=status.HTTP_400_BAD_REQUEST)
+			if service_request.client_response_attachment_required and not attachments:
+				return Response({"attachments": ["إرفاق ملف واحد على الأقل مطلوب قبل الاعتماد"]}, status=status.HTTP_400_BAD_REQUEST)
 
 		action = "approve_inputs" if approved else "reject_inputs"
 		try:
@@ -928,12 +1007,101 @@ class ProviderInputsDecisionView(APIView):
 				request_id=request_id,
 				action=action,
 				note=note,
+				response_attachments=attachments,
 			)
 		except Exception as e:
 			return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 		return Response(
 			{"ok": True, "request_id": request_id, "approved": approved, "message": result.message},
+			status=status.HTTP_200_OK,
+		)
+
+
+class ProviderPaymentInstallmentCreateView(APIView):
+	permission_classes = [permissions.IsAuthenticated, IsProviderPermission]
+
+	def post(self, request, request_id: int):
+		s = PaymentInstallmentCreateSerializer(data=request.data)
+		s.is_valid(raise_exception=True)
+		try:
+			installment = create_installment(
+				provider_user=request.user,
+				request_id=request_id,
+				title=(s.validated_data.get("title") or "").strip(),
+				amount=s.validated_data["amount"],
+				note=(s.validated_data.get("note") or "").strip(),
+			)
+		except (ValidationError, PermissionDenied) as e:
+			return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+		plan = installment.plan
+		plan.refresh_from_db()
+		return Response(
+			{
+				"ok": True,
+				"installment_id": installment.id,
+				"payment_plan": serialize_payment_plan(plan, request=request),
+			},
+			status=status.HTTP_201_CREATED,
+		)
+
+
+class ClientPaymentReceiptUploadView(APIView):
+	permission_classes = [IsAtLeastClient]
+	parser_classes = [MultiPartParser, FormParser]
+
+	def post(self, request, request_id: int, installment_id: int):
+		s = PaymentReceiptUploadSerializer(data=request.data)
+		s.is_valid(raise_exception=True)
+		try:
+			installment = upload_installment_receipt(
+				client_user=request.user,
+				installment_id=installment_id,
+				request_id=request_id,
+				receipt=s.validated_data["receipt"],
+				note=(s.validated_data.get("note") or "").strip(),
+			)
+		except (ValidationError, PermissionDenied) as e:
+			return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+		plan = installment.plan
+		plan.refresh_from_db()
+		return Response(
+			{
+				"ok": True,
+				"installment_id": installment.id,
+				"payment_plan": serialize_payment_plan(plan, request=request),
+			},
+			status=status.HTTP_200_OK,
+		)
+
+
+class ProviderPaymentInstallmentDecisionView(APIView):
+	permission_classes = [permissions.IsAuthenticated, IsProviderPermission]
+
+	def post(self, request, request_id: int, installment_id: int):
+		s = PaymentInstallmentDecisionSerializer(data=request.data)
+		s.is_valid(raise_exception=True)
+		try:
+			installment = decide_installment_receipt(
+				provider_user=request.user,
+				installment_id=installment_id,
+				request_id=request_id,
+				approved=s.validated_data["approved"],
+				note=(s.validated_data.get("note") or "").strip(),
+			)
+		except (ValidationError, PermissionDenied) as e:
+			return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+		plan = installment.plan
+		plan.refresh_from_db()
+		return Response(
+			{
+				"ok": True,
+				"installment_id": installment.id,
+				"payment_plan": serialize_payment_plan(plan, request=request),
+			},
 			status=status.HTTP_200_OK,
 		)
 

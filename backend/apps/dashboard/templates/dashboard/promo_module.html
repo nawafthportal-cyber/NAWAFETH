@@ -148,12 +148,49 @@
               {% endif %}
             </div>
 
+            {% if is_search_module and selected_request_search_activation %}
+              <div class="search-activation-panel{% if selected_request_search_activation.can_activate %} is-ready{% else %} is-blocked{% endif %}">
+                <div class="search-activation-panel__copy">
+                  <span class="search-activation-panel__eyebrow">جاهزية تفعيل حملة البحث</span>
+                  <strong>
+                    {% if selected_request_search_activation.can_activate %}
+                      الحملة جاهزة للتفعيل عند تحويل حالة التنفيذ إلى مكتمل.
+                    {% else %}
+                      توجد خطوات ناقصة قبل تفعيل الحملة.
+                    {% endif %}
+                  </strong>
+                  <p>
+                    التفعيل الفعلي في الباكند يتم بعد اعتماد الدفع ثم اكتمال التنفيذ. عند اكتمال التنفيذ تنتقل الحملة إلى حالة مفعل وتظهر في API قوائم البحث ضمن الفترة المحددة.
+                  </p>
+                </div>
+                <div class="search-activation-checks">
+                  <span class="search-activation-check{% if selected_request_search_activation.payment_ready %} is-ok{% endif %}">الدفع معتمد</span>
+                  <span class="search-activation-check{% if selected_request_search_activation.has_search_item %} is-ok{% endif %}">بند البحث محفوظ</span>
+                  <span class="search-activation-check{% if selected_request_search_activation.has_provider %} is-ok{% endif %}">المختص محدد</span>
+                  <span class="search-activation-check{% if selected_request_search_activation.has_scope %} is-ok{% endif %}">قائمة الظهور</span>
+                  <span class="search-activation-check{% if selected_request_search_activation.has_position %} is-ok{% endif %}">ترتيب الظهور</span>
+                  <span class="search-activation-check{% if selected_request_search_activation.has_period %} is-ok{% endif %}">الفترة صالحة</span>
+                </div>
+                {% if selected_request_search_activation.blocking_errors %}
+                  <ul class="search-activation-issues">
+                    {% for error in selected_request_search_activation.blocking_errors %}
+                      <li>{{ error }}</li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+              </div>
+            {% endif %}
+
             {% if can_write and not selected_request_is_immutable %}
-              <form method="post" class="toolbar" data-single-submit-form="true" style="margin-top: 12px;">
+              <form method="post" class="toolbar promo-ops-toolbar" data-single-submit-form="true" style="margin-top: 12px;">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="update_ops_status">
                 <input type="hidden" name="promo_request_id" value="{{ selected_request.id }}">
                 <input type="hidden" name="promo_ops_form_token" value="{{ promo_ops_form_token }}">
+                <div class="promo-ops-toolbar__copy">
+                  <strong>تشغيل الحملة</strong>
+                  <small>غيّر الحالة بالتسلسل: جديد، تحت المعالجة، ثم مكتمل. حالة مكتمل هي خطوة التفعيل النهائية بعد الدفع.</small>
+                </div>
                 <select class="input-control" name="ops_status">
                   {% for ops_value, ops_label in ops_status_choices %}
                     <option value="{{ ops_value }}" {% if ops_value == selected_request.ops_status %}selected{% endif %}>{{ ops_label }}</option>
@@ -870,7 +907,13 @@
                 </section>
               {% elif is_search_module %}
                 <section class="module-block module-block-search">
-                  <h3>الظهور في قوائم البحث</h3>
+                  <div class="search-module-head">
+                    <div>
+                      <h3>الظهور في قوائم البحث</h3>
+                      <p>إعداد مختصر لحملة بحث واحدة: اختر الطلب، ثبّت المختص، حدد القوائم والترتيب، ثم احفظ البند قبل تفعيل التنفيذ.</p>
+                    </div>
+                    <span class="pill brand">لا يظهر للمستخدمين إلا بعد الدفع + اكتمال التنفيذ</span>
+                  </div>
                   <div class="search-module-requester-row">
                     <div class="search-module-requester-copy">
                       <span>اسم مزود الخدمة</span>
@@ -889,7 +932,7 @@
                       <div class="form-grid search-module-form-grid">
                         <div class="field full">
                           <small>
-                            يتم التحكم هنا في أماكن ظهور مزود الخدمة داخل نتائج البحث المرتبطة بتصنيفه، مع تحديد أولوية ظهوره خلال فترة الحملة.
+                            الصفحة تحفظ بند الظهور فقط. لتفعيل الحملة فعليًا استخدم بطاقة تشغيل الحملة بالأعلى بعد اعتماد الدفع.
                           </small>
                         </div>
                         <div class="field">
@@ -902,13 +945,15 @@
                           <input class="input-control" type="text" value="{{ module_meta.label }}" readonly>
                         </div>
                         <div class="field">
-                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف مزود الخدمة</label>
+                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص الذي سيظهر</label>
                           {{ module_form.target_provider_id }}
+                          <small>يتم تعبئته غالبًا من الطلب، ويمكن تعديله عند الحاجة.</small>
                           {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field">
                           <label for="{{ module_form.target_category.id_for_label }}">تصنيف مزود الخدمة</label>
                           {{ module_form.target_category }}
+                          <small>يستخدم لتقييد الظهور للنتائج ذات العلاقة.</small>
                           {% for err in module_form.target_category.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field full">
@@ -916,11 +961,13 @@
                           <div class="search-module-scopes" id="searchModuleScopes">
                             {{ module_form.search_scopes }}
                           </div>
+                          <small>يمكن اختيار أكثر من قائمة، وسيحفظ النظام بندًا منفصلًا لكل قائمة.</small>
                           {% for err in module_form.search_scopes.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field">
                           <label for="{{ module_form.search_position.id_for_label }}">ترتيب الظهور</label>
                           {{ module_form.search_position }}
+                          <small>كلما كان الترتيب أعلى زادت أولوية الظهور في API البحث.</small>
                           {% for err in module_form.search_position.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field">
@@ -932,6 +979,12 @@
                           <label for="{{ module_form.end_at.id_for_label }}">نهاية الحملة</label>
                           {{ module_form.end_at }}
                           {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          <div class="search-module-save-note">
+                            <strong>بعد الحفظ</strong>
+                            <span>إذا كان الدفع معتمدًا، ارجع إلى بطاقة تشغيل الحملة واختر الحالة التالية حتى تصل إلى مكتمل ليتم التفعيل.</span>
+                          </div>
                         </div>
                       </div>
 

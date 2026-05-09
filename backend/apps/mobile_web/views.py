@@ -8,6 +8,7 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.generic import TemplateView
 from django.views.generic.base import RedirectView
 
+from apps.extras.loyalty import loyalty_wallet_for_user
 from apps.extras.option_catalog import (
     EXTRAS_CLIENT_OPTIONS,
     EXTRAS_FINANCE_OPTIONS,
@@ -258,6 +259,17 @@ class MobileWebInteractiveView(TemplateView):
 
 class MobileWebProfileView(TemplateView):
     template_name = "mobile_web/profile.html"
+
+
+class MobileWebLoyaltyWalletView(TemplateView):
+    template_name = "mobile_web/loyalty_wallet.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = getattr(self.request, "user", None)
+        context["loyalty_wallet"] = loyalty_wallet_for_user(user, request=self.request)
+        context["loyalty_login_url"] = f"{reverse('login')}?{urlencode({'next': self.request.get_full_path()})}"
+        return context
 
 
 class MobileWebProviderDetailView(TemplateView):

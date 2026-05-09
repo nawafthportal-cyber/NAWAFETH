@@ -1,13 +1,17 @@
 from datetime import timedelta
 
 from django.test import TestCase
+from django.urls import reverse
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from apps.accounts.models import User, UserRole
 from apps.billing.models import Invoice, InvoiceStatus
+from apps.extras_portal.models import LoyaltyMembership, LoyaltyProgram
 from apps.providers.models import ProviderProfile
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestStatus, UnifiedRequestType
 
+from .option_catalog import EXTRAS_CLIENT_OPTIONS
 from .serializers import ExtrasBundleRequestInputSerializer
 from .services import activate_bundle_portal_subscription_for_request, extras_bundle_invoice_for_request
 
@@ -40,6 +44,84 @@ class ExtrasBundleRequestValidationTests(TestCase):
         )
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_unimplemented_finance_options_are_rejected(self):
+        serializer = ExtrasBundleRequestInputSerializer(
+            data={
+                "finance": {
+                    "enabled": True,
+                    "options": ["electronic_payments"],
+                    "subscription_years": 1,
+                }
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("options", serializer.errors["finance"])
+
+    def test_loyalty_points_is_merged_into_loyalty_program(self):
+        self.assertIn(("loyalty_program", "برنامج الولاء ونقاط العملاء"), EXTRAS_CLIENT_OPTIONS)
+        self.assertNotIn("loyalty_points", [key for key, _label in EXTRAS_CLIENT_OPTIONS])
+
+        serializer = ExtrasBundleRequestInputSerializer(
+            data={
+                "clients": {
+                    "enabled": True,
+                    "options": ["loyalty_points"],
+                    "subscription_years": 1,
+                }
+            }
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["clients"]["options"], ["loyalty_program"])
+
+
+class ExtrasLoyaltyWalletTests(TestCase):
+    def test_client_wallet_api_returns_membership_levels_and_rewards(self):
+        client_user = User.objects.create_user(
+            phone="0503100101",
+            username="wallet.client",
+            role_state=UserRole.CLIENT,
+        )
+        provider_user = User.objects.create_user(
+            phone="0503100102",
+            username="wallet.provider",
+            role_state=UserRole.PROVIDER,
+        )
+        provider = ProviderProfile.objects.create(
+            user=provider_user,
+            provider_type="individual",
+            display_name="مزود الولاء",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        program = LoyaltyProgram.objects.create(
+            provider=provider,
+            name="برنامج عملاء النخبة",
+            points_per_completed_request=10,
+            is_active=True,
+        )
+        LoyaltyMembership.objects.create(
+            program=program,
+            user=client_user,
+            points_balance=140,
+            total_earned=160,
+            total_redeemed=20,
+        )
+
+        api = APIClient()
+        api.force_authenticate(user=client_user)
+        response = api.get(reverse("extras:loyalty_my"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["summary"]["total_balance"], 140)
+        self.assertEqual(response.data["summary"]["best_level"]["label"], "فضي")
+        self.assertEqual(response.data["memberships"][0]["provider_name"], "مزود الولاء")
+        self.assertTrue(response.data["memberships"][0]["rewards"][0]["available"])
+        self.assertEqual(response.data["memberships"][0]["level"]["next_label"], "ذهبي")
 
 
 class ExtrasBundleInvoiceResolutionTests(TestCase):

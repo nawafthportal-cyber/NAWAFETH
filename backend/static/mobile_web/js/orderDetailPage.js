@@ -9,9 +9,11 @@ const OrderDetailPage = (() => {
     ar: {
       pageTitle: 'نوافــذ — تفاصيل الطلب',
       invalidRequest: 'تعذر تحديد رقم الطلب',
+      gateKicker: 'متابعة الطلب',
       gateTitle: 'سجّل دخولك',
       gateDescription: 'يجب تسجيل الدخول لعرض تفاصيل الطلب',
       gateButton: 'تسجيل الدخول',
+      gateNote: 'سنعيدك إلى نفس الطلب بعد تسجيل الدخول.',
       kicker: 'متابعة الطلب',
       title: 'تفاصيل الطلب',
       subtitle: 'ملخص الحالة أولًا، ثم التفاصيل والإجراءات.',
@@ -39,6 +41,24 @@ const OrderDetailPage = (() => {
       completionTitle: 'بيانات الإكمال',
       providerDecisionTitle: 'قرارك على تحديث حالة التنفيذ',
       providerDecisionSubtitle: 'راجع تفاصيل التنفيذ والملاحظات والمرفقات قبل الاعتماد.',
+      providerDecisionSubtitleWithClientResponse: 'راجع التحديث ثم أرسل الرد الذي طلبه مقدم الخدمة قبل الاعتماد أو الرفض.',
+      providerFinanceAlert: 'يوجد تعديل مالي من مقدم الخدمة على هذا الطلب. لن تتغير القيمة الإجمالية حتى توافق على هذا التحديث أو ترفضه.',
+      providerResponseRequestTitle: 'المطلوب منك مع هذا التحديث',
+      providerResponseQuestionPrefix: 'سؤال مقدم الخدمة: {question}',
+      providerResponseRequiresNote: 'إرسال ملاحظة أو إجابة كتابية.',
+      providerResponseRequiresAttachment: 'إرفاق ملف واحد على الأقل.',
+      providerResponseNoteLabel: 'ملاحظتك أو إجابتك لمقدم الخدمة',
+      providerResponseNotePlaceholder: 'اكتب الرد الذي طلبه مقدم الخدمة',
+      providerResponseFilesLabel: 'مرفقات ردك',
+      providerResponseFilesHint: 'يمكنك رفع صور أو ملفات أو مستندات سيراجعها مقدم الخدمة مع قرارك.',
+      providerResponseFilesSelected: 'الملفات المختارة',
+      providerResponseNoteRequiredFeedback: 'مطلوب إدخال ملاحظتك أو إجابتك قبل الاعتماد',
+      providerResponseAttachmentRequiredFeedback: 'مطلوب إرفاق ملف واحد على الأقل قبل الاعتماد',
+      providerRejectHint: 'إذا لم تكن موافقًا على هذا التحديث، افتح مسار الرفض وأرسل السبب للمختص.',
+      rejectDetailsReveal: 'رفض التفاصيل',
+      rejectDetailsConfirm: 'تأكيد رفض التفاصيل',
+      rejectDetailsCancel: 'تراجع',
+      removeFile: 'إزالة',
       providerNotesTitle: 'ملاحظات مقدم الخدمة',
       providerNotesAttachments: 'مرفقات تتبع التنفيذ',
       providerNotesEmpty: 'لم يرسل مقدم الخدمة أي ملاحظات بعد.',
@@ -156,8 +176,8 @@ const OrderDetailPage = (() => {
       reopenSuccess: 'تمت إعادة فتح الطلب',
       rejectReasonRequired: 'سبب الرفض مطلوب',
       actionFailed: 'فشل تنفيذ العملية',
-      approveSuccess: 'تم اعتماد التفاصيل وبدأ التنفيذ',
-      rejectSuccess: 'تم رفض التفاصيل وإشعار مقدم الخدمة',
+      approveSuccess: 'تم اعتماد التفاصيل أو التعديل المالي وأُعيد الطلب إلى التنفيذ',
+      rejectSuccess: 'تم رفض التفاصيل أو التعديل المالي وإشعار مقدم الخدمة',
       reviewFillAll: 'يرجى تعبئة جميع عناصر التقييم',
       reviewTooLong: 'تعليق التقييم يجب ألا يتجاوز 300 حرف',
       reviewSendInProgress: 'جاري إرسال التقييم...',
@@ -176,11 +196,33 @@ const OrderDetailPage = (() => {
       deliveredAt: 'موعد التسليم الفعلي',
       actualAmount: 'قيمة الخدمة الفعلية',
       attachmentsLabel: 'المرفقات',
+      paymentTitle: 'الدفع لمزود الخدمة',
+      paymentKicker: 'دفعات الطلب',
+      paymentStatusActive: 'نشط',
+      paymentStatusPaid: 'مكتمل',
+      paymentSummaryTotal: 'الإجمالي',
+      paymentSummaryConfirmed: 'المدفوع المؤكد',
+      paymentSummaryRemaining: 'المتبقي',
+      paymentEmpty: 'لم يطلب مزود الخدمة دفعة بعد.',
+      paymentReceiptLink: 'عرض الإيصال',
+      paymentNotePlaceholder: 'ملاحظة مختصرة للمزود',
+      paymentChooseReceipt: 'اختيار إيصال التحويل',
+      paymentSubmitReceipt: 'إرسال الإيصال للمراجعة',
+      paymentReceiptPickFirst: 'اختر إيصال التحويل أولاً',
+      paymentReceiptSubmitFailed: 'تعذر إرسال الإيصال',
+      paymentReceiptSubmitSuccess: 'تم إرسال الإيصال. بانتظار تأكيد مزود الخدمة.',
+      paymentIbanCopied: 'تم نسخ رقم الآيبان',
+      paymentStatusPendingPayment: 'بانتظار الدفع',
+      paymentStatusReceiptUploaded: 'بانتظار التأكيد',
+      paymentStatusConfirmed: 'مؤكدة',
+      paymentStatusRejected: 'مرفوضة',
+      paymentStatusCancelled: 'ملغاة',
+      paymentStatusUnknown: 'غير محددة',
       originalLanguageNotice: 'بعض التفاصيل والأسماء والملاحظات تُعرض بلغتها الأصلية.',
       heroUpdatedFallback: 'جاري التحديث',
       nextStepNewUnassigned: 'بانتظار وصول عروض أو ترشيح مزود خدمة مناسب.',
       nextStepNewAssigned: 'الطلب بانتظار تحديث التفاصيل من مقدم الخدمة أو بدء التنسيق معه.',
-      nextStepAwaitingClient: 'راجع تفاصيل التنفيذ واعتمدها أو ارفضها قبل بدء التنفيذ.',
+      nextStepAwaitingClient: 'راجع تفاصيل التنفيذ وأي تعديل مالي من مقدم الخدمة، ثم اعتمدها أو ارفضها قبل متابعة التنفيذ.',
       nextStepInProgress: 'تابع التنفيذ والمرفقات حتى التسليم النهائي.',
       nextStepCompletedPendingReview: 'الطلب مكتمل. بقي عليك إرسال التقييم لإغلاق التجربة.',
       nextStepCompletedDone: 'الطلب مكتمل والتقييم محفوظ في سجلك.',
@@ -191,9 +233,11 @@ const OrderDetailPage = (() => {
     en: {
       pageTitle: 'Nawafeth — Order Details',
       invalidRequest: 'Unable to determine the order number',
+      gateKicker: 'Track order',
       gateTitle: 'Sign in',
       gateDescription: 'You need to sign in to view the order details',
       gateButton: 'Sign in',
+      gateNote: 'You will return to this order after signing in.',
       kicker: 'Track order',
       title: 'Order details',
       subtitle: 'Status summary first, then details and actions.',
@@ -221,6 +265,24 @@ const OrderDetailPage = (() => {
       completionTitle: 'Completion details',
       providerDecisionTitle: 'Your decision on execution status update',
       providerDecisionSubtitle: 'Review execution details, notes and attachments before approving.',
+      providerDecisionSubtitleWithClientResponse: 'Review the update, then send the response requested by the provider before approving or rejecting.',
+      providerFinanceAlert: 'There is a financial revision from the provider on this order. The total amount will not change until you approve or reject this update.',
+      providerResponseRequestTitle: 'What is required from you with this update',
+      providerResponseQuestionPrefix: 'Provider question: {question}',
+      providerResponseRequiresNote: 'Send a written note or answer.',
+      providerResponseRequiresAttachment: 'Attach at least one file.',
+      providerResponseNoteLabel: 'Your note or answer to the provider',
+      providerResponseNotePlaceholder: 'Write the response requested by the provider',
+      providerResponseFilesLabel: 'Your response attachments',
+      providerResponseFilesHint: 'You can upload images, files, or documents that the provider will review with your decision.',
+      providerResponseFilesSelected: 'Selected files',
+      providerResponseNoteRequiredFeedback: 'Your note or answer is required before approval',
+      providerResponseAttachmentRequiredFeedback: 'Attach at least one file before approval',
+      providerRejectHint: 'If you do not agree with this update, open the rejection flow and send the reason to the provider.',
+      rejectDetailsReveal: 'Reject details',
+      rejectDetailsConfirm: 'Confirm rejection',
+      rejectDetailsCancel: 'Back',
+      removeFile: 'Remove',
       providerNotesTitle: 'Provider notes',
       providerNotesAttachments: 'Workflow attachments',
       providerNotesEmpty: 'The provider has not sent any notes yet.',
@@ -338,8 +400,8 @@ const OrderDetailPage = (() => {
       reopenSuccess: 'The order was reopened',
       rejectReasonRequired: 'A rejection reason is required',
       actionFailed: 'Failed to complete the action',
-      approveSuccess: 'The details were approved and execution started',
-      rejectSuccess: 'The details were rejected and the provider was notified',
+      approveSuccess: 'The details or financial revision were approved and the order returned to execution',
+      rejectSuccess: 'The details or financial revision were rejected and the provider was notified',
       reviewFillAll: 'Please complete all review fields',
       reviewTooLong: 'The review comment must not exceed 300 characters',
       reviewSendInProgress: 'Submitting review...',
@@ -358,11 +420,33 @@ const OrderDetailPage = (() => {
       deliveredAt: 'Actual delivery date',
       actualAmount: 'Actual service amount',
       attachmentsLabel: 'Attachments',
+      paymentTitle: 'Pay the service provider',
+      paymentKicker: 'Order payments',
+      paymentStatusActive: 'Active',
+      paymentStatusPaid: 'Settled',
+      paymentSummaryTotal: 'Total',
+      paymentSummaryConfirmed: 'Confirmed paid',
+      paymentSummaryRemaining: 'Remaining',
+      paymentEmpty: 'The service provider has not requested a payment yet.',
+      paymentReceiptLink: 'View receipt',
+      paymentNotePlaceholder: 'A short note for the provider',
+      paymentChooseReceipt: 'Choose transfer receipt',
+      paymentSubmitReceipt: 'Send receipt for review',
+      paymentReceiptPickFirst: 'Choose the transfer receipt first',
+      paymentReceiptSubmitFailed: 'Unable to send the receipt',
+      paymentReceiptSubmitSuccess: 'The receipt was sent and is awaiting provider confirmation.',
+      paymentIbanCopied: 'IBAN copied',
+      paymentStatusPendingPayment: 'Awaiting payment',
+      paymentStatusReceiptUploaded: 'Awaiting confirmation',
+      paymentStatusConfirmed: 'Confirmed',
+      paymentStatusRejected: 'Rejected',
+      paymentStatusCancelled: 'Cancelled',
+      paymentStatusUnknown: 'Unspecified',
       originalLanguageNotice: 'Some order details, names, and notes are shown in their original language.',
       heroUpdatedFallback: 'Refreshing',
       nextStepNewUnassigned: 'Waiting for offers or a suitable provider assignment.',
       nextStepNewAssigned: 'Waiting for provider updates or direct coordination.',
-      nextStepAwaitingClient: 'Review the execution details and approve or reject them before work starts.',
+      nextStepAwaitingClient: 'Review the execution details and any financial revision from the provider, then approve or reject them before execution continues.',
       nextStepInProgress: 'Follow execution updates and attachments until final delivery.',
       nextStepCompletedPendingReview: 'The order is completed. Your review is the final step.',
       nextStepCompletedDone: 'The order is completed and your review is already recorded.',
@@ -382,6 +466,8 @@ const OrderDetailPage = (() => {
   let _editTitle = false;
   let _editDesc = false;
   let _actionLoading = false;
+  let _clientResponseFiles = [];
+  let _providerRejectMode = false;
 
   function init() {
     _applyStaticCopy();
@@ -414,7 +500,7 @@ const OrderDetailPage = (() => {
     const loginLink = document.getElementById('order-login-link');
     if (gate) gate.classList.remove('hidden');
     if (content) content.classList.add('hidden');
-    if (loginLink) loginLink.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+    if (loginLink) loginLink.href = '/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search);
   }
 
   function _hideGate() {
@@ -477,10 +563,14 @@ const OrderDetailPage = (() => {
 
     const approveBtn = document.getElementById('btn-approve-provider-inputs');
     const rejectBtn = document.getElementById('btn-reject-provider-inputs');
+    const confirmRejectBtn = document.getElementById('btn-confirm-provider-reject');
+    const cancelRejectBtn = document.getElementById('btn-cancel-provider-reject');
     const reviewForm = document.getElementById('order-review-form');
 
     if (approveBtn) approveBtn.addEventListener('click', () => _decideProviderInputs(true));
-    if (rejectBtn) rejectBtn.addEventListener('click', () => _decideProviderInputs(false));
+    if (rejectBtn) rejectBtn.addEventListener('click', () => _setProviderRejectMode(true));
+    if (confirmRejectBtn) confirmRejectBtn.addEventListener('click', () => _decideProviderInputs(false));
+    if (cancelRejectBtn) cancelRejectBtn.addEventListener('click', () => _setProviderRejectMode(false));
     if (reviewForm) {
       reviewForm.addEventListener('submit', (event) => {
         event.preventDefault();
@@ -698,6 +788,7 @@ const OrderDetailPage = (() => {
 
     _renderAttachments(_order);
     _renderStatusLogs(_order.status_logs || []);
+    _renderPaymentSection();
     _renderFinanceSection();
     _renderProviderInputsDecisionSection();
     _renderCancelledSection();
@@ -753,26 +844,237 @@ const OrderDetailPage = (() => {
     section.classList.remove('hidden');
   }
 
+  function _renderPaymentSection() {
+    const section = document.getElementById('order-payment-section');
+    const summary = document.getElementById('order-payment-summary');
+    const bankBox = document.getElementById('order-payment-bank');
+    const list = document.getElementById('order-payment-installments');
+    const status = document.getElementById('order-payment-status');
+    if (!section || !summary || !bankBox || !list || !_order) return;
+
+    const plan = _order.payment_plan;
+    if (!plan) {
+      section.classList.add('hidden');
+      return;
+    }
+
+    const remaining = _moneyNumber(plan.remaining_amount);
+    const installments = Array.isArray(plan.installments) ? plan.installments : [];
+    const hasVisibleInstallment = installments.some((item) => {
+      const installmentStatus = String((item && item.status) || '').toLowerCase();
+      return ['pending_payment', 'receipt_uploaded', 'rejected', 'confirmed'].includes(installmentStatus);
+    });
+    const hasBankDetails = !!((plan.bank && (plan.bank.iban || plan.bank.account_number || plan.bank.qr_image_url)));
+    if (!hasVisibleInstallment && !hasBankDetails) {
+      section.classList.add('hidden');
+      return;
+    }
+
+    if (status) status.textContent = remaining <= 0 ? _copy('paymentStatusPaid') : _copy('paymentStatusActive');
+    summary.innerHTML = '';
+    [
+      [_copy('paymentSummaryTotal'), plan.total_amount],
+      [_copy('paymentSummaryConfirmed'), plan.confirmed_amount],
+      [_copy('paymentSummaryRemaining'), plan.remaining_amount],
+    ].forEach(([label, value]) => {
+      const tile = UI.el('div', { className: 'order-payment-summary-tile' });
+      tile.appendChild(UI.el('span', { textContent: label }));
+      tile.appendChild(UI.el('strong', { textContent: _formatMoney(value) }));
+      summary.appendChild(tile);
+    });
+
+    const bank = plan.bank || {};
+    bankBox.innerHTML = '';
+    if (bank.iban || bank.account_number || bank.qr_image_url) {
+      const info = UI.el('div', { className: 'order-payment-bank-info' });
+      info.appendChild(UI.el('strong', { textContent: bank.account_name || _order.provider_name || 'مزود الخدمة' }));
+      if (bank.bank_name) info.appendChild(UI.el('span', { textContent: bank.bank_name }));
+      if (bank.iban) info.appendChild(UI.el('button', { type: 'button', className: 'order-payment-copy', textContent: bank.iban }));
+      if (bank.account_number) info.appendChild(UI.el('span', { textContent: bank.account_number }));
+      bankBox.appendChild(info);
+      if (bank.qr_image_url) {
+        bankBox.appendChild(UI.el('img', { className: 'order-payment-qr', src: bank.qr_image_url, alt: 'QR' }));
+      }
+      const copyBtn = info.querySelector('.order-payment-copy');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+          navigator.clipboard?.writeText(bank.iban || '');
+          _setPaymentFeedback(_copy('paymentIbanCopied'), false);
+        });
+      }
+      bankBox.classList.remove('hidden');
+    } else {
+      bankBox.classList.add('hidden');
+    }
+
+    list.innerHTML = '';
+    if (!installments.length) {
+      list.appendChild(UI.el('div', { className: 'order-payment-empty', textContent: _copy('paymentEmpty') }));
+    } else {
+      installments.forEach((item) => list.appendChild(_paymentInstallmentCard(item, plan)));
+    }
+
+    section.classList.remove('hidden');
+  }
+
+  function _paymentInstallmentCard(item, plan) {
+    const status = String((item && item.status) || '');
+    const canUpload = ['pending_payment', 'rejected'].includes(status) && _moneyNumber(plan.remaining_amount) > 0;
+    const card = UI.el('article', { className: 'order-payment-installment is-' + status });
+    const head = UI.el('div', { className: 'order-payment-installment-head' });
+    const titleWrap = UI.el('div');
+    titleWrap.appendChild(UI.el('span', { textContent: 'دفعة ' + _formatDigits(item.sequence || '') }));
+    titleWrap.appendChild(UI.el('strong', { textContent: item.title || 'دفعة' }));
+    head.appendChild(titleWrap);
+    head.appendChild(UI.el('span', { className: 'order-payment-pill', textContent: _paymentStatusLabel(status) }));
+    card.appendChild(head);
+    card.appendChild(UI.el('div', { className: 'order-payment-amount', textContent: _formatMoney(item.amount) }));
+    if (item.provider_note) card.appendChild(UI.el('p', { className: 'order-payment-note', textContent: item.provider_note }));
+    if (item.rejection_reason) card.appendChild(UI.el('p', { className: 'order-payment-note is-danger', textContent: item.rejection_reason }));
+    if (item.receipt_url) {
+      const link = UI.el('a', { className: 'order-payment-receipt-link', href: item.receipt_url, textContent: _copy('paymentReceiptLink') });
+      link.target = '_blank';
+      link.rel = 'noopener';
+      card.appendChild(link);
+    }
+    if (canUpload) {
+      const form = UI.el('form', { className: 'order-payment-upload-form' });
+      form.innerHTML = `
+        <textarea class="form-textarea order-inline-textarea" rows="2" maxlength="255" placeholder="${_escapeHtml(_copy('paymentNotePlaceholder'))}"></textarea>
+        <label class="order-payment-file">
+          <input type="file" accept="image/*,.pdf" required>
+          <span>${_escapeHtml(_copy('paymentChooseReceipt'))}</span>
+        </label>
+        <button type="submit" class="btn-primary order-payment-submit">${_escapeHtml(_copy('paymentSubmitReceipt'))}</button>`;
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        _submitPaymentReceipt(item.id, form);
+      });
+      card.appendChild(form);
+    }
+    return card;
+  }
+
+  async function _submitPaymentReceipt(installmentId, form) {
+    if (_actionLoading || !installmentId || !form) return;
+    const input = form.querySelector('input[type="file"]');
+    const note = String(form.querySelector('textarea')?.value || '').trim();
+    const file = input && input.files && input.files[0];
+    if (!file) {
+      _setPaymentFeedback(_copy('paymentReceiptPickFirst'), true);
+      return;
+    }
+    const fd = new FormData();
+    fd.append('receipt', file, file.name);
+    if (note) fd.append('note', note);
+    _setActionLoading(true);
+    const res = await ApiClient.request('/api/marketplace/requests/' + _requestId + '/payments/installments/' + installmentId + '/receipt/', {
+      method: 'POST',
+      body: fd,
+      formData: true,
+    });
+    _setActionLoading(false);
+    if (!res.ok) {
+      _setPaymentFeedback(_extractError(res, _copy('paymentReceiptSubmitFailed')), true);
+      return;
+    }
+    if (res.data && res.data.payment_plan) _order.payment_plan = res.data.payment_plan;
+    _renderPaymentSection();
+    _setPaymentFeedback(_copy('paymentReceiptSubmitSuccess'), false);
+  }
+
+  function _paymentStatusLabel(status) {
+    switch (status) {
+      case 'pending_payment': return _copy('paymentStatusPendingPayment');
+      case 'receipt_uploaded': return _copy('paymentStatusReceiptUploaded');
+      case 'confirmed': return _copy('paymentStatusConfirmed');
+      case 'rejected': return _copy('paymentStatusRejected');
+      case 'cancelled': return _copy('paymentStatusCancelled');
+      default: return _copy('paymentStatusUnknown');
+    }
+  }
+
+  function _moneyNumber(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function _formatDigits(value) {
+    try {
+      return new Intl.NumberFormat(_numberLocale(), { maximumFractionDigits: 0 }).format(Number(value) || 0);
+    } catch (err) {
+      return String(value || '');
+    }
+  }
+
+  function _setPaymentFeedback(message, isError) {
+    const el = document.getElementById('order-payment-feedback');
+    if (!el) return;
+    if (!message) {
+      el.textContent = '';
+      el.classList.add('hidden');
+      el.classList.remove('is-error', 'is-success');
+      return;
+    }
+    el.textContent = message;
+    el.classList.remove('hidden');
+    el.classList.toggle('is-error', !!isError);
+    el.classList.toggle('is-success', !isError);
+  }
+
   function _renderProviderInputsDecisionSection() {
     const section = document.getElementById('order-provider-decision-section');
     const grid = document.getElementById('order-provider-inputs-grid');
     const note = document.getElementById('order-provider-decision-note');
+    const financeAlert = document.getElementById('order-provider-finance-alert');
     const feedback = document.getElementById('order-provider-decision-feedback');
     const form = document.getElementById('order-provider-decision-form');
     const rejectReason = document.getElementById('order-provider-reject-note');
+    const responseSummary = document.getElementById('order-provider-response-request');
+    const responseLabel = document.getElementById('order-provider-response-label');
+    const responseNote = document.getElementById('order-provider-response-note');
+    const responseFilesWrap = document.getElementById('order-provider-response-files-wrap');
+    const responseFilesLabel = document.getElementById('order-provider-response-files-label');
+    const responseFilesHint = document.getElementById('order-provider-response-files-hint');
+    const rejectHint = document.getElementById('order-provider-reject-hint');
     if (!section || !grid || !note || !form || !_order) return;
+
+    const latestLog = _pickLatestProviderProgressLog();
+    const hasClientResponseRequirements = (
+      !!_order.client_response_note_required ||
+      !!_order.client_response_attachment_required ||
+      !!String(_order.client_response_question || '').trim()
+    );
+    const subtitle = document.getElementById('order-provider-decision-subtitle');
 
     const hasInputs = (
       _workflowStage(_order) === 'awaiting_client' &&
-      (_order.expected_delivery_at || _order.estimated_service_amount !== null || _order.received_amount !== null || _order.remaining_amount !== null)
+      (
+        _order.expected_delivery_at ||
+        _order.estimated_service_amount !== null ||
+        _order.received_amount !== null ||
+        _order.remaining_amount !== null ||
+        hasClientResponseRequirements ||
+        !!(latestLog && (String(latestLog.note || '').trim() || (Array.isArray(latestLog.attachments) && latestLog.attachments.length)))
+      )
     );
 
     if (!hasInputs) {
+      _providerRejectMode = false;
       section.classList.add('hidden');
       return;
     }
 
     grid.innerHTML = '';
+    const showFinanceAlert = (
+      _workflowStage(_order) === 'awaiting_client' &&
+      String(_order.provider_inputs_stage || '').toLowerCase() === 'progress_update' &&
+      Boolean(_order.provider_inputs_has_financial_change)
+    );
+    if (financeAlert) {
+      financeAlert.textContent = showFinanceAlert ? _copy('providerFinanceAlert') : '';
+      financeAlert.classList.toggle('hidden', !showFinanceAlert);
+    }
     if (feedback) {
       feedback.textContent = '';
       feedback.classList.add('hidden');
@@ -800,6 +1102,42 @@ const OrderDetailPage = (() => {
     }
 
     _renderProviderNotesCard();
+    if (subtitle) subtitle.textContent = _copy(hasClientResponseRequirements ? 'providerDecisionSubtitleWithClientResponse' : 'providerDecisionSubtitle');
+
+    const responseQuestion = String(_order.client_response_question || '').trim();
+    const requiresResponseNote = !!(_order.client_response_note_required || responseQuestion);
+    const requiresResponseAttachment = !!_order.client_response_attachment_required;
+    if (responseSummary) {
+      if (hasClientResponseRequirements) {
+        const lines = [];
+        if (responseQuestion) lines.push(_copy('providerResponseQuestionPrefix').replace('{question}', responseQuestion));
+        if (requiresResponseNote) lines.push(_copy('providerResponseRequiresNote'));
+        if (requiresResponseAttachment) lines.push(_copy('providerResponseRequiresAttachment'));
+        responseSummary.textContent = _copy('providerResponseRequestTitle') + ': ' + lines.join(' ');
+        _setAutoDirection(responseSummary, responseQuestion || responseSummary.textContent);
+        responseSummary.classList.remove('hidden');
+      } else {
+        responseSummary.textContent = '';
+        responseSummary.removeAttribute('dir');
+        responseSummary.classList.add('hidden');
+      }
+    }
+    if (responseLabel) {
+      responseLabel.textContent = _copy('providerResponseNoteLabel');
+      responseLabel.classList.toggle('hidden', !requiresResponseNote);
+    }
+    if (responseNote) {
+      responseNote.placeholder = _copy('providerResponseNotePlaceholder');
+      responseNote.classList.toggle('hidden', !requiresResponseNote);
+      if (!requiresResponseNote) responseNote.value = '';
+    }
+    if (responseFilesLabel) responseFilesLabel.textContent = _copy('providerResponseFilesLabel');
+    if (responseFilesHint) responseFilesHint.textContent = _copy('providerResponseFilesHint');
+    if (rejectHint) rejectHint.textContent = _copy('providerRejectHint');
+    if (responseFilesWrap) responseFilesWrap.classList.toggle('hidden', !requiresResponseAttachment);
+    if (!hasClientResponseRequirements) _clientResponseFiles = [];
+    _bindProviderResponseFilesInput();
+    _setProviderRejectMode(_providerRejectMode);
 
     form.classList.toggle('hidden', _actionLoading);
     if (rejectReason && _order.provider_inputs_approved !== false) rejectReason.value = '';
@@ -809,15 +1147,68 @@ const OrderDetailPage = (() => {
 
   function _pickLatestProviderProgressLog() {
     const logs = Array.isArray(_order && _order.status_logs) ? _order.status_logs : [];
-    // status_logs come ordered by -id. Pick the most recent log whose to_status is awaiting_client
-    // (which is what the provider progress-update endpoint creates), or with attachments.
+    // status_logs come ordered by -id. Pick the most recent provider update that moved the request
+    // to awaiting_client so client response attachments do not replace the provider note card.
     for (let i = 0; i < logs.length; i += 1) {
       const log = logs[i] || {};
       const to = String(log.to_status || '').toLowerCase();
-      const hasAttachments = Array.isArray(log.attachments) && log.attachments.length > 0;
-      if (to === 'awaiting_client' || hasAttachments) return log;
+      if (to === 'awaiting_client') return log;
     }
     return null;
+  }
+
+  function _bindProviderResponseFilesInput() {
+    const input = document.getElementById('order-provider-response-files');
+    if (input) input.onchange = _onProviderResponseFilesPick;
+    _renderProviderResponseFilesList();
+  }
+
+  function _onProviderResponseFilesPick(event) {
+    const files = Array.from((event && event.target && event.target.files) || []);
+    files.forEach((file) => {
+      const exists = _clientResponseFiles.some((current) => current.name === file.name && current.size === file.size && current.lastModified === file.lastModified);
+      if (!exists) _clientResponseFiles.push(file);
+    });
+    if (event && event.target) event.target.value = '';
+    _renderProviderResponseFilesList();
+  }
+
+  function _renderProviderResponseFilesList() {
+    const root = document.getElementById('order-provider-response-files-list');
+    if (!root) return;
+    root.innerHTML = '';
+    if (!_clientResponseFiles.length) {
+      root.classList.add('hidden');
+      return;
+    }
+
+    const head = UI.el('div', { className: 'order-provider-notes-attachments-head', textContent: _copy('providerResponseFilesSelected') });
+    const list = UI.el('div', { className: 'order-attachments-chip-list' });
+    _clientResponseFiles.forEach((file, index) => {
+      const button = UI.el('button', { className: 'order-attachment-chip', textContent: '📎 ' + file.name + ' · ' + _copy('removeFile') });
+      button.type = 'button';
+      button.disabled = _actionLoading;
+      button.addEventListener('click', () => {
+        if (_actionLoading) return;
+        _clientResponseFiles.splice(index, 1);
+        _renderProviderResponseFilesList();
+      });
+      list.appendChild(button);
+    });
+    root.appendChild(head);
+    root.appendChild(list);
+    root.classList.remove('hidden');
+  }
+
+  function _setProviderRejectMode(enabled) {
+    _providerRejectMode = !!enabled;
+    const fields = document.getElementById('order-provider-reject-fields');
+    const trigger = document.getElementById('btn-reject-provider-inputs');
+    const rejectNote = document.getElementById('order-provider-reject-note');
+    if (fields) fields.classList.toggle('hidden', !_providerRejectMode);
+    if (trigger) trigger.classList.toggle('hidden', _providerRejectMode);
+    if (!_providerRejectMode && rejectNote) rejectNote.value = '';
+    if (_providerRejectMode && rejectNote && !rejectNote.value) rejectNote.focus();
   }
 
   function _renderProviderNotesCard() {
@@ -1855,16 +2246,44 @@ const OrderDetailPage = (() => {
 
   async function _decideProviderInputs(approved) {
     if (!_order || _actionLoading) return;
-    const note = String(document.getElementById('order-provider-reject-note')?.value || '').trim();
-    if (!approved && !note) {
+    const rejectNote = String(document.getElementById('order-provider-reject-note')?.value || '').trim();
+    const responseNote = String(document.getElementById('order-provider-response-note')?.value || '').trim();
+    const requiresResponseNote = !!(_order.client_response_note_required || String(_order.client_response_question || '').trim());
+    const requiresResponseAttachment = !!_order.client_response_attachment_required;
+    if (!approved && !rejectNote) {
       _setProviderDecisionFeedback(_copy('rejectReasonRequired'), true);
       return;
+    }
+
+    if (approved && requiresResponseNote && !responseNote) {
+      _setProviderDecisionFeedback(_copy('providerResponseNoteRequiredFeedback'), true);
+      document.getElementById('order-provider-response-note')?.focus();
+      return;
+    }
+    if (approved && requiresResponseAttachment && !_clientResponseFiles.length) {
+      _setProviderDecisionFeedback(_copy('providerResponseAttachmentRequiredFeedback'), true);
+      document.getElementById('order-provider-response-files')?.focus();
+      return;
+    }
+
+    const hasResponseFiles = _clientResponseFiles.length > 0;
+    let body;
+    if (hasResponseFiles) {
+      body = new FormData();
+      body.append('approved', approved ? 'true' : 'false');
+      const noteValue = approved ? responseNote : rejectNote;
+      if (noteValue) body.append('note', noteValue);
+      _clientResponseFiles.forEach((file) => body.append('attachments', file, file.name));
+    } else if (approved) {
+      body = responseNote ? { approved: true, note: responseNote } : { approved: true };
+    } else {
+      body = { approved: false, note: rejectNote };
     }
 
     _setActionLoading(true);
     const res = await ApiClient.request('/api/marketplace/requests/' + _requestId + '/provider-inputs/decision/', {
       method: 'POST',
-      body: approved ? { approved: true } : { approved: false, note },
+      body,
     });
     _setActionLoading(false);
 
@@ -1873,6 +2292,8 @@ const OrderDetailPage = (() => {
       return;
     }
 
+    _clientResponseFiles = [];
+    _providerRejectMode = false;
     await _loadDetail();
     _setPageFeedback(
       String(res.data?.message || '') || (approved ? _copy('approveSuccess') : _copy('rejectSuccess')),
@@ -1956,7 +2377,7 @@ const OrderDetailPage = (() => {
   }
 
   function _setActionButtonsDisabled(disabled) {
-    document.querySelectorAll('#order-actions-body button, #order-actions-body textarea, #order-provider-decision-form button, #order-review-form button').forEach((node) => {
+    document.querySelectorAll('#order-actions-body button, #order-actions-body textarea, #order-actions-body input, #order-actions-body select, #order-provider-decision-form button, #order-provider-decision-form textarea, #order-provider-decision-form input, #order-provider-decision-form select, #order-review-form button, #order-review-form textarea, #order-review-form input, #order-review-form select, #order-payment-section button, #order-payment-section textarea, #order-payment-section input, #order-payment-section select').forEach((node) => {
       node.disabled = disabled;
     });
   }
@@ -2045,15 +2466,19 @@ const OrderDetailPage = (() => {
     const backLink = document.getElementById('order-back-link');
     const loginLink = document.getElementById('order-login-link');
     const rejectNote = document.getElementById('order-provider-reject-note');
+    const responseNote = document.getElementById('order-provider-response-note');
     const reviewComment = document.getElementById('review-comment');
     const refreshOrderBtn = document.getElementById('btn-refresh-order');
     if (backLink) backLink.setAttribute('aria-label', _copy('backAria'));
     if (loginLink) loginLink.textContent = _copy('gateButton');
     if (refreshOrderBtn) refreshOrderBtn.textContent = _copy('refreshOrder');
     if (rejectNote) rejectNote.placeholder = _copy('providerRejectPlaceholder');
+    if (responseNote) responseNote.placeholder = _copy('providerResponseNotePlaceholder');
     if (reviewComment) reviewComment.placeholder = _copy('reviewCommentPlaceholder');
+    _setText('order-gate-kicker', _copy('gateKicker'));
     _setText('order-gate-title', _copy('gateTitle'));
     _setText('order-gate-desc', _copy('gateDescription'));
+    _setText('order-gate-note', _copy('gateNote'));
     _setText('order-page-kicker', _copy('kicker'));
     _setText('order-page-title', _copy('title'));
     _setText('order-page-subtitle', _copy('subtitle'));
@@ -2075,9 +2500,17 @@ const OrderDetailPage = (() => {
     _setText('order-client-attachments-desc', _copy('clientAttachmentsDesc'));
     _setText('order-provider-attachments-title', _copy('providerAttachmentsTitle'));
     _setText('order-provider-attachments-desc', _copy('providerAttachmentsDesc'));
+    _setText('order-payment-kicker', _copy('paymentKicker'));
+    _setText('order-payment-title', _copy('paymentTitle'));
     _setText('order-provider-decision-title', _copy('providerDecisionTitle'));
+    _setText('order-provider-response-label', _copy('providerResponseNoteLabel'));
+    _setText('order-provider-response-files-label', _copy('providerResponseFilesLabel'));
+    _setText('order-provider-response-files-hint', _copy('providerResponseFilesHint'));
+    _setText('order-provider-reject-hint', _copy('providerRejectHint'));
     _setText('order-provider-reject-label', _copy('providerRejectLabel'));
-    _setText('btn-reject-provider-inputs', _copy('rejectDetails'));
+    _setText('btn-reject-provider-inputs', _copy('rejectDetailsReveal'));
+    _setText('btn-confirm-provider-reject', _copy('rejectDetailsConfirm'));
+    _setText('btn-cancel-provider-reject', _copy('rejectDetailsCancel'));
     _setText('btn-approve-provider-inputs', _copy('approveAndStart'));
     _setText('order-cancelled-title', _copy('cancelledTitle'));
     _setText('order-review-title', _copy('reviewTitle'));
@@ -2143,6 +2576,16 @@ const OrderDetailPage = (() => {
   function _setText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
+  }
+
+  function _escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[char] || char));
   }
 
   function _setAutoDirection(el, value) {

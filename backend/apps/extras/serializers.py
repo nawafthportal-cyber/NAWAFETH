@@ -4,6 +4,7 @@ from rest_framework import serializers
 from .models import ExtraPurchase
 from .option_catalog import (
     EXTRAS_CLIENT_OPTIONS,
+    EXTRAS_CLIENT_OPTION_ALIASES,
     EXTRAS_FINANCE_OPTIONS,
     EXTRAS_REPORT_OPTIONS,
     UNAVAILABLE_CLIENT_OPTIONS,
@@ -88,7 +89,11 @@ class ExtrasClientsSelectionSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         attrs = dict(attrs)
-        attrs["options"] = normalize_option_keys(list(attrs.get("options", [])), EXTRAS_CLIENT_OPTIONS)
+        attrs["options"] = normalize_option_keys(
+            list(attrs.get("options", [])),
+            EXTRAS_CLIENT_OPTIONS,
+            aliases=EXTRAS_CLIENT_OPTION_ALIASES,
+        )
         rejected = [key for key in attrs["options"] if key in UNAVAILABLE_CLIENT_OPTIONS]
         if rejected:
             raise serializers.ValidationError(

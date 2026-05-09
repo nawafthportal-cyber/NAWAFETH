@@ -150,7 +150,7 @@
       directSentToastMessage: "تم إرسال طلبك إلى {provider}. يمكنك متابعة الطلب من صفحة طلباتي.",
       successUrgentTitle: "تم إرسال الطلب العاجل",
       successUrgentMessage: "سيتم إشعار المزودين المتاحين فورًا.",
-      successCompetitiveTitle: "تم إرسال الطلب التنافسي",
+      successCompetitiveTitle: "تم إرسال طلب عروض الأسـعار",
       successCompetitiveMessage: "ستبدأ العروض بالوصول قريبًا.",
       successNormalTitle: "تم إرسال الطلب",
       successNormalMessage: "تم إرسال طلبك بنجاح للمزود.",
@@ -1655,6 +1655,7 @@
         method: "POST",
         body: fd,
         formData: true,
+        disableCompletionRedirect: true,
       });
       if (res.ok) {
         onSubmitSuccess(res.data);
@@ -1717,6 +1718,11 @@
   function onSubmitError(res) {
     var data = res.data || {};
     var status = res.status;
+
+    if (data && data.error_code === "profile_completion_required") {
+      showToast("warning", text("toastWarning"), arrayToStr(data.detail) || text("submitErrorGeneric"));
+      return;
+    }
 
     if (data.subcategory) showFieldError(dom.subcategory, dom.subError, arrayToStr(data.subcategory));
     if (data.subcategory_ids) showFieldError(dom.subcategory, dom.subError, arrayToStr(data.subcategory_ids));

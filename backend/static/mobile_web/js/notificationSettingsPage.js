@@ -109,6 +109,10 @@ const NotificationSettingsPage = (() => {
       _showGate();
       return;
     }
+    if (Auth.needsCompletion && Auth.needsCompletion()) {
+      Auth.redirectToCompletion ? Auth.redirectToCompletion('/notification-settings/') : (window.location.href = '/signup/?next=%2Fnotification-settings%2F');
+      return;
+    }
     _hideGate();
     _bindRetry();
     _load();

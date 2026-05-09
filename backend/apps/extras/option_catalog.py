@@ -34,9 +34,12 @@ EXTRAS_CLIENT_OPTIONS: tuple[tuple[str, str], ...] = (
     ("grouping", "التصنيف على شكل مجموعات (خدمة محددة - مهم - متكرر ...)"),
     ("bulk_messages", "إرسال الرسائل الجماعية لعملائي"),
     ("recurring_reminders", "خيار تذكير مرتبط بالعملاء وخدمتهم المتكررة (مثل الصيانة الدوري) يشمل مواعيد ورسائل تنبيه"),
-    ("loyalty_program", "برنامج الولاء"),
-    ("loyalty_points", "وضع نظام نقاط لعملائي مرتبط بعدد طلباتهم"),
+    ("loyalty_program", "برنامج الولاء ونقاط العملاء"),
 )
+
+EXTRAS_CLIENT_OPTION_ALIASES: dict[str, str] = {
+    "loyalty_points": "loyalty_program",
+}
 
 # Client options with no backend implementation yet.
 UNAVAILABLE_CLIENT_OPTIONS: frozenset[str] = frozenset({
@@ -54,7 +57,8 @@ EXTRAS_FINANCE_OPTIONS: tuple[tuple[str, str], ...] = (
 
 # Finance options with no backend implementation yet.
 UNAVAILABLE_FINANCE_OPTIONS: frozenset[str] = frozenset({
-    # All previously unavailable finance options are now implemented.
+    "electronic_payments",
+    "electronic_invoices",
 })
 
 
@@ -67,7 +71,10 @@ SECTION_TITLE_BY_KEY: dict[str, str] = {
 
 OPTION_MAP_BY_SECTION_KEY: dict[str, dict[str, str]] = {
     "reports": dict(EXTRAS_REPORT_OPTIONS),
-    "clients": dict(EXTRAS_CLIENT_OPTIONS),
+    "clients": {
+        **dict(EXTRAS_CLIENT_OPTIONS),
+        "loyalty_points": "برنامج الولاء ونقاط العملاء",
+    },
     "finance": dict(EXTRAS_FINANCE_OPTIONS),
 }
 
@@ -93,11 +100,18 @@ def option_label_for(section_key: str, option_key: str) -> str:
     return section_map.get(str(option_key or "").strip(), str(option_key or "").strip() or "-")
 
 
-def normalize_option_keys(raw_values: list[str], options: tuple[tuple[str, str], ...]) -> list[str]:
+def normalize_option_keys(
+    raw_values: list[str],
+    options: tuple[tuple[str, str], ...],
+    *,
+    aliases: dict[str, str] | None = None,
+) -> list[str]:
     allowed = set(option_map(options).keys())
+    aliases = aliases or {}
     selected: list[str] = []
     for value in raw_values:
         normalized = str(value or "").strip()
+        normalized = aliases.get(normalized, normalized)
         if not normalized or normalized not in allowed:
             continue
         if normalized in selected:
@@ -106,9 +120,20 @@ def normalize_option_keys(raw_values: list[str], options: tuple[tuple[str, str],
     return selected
 
 
-def selected_labels(selected_keys: list[str], options: tuple[tuple[str, str], ...]) -> list[str]:
+def selected_labels(
+    selected_keys: list[str],
+    options: tuple[tuple[str, str], ...],
+    *,
+    aliases: dict[str, str] | None = None,
+) -> list[str]:
     labels_by_key = option_map(options)
-    return [labels_by_key[key] for key in selected_keys if key in labels_by_key]
+    aliases = aliases or {}
+    labels: list[str] = []
+    for key in selected_keys:
+        key = aliases.get(key, key)
+        if key in labels_by_key and labels_by_key[key] not in labels:
+            labels.append(labels_by_key[key])
+    return labels
 
 
 def _safe_int(value, default: int, minimum: int | None = None) -> int:
@@ -133,7 +158,11 @@ def build_summary_sections(
     if reports.get("end_at"):
         report_labels.append(f"نهاية التقرير: {reports['end_at']}")
 
-    client_labels = selected_labels(list(clients.get("options", [])), EXTRAS_CLIENT_OPTIONS)
+    client_labels = selected_labels(
+        list(clients.get("options", [])),
+        EXTRAS_CLIENT_OPTIONS,
+        aliases=EXTRAS_CLIENT_OPTION_ALIASES,
+    )
     if client_labels:
         client_years = _safe_int(clients.get("subscription_years", 1), default=1, minimum=1)
         bulk_count = _safe_int(clients.get("bulk_message_count", 0), default=0, minimum=0)

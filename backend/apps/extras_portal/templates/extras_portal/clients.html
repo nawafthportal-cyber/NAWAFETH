@@ -42,6 +42,52 @@
     background: #fff;
     padding: 1.25rem;
   }
+  .loyalty-command {
+    overflow: hidden;
+    border: 1px solid #eadfcf;
+    background: linear-gradient(135deg, #171717 0%, #3d2732 55%, #8a5d2d 100%);
+    color: #fff;
+  }
+  .loyalty-command .soft-copy { color: rgba(255,255,255,0.72); }
+  .loyalty-command-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+    gap: 1rem;
+  }
+  .loyalty-command-tile {
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 0.875rem;
+    background: rgba(255,255,255,0.10);
+    padding: 0.95rem;
+  }
+  .loyalty-command-number {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 1.7rem;
+    line-height: 1;
+    font-weight: 900;
+  }
+  .loyalty-reward-mini,
+  .loyalty-member-row {
+    border: 1px solid #efe7dc;
+    border-radius: 0.875rem;
+    background: #fffaf3;
+    padding: 0.75rem;
+  }
+  .loyalty-member-rank {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background: #171717;
+    color: #fff;
+    font-weight: 900;
+  }
+  @media (max-width: 860px) {
+    .loyalty-command-grid { grid-template-columns: 1fr; }
+  }
 </style>
 {% endblock %}
 
@@ -111,6 +157,85 @@
           {{ opt.label }}
         </span>
       {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+{% if clients_supports_loyalty or clients_supports_points %}
+  <div class="section-card loyalty-command mb-4">
+    <div class="loyalty-command-grid">
+      <div>
+        <div class="text-[11px] font-bold uppercase tracking-wide soft-copy">مركز الولاء</div>
+        <h3 class="mt-2 text-2xl font-black leading-tight">برنامج واضح للعميل وقابل للقياس من لوحة المزود.</h3>
+        <p class="mt-2 max-w-2xl text-sm leading-7 soft-copy">
+          النقاط التي تحفظها هنا تتم مزامنتها مع عضوية العميل وتظهر في صفحة محفظة الولاء الخاصة به حسب الرصيد والمستوى والمكافآت.
+        </p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-3">
+          <div class="loyalty-command-tile">
+            <span class="text-[11px] font-bold soft-copy">الأعضاء</span>
+            <strong class="loyalty-command-number">{{ loyalty_summary.members }}</strong>
+          </div>
+          <div class="loyalty-command-tile">
+            <span class="text-[11px] font-bold soft-copy">النقاط المكتسبة</span>
+            <strong class="loyalty-command-number">{{ loyalty_summary.total_earned }}</strong>
+          </div>
+          <div class="loyalty-command-tile">
+            <span class="text-[11px] font-bold soft-copy">قاعدة الطلب المكتمل</span>
+            <strong class="loyalty-command-number">{% if loyalty_program %}{{ loyalty_program.points_per_completed_request }}{% else %}0{% endif %}</strong>
+          </div>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2 text-xs font-bold">
+          <a href="/loyalty/" target="_blank" class="rounded-xl bg-white px-4 py-2 text-slate-900 shadow-sm hover:bg-amber-50 transition">معاينة صفحة العميل</a>
+          <span class="rounded-xl border border-white/20 px-4 py-2 soft-copy">احفظ نقاط الجدول أولاً لتحديث المحفظة</span>
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-white p-4 text-slate-900">
+        <div class="flex items-center justify-between gap-3">
+          <h4 class="text-sm font-black">أفضل العملاء</h4>
+          {% if loyalty_program %}
+            <span class="rounded-full px-2 py-0.5 text-[10px] font-bold {% if loyalty_program.is_active %}bg-emerald-50 text-emerald-700{% else %}bg-slate-100 text-slate-500{% endif %}">
+              {% if loyalty_program.is_active %}نشط{% else %}معطّل{% endif %}
+            </span>
+          {% endif %}
+        </div>
+        <div class="mt-3 grid gap-2">
+          {% for member in loyalty_top_members %}
+            <div class="loyalty-member-row flex items-center gap-3">
+              <span class="loyalty-member-rank">{{ forloop.counter }}</span>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-black text-slate-900">{{ member.name }}</div>
+                <div class="text-[11px] font-bold text-slate-500">مستوى {{ member.level.label }}</div>
+              </div>
+              <div class="text-sm font-black text-amber-700">{{ member.points }} نقطة</div>
+            </div>
+          {% empty %}
+            <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs font-bold text-slate-500">
+              لا توجد عضويات بنقاط حتى الآن.
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-4 rounded-2xl bg-white p-4 text-slate-900">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h4 class="text-sm font-black">سلم المكافآت المعروض للعميل</h4>
+        <div class="flex flex-wrap gap-2">
+          {% for item in loyalty_level_counts %}
+            <span class="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-600">{{ item.label }}: {{ item.count }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="mt-3 grid gap-2 md:grid-cols-4">
+        {% for reward in loyalty_reward_tiles %}
+          <div class="loyalty-reward-mini">
+            <div class="text-sm font-black text-slate-900">{{ reward.title }}</div>
+            <div class="mt-1 text-[11px] font-bold text-amber-700">{{ reward.points }} نقطة</div>
+            <p class="mt-1 text-[11px] leading-5 font-semibold text-slate-500">{{ reward.description }}</p>
+          </div>
+        {% endfor %}
+      </div>
     </div>
   </div>
   {% endif %}

@@ -6,17 +6,19 @@
 {% block sidebar_orders %}active{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'mobile_web/css/order-detail-polish.css' %}?v=20260506-order-detail-offers-scale-v5">
+<link rel="stylesheet" href="{% static 'mobile_web/css/order-detail-polish.css' %}?v=20260508-detail-premium-v1">
 {% endblock %}
 
 {% block content %}
 <main class="page-content">
   <div class="container order-detail-layout">
-    <div id="auth-gate" class="auth-gate hidden">
-      <div class="auth-gate-icon">📦</div>
-      <h2 id="order-gate-title">سجّل دخولك</h2>
-      <p id="order-gate-desc">يجب تسجيل الدخول لعرض تفاصيل الطلب</p>
-      <a id="order-login-link" href="/login/" class="btn btn-primary">تسجيل الدخول</a>
+    <div id="auth-gate" class="auth-gate auth-gate-unified hidden">
+      <p id="order-gate-kicker" class="auth-gate-unified-kicker">متابعة الطلب</p>
+      <div class="auth-gate-icon auth-gate-unified-icon" aria-hidden="true">📦</div>
+      <h2 id="order-gate-title" class="auth-gate-title auth-gate-unified-title">سجّل دخولك</h2>
+      <p id="order-gate-desc" class="auth-gate-desc auth-gate-unified-desc">يجب تسجيل الدخول لعرض تفاصيل الطلب</p>
+      <a id="order-login-link" href="/login/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
+      <p id="order-gate-note" class="auth-gate-unified-note">سنعيدك إلى نفس الطلب بعد تسجيل الدخول.</p>
     </div>
 
     <div id="order-content" class="hidden order-detail-shell">
@@ -180,6 +182,20 @@
           </div>
 
           <aside class="order-side-column">
+            <section id="order-payment-section" class="order-detail-card orders-mobile-sheet order-payment-card hidden">
+              <div class="order-payment-head">
+                <div>
+                  <span id="order-payment-kicker" class="order-payment-kicker">دفعات الطلب</span>
+                  <h2 id="order-payment-title">الدفع لمزود الخدمة</h2>
+                </div>
+                <span id="order-payment-status" class="order-payment-status"></span>
+              </div>
+              <div id="order-payment-summary" class="order-payment-summary"></div>
+              <div id="order-payment-bank" class="order-payment-bank hidden"></div>
+              <div id="order-payment-installments" class="order-payment-installments"></div>
+              <div id="order-payment-feedback" class="order-offers-feedback ux26-alert hidden" aria-live="polite"></div>
+            </section>
+
             <section id="order-finance-section" class="order-detail-card orders-mobile-sheet hidden">
               <h2 id="order-finance-title">تفاصيل التنفيذ</h2>
               <div id="order-finance-grid" class="order-info-grid"></div>
@@ -212,14 +228,35 @@
                 <div id="order-provider-notes-attachments" class="order-provider-notes-attachments hidden"></div>
                 <p id="order-provider-notes-meta" class="order-provider-notes-meta"></p>
               </div>
+              <div id="order-provider-finance-alert" class="order-inline-note hidden"></div>
               <div id="order-provider-decision-note" class="order-inline-note hidden"></div>
               <div id="order-provider-decision-feedback" class="order-offers-feedback ux26-alert hidden" aria-live="polite"></div>
               <div id="order-provider-decision-form" class="order-decision-form">
-                <label for="order-provider-reject-note" class="order-form-label" id="order-provider-reject-label">سبب الرفض عند الحاجة</label>
-                <textarea id="order-provider-reject-note" class="form-textarea order-inline-textarea" rows="3" placeholder="اكتب سبب رفض التفاصيل ليصل إلى مقدم الخدمة"></textarea>
+                <div id="order-provider-response-request" class="order-inline-note hidden"></div>
+                <label for="order-provider-response-note" class="order-form-label hidden" id="order-provider-response-label">ملاحظتك أو إجابتك لمقدم الخدمة</label>
+                <textarea id="order-provider-response-note" class="form-textarea order-inline-textarea hidden" rows="3" placeholder="اكتب الرد الذي طلبه مقدم الخدمة"></textarea>
+                <div id="order-provider-response-files-wrap" class="hidden">
+                  <label for="order-provider-response-files" class="order-form-label" id="order-provider-response-files-label">مرفقات ردك</label>
+                  <input id="order-provider-response-files" class="form-input" type="file" multiple>
+                  <p id="order-provider-response-files-hint" class="order-decision-subtitle">يمكنك رفع صور أو ملفات أو مستندات سيراجعها مقدم الخدمة مع قرارك.</p>
+                  <div id="order-provider-response-files-list" class="order-provider-notes-attachments hidden"></div>
+                </div>
                 <div class="order-inline-actions ux26-form-actions">
-                  <button type="button" class="btn-secondary" id="btn-reject-provider-inputs">رفض التفاصيل</button>
                   <button type="button" class="btn-primary" id="btn-approve-provider-inputs">اعتماد وبدء التنفيذ</button>
+                </div>
+                <div class="order-provider-reject-block" id="order-provider-reject-block">
+                  <div class="order-provider-reject-head">
+                    <p class="order-decision-subtitle" id="order-provider-reject-hint">إذا لم تكن موافقًا على هذا التحديث، افتح مسار الرفض وأرسل السبب للمختص.</p>
+                    <button type="button" class="btn-secondary" id="btn-reject-provider-inputs">رفض التفاصيل</button>
+                  </div>
+                  <div id="order-provider-reject-fields" class="hidden">
+                    <label for="order-provider-reject-note" class="order-form-label" id="order-provider-reject-label">سبب الرفض عند الحاجة</label>
+                    <textarea id="order-provider-reject-note" class="form-textarea order-inline-textarea" rows="3" placeholder="اكتب سبب رفض التفاصيل ليصل إلى مقدم الخدمة"></textarea>
+                    <div class="order-inline-actions ux26-form-actions">
+                      <button type="button" class="btn-secondary" id="btn-cancel-provider-reject">تراجع</button>
+                      <button type="button" class="btn-secondary" id="btn-confirm-provider-reject">تأكيد رفض التفاصيل</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
@@ -322,5 +359,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/orderDetailPage.js' %}?v=20260506-order-detail-offers-scale-v4"></script>
+<script src="{% static 'mobile_web/js/orderDetailPage.js' %}?v=20260508-detail-premium-v1"></script>
 {% endblock %}

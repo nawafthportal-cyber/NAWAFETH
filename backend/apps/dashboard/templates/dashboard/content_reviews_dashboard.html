@@ -135,7 +135,7 @@
           <span class="pill brand">إجمالي الطلبات: {{ summary.total }}</span>
           <span class="pill accent">طلبات التقييمات والمراجعات: {{ summary.support_total }}</span>
           <span class="pill danger">بلاغات التقييمات والتعليقات: {{ summary.complaints }}</span>
-          <span class="pill info">بلاغات المحتوى المباشرة: {{ moderation_summary.total }}</span>
+          <a class="ghost-btn" href="{% url 'dashboard:content_reports_dashboard' %}">بلاغات المحتوى المباشرة</a>
         </div>
       </div>
     </header>
@@ -157,6 +157,7 @@
           <div class="title-row">
             <h2>طلبات التقييمات والتعليقات</h2>
             <div class="actions">
+              <a class="ghost-btn" href="{% url 'dashboard:content_reports_dashboard' %}">فتح وحدة بلاغات المحتوى المباشرة</a>
               <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=pdf">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 PDF
@@ -241,60 +242,6 @@
           </div>
         </section>
 
-        <section class="section-panel slide-up">
-          <div class="title-row">
-            <div>
-              <h2>بلاغات المحتوى المباشرة</h2>
-              <p class="subtitle">هذه البلاغات تأتي من خيار "الإبلاغ عن المحتوى" في اللمحات ومحتوى المعرض، وتُحفَظ كحالات مراجعة محتوى داخل الفريق.</p>
-            </div>
-            <div class="actions">
-              <span class="pill brand">الإجمالي: {{ moderation_summary.total }}</span>
-              <span class="pill accent">جديد: {{ moderation_summary.new }}</span>
-              <span class="pill danger">قيد المعالجة: {{ moderation_summary.under_review }}</span>
-            </div>
-          </div>
-
-          <div class="table-wrap">
-            <table class="dash-table" id="contentModerationCasesTable">
-              <thead>
-                <tr>
-                  <th>رقم البلاغ</th>
-                  <th>المبلّغ</th>
-                  <th>المحتوى</th>
-                  <th>النوع</th>
-                  <th>السبب</th>
-                  <th>الحالة</th>
-                  <th>المكلف</th>
-                  <th>تاريخ الإنشاء</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for row in moderation_cases %}
-                  <tr class="support-row {% if selected_case and selected_case.id == row.id %}active-ticket{% endif %}">
-                    <td>
-                      <a
-                        class="ticket-link"
-                        href="{% url 'dashboard:content_reviews_dashboard' %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&case={{ row.id }}"
-                      >
-                        {{ row.code }}
-                      </a>
-                    </td>
-                    <td>{{ row.reporter }}</td>
-                    <td>{{ row.source_label }}</td>
-                    <td>{{ row.category }}</td>
-                    <td>{{ row.reason }}</td>
-                    <td>{{ row.status }}</td>
-                    <td>{{ row.assignee }}</td>
-                    <td>{{ row.created_at }}</td>
-                  </tr>
-                {% empty %}
-                  <tr><td colspan="8" class="empty-note">لا توجد بلاغات محتوى مباشرة مطابقة للبحث الحالي.</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
         {% if selected_ticket %}
           <section class="section-panel slide-up support-detail-shell">
             <div class="title-row">
@@ -321,9 +268,6 @@
                     <label>الحساب أو الرابط المرتبط بالطلب</label>
                     <div class="input-control static-field">
                       <strong>{{ detail_info.reported_account }}</strong>
-                      {% if target_info.url %}
-                        <a class="ticket-link" href="{{ target_info.url }}" target="_blank" rel="noopener">فتح رابط الموضوع</a>
-                      {% endif %}
                     </div>
                   </div>
 
@@ -454,144 +398,6 @@
           </section>
         {% endif %}
 
-        {% if selected_case %}
-          <section class="section-panel slide-up support-detail-shell">
-            <div class="title-row">
-              <h2>تفاصيل بلاغ المحتوى: {{ selected_case.code }}</h2>
-              <div class="actions">
-                <span class="pill brand">{{ selected_case_info.category }}</span>
-                <span class="pill accent">{{ selected_case_info.status }}</span>
-                <span class="pill danger">الأهمية: {{ selected_case_info.severity }}</span>
-              </div>
-            </div>
-
-            <div class="review-report-shell">
-              <div class="review-report-main">
-                <div class="target-card">
-                  <h4>ملخص البلاغ</h4>
-                  <div class="quick-stat"><span>المبلّغ</span><strong>{{ selected_case_info.reporter_account }}</strong></div>
-                  <div class="quick-stat"><span>الحساب المبلّغ عنه</span><strong>{{ selected_case_info.reported_account }}</strong></div>
-                  <div class="quick-stat"><span>المحتوى المستهدف</span><strong>{{ selected_case_info.source_label }}</strong></div>
-                  <div class="quick-stat"><span>سبب البلاغ</span><strong>{{ selected_case_info.reason }}</strong></div>
-                  <div class="quick-stat"><span>الوصف المختصر</span><strong>{{ selected_case_info.summary }}</strong></div>
-                  <div class="quick-stat"><span>تفاصيل إضافية</span><strong>{{ selected_case_info.details }}</strong></div>
-                </div>
-
-                <article class="reported-content-card" aria-label="معاينة المحتوى المبلّغ عنه">
-                  <div class="reported-content-visual">
-                    {% if selected_case_target_preview.preview_is_image and selected_case_target_preview.preview_url %}
-                      <img src="{{ selected_case_target_preview.preview_url }}" alt="{{ selected_case_target_preview.preview_alt }}">
-                    {% elif selected_case_target_preview.preview_is_video and selected_case_target_preview.file_url %}
-                      <video controls preload="metadata">
-                        <source src="{{ selected_case_target_preview.file_url }}">
-                      </video>
-                    {% else %}
-                      <div class="reported-content-placeholder">
-                        <strong>{{ selected_case_target_preview.kind_label }}</strong>
-                        <span>{{ selected_case_target_preview.status_label }}</span>
-                      </div>
-                    {% endif %}
-                  </div>
-
-                  <div class="reported-content-body">
-                    <div class="reported-content-topline">
-                      <span class="reported-content-label">المحتوى المبلّغ عنه</span>
-                    </div>
-                    <div class="reported-content-badges">
-                      <span class="reported-content-label">{{ selected_case_target_preview.kind_label }}</span>
-                      <span class="reported-content-status">{{ selected_case_target_preview.status_label }}</span>
-                    </div>
-                    <h3>{{ selected_case_target_preview.title }}</h3>
-                    {% if selected_case_target_preview.subtitle %}
-                      <p class="reported-content-subtitle">{{ selected_case_target_preview.subtitle }}</p>
-                    {% endif %}
-                    <p class="reported-content-description">{{ selected_case_target_preview.description|linebreaksbr }}</p>
-
-                    <div class="reported-content-meta">
-                      {% for item in selected_case_target_preview.meta_rows %}
-                        <div class="quick-stat"><span>{{ item.label }}</span><strong>{{ item.value }}</strong></div>
-                      {% endfor %}
-                    </div>
-
-                    <div class="actions">
-                      {% if selected_case_target_preview.file_url %}
-                        <a class="ghost-btn export-btn" href="{{ selected_case_target_preview.file_url }}" target="_blank" rel="noopener">{{ selected_case_target_preview.open_label }}</a>
-                      {% endif %}
-                    </div>
-                  </div>
-                </article>
-
-                <form method="post" id="contentModerationCaseActionForm">
-                  {% csrf_token %}
-                  <input type="hidden" name="case_id" value="{{ selected_case.id }}">
-                  <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
-
-                  <div class="support-action-grid review-processing-grid">
-                    <div class="field">
-                      <label for="{{ selected_case_form.status.id_for_label }}">حالة البلاغ</label>
-                      {{ selected_case_form.status }}
-                    </div>
-                    <div class="field">
-                      <label for="{{ selected_case_form.assigned_team.id_for_label }}">فريق المعالجة</label>
-                      {{ selected_case_form.assigned_team }}
-                    </div>
-                    <div class="field">
-                      <label for="{{ selected_case_form.assigned_to.id_for_label }}">المكلف بالبلاغ</label>
-                      {{ selected_case_form.assigned_to }}
-                    </div>
-                    <div class="field full">
-                      <label for="{{ selected_case_form.operator_note.id_for_label }}">ملاحظة تشغيلية</label>
-                      {{ selected_case_form.operator_note }}
-                    </div>
-                    <div class="field full">
-                      <label for="{{ selected_case_form.decision_code.id_for_label }}">القرار النهائي</label>
-                      {{ selected_case_form.decision_code }}
-                    </div>
-                  </div>
-
-                  <div class="actions">
-                    {% if can_manage_content %}
-                      <button type="submit" name="action" value="save_case" class="primary-btn">حفظ التحديثات</button>
-                      <button type="submit" name="action" value="apply_case_decision" class="ghost-btn">تنفيذ القرار المحدد</button>
-                      {% if can_hide_delete %}
-                        <button type="submit" name="action" value="hide_case" class="ghost-btn">إخفاء المحتوى</button>
-                        <button type="submit" name="action" value="delete_case" class="ghost-btn danger">حذف المحتوى</button>
-                      {% endif %}
-                    {% else %}
-                      <span class="pill danger">وضع قراءة فقط</span>
-                    {% endif %}
-                  </div>
-                </form>
-              </div>
-
-              <aside class="review-report-side">
-                <div class="target-card">
-                  <h4>بطاقة الحالة</h4>
-                  <div class="quick-stat"><span>رقم البلاغ</span><strong>{{ selected_case.code }}</strong></div>
-                  <div class="quick-stat"><span>الحالة</span><strong>{{ selected_case_info.status }}</strong></div>
-                  <div class="quick-stat"><span>الفريق</span><strong>{{ selected_case_info.assigned_team }}</strong></div>
-                  <div class="quick-stat"><span>المكلف الحالي</span><strong>{{ selected_case_info.assigned_to }}</strong></div>
-                  <div class="quick-stat"><span>تاريخ التكليف</span><strong>{{ selected_case_info.assigned_at }}</strong></div>
-                  <div class="quick-stat"><span>تذكرة الدعم المرتبطة</span><strong>{{ selected_case_info.linked_support_ticket }}</strong></div>
-                  <div class="quick-stat"><span>آخر قرار</span><strong>{{ selected_case_info.latest_decision }}</strong></div>
-                  <div class="quick-stat"><span>ملاحظة القرار</span><strong>{{ selected_case_info.latest_decision_note }}</strong></div>
-                </div>
-
-                <div class="target-card">
-                  <h4>روابط إدارية</h4>
-                  <div class="actions">
-                    {% if selected_case_info.case_admin_url %}
-                      <a class="ghost-btn export-btn" href="{{ selected_case_info.case_admin_url }}" target="_blank" rel="noopener">فتح الحالة في Django admin</a>
-                    {% endif %}
-                    {% if selected_case_info.source_admin_url %}
-                      <a class="ghost-btn" href="{{ selected_case_info.source_admin_url }}" target="_blank" rel="noopener">فتح المحتوى المبلّغ عنه</a>
-                    {% endif %}
-                  </div>
-                </div>
-              </aside>
-            </div>
-          </section>
-        {% endif %}
       </section>
 
       <aside class="panel side-panel">

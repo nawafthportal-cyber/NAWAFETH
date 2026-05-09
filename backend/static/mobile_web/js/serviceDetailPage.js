@@ -508,7 +508,12 @@ var ServiceDetailPage = (function () {
         if (!res || !res.ok) {
           throw new Error((res && res.data && (res.data.detail || res.data.error)) || _copy().reportFailed);
         }
+        var caseId = Number(res && res.data && res.data.case_id);
         closeDialog();
+        if (Number.isFinite(caseId) && caseId > 0) {
+          window.location.href = "/contact/?case=" + encodeURIComponent(String(Math.floor(caseId)));
+          return;
+        }
         _showToast(_copy().reportSuccess);
       } catch (err) {
         submitBtn.disabled = false;

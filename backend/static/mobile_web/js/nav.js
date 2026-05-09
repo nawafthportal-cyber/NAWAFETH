@@ -368,6 +368,7 @@ const Nav = (() => {
     const title = document.getElementById('topbar-sponsor-modal-title');
     const body = document.getElementById('topbar-sponsor-modal-body');
     const link = document.getElementById('topbar-sponsor-modal-link');
+    const moreButton = document.getElementById('topbar-sponsor-modal-more');
     if (!modal || !media || !title || !body || !link) return;
 
     const safePayload = payload && typeof payload === 'object' ? payload : {};
@@ -378,6 +379,14 @@ const Nav = (() => {
 
     title.textContent = sponsorName;
     body.textContent = sponsorMessage;
+    body.classList.remove('is-expanded');
+    const messagePanel = body.closest('.topbar-sponsor-modal-panel');
+    if (messagePanel) messagePanel.classList.remove('has-collapsible-message');
+    if (moreButton) {
+      moreButton.classList.add('hidden');
+      moreButton.setAttribute('aria-expanded', 'false');
+      moreButton.textContent = _t('sponsorShowMore', null, 'عرض الرسالة كاملة');
+    }
     media.innerHTML = '';
     if (sponsorAssetUrl) {
       const img = document.createElement('img');
@@ -412,6 +421,14 @@ const Nav = (() => {
     body.scrollTop = 0;
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+
+    window.requestAnimationFrame(() => {
+      const isLongMessage = sponsorMessage.length > 220 || body.scrollHeight > body.clientHeight + 8;
+      if (moreButton && isLongMessage) {
+        moreButton.classList.remove('hidden');
+        if (messagePanel) messagePanel.classList.add('has-collapsible-message');
+      }
+    });
   }
 
   function _closeTopbarSponsorDialog() {
@@ -428,6 +445,7 @@ const Nav = (() => {
     const sponsor = document.getElementById('topbar-sponsor');
     const dismissButtons = Array.from(document.querySelectorAll('[data-topbar-sponsor-dismiss="true"]'));
     const backdrop = document.getElementById('topbar-sponsor-modal-backdrop');
+    const moreButton = document.getElementById('topbar-sponsor-modal-more');
     if (sponsor) {
       sponsor.addEventListener('click', (event) => {
         const payload = _topbarSponsorPayload;
@@ -443,6 +461,18 @@ const Nav = (() => {
     });
     if (backdrop) {
       backdrop.addEventListener('click', _closeTopbarSponsorDialog);
+    }
+    if (moreButton) {
+      moreButton.addEventListener('click', () => {
+        const body = document.getElementById('topbar-sponsor-modal-body');
+        if (!body) return;
+        const expanded = !body.classList.contains('is-expanded');
+        body.classList.toggle('is-expanded', expanded);
+        moreButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        moreButton.textContent = expanded
+          ? _t('sponsorShowLess', null, 'عرض أقل')
+          : _t('sponsorShowMore', null, 'عرض الرسالة كاملة');
+      });
     }
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {

@@ -811,8 +811,8 @@
   .ob-overlay .ob-stage{position:relative;flex:1 1 auto;min-height:clamp(440px,62vh,560px);overflow:visible}
   .ob-overlay .ob-slide{
     position:absolute;inset:0;
-    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
-    gap:14px;padding:6px 4px;text-align:center;overflow:visible;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:18px;padding:6px 4px;text-align:center;overflow:visible;
     opacity:0;visibility:hidden;transform:translateX(40px) scale(.98);
     transition:opacity .45s ease,transform .45s ease,visibility 0s linear .45s;
     pointer-events:none;
@@ -936,6 +936,19 @@
       radial-gradient(circle at 85% 90%,rgba(74,45,143,.45),transparent 55%),
       linear-gradient(160deg,#3A1F73 0%,#2A1654 65%,#1F0E40 100%) !important;
     color:#fff;min-height:100vh;
+    overflow-x:hidden;
+  }
+  body.mobile-web-parity.page-onboarding #top-navbar.nw-global-topbar,
+  body.page-onboarding #top-navbar,
+  body.page-onboarding #bottom-nav,
+  body.page-onboarding #site-footer,
+  body.page-onboarding #offline-banner{
+    display:none !important;
+  }
+  body.page-onboarding.mobile-web-parity main,
+  body.page-onboarding.mobile-web-parity .page-content{
+    padding:0 !important;
+    margin:0 !important;
   }
   body.page-onboarding .onboarding-page{
     position:relative;min-height:100vh;
@@ -973,7 +986,7 @@
   body.page-onboarding .onboarding-stage{position:relative;min-height:clamp(440px,62vh,560px);display:flex;align-items:center;justify-content:center}
 
   body.page-onboarding .onboard-slide{
-    width:100%;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;
+    width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;
     animation:obFadeUp .45s ease both;
   }
   body.page-onboarding .onboard-slide.hidden{display:none}
@@ -1297,13 +1310,13 @@
     <section class="topbar-sponsor-modal-panel" aria-labelledby="topbar-sponsor-modal-message-label">
       <div class="topbar-sponsor-modal-panel-head">
         <p class="topbar-sponsor-modal-label" id="topbar-sponsor-modal-message-label" data-shell-i18n="sponsorMessageLabel">رسالة الراعي</p>
-        <span class="topbar-sponsor-modal-quote" aria-hidden="true">“</span>
       </div>
       <div class="topbar-sponsor-modal-body" id="topbar-sponsor-modal-body" data-shell-i18n="sponsorMessageEmpty">تظهر تفاصيل الرعاية هنا عند توفر رسالة.</div>
+      <button type="button" class="topbar-sponsor-modal-more hidden" id="topbar-sponsor-modal-more" data-shell-i18n="sponsorShowMore">عرض الرسالة كاملة</button>
     </section>
     <div class="topbar-sponsor-modal-actions">
-      <button type="button" class="topbar-sponsor-modal-secondary" data-topbar-sponsor-dismiss="true" data-shell-i18n="close">إغلاق</button>
       <a class="topbar-sponsor-modal-link hidden" id="topbar-sponsor-modal-link" target="_blank" rel="noopener" data-shell-i18n="visitLink">زيارة الرابط</a>
+      <button type="button" class="topbar-sponsor-modal-secondary" data-topbar-sponsor-dismiss="true" data-shell-i18n="close">إغلاق</button>
     </div>
   </div>
 </div>
@@ -1394,15 +1407,16 @@
   window.NAWAFETH_SERVER_AUTH = {
     isAuthenticated: {% if safe_server_auth.is_authenticated %}true{% else %}false{% endif %},
     userId: {% if safe_server_auth.user_id %}{{ safe_server_auth.user_id }}{% else %}null{% endif %},
-    roleState: "{{ safe_server_auth.role_state|default:'guest'|escapejs }}"
+    roleState: "{{ safe_server_auth.role_state|default:'guest'|escapejs }}",
+    profileStatus: "{{ safe_server_auth.profile_status|default:'visitor'|escapejs }}"
   };
 </script>
 
 <script src="{% static 'mobile_web/js/cache.js' %}"></script>
-<script src="{% static 'mobile_web/js/apiClient.js' %}?v=20260419-secops1"></script>
+<script src="{% static 'mobile_web/js/apiClient.js' %}?v=20260509-profile-completion-gate"></script>
 <script src="{% static 'mobile_web/js/analytics.js' %}?v=20260419-secops1"></script>
 <script src="{% static 'mobile_web/js/utils.js' %}"></script>
-<script src="{% static 'mobile_web/js/auth.js' %}?v=20260503-auth-global"></script>
+<script src="{% static 'mobile_web/js/auth.js' %}?v=20260509-profile-completion-gate"></script>
 <script src="{% static 'mobile_web/js/presence.js' %}?v=20260503-presence1"></script>
 <script>
 (function () {
@@ -1438,6 +1452,8 @@
       officialSponsor: 'الراعي الرسمي',
       sponsorMessageLabel: 'رسالة الراعي',
       sponsorMessageEmpty: 'تظهر تفاصيل الرعاية هنا عند توفر رسالة.',
+      sponsorShowMore: 'عرض الرسالة كاملة',
+      sponsorShowLess: 'عرض أقل',
       visitLink: 'زيارة الرابط',
       footerPlatformTitle: 'المنصة',
       footerSupportTitle: 'الدعم',
@@ -1497,6 +1513,8 @@
       officialSponsor: 'Official sponsor',
       sponsorMessageLabel: 'Sponsor message',
       sponsorMessageEmpty: 'Sponsor details will appear here when a message is available.',
+      sponsorShowMore: 'Show full message',
+      sponsorShowLess: 'Show less',
       visitLink: 'Visit link',
       footerPlatformTitle: 'Platform',
       footerSupportTitle: 'Support',

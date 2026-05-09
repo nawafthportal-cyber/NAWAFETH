@@ -9,8 +9,9 @@ const Auth = (() => {
   const KEY_REFRESH = 'nw_refresh_token';
   const KEY_USER_ID = 'nw_user_id';
   const KEY_ROLE    = 'nw_role_state';
+  const KEY_PROFILE = 'nw_profile_status';
   const KEY_MODE    = 'nw_account_mode';
-  const AUTH_KEYS = [KEY_ACCESS, KEY_REFRESH, KEY_USER_ID, KEY_ROLE];
+  const AUTH_KEYS = [KEY_ACCESS, KEY_REFRESH, KEY_USER_ID, KEY_ROLE, KEY_PROFILE];
 
   function _serverAuth() {
     try {
@@ -121,6 +122,15 @@ const Auth = (() => {
     return !!(isLoggedIn() && isProviderAccount() && isProviderModeActive());
   }
 
+  function completionRedirectUrl(next) {
+    const target = String(next || (window.location.pathname + window.location.search) || '/').trim() || '/';
+    return '/signup/?next=' + encodeURIComponent(target);
+  }
+
+  function redirectToCompletion(next) {
+    window.location.href = completionRedirectUrl(next);
+  }
+
   function switchToClientMode(options) {
     setActiveAccountMode('client');
     const target = options && options.target ? String(options.target).trim() : '';
@@ -170,6 +180,10 @@ const Auth = (() => {
   }
 
   function ensureServiceRequestAccess(options) {
+    if (needsCompletion()) {
+      redirectToCompletion(options?.target || window.location.pathname + window.location.search);
+      return false;
+    }
     if (!isServiceRequestBlockedForCurrentMode()) return true;
     renderProviderRequestBlock(options || {});
     return false;
@@ -203,9 +217,20 @@ const Auth = (() => {
     return 'guest';
   }
 
+  function getProfileStatus() {
+    const stored = _readAuthValue(KEY_PROFILE);
+    if (stored) return String(stored || '').trim().toLowerCase();
+    const serverAuth = _serverAuth();
+    if (serverAuth && serverAuth.isAuthenticated) {
+      return String(serverAuth.profileStatus || '').trim().toLowerCase();
+    }
+    return '';
+  }
+
   function needsCompletion() {
     const role = String(getRoleState() || '').trim().toLowerCase();
-    return role === 'phone_only' || role === 'visitor';
+    const profileStatus = getProfileStatus();
+    return role === 'phone_only' || role === 'visitor' || profileStatus === 'phone_only' || profileStatus === 'visitor';
   }
 
   function saveTokens(data) {
@@ -214,6 +239,7 @@ const Auth = (() => {
     if (data.refresh) _writeAuthValue(KEY_REFRESH, data.refresh);
     if (data.user_id) _writeAuthValue(KEY_USER_ID, String(data.user_id));
     if (data.role_state) _writeAuthValue(KEY_ROLE, data.role_state);
+    if (data.profile_status) _writeAuthValue(KEY_PROFILE, data.profile_status);
   }
 
   function saveRoleState(roleState) {
@@ -384,6 +410,7 @@ const Auth = (() => {
     needsCompletion,
     saveTokens, saveRoleState, logout, clearProfileCache, refreshAccessToken, requireLogin,
     switchToClientMode, renderProviderRequestBlock, ensureServiceRequestAccess,
+    completionRedirectUrl, redirectToCompletion,
     getActiveAccountMode, setActiveAccountMode, resolveProfile, getProfile,
   };
 })();

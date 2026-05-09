@@ -8,6 +8,9 @@ from .api import (
     MyClientRequestsView,
     MyClientRequestDetailView,
     MyProviderRequestsView,
+    ClientPaymentReceiptUploadView,
+    ProviderPaymentInstallmentCreateView,
+    ProviderPaymentInstallmentDecisionView,
     ProviderRequestDetailView,
     ProviderAssignedRequestAcceptView,
     ProviderRequestCancelView,
@@ -78,6 +81,16 @@ urlpatterns = [
         ProviderProgressUpdateView.as_view(),
         name="provider_request_progress_update",
     ),
+    path(
+        "provider/requests/<int:request_id>/payments/installments/",
+        ProviderPaymentInstallmentCreateView.as_view(),
+        name="provider_payment_installment_create",
+    ),
+    path(
+        "provider/requests/<int:request_id>/payments/installments/<int:installment_id>/decision/",
+        ProviderPaymentInstallmentDecisionView.as_view(),
+        name="provider_payment_installment_decision",
+    ),
     # HTML view (keeps API route above intact)
     path(
         "provider/requests/page/",
@@ -146,5 +159,10 @@ urlpatterns += [
         "requests/<int:request_id>/provider-inputs/decision/",
         ProviderInputsDecisionView.as_view(),
         name="provider_inputs_decision",
+    ),
+    path(
+        "requests/<int:request_id>/payments/installments/<int:installment_id>/receipt/",
+        ClientPaymentReceiptUploadView.as_view(),
+        name="client_payment_receipt_upload",
     ),
 ]

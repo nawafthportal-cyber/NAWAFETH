@@ -116,7 +116,22 @@ const ProviderOrderDetailPage = (() => {
       sentProgressTitle: 'تحديث التقدم المرسل',
       expectedDeliveryLabel: 'موعد التسليم المتوقع',
       estimatedAmountLabel: 'قيمة الخدمة المقدرة (SR)',
+      revisedEstimatedAmountLabel: 'إجمالي الخدمة بعد الإضافات (SR)',
       receivedAmountLabel: 'المبلغ المستلم (SR)',
+      remainingAmountLabel: 'المبلغ المتبقي (SR)',
+      paymentPlanFinanceLockedTitle: 'إجمالي الطلب مرتبط بخطة الدفعات',
+      paymentPlanFinanceLockedDesc: 'يمكنك تعديل إجمالي الخدمة عند الاتفاق على إضافات أو تغيير نطاق العمل، لكن التعديل المالي لا يسري إلا بعد اعتماد العميل. يبقى المبلغ المستلم والمتبقي محسوبين تلقائيًا من الدفعات المؤكدة.',
+      manualPaymentsStatus: 'تسجيل يدوي',
+      manualPaymentsTitle: 'التسجيل اليدوي مفعل حاليًا',
+      manualPaymentsDesc: 'يمكنك متابعة تسجيل المبلغ المستلم والمتبقي يدويًا كما في السابق. ولتفعيل طلب دفعات منظمة من العميل ورفع الإيصالات داخل الطلب، فعّل خدمة تسجيل الحساب البنكي QR.',
+      manualPaymentsBenefitSchedule: 'إنشاء طلبات دفعات مرحلية من داخل الطلب.',
+      manualPaymentsBenefitReceipts: 'استلام إيصالات العميل ومراجعتها من نفس الشاشة.',
+      manualPaymentsBenefitTracking: 'احتساب المؤكد والمتبقي تلقائيًا بدون متابعة يدوية.',
+      manualPaymentsCta: 'اشترك في خدمة QR',
+      manualPaymentsHint: 'بعد التفعيل ستظهر لك أدوات طلب الدفعات مباشرة في هذا القسم.',
+      manualPaymentsTotalLabel: 'إجمالي الخدمة',
+      manualPaymentsManualBadge: 'يدوي الآن',
+      manualPaymentsQrBadge: 'ترقية مقترحة',
       resendUpdateToClient: 'إعادة إرسال التحديث للعميل',
       resendExecutionDetails: 'إعادة إرسال تفاصيل التنفيذ',
       sendExecutionDetails: 'إرسال تفاصيل التنفيذ',
@@ -131,6 +146,12 @@ const ProviderOrderDetailPage = (() => {
       completionAttachmentsLabel: 'مرفقات الإكمال (فواتير/صور/ملفات)',
       progressAttachmentsLabel: 'مرفقات تتبع التنفيذ',
       progressAttachmentsHint: 'أرفق صور أو فيديو أو ملفات توضح سير العمل ليطلع عليها العميل',
+      clientResponseRequestTitle: 'المطلوب من العميل مع هذا التحديث',
+      clientResponseRequestHint: 'يمكنك طلب ملاحظة أو مرفقات أو إجابة محددة من العميل قبل متابعة التنفيذ.',
+      clientResponseNoteRequiredLabel: 'طلب ملاحظة أو إجابة كتابية من العميل',
+      clientResponseAttachmentRequiredLabel: 'طلب مرفقات من العميل',
+      clientResponseQuestionLabel: 'سؤال محدد للعميل (اختياري)',
+      clientResponseQuestionPlaceholder: 'مثال: ما هو المقاس النهائي المطلوب؟',
       addAttachments: 'إضافة مرفقات',
       cancelDuringExecutionTitle: 'إلغاء الطلب أثناء التنفيذ',
       cancelOrder: 'إلغاء الطلب',
@@ -152,7 +173,7 @@ const ProviderOrderDetailPage = (() => {
       enterEstimatedAndReceived: 'أدخل القيمة المقدرة والمبلغ المستلم',
       enterAmountsTogether: 'أدخل القيمة المقدرة والمبلغ المستلم معًا',
       enterNoteOrUpdate: 'أدخل ملاحظة أو حدّث بيانات التنفيذ',
-      progressSentAwaitingClient: 'تم إرسال تحديثك للعميل بانتظار القرار',
+      progressSentAwaitingClient: 'تم إرسال التحديث للعميل. أي تعديل مالي سيبقى بانتظار اعتماد العميل.',
       progressUpdated: 'تم تحديث التقدم',
       chooseActualDelivery: 'حدد موعد التسليم الفعلي',
       enterActualAmount: 'أدخل قيمة الخدمة الفعلية',
@@ -270,7 +291,22 @@ const ProviderOrderDetailPage = (() => {
       sentProgressTitle: 'Last progress update sent',
       expectedDeliveryLabel: 'Expected delivery time',
       estimatedAmountLabel: 'Estimated service amount (SAR)',
+      revisedEstimatedAmountLabel: 'Revised total after additions (SAR)',
       receivedAmountLabel: 'Received amount (SAR)',
+      remainingAmountLabel: 'Remaining amount (SAR)',
+      paymentPlanFinanceLockedTitle: 'The order total follows the payment plan',
+      paymentPlanFinanceLockedDesc: 'You can revise the total service amount when extras or scope changes are agreed, but the financial change does not take effect until the client approves it. Confirmed and remaining amounts stay derived from confirmed installments.',
+      manualPaymentsStatus: 'Manual tracking',
+      manualPaymentsTitle: 'Manual payment tracking is active',
+      manualPaymentsDesc: 'You can keep recording received and remaining amounts manually as before. To unlock structured payment requests and in-order receipt uploads, activate the QR bank registration service.',
+      manualPaymentsBenefitSchedule: 'Create milestone payment requests inside the order.',
+      manualPaymentsBenefitReceipts: 'Receive and review client receipts from the same screen.',
+      manualPaymentsBenefitTracking: 'Keep confirmed and remaining amounts synced automatically.',
+      manualPaymentsCta: 'Activate QR service',
+      manualPaymentsHint: 'Once activated, payment request tools will appear in this section automatically.',
+      manualPaymentsTotalLabel: 'Service total',
+      manualPaymentsManualBadge: 'Manual now',
+      manualPaymentsQrBadge: 'Recommended upgrade',
       resendUpdateToClient: 'Resend update to client',
       resendExecutionDetails: 'Resend execution details',
       sendExecutionDetails: 'Send execution details',
@@ -285,6 +321,12 @@ const ProviderOrderDetailPage = (() => {
       completionAttachmentsLabel: 'Completion attachments (invoices/images/files)',
       progressAttachmentsLabel: 'Workflow attachments',
       progressAttachmentsHint: 'Attach photos, video or files showing work progress so the client can follow along',
+      clientResponseRequestTitle: 'What you need from the client with this update',
+      clientResponseRequestHint: 'You can require a note, attachments, or a specific answer from the client before work continues.',
+      clientResponseNoteRequiredLabel: 'Require a written note or answer from the client',
+      clientResponseAttachmentRequiredLabel: 'Require attachments from the client',
+      clientResponseQuestionLabel: 'Specific question for the client (optional)',
+      clientResponseQuestionPlaceholder: 'Example: What is the final required size?',
       addAttachments: 'Add attachments',
       cancelDuringExecutionTitle: 'Cancel order during execution',
       cancelOrder: 'Cancel order',
@@ -306,7 +348,7 @@ const ProviderOrderDetailPage = (() => {
       enterEstimatedAndReceived: 'Enter the estimated amount and received amount',
       enterAmountsTogether: 'Enter the estimated amount and the received amount together',
       enterNoteOrUpdate: 'Enter a note or update the execution details',
-      progressSentAwaitingClient: 'Your update was sent to the client and is waiting for a decision',
+      progressSentAwaitingClient: 'Your update was sent to the client. Any financial change stays pending until the client approves it.',
       progressUpdated: 'Progress updated',
       chooseActualDelivery: 'Select the actual delivery time',
       enterActualAmount: 'Enter the actual service amount',
@@ -429,7 +471,7 @@ const ProviderOrderDetailPage = (() => {
   function showGate() {
     byId('auth-gate').style.display = '';
     const link = byId('pod-login-link');
-    if (link) link.href = '/login/?next=' + encodeURIComponent(location.pathname);
+    if (link) link.href = '/login/?next=' + encodeURIComponent(location.pathname + location.search);
   }
 
   async function loadDetail() {
@@ -509,6 +551,7 @@ const ProviderOrderDetailPage = (() => {
 
     renderAttachments(o);
     renderLogs(o);
+    renderPaymentSection(o);
     renderActions(o, group);
     updateChatButtons();
   }
@@ -731,6 +774,294 @@ const ProviderOrderDetailPage = (() => {
     if (group === 'cancelled') return renderCancelled(root, o);
   }
 
+  function renderPaymentSection(o) {
+    const section = byId('pod-payment-section');
+    const summary = byId('pod-payment-summary');
+    const list = byId('pod-payment-installments');
+    const actions = byId('pod-payment-actions');
+    const status = byId('pod-payment-status');
+    if (!section || !summary || !list || !actions) return;
+    const plan = o && o.payment_plan;
+    if (!plan) {
+      if (shouldShowManualPaymentUpsell(o)) {
+        return renderManualPaymentUpsell(o, section, summary, list, actions, status);
+      }
+      section.style.display = 'none';
+      return;
+    }
+    const installments = Array.isArray(plan.installments) ? plan.installments : [];
+    const hasVisibleInstallment = installments.some((item) => {
+      const installmentStatus = str(item && item.status).toLowerCase();
+      return ['pending_payment', 'receipt_uploaded', 'rejected', 'confirmed'].includes(installmentStatus);
+    });
+    if (!hasVisibleInstallment && !(plan.can_provider_request_installment && moneyNumber(plan.remaining_amount) > 0)) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+    if (status) status.textContent = paymentPlanLabel(plan.status);
+    summary.innerHTML = '';
+    [
+      ['إجمالي الطلب', plan.total_amount],
+      ['مؤكد', plan.confirmed_amount],
+      ['متبقي', plan.remaining_amount],
+    ].forEach(([label, value]) => {
+      const tile = document.createElement('div');
+      tile.className = 'pod-payment-tile';
+      const s = document.createElement('span');
+      s.textContent = label;
+      const strong = document.createElement('strong');
+      strong.textContent = fmtMoney(value);
+      tile.appendChild(s);
+      tile.appendChild(strong);
+      summary.appendChild(tile);
+    });
+
+    list.innerHTML = '';
+    if (!installments.length) {
+      const empty = document.createElement('div');
+      empty.className = 'pod-payment-empty';
+      empty.textContent = 'أنشئ دفعة عند إنجاز مرحلة قابلة للتحصيل.';
+      list.appendChild(empty);
+    } else {
+      installments.forEach((item) => list.appendChild(providerInstallmentCard(item)));
+    }
+
+    actions.innerHTML = '';
+    const canCreate = statusGroup(o) === 'in_progress' && plan.can_provider_request_installment && moneyNumber(plan.remaining_amount) > 0;
+    if (canCreate) {
+      actions.innerHTML = `
+        <div class="pod-divider"></div>
+        <p class="pod-action-title">طلب دفعة جديدة</p>
+        <label class="pod-input-label" for="pod-payment-title-input">عنوان الدفعة</label>
+        <input type="text" class="pod-input" id="pod-payment-title-input" maxlength="120" placeholder="مثال: دفعة إنجاز المرحلة الأولى">
+        <label class="pod-input-label" for="pod-payment-amount-input">قيمة الدفعة (SR)</label>
+        <input type="number" class="pod-input" id="pod-payment-amount-input" step="0.01" min="0" max="${String(plan.remaining_amount || '')}" placeholder="0">
+        <label class="pod-input-label" for="pod-payment-note-input">ملاحظة للعميل</label>
+        <textarea class="pod-textarea" id="pod-payment-note-input" rows="2" maxlength="255" placeholder="اكتب ما تم إنجازه لهذه الدفعة"></textarea>
+        <button type="button" class="pod-btn pod-btn-primary pod-btn-block" id="pod-payment-create-btn" data-pod-action>إرسال طلب الدفعة</button>`;
+      byId('pod-payment-create-btn').addEventListener('click', createPaymentInstallment);
+    }
+    setActionLoading(false);
+  }
+
+  function shouldShowManualPaymentUpsell(o) {
+    if (!o || o.payment_plan || !hasAssignedProvider(o)) return false;
+    const stage = workflowStage(o);
+    return stage === 'provider_accepted' || stage === 'awaiting_client' || statusGroup(o) === 'in_progress';
+  }
+
+  function renderManualPaymentUpsell(o, section, summary, list, actions, status) {
+    section.style.display = '';
+    if (status) status.textContent = _copy('manualPaymentsStatus');
+
+    summary.innerHTML = '';
+    [
+      [_copy('manualPaymentsTotalLabel'), o && o.estimated_service_amount],
+      [_copy('receivedAmountLabel'), o && o.received_amount],
+      [_copy('remainingAmountLabel'), o && o.remaining_amount],
+    ].forEach(([label, value]) => {
+      const tile = document.createElement('div');
+      tile.className = 'pod-payment-tile';
+      const caption = document.createElement('span');
+      caption.textContent = label;
+      const amount = document.createElement('strong');
+      amount.textContent = fmtMoney(value);
+      tile.appendChild(caption);
+      tile.appendChild(amount);
+      summary.appendChild(tile);
+    });
+
+    list.innerHTML = '';
+    const card = document.createElement('article');
+    card.className = 'pod-payment-empty pod-payment-upsell-card';
+
+    const badges = document.createElement('div');
+    badges.className = 'pod-payment-upsell-badges';
+    const manualBadge = document.createElement('span');
+    manualBadge.className = 'pod-payment-badge is-warm';
+    manualBadge.textContent = _copy('manualPaymentsManualBadge');
+    const qrBadge = document.createElement('span');
+    qrBadge.className = 'pod-payment-badge';
+    qrBadge.textContent = _copy('manualPaymentsQrBadge');
+    badges.appendChild(manualBadge);
+    badges.appendChild(qrBadge);
+
+    const title = document.createElement('h4');
+    title.className = 'pod-payment-upsell-title';
+    title.textContent = _copy('manualPaymentsTitle');
+
+    const desc = document.createElement('p');
+    desc.className = 'pod-payment-upsell-desc';
+    desc.textContent = _copy('manualPaymentsDesc');
+
+    const points = document.createElement('div');
+    points.className = 'pod-payment-upsell-points';
+    [
+      'manualPaymentsBenefitSchedule',
+      'manualPaymentsBenefitReceipts',
+      'manualPaymentsBenefitTracking',
+    ].forEach((key) => {
+      const point = document.createElement('span');
+      point.textContent = _copy(key);
+      points.appendChild(point);
+    });
+
+    card.appendChild(badges);
+    card.appendChild(title);
+    card.appendChild(desc);
+    card.appendChild(points);
+    list.appendChild(card);
+
+    actions.innerHTML = '';
+    const actionWrap = document.createElement('div');
+    actionWrap.className = 'pod-payment-upsell-actions';
+    const link = document.createElement('a');
+    link.href = withMode('/additional-services/');
+    link.className = 'pod-btn pod-btn-primary pod-btn-block';
+    link.textContent = _copy('manualPaymentsCta');
+    const hint = document.createElement('p');
+    hint.className = 'pod-payment-upsell-hint';
+    hint.textContent = _copy('manualPaymentsHint');
+    actionWrap.appendChild(link);
+    actionWrap.appendChild(hint);
+    actions.appendChild(actionWrap);
+    setActionLoading(false);
+  }
+
+  function providerInstallmentCard(item) {
+    const status = str(item && item.status);
+    const card = document.createElement('article');
+    card.className = 'pod-payment-item is-' + status;
+    const head = document.createElement('div');
+    head.className = 'pod-payment-item-head';
+    const title = document.createElement('div');
+    title.innerHTML = '<span></span><strong></strong>';
+    title.querySelector('span').textContent = 'دفعة ' + localizeDigits(item.sequence || '');
+    title.querySelector('strong').textContent = val(item.title, 'دفعة');
+    const badge = document.createElement('span');
+    badge.className = 'pod-payment-badge';
+    badge.textContent = installmentStatusLabel(status);
+    head.appendChild(title);
+    head.appendChild(badge);
+    card.appendChild(head);
+    const amount = document.createElement('div');
+    amount.className = 'pod-payment-amount';
+    amount.textContent = fmtMoney(item.amount);
+    card.appendChild(amount);
+    if (item.client_note) {
+      const p = document.createElement('p');
+      p.className = 'pod-payment-note';
+      p.textContent = item.client_note;
+      card.appendChild(p);
+    }
+    if (item.rejection_reason) {
+      const p = document.createElement('p');
+      p.className = 'pod-payment-note is-danger';
+      p.textContent = item.rejection_reason;
+      card.appendChild(p);
+    }
+    if (item.receipt_url) {
+      const link = document.createElement('a');
+      link.className = 'pod-payment-link';
+      link.href = item.receipt_url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = 'عرض الإيصال';
+      card.appendChild(link);
+    }
+    if (status === 'receipt_uploaded') {
+      const note = document.createElement('textarea');
+      note.className = 'pod-textarea pod-payment-decision-note';
+      note.rows = 2;
+      note.placeholder = 'سبب الرفض عند الحاجة';
+      note.maxLength = 255;
+      card.appendChild(note);
+      const actions = document.createElement('div');
+      actions.className = 'pod-payment-decision-actions';
+      const reject = document.createElement('button');
+      reject.type = 'button';
+      reject.className = 'pod-btn pod-btn-outline-danger';
+      reject.textContent = 'رفض الإيصال';
+      reject.setAttribute('data-pod-action', '1');
+      reject.addEventListener('click', () => decidePaymentInstallment(item.id, false, note.value));
+      const approve = document.createElement('button');
+      approve.type = 'button';
+      approve.className = 'pod-btn pod-btn-success';
+      approve.textContent = 'تأكيد الاستلام';
+      approve.setAttribute('data-pod-action', '1');
+      approve.addEventListener('click', () => decidePaymentInstallment(item.id, true, ''));
+      actions.appendChild(reject);
+      actions.appendChild(approve);
+      card.appendChild(actions);
+    }
+    return card;
+  }
+
+  function hasPaymentPlan(order) {
+    return !!(order && order.payment_plan && typeof order.payment_plan === 'object');
+  }
+
+  function progressFinanceFieldsHtml(order) {
+    if (!hasPaymentPlan(order)) {
+      return `
+      <div class="pod-grid-2">
+        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('estimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
+        <div><label class="pod-input-label" for="pod-received-amount">${_copy('receivedAmountLabel')}</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
+      </div>`;
+    }
+
+    return `
+      <div class="pod-readonly-box">
+        <label>${_copy('paymentPlanFinanceLockedTitle')}</label>
+        <p>${_copy('paymentPlanFinanceLockedDesc')}</p>
+      </div>
+      <div class="pod-grid-2">
+        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('revisedEstimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
+        <div class="pod-readonly-box"><label>${_copy('receivedAmountLabel')}</label><p id="pod-received-amount-summary">-</p></div>
+      </div>
+      <div class="pod-readonly-box"><label>${_copy('remainingAmountLabel')}</label><p id="pod-remaining-amount-summary">-</p></div>`;
+  }
+
+  function fillProgressFinanceFields(order) {
+    const estimatedInput = byId('pod-estimated-amount');
+    const receivedInput = byId('pod-received-amount');
+    if (estimatedInput) {
+      const planTotal = order && order.payment_plan ? order.payment_plan.total_amount : '';
+      estimatedInput.value = str(planTotal || (order && order.estimated_service_amount));
+    }
+    if (receivedInput) receivedInput.value = str(order && order.received_amount);
+
+    if (hasPaymentPlan(order)) {
+      const plan = order.payment_plan || {};
+      setText('pod-received-amount-summary', fmtMoney(plan.confirmed_amount || order.received_amount));
+      setText('pod-remaining-amount-summary', fmtMoney(plan.remaining_amount || order.remaining_amount));
+    }
+  }
+
+  function clientResponseRequestFieldsHtml() {
+    return `
+      <div class="pod-readonly-box">
+        <label>${_copy('clientResponseRequestTitle')}</label>
+        <p>${_copy('clientResponseRequestHint')}</p>
+      </div>
+      <div class="pod-grid-2">
+        <label class="pod-file-row"><input type="checkbox" id="pod-client-note-required"><span class="pod-file-name">${_copy('clientResponseNoteRequiredLabel')}</span></label>
+        <label class="pod-file-row"><input type="checkbox" id="pod-client-attachment-required"><span class="pod-file-name">${_copy('clientResponseAttachmentRequiredLabel')}</span></label>
+      </div>
+      <label class="pod-input-label" for="pod-client-question">${_copy('clientResponseQuestionLabel')}</label>
+      <textarea class="pod-textarea" id="pod-client-question" rows="2" placeholder="${_copy('clientResponseQuestionPlaceholder')}"></textarea>`;
+  }
+
+  function fillClientResponseRequestFields(order) {
+    const noteRequired = byId('pod-client-note-required');
+    const attachmentRequired = byId('pod-client-attachment-required');
+    const question = byId('pod-client-question');
+    if (noteRequired) noteRequired.checked = !!(order && order.client_response_note_required);
+    if (attachmentRequired) attachmentRequired.checked = !!(order && order.client_response_attachment_required);
+    if (question) question.value = str(order && order.client_response_question);
+  }
+
   function renderAwaitingClientProgressActions(root, o) {
     root.innerHTML = `
       <div class="pod-readonly-box">
@@ -740,17 +1071,15 @@ const ProviderOrderDetailPage = (() => {
       <p class="pod-action-title">${_copy('sentProgressTitle')}</p>
       <label class="pod-input-label" for="pod-expected-delivery">${_copy('expectedDeliveryLabel')}</label>
       <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
-      <div class="pod-grid-2">
-        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('estimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
-        <div><label class="pod-input-label" for="pod-received-amount">${_copy('receivedAmountLabel')}</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
-      </div>
+      ${progressFinanceFieldsHtml(o)}
+      ${clientResponseRequestFieldsHtml()}
       <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
       <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
       ${progressFilesPickerHtml()}
       <button type="button" class="pod-btn pod-btn-warning pod-btn-block" id="pod-progress-btn" data-pod-action>${_copy('resendUpdateToClient')}</button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
-    byId('pod-estimated-amount').value = str(o.estimated_service_amount);
-    byId('pod-received-amount').value = str(o.received_amount);
+    fillProgressFinanceFields(o);
+    fillClientResponseRequestFields(o);
     byId('pod-progress-btn').addEventListener('click', () => submitProgress(false));
     bindProgressFilesPicker();
     setActionLoading(false);
@@ -762,10 +1091,8 @@ const ProviderOrderDetailPage = (() => {
       <p class="pod-action-title" id="pod-progress-title"></p>
       <label class="pod-input-label" for="pod-expected-delivery">${_copy('expectedDeliveryLabel')}</label>
       <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
-      <div class="pod-grid-2">
-        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('estimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
-        <div><label class="pod-input-label" for="pod-received-amount">${_copy('receivedAmountLabel')}</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
-      </div>
+      ${progressFinanceFieldsHtml(o)}
+      ${clientResponseRequestFieldsHtml()}
       <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
       <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
       ${progressFilesPickerHtml()}
@@ -776,8 +1103,8 @@ const ProviderOrderDetailPage = (() => {
       <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="${_copy('cancelReasonPlaceholder')}"></textarea>
       <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>${_copy('rejectRequest')}</button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
-    byId('pod-estimated-amount').value = str(o.estimated_service_amount);
-    byId('pod-received-amount').value = str(o.received_amount);
+    fillProgressFinanceFields(o);
+    fillClientResponseRequestFields(o);
     byId('pod-cancel-reason').value = str(o.cancel_reason);
     const rejected = o.provider_inputs_approved === false;
     const waitingClient = workflowStage(o) === 'awaiting_client' && !rejected;
@@ -856,17 +1183,15 @@ const ProviderOrderDetailPage = (() => {
       <p class="pod-action-title" id="pod-progress-title"></p>
       <label class="pod-input-label" for="pod-expected-delivery">${_copy('expectedDeliveryLabel')}</label>
       <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
-      <div class="pod-grid-2">
-        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('estimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
-        <div><label class="pod-input-label" for="pod-received-amount">${_copy('receivedAmountLabel')}</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
-      </div>
+      ${progressFinanceFieldsHtml(o)}
+      ${clientResponseRequestFieldsHtml()}
       <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
       <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
       ${progressFilesPickerHtml()}
       <button type="button" class="pod-btn pod-btn-primary pod-btn-block" id="pod-progress-btn" data-pod-action></button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
-    byId('pod-estimated-amount').value = str(o.estimated_service_amount);
-    byId('pod-received-amount').value = str(o.received_amount);
+    fillProgressFinanceFields(o);
+    fillClientResponseRequestFields(o);
 
     const rejected = o.provider_inputs_approved === false;
     byId('pod-progress-title').textContent = rejected ? _copy('resendExecutionDetails') : _copy('sendExecutionDetails');
@@ -887,10 +1212,8 @@ const ProviderOrderDetailPage = (() => {
       <p class="pod-action-title">${_copy('progressUpdateTitle')}</p>
       <label class="pod-input-label" for="pod-expected-delivery">${_copy('expectedDeliveryLabel')}</label>
       <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
-      <div class="pod-grid-2">
-        <div><label class="pod-input-label" for="pod-estimated-amount">${_copy('estimatedAmountLabel')}</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
-        <div><label class="pod-input-label" for="pod-received-amount">${_copy('receivedAmountLabel')}</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
-      </div>
+      ${progressFinanceFieldsHtml(o)}
+      ${clientResponseRequestFieldsHtml()}
       <label class="pod-input-label" for="pod-note">${_copy('noteLabel')}</label>
       <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="${_copy('notePlaceholder')}"></textarea>
       ${progressFilesPickerHtml()}
@@ -911,8 +1234,8 @@ const ProviderOrderDetailPage = (() => {
       <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="${_copy('cancelReasonPlaceholder')}"></textarea>
       <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>${_copy('cancelOrder')}</button>`;
     byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
-    byId('pod-estimated-amount').value = str(o.estimated_service_amount);
-    byId('pod-received-amount').value = str(o.received_amount);
+    fillProgressFinanceFields(o);
+    fillClientResponseRequestFields(o);
     byId('pod-delivered-at').value = toDateTimeInput(o.delivered_at);
     byId('pod-actual-amount').value = str(o.actual_service_amount);
     byId('pod-cancel-reason').value = str(o.cancel_reason);
@@ -1110,24 +1433,39 @@ const ProviderOrderDetailPage = (() => {
   async function submitProgress(isNew) {
     if (state.actionLoading) return;
     const expected = dateToIso(byId('pod-expected-delivery').value);
-    const est = str(byId('pod-estimated-amount').value);
-    const rec = str(byId('pod-received-amount').value);
+    const estimatedInput = byId('pod-estimated-amount');
+    const receivedInput = byId('pod-received-amount');
+    const est = estimatedInput ? str(estimatedInput.value) : '';
+    const rec = receivedInput ? str(receivedInput.value) : '';
+    const requiresFinanceInputs = !!(estimatedInput || receivedInput);
     const note = str(byId('pod-note').value);
+    let clientNoteRequired = !!(byId('pod-client-note-required') && byId('pod-client-note-required').checked);
+    const clientAttachmentRequired = !!(byId('pod-client-attachment-required') && byId('pod-client-attachment-required').checked);
+    const clientQuestion = str(byId('pod-client-question') && byId('pod-client-question').value).trim();
+    if (clientQuestion) clientNoteRequired = true;
+    const plan = state.order && state.order.payment_plan ? state.order.payment_plan : null;
+    const effectiveReceived = rec || ((plan && est) ? str(plan.confirmed_amount || state.order.received_amount || '0') : '');
+    const hasClientRequirements = clientNoteRequired || clientAttachmentRequired || !!clientQuestion;
     if (isNew && !expected) return toast(_copy('chooseExpectedDelivery'));
-    if (isNew && (!est || !rec)) return toast(_copy('enterEstimatedAndReceived'));
-    if ((est && !rec) || (!est && rec)) return toast(_copy('enterAmountsTogether'));
+    if (isNew && requiresFinanceInputs && (!est || !effectiveReceived)) return toast(_copy('enterEstimatedAndReceived'));
+    if (requiresFinanceInputs && ((est && !effectiveReceived) || (!est && effectiveReceived))) return toast(_copy('enterAmountsTogether'));
     const hasFiles = state.progressFiles && state.progressFiles.length > 0;
-    const fields = {};
+    const hasMeaningfulUpdate = !!(expected || est || effectiveReceived || note || hasClientRequirements);
+    if (!hasMeaningfulUpdate && !hasFiles) return toast(_copy('enterNoteOrUpdate'));
+    const fields = {
+      client_note_required: clientNoteRequired,
+      client_attachment_required: clientAttachmentRequired,
+      client_question: clientQuestion,
+    };
     if (expected) fields.expected_delivery_at = expected;
     if (est) fields.estimated_service_amount = est;
-    if (rec) fields.received_amount = rec;
+    if (effectiveReceived) fields.received_amount = effectiveReceived;
     if (note) fields.note = note;
-    if (!Object.keys(fields).length && !hasFiles) return toast(_copy('enterNoteOrUpdate'));
     setActionLoading(true);
     let res;
     if (hasFiles) {
       const fd = new FormData();
-      Object.keys(fields).forEach((k) => fd.append(k, fields[k]));
+      Object.keys(fields).forEach((k) => fd.append(k, typeof fields[k] === 'boolean' ? String(fields[k]) : fields[k]));
       state.progressFiles.forEach((f) => fd.append('attachments', f, f.name));
       res = await ApiClient.request('/api/marketplace/provider/requests/' + state.id + '/progress-update/', { method: 'POST', body: fd });
     } else {
@@ -1138,6 +1476,45 @@ const ProviderOrderDetailPage = (() => {
     state.progressFiles = [];
     toast(isNew ? _copy('progressSentAwaitingClient') : _copy('progressUpdated'));
     loadDetail();
+  }
+
+  async function createPaymentInstallment() {
+    if (state.actionLoading) return;
+    const amount = str(byId('pod-payment-amount-input') && byId('pod-payment-amount-input').value);
+    const title = str(byId('pod-payment-title-input') && byId('pod-payment-title-input').value);
+    const note = str(byId('pod-payment-note-input') && byId('pod-payment-note-input').value);
+    const n = Number(amount);
+    if (!amount || !Number.isFinite(n) || n <= 0) return toast('أدخل قيمة دفعة صحيحة');
+    setActionLoading(true);
+    const res = await ApiClient.request('/api/marketplace/provider/requests/' + state.id + '/payments/installments/', {
+      method: 'POST',
+      body: { amount, title, note },
+    });
+    setActionLoading(false);
+    if (!res.ok) return toast(extractError(res, 'تعذر إنشاء الدفعة'));
+    if (res.data && res.data.payment_plan && state.order) state.order.payment_plan = res.data.payment_plan;
+    toast('تم إرسال طلب الدفعة للعميل');
+    renderPaymentSection(state.order);
+  }
+
+  async function decidePaymentInstallment(installmentId, approved, note) {
+    if (state.actionLoading || !installmentId) return;
+    const cleanNote = str(note);
+    if (!approved && !cleanNote) return toast('اكتب سبب رفض الإيصال');
+    setActionLoading(true);
+    const res = await ApiClient.request('/api/marketplace/provider/requests/' + state.id + '/payments/installments/' + installmentId + '/decision/', {
+      method: 'POST',
+      body: approved ? { approved: true } : { approved: false, note: cleanNote },
+    });
+    setActionLoading(false);
+    if (!res.ok) return toast(extractError(res, 'تعذر تحديث الدفعة'));
+    if (res.data && res.data.payment_plan && state.order) {
+      state.order.payment_plan = res.data.payment_plan;
+      state.order.received_amount = res.data.payment_plan.confirmed_amount;
+      state.order.remaining_amount = res.data.payment_plan.remaining_amount;
+    }
+    toast(approved ? 'تم تأكيد الدفعة وتحديث المتبقي' : 'تم رفض الإيصال وإشعار العميل');
+    renderPaymentSection(state.order);
   }
 
   async function completeOrder() {
@@ -1216,7 +1593,7 @@ const ProviderOrderDetailPage = (() => {
 
   function setActionLoading(v) {
     state.actionLoading = v;
-    document.querySelectorAll('#pod-actions [data-pod-action]').forEach((el) => { el.disabled = v; });
+    document.querySelectorAll('#pod-actions [data-pod-action], #pod-payment-section [data-pod-action], #pod-payment-section input, #pod-payment-section textarea').forEach((el) => { el.disabled = v; });
     const input = byId('pod-completion-files');
     if (input) input.disabled = v;
   }
@@ -1464,6 +1841,41 @@ const ProviderOrderDetailPage = (() => {
     const d = asDate(v);
     if (!d) return '-';
     return localizeDigits(pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear());
+  }
+
+  function fmtMoney(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '-';
+    try {
+      return new Intl.NumberFormat(currentLang() === 'en' ? 'en-US' : 'ar-SA', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(n) + ' SR';
+    } catch (err) {
+      return localizeDigits(n.toFixed(2)) + ' SR';
+    }
+  }
+
+  function moneyNumber(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function paymentPlanLabel(status) {
+    if (status === 'paid') return 'مكتمل';
+    if (status === 'closed') return 'مغلق';
+    return 'نشط';
+  }
+
+  function installmentStatusLabel(status) {
+    switch (status) {
+      case 'pending_payment': return 'بانتظار الدفع';
+      case 'receipt_uploaded': return 'بانتظار التأكيد';
+      case 'confirmed': return 'مؤكدة';
+      case 'rejected': return 'مرفوضة';
+      case 'cancelled': return 'ملغاة';
+      default: return 'غير محددة';
+    }
   }
 
   function toDateTimeInput(v) {

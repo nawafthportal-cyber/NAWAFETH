@@ -19,11 +19,11 @@ from .serializers import (
 	ProviderReviewReplySerializer,
 )
 
-from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider
+from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider, IsCompleteClient
 
 
 class CreateReviewView(APIView):
-	permission_classes = [IsAtLeastClient]
+	permission_classes = [IsCompleteClient]
 
 	def post(self, request, request_id):
 		sr = get_object_or_404(ServiceRequest, id=request_id)

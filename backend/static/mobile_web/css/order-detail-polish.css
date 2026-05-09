@@ -872,6 +872,28 @@ body.page-order-detail .order-inline-actions {
   margin-top: 12px;
 }
 
+body.page-order-detail .order-provider-reject-block {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px dashed rgba(71, 43, 128, 0.14);
+}
+
+body.page-order-detail .order-provider-reject-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body.page-order-detail .order-provider-reject-head .order-decision-subtitle {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+body.page-order-detail #order-provider-reject-fields {
+  margin-top: 14px;
+}
+
 body.page-order-detail .order-inline-actions .btn-primary,
 body.page-order-detail .order-inline-actions .btn-secondary,
 body.page-order-detail .order-actions-body .btn-primary,
@@ -1215,6 +1237,11 @@ body.page-order-detail .order-detail-card a:focus-visible {
 
   body.page-order-detail .order-inline-actions {
     flex-direction: column-reverse;
+  }
+
+  body.page-order-detail .order-provider-reject-head {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   body.page-order-detail .order-inline-actions .btn-primary,
@@ -1835,4 +1862,512 @@ body.page-order-detail #order-actions-section .order-detail-card,
 body.page-order-detail #order-actions-section .order-manage-panel,
 body.page-order-detail #order-actions-section .order-action-shell {
   min-width: 0;
+}
+
+body.page-order-detail .order-payment-card {
+  background:
+    linear-gradient(160deg, rgba(255,255,255,.98), rgba(244,249,255,.94)),
+    radial-gradient(circle at 14% 0%, rgba(14,165,164,.14), transparent 28%);
+  border-color: rgba(14, 116, 144, .16);
+}
+
+body.page-order-detail .order-payment-head,
+body.page-order-detail .order-payment-summary,
+body.page-order-detail .order-payment-bank,
+body.page-order-detail .order-payment-installment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body.page-order-detail .order-payment-head h2 {
+  margin: 2px 0 0;
+}
+
+body.page-order-detail .order-payment-kicker {
+  color: #0f766e;
+  font-size: .78rem;
+  font-weight: 900;
+}
+
+body.page-order-detail .order-payment-status,
+body.page-order-detail .order-payment-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: #0f766e;
+  background: rgba(20,184,166,.12);
+  border: 1px solid rgba(20,184,166,.22);
+  font-size: .78rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+body.page-order-detail .order-payment-summary {
+  margin-top: 16px;
+  align-items: stretch;
+}
+
+body.page-order-detail .order-payment-summary-tile {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, .08);
+  background: rgba(255,255,255,.76);
+  padding: 12px;
+}
+
+body.page-order-detail .order-payment-summary-tile span {
+  display: block;
+  color: #64748b;
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+body.page-order-detail .order-payment-summary-tile strong {
+  display: block;
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: .98rem;
+}
+
+body.page-order-detail .order-payment-bank {
+  margin-top: 14px;
+  align-items: stretch;
+  border-radius: 18px;
+  border: 1px dashed rgba(14,116,144,.28);
+  background: rgba(240,253,250,.66);
+  padding: 12px;
+}
+
+body.page-order-detail .order-payment-bank-info {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+body.page-order-detail .order-payment-bank-info strong {
+  color: #0f172a;
+}
+
+body.page-order-detail .order-payment-bank-info span,
+body.page-order-detail .order-payment-copy {
+  color: #475569;
+  word-break: break-word;
+}
+
+body.page-order-detail .order-payment-copy {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: inherit;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+body.page-order-detail .order-payment-qr {
+  width: 86px;
+  height: 86px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: #fff;
+  border: 1px solid rgba(15,23,42,.08);
+}
+
+body.page-order-detail .order-payment-installments {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+body.page-order-detail .order-payment-installment,
+body.page-order-detail .order-payment-empty {
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, .08);
+  background: rgba(255,255,255,.82);
+  padding: 14px;
+}
+
+body.page-order-detail .order-payment-installment-head span {
+  display: block;
+  color: #64748b;
+  font-size: .74rem;
+  font-weight: 800;
+}
+
+body.page-order-detail .order-payment-installment-head strong,
+body.page-order-detail .order-payment-amount {
+  color: #0f172a;
+  font-weight: 900;
+}
+
+body.page-order-detail .order-payment-amount {
+  margin-top: 10px;
+  font-size: 1.28rem;
+}
+
+body.page-order-detail .order-payment-note {
+  margin: 8px 0 0;
+  color: #64748b;
+  line-height: 1.7;
+  font-size: .88rem;
+}
+
+body.page-order-detail .order-payment-note.is-danger {
+  color: #b42318;
+}
+
+body.page-order-detail .order-payment-receipt-link {
+  display: inline-flex;
+  margin-top: 10px;
+  color: #0f766e;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+body.page-order-detail .order-payment-upload-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+body.page-order-detail .order-payment-file input {
+  display: none;
+}
+
+body.page-order-detail .order-payment-file span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 13px;
+  color: #0f766e;
+  background: rgba(20,184,166,.1);
+  border: 1px solid rgba(20,184,166,.22);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+body.page-order-detail .order-payment-submit {
+  width: 100%;
+}
+
+@media (max-width: 520px) {
+  body.page-order-detail .order-payment-head,
+  body.page-order-detail .order-payment-summary,
+  body.page-order-detail .order-payment-bank {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  body.page-order-detail .order-payment-qr {
+    width: 100%;
+    height: auto;
+    max-height: 220px;
+  }
+}
+
+/* Client detail premium harmony - May 2026 */
+body.page-order-detail {
+  --od-ink: #171426;
+  --od-muted: #5f6072;
+  --od-primary: #4f2f9f;
+  --od-primary-strong: #321b68;
+  --od-accent: #087f8c;
+  --od-gold: #b9812f;
+  --od-green: #1f8d5a;
+  --od-red: #b83a3a;
+  --od-line: rgba(34, 24, 65, 0.1);
+  --od-card: rgba(255, 255, 255, 0.94);
+  --od-shadow: 0 22px 50px rgba(24, 20, 38, 0.09);
+  background: linear-gradient(180deg, #f8f8fb 0%, #f2f7f7 42%, #f7f5fb 100%) !important;
+}
+
+body.page-order-detail * {
+  letter-spacing: 0 !important;
+}
+
+body.page-order-detail .order-detail-layout {
+  width: min(1220px, calc(100% - 32px));
+}
+
+body.page-order-detail .order-detail-shell {
+  display: grid;
+  gap: 18px;
+}
+
+body.page-order-detail .order-detail-hero.ux26-page-header {
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+  border-radius: 28px;
+  border: 1px solid rgba(34, 24, 65, 0.09);
+  background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(247,250,250,0.95));
+  box-shadow: var(--od-shadow);
+}
+
+body.page-order-detail .order-detail-hero.ux26-page-header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 6px;
+  background: linear-gradient(90deg, var(--od-primary), var(--od-accent), var(--od-gold));
+}
+
+body.page-order-detail .order-hero-main,
+body.page-order-detail .order-hero-actions {
+  position: relative;
+  z-index: 1;
+}
+
+body.page-order-detail .order-hero-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.78fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+body.page-order-detail .order-page-kicker,
+body.page-order-detail .order-hero-pill,
+body.page-order-detail .order-summary-kicker {
+  color: var(--od-primary-strong);
+  border-color: rgba(79, 47, 159, 0.12);
+  background: rgba(79, 47, 159, 0.07);
+}
+
+body.page-order-detail .order-page-title-wrap h1,
+body.page-order-detail #order-page-title,
+body.page-order-detail .order-summary-copy h2,
+body.page-order-detail .order-field-head h2,
+body.page-order-detail .order-detail-card h2,
+body.page-order-detail .order-detail-card h3 {
+  color: var(--od-ink);
+}
+
+body.page-order-detail #order-page-subtitle,
+body.page-order-detail .order-summary-copy p,
+body.page-order-detail .order-summary-insight span,
+body.page-order-detail .order-files-group-head p,
+body.page-order-detail .order-decision-subtitle {
+  color: var(--od-muted);
+}
+
+body.page-order-detail .order-hero-panel {
+  border-radius: 22px;
+  border: 1px solid rgba(34, 24, 65, 0.08);
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 14px 32px rgba(24, 20, 38, 0.06);
+}
+
+body.page-order-detail .order-hero-panel-label,
+body.page-order-detail .order-hero-panel-caption,
+body.page-order-detail .order-hero-panel-item span {
+  color: var(--od-muted);
+}
+
+body.page-order-detail .order-hero-panel-id strong,
+body.page-order-detail .order-hero-panel-item strong {
+  color: var(--od-ink);
+}
+
+body.page-order-detail .order-back-link,
+body.page-order-detail .order-hero-action-btn {
+  border-radius: 14px;
+  border: 1px solid rgba(34, 24, 65, 0.09);
+  background: rgba(255,255,255,0.94);
+  color: var(--od-primary-strong);
+  box-shadow: 0 10px 22px rgba(24, 20, 38, 0.05);
+}
+
+body.page-order-detail .order-hero-action-btn {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--od-primary), var(--od-primary-strong));
+}
+
+body.page-order-detail .order-detail-stack {
+  display: grid;
+  gap: 18px;
+}
+
+body.page-order-detail .order-detail-card,
+body.page-order-detail .orders-mobile-sheet {
+  border-radius: 22px;
+  border: 1px solid rgba(34, 24, 65, 0.09);
+  background: var(--od-card);
+  box-shadow: 0 16px 36px rgba(24, 20, 38, 0.075);
+}
+
+body.page-order-detail .order-summary-card {
+  position: relative;
+  overflow: hidden;
+}
+
+body.page-order-detail .order-summary-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  background: linear-gradient(180deg, var(--od-primary), var(--od-accent), var(--od-gold));
+}
+
+body.page-order-detail .order-summary-shell,
+body.page-order-detail #order-meta {
+  position: relative;
+  z-index: 1;
+}
+
+body.page-order-detail .order-summary-id-block,
+body.page-order-detail .order-summary-insight,
+body.page-order-detail .order-meta-line,
+body.page-order-detail .order-info-card,
+body.page-order-detail .order-provider-notes-card,
+body.page-order-detail .order-inline-note,
+body.page-order-detail .order-manage-panel {
+  border-radius: 16px;
+  border-color: rgba(34, 24, 65, 0.08);
+  background: linear-gradient(180deg, rgba(248,250,252,0.92), rgba(255,255,255,0.98));
+}
+
+body.page-order-detail .order-summary-insight {
+  border-color: rgba(8, 127, 140, 0.14);
+  background: rgba(236, 249, 249, 0.66);
+}
+
+body.page-order-detail .order-summary-insight strong {
+  color: var(--od-accent);
+}
+
+body.page-order-detail .order-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.62fr) minmax(330px, 0.82fr);
+  gap: 18px;
+  align-items: start;
+}
+
+body.page-order-detail .order-main-column,
+body.page-order-detail .order-side-column {
+  display: grid;
+  gap: 16px;
+}
+
+body.page-order-detail .order-side-column {
+  position: sticky;
+  top: 18px;
+}
+
+body.page-order-detail .order-primary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 16px;
+}
+
+body.page-order-detail .form-input,
+body.page-order-detail .form-textarea,
+body.page-order-detail .order-inline-textarea {
+  border-radius: 14px;
+  border-color: rgba(34, 24, 65, 0.1);
+  background: rgba(255,255,255,0.95);
+  color: var(--od-ink);
+}
+
+body.page-order-detail .form-input:focus,
+body.page-order-detail .form-textarea:focus,
+body.page-order-detail .order-inline-textarea:focus {
+  border-color: rgba(8, 127, 140, 0.34);
+  box-shadow: 0 0 0 4px rgba(8, 127, 140, 0.1);
+}
+
+body.page-order-detail .order-files-group,
+body.page-order-detail .order-lines > *,
+body.page-order-detail .order-offer-card {
+  border-radius: 16px;
+}
+
+body.page-order-detail #order-provider-decision-section {
+  border-color: rgba(185, 129, 47, 0.18);
+}
+
+body.page-order-detail .order-decision-icon {
+  color: var(--od-gold);
+  background: rgba(185, 129, 47, 0.12);
+}
+
+body.page-order-detail .btn-primary,
+body.page-order-detail .order-payment-submit {
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--od-primary), var(--od-primary-strong));
+}
+
+body.page-order-detail .btn-secondary,
+body.page-order-detail .btn-sm {
+  border-radius: 13px;
+}
+
+body.page-order-detail .order-payment-card {
+  border-color: rgba(8, 127, 140, 0.16);
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(236,249,249,0.78));
+}
+
+body.page-order-detail .order-payment-status,
+body.page-order-detail .order-payment-pill,
+body.page-order-detail .order-payment-kicker {
+  color: var(--od-accent);
+}
+
+body.page-order-detail .order-payment-status,
+body.page-order-detail .order-payment-pill {
+  background: rgba(8, 127, 140, 0.08);
+  border-color: rgba(8, 127, 140, 0.16);
+}
+
+body.page-order-detail .order-payment-bank,
+body.page-order-detail .order-payment-summary-tile,
+body.page-order-detail .order-payment-installment,
+body.page-order-detail .order-payment-empty {
+  border-radius: 16px;
+  border-color: rgba(34, 24, 65, 0.08);
+  background: rgba(255,255,255,0.78);
+}
+
+body.page-order-detail .order-review-field {
+  border-radius: 16px;
+}
+
+body.page-order-detail .status-badge {
+  border-radius: 999px;
+  min-height: 32px;
+}
+
+@media (max-width: 1100px) {
+  body.page-order-detail .order-hero-main,
+  body.page-order-detail .order-content-grid,
+  body.page-order-detail .order-primary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-order-detail .order-side-column {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  body.page-order-detail .order-detail-layout {
+    width: min(100% - 18px, 100%);
+  }
+
+  body.page-order-detail .order-detail-hero.ux26-page-header,
+  body.page-order-detail .order-detail-card,
+  body.page-order-detail .orders-mobile-sheet {
+    border-radius: 20px;
+  }
+
+  body.page-order-detail .order-detail-hero.ux26-page-header {
+    padding: 18px;
+  }
 }

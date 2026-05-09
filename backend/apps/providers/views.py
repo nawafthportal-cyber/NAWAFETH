@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 from apps.accounts.models import User
 
 from apps.accounts.models import UserRole
-from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider
+from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider, IsCompleteClient
 from apps.accounts.role_context import get_active_role
 from .cache import get_cached_public_category_list_payload
 from .eligibility import HasProviderProfile
@@ -687,7 +687,7 @@ class ProviderCreateView(generics.CreateAPIView):
 	serializer_class = ProviderProfileSerializer
 	# Provider registration is allowed only after full basic registration
 	# (CLIENT or above), matching product permission matrix.
-	permission_classes = [IsAtLeastClient]
+	permission_classes = [IsCompleteClient]
 
 	def perform_create(self, serializer):
 		with transaction.atomic():
@@ -2015,7 +2015,7 @@ class SpotlightCommentsView(APIView):
 	def post(self, request, item_id: int):
 		if not request.user.is_authenticated:
 			return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
-		if not IsAtLeastPhoneOnly().has_permission(request, self):
+		if not IsCompleteClient().has_permission(request, self):
 			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 		role = get_active_role(request)
 		item = self._get_item(request, item_id)
@@ -2084,7 +2084,7 @@ class PortfolioCommentsView(APIView):
 	def post(self, request, item_id: int):
 		if not request.user.is_authenticated:
 			return Response({"detail": "Authentication credentials were not provided."}, status=status.HTTP_401_UNAUTHORIZED)
-		if not IsAtLeastPhoneOnly().has_permission(request, self):
+		if not IsCompleteClient().has_permission(request, self):
 			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 		role = get_active_role(request)
 		item = self._get_item(request, item_id)
