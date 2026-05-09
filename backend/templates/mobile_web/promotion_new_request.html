@@ -8,6 +8,7 @@
   data-promo-new-request-url="{% url 'mobile_web:promotion_new_request' %}"
   data-promo-requests-url="{% url 'mobile_web:promotion' %}"
   data-promo-payment-url="{% url 'mobile_web:promotion_payment' %}"
+  data-promo-messages-enabled="{{ promo_messages_enabled|yesno:'1,0' }}"
   data-provider-display-name="{{ promo_provider_display_name|default:'' }}">
   <div class="page-header ux26-page-header">
     <a href="{% url 'mobile_web:promotion' %}" class="btn-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></a>
@@ -248,17 +249,20 @@
           </div>
         </div>
 
-        <div class="promo-service-block" data-service-block="promo_messages">
+        <div class="promo-service-block{% if not promo_messages_enabled %} is-locked{% endif %}" data-service-block="promo_messages">
           <div class="service-block-header">
             <div class="service-block-title">
               <h4>الرسائل الدعائية</h4>
               <p>إرسال محتوى ترويجي عبر الإشعارات أو الرسائل مع مرفقات ورسالة مخصصة.</p>
             </div>
-            <label class="service-toggle-label">
-              <input type="checkbox" class="service-toggle-input" data-service-toggle="promo_messages">
+            <label class="service-toggle-label{% if not promo_messages_enabled %} is-disabled{% endif %}">
+              <input type="checkbox" class="service-toggle-input" data-service-toggle="promo_messages"{% if not promo_messages_enabled %} disabled{% endif %}>
               <span>تفعيل</span>
             </label>
           </div>
+          {% if not promo_messages_enabled %}
+            <div class="promo-service-lock-note">الرسائل الدعائية متاحة فقط للمشتركين في الباقة الاحترافية. <a href="/plans/">عرض الباقات والترقية</a></div>
+          {% endif %}
           <div class="service-body" hidden>
             <div class="attachment-guide">
               <strong>قبل رفع مرفقات الرسائل:</strong>
@@ -552,13 +556,19 @@
   .promo-service-block{border:1px solid #dfe8f4;border-radius:18px;padding:18px;background:linear-gradient(180deg,#fff 0%,#fcfcff 100%);box-shadow:0 14px 34px rgba(15,23,42,.05);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease;min-height:100%}
   .promo-service-block:hover{transform:translateY(-2px);border-color:#c7d9e8}
   .promo-service-block.is-active{border-color:#673AB7;box-shadow:0 0 0 3px rgba(103,58,183,.08),0 18px 36px rgba(103,58,183,.10);background:linear-gradient(180deg,#ffffff 0%,#F5F0FB 100%)}
+  .promo-service-block.is-locked{border-color:#eadfbe;background:linear-gradient(180deg,#fffdfa 0%,#fff8e8 100%);box-shadow:0 12px 28px rgba(148,115,35,.06)}
+  .promo-service-block.is-locked:hover{transform:none;border-color:#eadfbe}
   .service-block-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0}
   .service-block-title{min-width:0}
   .service-block-header h4{margin:0;color:#243b53;font-size:19px;line-height:1.4}
   .service-block-title p{margin:6px 0 0;color:#64748b;font-size:13px;line-height:1.8}
   .service-toggle-label{display:inline-flex;align-items:center;gap:8px;color:#1f4d2a;font-size:13px;font-weight:800;cursor:pointer;padding:8px 12px;border-radius:999px;background:#F5F0FB;border:1px solid #d5e7d8;flex-shrink:0}
+  .service-toggle-label.is-disabled{cursor:not-allowed;color:#8a6d3b;background:#f8f1de;border-color:#eadfbe}
   .service-toggle-input{accent-color:#7b2cbf}
   .service-body{margin-top:16px;padding-top:16px;border-top:1px solid #edf2f7}
+  .promo-service-lock-note{margin-top:14px;padding:12px 14px;border-radius:14px;border:1px solid #eadfbe;background:#fff8e8;color:#7c5a16;font-size:13px;line-height:1.8}
+  .promo-service-lock-note a{color:#6b46c1;font-weight:800;text-decoration:none}
+  .promo-service-lock-note a:hover{text-decoration:underline}
   .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
   .form-row .half,.form-group.half{min-width:0}
   .promo-service-block .form-input[type="datetime-local"]{min-width:0}

@@ -199,7 +199,7 @@ var ProviderProfileEditPage = (function () {
       basic: true,
       service_details: providerSubcategoryIds.length > 0,
       additional: hasTextValue(profile && (profile.details || profile.specialization)) || hasTextValue(profile && profile.qualification) || hasTextValue(profile && profile.experiences),
-      contact_full: hasTextValue(profile && profile.phone) || hasTextValue(profile && profile.website) || socialValues.length > 0 || socialExtras.length > 0,
+      contact_full: hasTextValue(raw && raw.whatsapp) || hasTextValue(profile && profile.website) || socialValues.length > 0 || socialExtras.length > 0,
       lang_loc: hasTextValue(profile && profile.languages) && Number(profile && profile.coverageRadius || 0) > 0,
       content: portfolioItems.length > 0 || hasTextValue(raw.profile_image) || hasTextValue(raw.cover_image) || hasNonEmptyListValue(raw.content_sections),
       seo: hasTextValue(profile && profile.keywords) || hasTextValue(profile && profile.seoMetaDescription) || hasTextValue(profile && profile.seoSlug)

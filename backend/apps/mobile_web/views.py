@@ -19,6 +19,10 @@ from apps.extras.option_catalog import (
     option_items,
 )
 from apps.providers.models import ProviderProfile
+from apps.subscriptions.capabilities import (
+    promotional_chat_controls_enabled_for_user,
+    promotional_notification_controls_enabled_for_user,
+)
 
 
 def _clean_meta_text(value, fallback=""):
@@ -497,8 +501,13 @@ class MobileWebPromotionNewRequestView(TemplateView):
         context = super().get_context_data(**kwargs)
         user = getattr(self.request, "user", None)
         provider_name = ""
+        promo_messages_enabled = False
 
         if user is not None and getattr(user, "is_authenticated", False):
+            promo_messages_enabled = (
+                promotional_notification_controls_enabled_for_user(user)
+                and promotional_chat_controls_enabled_for_user(user)
+            )
             try:
                 provider_profile = user.provider_profile
             except Exception:
@@ -522,6 +531,7 @@ class MobileWebPromotionNewRequestView(TemplateView):
                 ).strip()
 
         context["promo_provider_display_name"] = provider_name or ""
+        context["promo_messages_enabled"] = promo_messages_enabled
         return context
 
 

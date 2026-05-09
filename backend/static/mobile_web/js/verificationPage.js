@@ -930,7 +930,7 @@ const VerificationPage = (() => {
     if (pricingStrip) pricingStrip.classList.add('hidden');
     if (successCode) successCode.textContent = requestCode || _requestCode || 'AD0001';
     if (successNote) {
-      successNote.textContent = note || 'سيتم التواصل معكم بعد عملية التدقيق المعتمدة من منصة المختص.';
+      successNote.textContent = note || 'سيتم التواصل معكم بعد عملية التدقيق المعتمدة .';
     }
     _setFlowStep(3);
     _hideStatusNotice();

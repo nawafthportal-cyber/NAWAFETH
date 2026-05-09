@@ -1,9 +1,15 @@
+from datetime import timedelta
+
 from django.test import TestCase
 from django.urls import reverse
 from django.utils.html import escape
+from django.utils import timezone
 
 from apps.accounts.models import User, UserRole
 from apps.providers.models import ProviderProfile
+from apps.subscriptions.configuration import canonical_subscription_plan_for_tier
+from apps.subscriptions.models import Subscription, SubscriptionStatus
+from apps.subscriptions.tiering import CanonicalPlanTier
 
 
 class ProviderModeRequestAccessTests(TestCase):
@@ -119,3 +125,51 @@ class ProviderDashboardCompletionLinkTests(TestCase):
             response,
             'href="/provider-profile-edit/?tab=account&amp;focus=fullName&amp;section=basic"',
         )
+
+
+class PromotionNewRequestCapabilityTests(TestCase):
+    def setUp(self):
+        self.provider_user = User.objects.create_user(
+            phone="0502000101",
+            username="provider.promo",
+            role_state=UserRole.PROVIDER,
+        )
+        ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود الترويج",
+            bio="-",
+            city="الرياض",
+            region="منطقة الرياض",
+            accepts_urgent=True,
+        )
+        self.client.force_login(self.provider_user)
+
+    def _activate_professional_subscription(self):
+        now = timezone.now()
+        Subscription.objects.create(
+            user=self.provider_user,
+            plan=canonical_subscription_plan_for_tier(CanonicalPlanTier.PROFESSIONAL),
+            status=SubscriptionStatus.ACTIVE,
+            start_at=now - timedelta(days=1),
+            end_at=now + timedelta(days=30),
+            grace_end_at=now + timedelta(days=35),
+        )
+
+    def test_promo_messages_are_locked_without_professional_subscription(self):
+        response = self.client.get(reverse("mobile_web:promotion_new_request"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-promo-messages-enabled="0"')
+        self.assertContains(response, 'data-service-toggle="promo_messages" disabled')
+        self.assertContains(response, "الرسائل الدعائية متاحة فقط للمشتركين في الباقة الاحترافية.")
+
+    def test_promo_messages_are_enabled_for_professional_subscription(self):
+        self._activate_professional_subscription()
+
+        response = self.client.get(reverse("mobile_web:promotion_new_request"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-promo-messages-enabled="1"')
+        self.assertNotContains(response, 'data-service-toggle="promo_messages" disabled')
+        self.assertNotContains(response, "الرسائل الدعائية متاحة فقط للمشتركين في الباقة الاحترافية.")

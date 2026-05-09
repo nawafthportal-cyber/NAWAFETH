@@ -288,6 +288,12 @@
     color: var(--pf-accent-strong);
   }
 
+  body.page-provider-portfolio .pf-status.is-warning {
+    border-color: rgba(217, 119, 6, 0.20);
+    background: rgba(251, 191, 36, 0.12);
+    color: #9a3412;
+  }
+
   body.page-provider-portfolio .pf-content-manager {
     display: grid;
     gap: 18px;
@@ -740,6 +746,17 @@
     line-height: 1.9;
   }
 
+  body.page-provider-portfolio .pf-empty-state-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  body.page-provider-portfolio .pf-empty-state-actions .btn {
+    justify-content: center;
+  }
+
   @media (max-width: 767px) {
     body.page-provider-portfolio .pf-page-header,
     body.page-provider-portfolio .pf-hero,
@@ -755,6 +772,57 @@
       padding: 24px;
     }
 
+    body.page-provider-portfolio .pf-content-card {
+      padding: 18px;
+      border-radius: 24px;
+    }
+
+    body.page-provider-portfolio .pf-content-items-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    body.page-provider-portfolio .pf-item {
+      gap: 10px;
+      padding: 12px;
+      border-radius: 20px;
+    }
+
+    body.page-provider-portfolio .pf-item-preview,
+    body.page-provider-portfolio .pf-item-preview-action,
+    body.page-provider-portfolio .pf-item-doc {
+      min-height: 176px;
+    }
+
+    body.page-provider-portfolio .pf-item-image,
+    body.page-provider-portfolio .pf-item-video {
+      height: 176px;
+    }
+
+    body.page-provider-portfolio .pf-item-preview-overlay {
+      right: 10px;
+      bottom: 10px;
+      left: 10px;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 16px;
+    }
+
+    body.page-provider-portfolio .pf-item-preview-overlay-copy strong {
+      font-size: 12px;
+    }
+
+    body.page-provider-portfolio .pf-item-preview-overlay-copy small,
+    body.page-provider-portfolio .pf-item-preview-overlay-cta {
+      font-size: 10px;
+    }
+
+    body.page-provider-portfolio .pf-item-desc {
+      min-height: 72px;
+      padding: 10px 12px;
+    }
+
     body.page-provider-portfolio .pf-content-card-tools {
       flex-direction: column;
       align-items: flex-start;
@@ -765,7 +833,17 @@
     }
 
     body.page-provider-portfolio .pf-item-actions .btn {
-      width: 100%;
+      width: auto;
+    }
+
+    body.page-provider-portfolio .pf-item-save,
+    body.page-provider-portfolio .pf-item-replace {
+      flex: 1 1 calc(50% - 5px);
+    }
+
+    body.page-provider-portfolio .pf-item-delete,
+    body.page-provider-portfolio .pf-empty-state-actions .btn {
+      flex: 1 1 100%;
     }
   }
 </style>
@@ -809,6 +887,9 @@
       <div class="pf-empty-state-copy">
         <strong>لا توجد تصنيفات رئيسية جاهزة لعرض المحتوى بعد</strong>
         <p class="pf-empty-note">أضف أو احفظ التصنيفات الرئيسية من صفحة تعديل الملف، ثم عد هنا لتظهر لك بطاقات العرض الخاصة بكل تصنيف بشكل تلقائي.</p>
+        <div class="pf-empty-state-actions">
+          <a href="/provider-profile-edit/?tab=general&amp;focus=serviceCategories&amp;section=service_details" class="btn btn-primary">فتح تعديل الملف وإكمال التصنيفات</a>
+        </div>
       </div>
     </div>
     <div id="pf-sections"></div>

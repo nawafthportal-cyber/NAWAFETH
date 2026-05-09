@@ -257,6 +257,11 @@ var PromotionPage = (function () {
     return document.querySelector(".page-shell[data-promo-requests-url], .page-shell[data-promo-new-request-url]");
   }
 
+  function promoMessagesEnabled() {
+    var shell = getMainShell();
+    return !!(shell && shell.dataset && String(shell.dataset.promoMessagesEnabled || "").trim() === "1");
+  }
+
   function getRequestsUrl() {
     var shell = getMainShell();
     return (shell && shell.dataset && shell.dataset.promoRequestsUrl) || "/mobile-web/promotion/";
@@ -840,6 +845,12 @@ var PromotionPage = (function () {
     toggles.forEach(function (input) {
       var service = String(input.dataset.serviceToggle || "").trim();
       if (!service) return;
+      if (service === "promo_messages" && !promoMessagesEnabled()) {
+        input.checked = false;
+        input.disabled = true;
+        toggleServiceBlock(service, false);
+        return;
+      }
       input.addEventListener("change", function () {
         if (input.checked) {
           if (selectedServices.indexOf(service) < 0) {
@@ -860,6 +871,12 @@ var PromotionPage = (function () {
     toggles.forEach(function (input) {
       var service = String(input.dataset.serviceToggle || "").trim();
       if (!service) return;
+      if (service === "promo_messages" && !promoMessagesEnabled()) {
+        input.checked = false;
+        input.disabled = true;
+        toggleServiceBlock(service, false);
+        return;
+      }
       if (input.checked && selectedServices.indexOf(service) < 0) {
         selectedServices.push(service);
       }
@@ -2899,6 +2916,7 @@ var PromotionPage = (function () {
       body.target_category = valueOf(field("target_category"));
     }
     if (service === "promo_messages") {
+      if (!promoMessagesEnabled()) return "الرسائل الدعائية متاحة فقط ضمن الباقة الاحترافية";
       var sendAtDate = localDate("send_at");
       body.send_at = sendAtDate ? sendAtDate.toISOString() : "";
       if (!body.send_at) return "حدد وقت الإرسال للرسائل الدعائية";
