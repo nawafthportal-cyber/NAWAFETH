@@ -133,13 +133,14 @@ def _dispatch_due_competitive_requests_once(*, now=None, limit: int = 200) -> No
 def _infer_attachment_type(uploaded_file) -> str:
 	name = (getattr(uploaded_file, "name", "") or "").lower()
 	content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
+	is_voice_webm = name.endswith(".webm") and any(token in name for token in ("voice", "audio", "record"))
 
 	if content_type.startswith("image/") or name.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp")):
 		return "image"
+	if content_type.startswith("audio/") or is_voice_webm or name.endswith((".mp3", ".wav", ".aac", ".ogg", ".m4a")):
+		return "audio"
 	if content_type.startswith("video/") or name.endswith((".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v")):
 		return "video"
-	if content_type.startswith("audio/") or name.endswith((".mp3", ".wav", ".aac", ".ogg", ".m4a")):
-		return "audio"
 	return "document"
 
 

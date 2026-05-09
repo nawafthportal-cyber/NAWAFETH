@@ -1683,8 +1683,10 @@ const ChatDetailPage = (() => {
 
   function _detectAttachmentType(file) {
     const mime = (file?.type || '').toLowerCase();
+    const name = String(file?.name || '').toLowerCase();
     if (mime.startsWith('image/')) return 'image';
-    if (mime.startsWith('audio/')) return 'audio';
+    if (mime.startsWith('audio/') || /\.(mp3|wav|aac|ogg|m4a)$/i.test(name)) return 'audio';
+    if (/\.webm$/i.test(name) && /voice|audio|record/i.test(name)) return 'audio';
     return 'file';
   }
 

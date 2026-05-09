@@ -49,16 +49,23 @@ MAX_MESSAGE_LEN = 2000
 
 def _infer_attachment_type(file_obj, requested_type: str | None = None) -> str:
 	req_type = (requested_type or "").strip().lower()
-	if req_type in {"audio", "image", "file"}:
+	if req_type in {"audio", "image", "video", "file"}:
 		return req_type
 
 	name = getattr(file_obj, "name", "") or ""
+	lower_name = name.lower()
 	mime, _ = mimetypes.guess_type(name)
 	if mime:
 		if mime.startswith("audio/"):
 			return "audio"
+		if mime == "video/webm" and any(token in lower_name for token in ("voice", "audio", "record")):
+			return "audio"
 		if mime.startswith("image/"):
 			return "image"
+		if mime.startswith("video/"):
+			return "video"
+	if lower_name.endswith(".webm") and any(token in lower_name for token in ("voice", "audio", "record")):
+		return "audio"
 	return "file"
 
 

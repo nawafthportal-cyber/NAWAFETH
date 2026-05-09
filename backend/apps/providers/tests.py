@@ -2099,6 +2099,71 @@ class MyProviderServicesListCreateViewTests(TestCase):
         self.assertFalse(response.json()["requires_geo_scope"])
 
 
+class MyProviderPortfolioCategoryTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            phone="0503300120",
+            password="StrongPass123!",
+            username="provider.portfolio.category.owner",
+            role_state=UserRole.PROVIDER,
+            first_name="مزود",
+        )
+        self.provider = ProviderProfile.objects.create(
+            user=self.user,
+            provider_type="individual",
+            display_name="مزود معرض مصنف",
+            bio="-",
+            city="الرياض",
+        )
+        self.web_category = Category.objects.create(name="تصميم وبرمجة الويب")
+        self.home_category = Category.objects.create(name="صيانة منزلية")
+        self.web_subcategory = SubCategory.objects.create(category=self.web_category, name="تصميم مواقع الويب")
+        self.home_subcategory = SubCategory.objects.create(category=self.home_category, name="سباكة")
+        self.provider.providercategory_set.create(subcategory=self.web_subcategory)
+        self.list_url = reverse("providers:my_portfolio")
+        self.client.force_login(self.user)
+
+    def _pdf_upload(self, name="work.pdf"):
+        return SimpleUploadedFile(name, b"%PDF-1.4\n%%EOF", content_type="application/pdf")
+
+    def test_create_portfolio_item_persists_selected_category(self):
+        response = self.client.post(
+            self.list_url,
+            {
+                "file": self._pdf_upload(),
+                "file_type": "document",
+                "caption": "تصميم صفحة هبوط",
+                "category_id": self.web_category.id,
+            },
+        )
+
+        self.assertEqual(response.status_code, 201, response.json())
+        item = ProviderPortfolioItem.objects.get(provider=self.provider)
+        self.assertEqual(item.category_id, self.web_category.id)
+
+        public_response = self.client.get(reverse("providers:provider_portfolio", kwargs={"provider_id": self.provider.id}))
+        self.assertEqual(public_response.status_code, 200, public_response.json())
+        payload = public_response.json()[0]
+        self.assertEqual(payload["category_id"], self.web_category.id)
+        self.assertEqual(payload["category_name"], self.web_category.name)
+        self.assertEqual(payload["caption"], "تصميم صفحة هبوط")
+
+    def test_create_portfolio_item_rejects_unselected_category(self):
+        response = self.client.post(
+            self.list_url,
+            {
+                "file": self._pdf_upload("blocked.pdf"),
+                "file_type": "document",
+                "caption": "عمل غير مرتبط",
+                "category_id": self.home_category.id,
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("category_id", response.json())
+        self.assertFalse(ProviderPortfolioItem.objects.filter(provider=self.provider).exists())
+
+
 class ProviderServicesPublicListViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

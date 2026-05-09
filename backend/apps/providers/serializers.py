@@ -233,6 +233,28 @@ def _normalize_provider_media_upload(upload, *, media_type: str, image_prefix: s
     raise serializers.ValidationError({"file_type": "نوع الملف يجب أن يكون صورة أو فيديو أو ملف PDF."})
 
 
+def _validate_portfolio_category_for_provider(attrs, *, request=None, instance=None):
+    if "category" not in attrs:
+        return attrs
+    category = attrs.get("category")
+    if category is None:
+        return attrs
+
+    provider = getattr(instance, "provider", None)
+    if provider is None and request is not None:
+        provider = getattr(getattr(request, "user", None), "provider_profile", None)
+    if provider is None:
+        raise serializers.ValidationError({"category_id": "تعذر تحديد مزود الخدمة."})
+
+    is_selected = ProviderCategory.objects.filter(
+        provider=provider,
+        subcategory__category=category,
+    ).exists()
+    if not is_selected:
+        raise serializers.ValidationError({"category_id": "اختر تصنيفًا من التصنيفات المحفوظة في ملفك."})
+    return attrs
+
+
 class ProviderSeoValidationMixin:
     def validate_seo_title(self, value):
         return _trim_text(value)
@@ -766,6 +788,8 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
     provider_display_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_username = serializers.CharField(source="provider.user.username", read_only=True)
     provider_profile_image = serializers.SerializerMethodField()
+    category_id = serializers.IntegerField(source="category.id", read_only=True, allow_null=True)
+    category_name = serializers.CharField(source="category.name", read_only=True, default="")
     is_verified_blue = serializers.SerializerMethodField()
     is_verified_green = serializers.SerializerMethodField()
     provider_is_online = serializers.SerializerMethodField()
@@ -785,6 +809,8 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
             "provider_display_name",
             "provider_username",
             "provider_profile_image",
+            "category_id",
+            "category_name",
             "is_verified_blue",
             "is_verified_green",
             "provider_is_online",
@@ -863,6 +889,12 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
 
 
 class ProviderPortfolioItemCreateSerializer(serializers.ModelSerializer):
+    category_id = serializers.PrimaryKeyRelatedField(
+        source="category",
+        queryset=Category.objects.filter(is_active=True),
+        required=False,
+        allow_null=True,
+    )
     file_type = serializers.ChoiceField(
         choices=ProviderPortfolioItem.FILE_TYPE_CHOICES,
         required=False,
@@ -871,6 +903,7 @@ class ProviderPortfolioItemCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        attrs = _validate_portfolio_category_for_provider(attrs, request=self.context.get("request"))
         upload = attrs.get("file")
         media_type = _infer_upload_media_type(
             upload,
@@ -889,6 +922,7 @@ class ProviderPortfolioItemCreateSerializer(serializers.ModelSerializer):
         model = ProviderPortfolioItem
         fields = (
             "id",
+            "category_id",
             "file_type",
             "file",
             "caption",
@@ -898,6 +932,12 @@ class ProviderPortfolioItemCreateSerializer(serializers.ModelSerializer):
 
 
 class ProviderPortfolioItemUpdateSerializer(serializers.ModelSerializer):
+    category_id = serializers.PrimaryKeyRelatedField(
+        source="category",
+        queryset=Category.objects.filter(is_active=True),
+        required=False,
+        allow_null=True,
+    )
     file_type = serializers.ChoiceField(
         choices=ProviderPortfolioItem.FILE_TYPE_CHOICES,
         required=False,
@@ -906,6 +946,11 @@ class ProviderPortfolioItemUpdateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        attrs = _validate_portfolio_category_for_provider(
+            attrs,
+            request=self.context.get("request"),
+            instance=self.instance,
+        )
         upload = attrs.get("file")
         if upload is None:
             attrs.pop("file_type", None)
@@ -927,6 +972,7 @@ class ProviderPortfolioItemUpdateSerializer(serializers.ModelSerializer):
         model = ProviderPortfolioItem
         fields = (
             "caption",
+            "category_id",
             "file_type",
             "file",
         )

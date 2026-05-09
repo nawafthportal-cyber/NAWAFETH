@@ -837,6 +837,7 @@ class ProviderPortfolioListView(generics.ListAPIView):
 		provider_id = self.kwargs.get("provider_id")
 		qs = (
 			ProviderPortfolioItem.objects.filter(provider_id=provider_id)
+			.select_related("provider", "provider__user", "category")
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
 			.annotate(comments_count=Count("comments", filter=Q(comments__is_approved=True), distinct=True))
@@ -875,6 +876,7 @@ class MyProviderPortfolioListCreateView(generics.ListCreateAPIView):
 			return ProviderPortfolioItem.objects.none()
 		return (
 			ProviderPortfolioItem.objects.filter(provider=pp)
+			.select_related("provider", "provider__user", "category")
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
 			.order_by("-created_at", "-id")
@@ -917,6 +919,7 @@ class MyProviderPortfolioDetailView(generics.RetrieveUpdateDestroyAPIView):
 			return ProviderPortfolioItem.objects.none()
 		return (
 			ProviderPortfolioItem.objects.filter(provider=pp)
+			.select_related("provider", "provider__user", "category")
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
 			.order_by("-created_at", "-id")

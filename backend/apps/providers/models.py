@@ -181,6 +181,13 @@ class ProviderPortfolioItem(models.Model):
         on_delete=models.CASCADE,
         related_name="portfolio_items",
     )
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        related_name="portfolio_items",
+        null=True,
+        blank=True,
+    )
     file_type = models.CharField(max_length=20, choices=FILE_TYPE_CHOICES)
     file = models.FileField(upload_to="providers/portfolio/%Y/%m/")
     thumbnail = models.ImageField(upload_to="providers/portfolio/%Y/%m/thumbs/", null=True, blank=True)

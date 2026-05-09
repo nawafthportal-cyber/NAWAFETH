@@ -683,8 +683,9 @@ const UrgentRequestPage = (() => {
     const mime = String(file?.type || '').toLowerCase();
     const name = String(file?.name || '').toLowerCase();
     if (mime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(name)) return 'image';
+    if (mime.startsWith('audio/') || /\.(mp3|wav|aac|ogg|m4a)$/i.test(name)) return 'audio';
+    if (/\.webm$/i.test(name) && /voice|audio|record/i.test(name)) return 'audio';
     if (mime.startsWith('video/') || /\.(mp4|mov|avi|mkv|webm|m4v)$/i.test(name)) return 'video';
-    if (mime.startsWith('audio/') || /\.(mp3|wav|aac|ogg|m4a|webm)$/i.test(name)) return 'audio';
     return 'file';
   }
 

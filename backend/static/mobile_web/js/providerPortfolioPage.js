@@ -250,6 +250,11 @@ var ProviderPortfolioPage = (function () {
     return "section-" + slugify(title || SECTION_FALLBACK_TITLE) + "-" + String(index || 0);
   }
 
+  function buildCategorySectionId(categoryId, title, index) {
+    var id = toInt(categoryId);
+    return id ? ("category-" + id) : buildSectionId(title, index);
+  }
+
   function extractPortfolioSectionTitle(caption) {
     var text = trim(caption);
     if (!text) return SECTION_FALLBACK_TITLE;
@@ -282,6 +287,11 @@ var ProviderPortfolioPage = (function () {
     var title = trim(sectionTitle) || SECTION_FALLBACK_TITLE;
     var description = trim(itemDescription);
     return description ? (title + " | " + description) : title;
+  }
+
+  function formatItemCaption(categoryTitle, itemDescription, categoryId) {
+    var description = trim(itemDescription);
+    return toInt(categoryId) ? description : formatCaption(categoryTitle, description);
   }
 
   function normalizePortfolioList(data) {
@@ -321,7 +331,9 @@ var ProviderPortfolioPage = (function () {
   }
 
   function normalizePortfolioItem(item) {
-    var sectionTitle = extractPortfolioSectionTitle(item && item.caption);
+    var categoryId = toInt(item && item.category_id);
+    var categoryName = trim(item && item.category_name);
+    var sectionTitle = categoryName || extractPortfolioSectionTitle(item && item.caption);
     var fileUrl = item && (item.file_url || item.file || item.url || item.image) || "";
     var fileType = trim(item && item.file_type).toLowerCase();
     if (!fileType) {
@@ -330,6 +342,8 @@ var ProviderPortfolioPage = (function () {
     }
     return {
       id: toInt(item && item.id),
+      category_id: categoryId,
+      category_name: categoryName,
       file_type: fileType,
       file_url: fileUrl,
       thumbnail_url: item && item.thumbnail_url || fileUrl,
@@ -338,22 +352,64 @@ var ProviderPortfolioPage = (function () {
       section_title: sectionTitle,
       likes_count: toInt(item && item.likes_count),
       saves_count: toInt(item && item.saves_count),
+      comments_count: toInt(item && item.comments_count),
       is_liked: !!(item && item.is_liked),
       is_saved: !!(item && item.is_saved),
       created_at: item && item.created_at || "",
     };
   }
 
-  function getPrimaryCategoryTitles() {
-    return uniqueNonEmpty(_services.map(function (service) {
+  function getPrimaryCategoryEntries() {
+    var byTitle = Object.create(null);
+    var entries = [];
+
+    function addEntry(title, subcategoryName, categoryId) {
+      var cleanTitle = trim(title);
+      if (!cleanTitle) return;
+      var key = sectionKey(cleanTitle);
+      if (!byTitle[key]) {
+        byTitle[key] = {
+          category_id: toInt(categoryId),
+          title: cleanTitle,
+          subcategories: [],
+        };
+        entries.push(byTitle[key]);
+      } else if (!byTitle[key].category_id && toInt(categoryId)) {
+        byTitle[key].category_id = toInt(categoryId);
+      }
+      var cleanSubcategory = trim(subcategoryName);
+      if (cleanSubcategory && byTitle[key].subcategories.indexOf(cleanSubcategory) === -1) {
+        byTitle[key].subcategories.push(cleanSubcategory);
+      }
+    }
+
+    (_profile && Array.isArray(_profile.main_categories) ? _profile.main_categories : []).forEach(function (title) {
+      addEntry(title, "", 0);
+    });
+
+    (_profile && Array.isArray(_profile.selected_subcategories) ? _profile.selected_subcategories : []).forEach(function (row) {
+      addEntry(row && row.category_name, row && row.name, row && row.category_id);
+    });
+
+    (Array.isArray(_services) ? _services : []).forEach(function (service) {
       var sub = service && service.subcategory ? service.subcategory : {};
-      return sub.category_name || (sub.category && sub.category.name) || "";
-    }));
+      addEntry(sub.category_name || (sub.category && sub.category.name), sub.name, sub.category_id || (sub.category && sub.category.id));
+    });
+
+    return entries;
+  }
+
+  function categorySectionDescription(entry) {
+    var subcategories = uniqueNonEmpty(entry && entry.subcategories || []);
+    if (subcategories.length) {
+      return "أضف أكثر من محتوى لهذا التصنيف، ويمكنك تعديل الوصف أو استبدال الملف أو حذفه. التصنيفات الفرعية: " + subcategories.join("، ");
+    }
+    return "أضف أكثر من محتوى لهذا التصنيف، ويمكنك تعديل الوصف أو استبدال الملف أو حذفه مباشرة.";
   }
 
   function buildSections(profile, items) {
     var normalizedItems = normalizePortfolioList(items).map(normalizePortfolioItem);
-    var categoryTitles = getPrimaryCategoryTitles();
+    var categoryEntries = getPrimaryCategoryEntries();
     var groupedByTitle = Object.create(null);
     var seenCategories = Object.create(null);
 
@@ -363,12 +419,14 @@ var ProviderPortfolioPage = (function () {
       groupedByTitle[title].push(item);
     });
 
-    var result = categoryTitles.map(function (title, index) {
+    var result = categoryEntries.map(function (entry, index) {
+      var title = entry.title;
       seenCategories[sectionKey(title)] = true;
       return {
-        id: buildSectionId(title, index),
+        id: buildCategorySectionId(entry.category_id, title, index),
+        category_id: toInt(entry.category_id),
         title: title,
-        description: "يمكنك رفع صور أو فيديوهات أو ملفات PDF وربطها بهذا التصنيف مباشرة.",
+        description: categorySectionDescription(entry),
         raw: null,
         isAuxiliary: false,
         items: groupedByTitle[title] || [],
@@ -405,12 +463,18 @@ var ProviderPortfolioPage = (function () {
 
   function setButtonBusy(button, isBusy, busyLabel) {
     if (!button) return;
-    if (!button.dataset.defaultLabel) {
+    // Icon-only buttons contain an SVG and no text; preserving textContent
+    // would erase the icon after the first click. For those buttons we just
+    // toggle the disabled/loading state and skip the label swap.
+    var hasText = !!trim(button.textContent || "");
+    if (hasText && !button.dataset.defaultLabel) {
       button.dataset.defaultLabel = trim(button.textContent);
     }
     button.disabled = !!isBusy;
     button.classList.toggle("is-loading", !!isBusy);
-    button.textContent = isBusy ? busyLabel : button.dataset.defaultLabel;
+    if (hasText) {
+      button.textContent = isBusy ? (busyLabel || button.dataset.defaultLabel) : button.dataset.defaultLabel;
+    }
   }
 
   function setUploadBusy(input, isBusy, busyLabel) {
@@ -527,6 +591,7 @@ var ProviderPortfolioPage = (function () {
           section_title: section.title,
           likes_count: toInt(item.likes_count),
           saves_count: toInt(item.saves_count),
+          comments_count: toInt(item.comments_count),
           is_liked: !!item.is_liked,
           is_saved: !!item.is_saved,
           mode_context: "provider",
@@ -556,6 +621,7 @@ var ProviderPortfolioPage = (function () {
       if (!target) return;
       target.likes_count = toInt(detail.likes_count);
       target.saves_count = toInt(detail.saves_count);
+      target.comments_count = toInt(detail.comments_count);
       target.is_liked = !!detail.is_liked;
       target.is_saved = !!detail.is_saved;
       _updateItemBadge(itemId, target);
@@ -640,7 +706,7 @@ var ProviderPortfolioPage = (function () {
           (!section.isAuxiliary ? ('<label class="pf-upload-btn">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
           '<span class="pf-upload-label">رفع ملفات</span>' +
-          '<input type="file" accept="image/*,video/*,.pdf" multiple hidden data-section="' + escapeHtml(section.id) + '">' +
+          '<input type="file" accept="image/*,video/*,.pdf" multiple hidden data-section="' + escapeHtml(section.id) + '" data-category-id="' + toInt(section.category_id) + '">' +
           '</label>') : '') +
         '</div>' +
       '</div>' +
@@ -659,10 +725,10 @@ var ProviderPortfolioPage = (function () {
             '<textarea class="form-input pf-item-desc" rows="2" placeholder="وصف مختصر يظهر للعملاء">' + escapeHtml(item.description || '') + '</textarea>' +
           '</div>' +
           '<div class="pf-item-actions">' +
-            '<button type="button" class="btn pf-item-save" data-item-id="' + item.id + '" data-category="' + escapeHtml(section.title) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> حفظ الوصف</button>' +
+            '<button type="button" class="btn pf-item-save" data-item-id="' + item.id + '" data-category="' + escapeHtml(section.title) + '" data-category-id="' + toInt(section.category_id) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> حفظ الوصف</button>' +
             '<label class="pf-icon-btn pf-item-replace" title="استبدال الملف" aria-label="استبدال الملف">' +
               '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>' +
-              '<input type="file" accept="image/*,video/*,.pdf" hidden class="pf-item-replace-input" data-item-id="' + item.id + '" data-category="' + escapeHtml(section.title) + '">' +
+              '<input type="file" accept="image/*,video/*,.pdf" hidden class="pf-item-replace-input" data-item-id="' + item.id + '" data-category="' + escapeHtml(section.title) + '" data-category-id="' + toInt(section.category_id) + '">' +
             '</label>' +
             '<button type="button" class="pf-icon-btn is-danger pf-item-delete" data-item="' + item.id + '" title="حذف" aria-label="حذف"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>' +
           '</div>' +
@@ -809,67 +875,94 @@ var ProviderPortfolioPage = (function () {
     });
   }
 
+  // Use event delegation on the sections container so every render keeps a
+  // single, always-fresh set of handlers. This avoids losing handlers when
+  // re-rendering, and prevents duplicate handler registration.
   function bindItemEvents() {
-    Array.prototype.forEach.call(document.querySelectorAll(".pf-upload-btn input"), function (input) {
-      input.addEventListener("change", function () {
-        var files = Array.prototype.slice.call(this.files || []);
-        var section = findSection(this.getAttribute("data-section"));
-        this.value = "";
-        if (!section || !files.length) return;
-        uploadFiles(section, files, this);
-      });
-    });
+    var container = byId("pf-sections");
+    if (!container) return;
 
-    Array.prototype.forEach.call(document.querySelectorAll(".pf-item-save"), function (button) {
-      button.addEventListener("click", function () {
-        updateItemDescription(this.getAttribute("data-item-id"), this.getAttribute("data-category"), this);
-      });
-    });
-
-    Array.prototype.forEach.call(document.querySelectorAll(".pf-item-desc"), function (input) {
-      var card = input.closest ? input.closest('.pf-item') : null;
-      var statusEl = card ? card.querySelector('[data-status]') : null;
+    // Track initial textarea values for the dirty-status indicator.
+    Array.prototype.forEach.call(container.querySelectorAll(".pf-item-desc"), function (input) {
       input.dataset.initial = String(input.value || '');
-      input.addEventListener("input", function () {
-        if (!statusEl) return;
-        var dirty = String(this.value || '') !== (this.dataset.initial || '');
-        statusEl.textContent = dirty ? "تغييرات غير محفوظة" : "";
-        statusEl.className = "pf-item-desc-status" + (dirty ? " is-dirty" : "");
-      });
     });
 
-    Array.prototype.forEach.call(document.querySelectorAll(".pf-item-replace-input"), function (input) {
-      input.addEventListener("change", function () {
-        var file = this.files && this.files[0];
-        this.value = "";
-        if (!file) return;
-        replaceItemFile(this.getAttribute("data-item-id"), this.getAttribute("data-category"), file, this);
-      });
-    });
+    if (container.dataset.delegationBound === "1") return;
+    container.dataset.delegationBound = "1";
 
-    Array.prototype.forEach.call(document.querySelectorAll(".pf-item-delete"), function (button) {
-      button.addEventListener("click", function () {
-        deleteItem(this.getAttribute("data-item"), this);
-      });
-    });
+    container.addEventListener("click", function (event) {
+      var target = event.target;
+      if (!target || !target.closest) return;
 
-    Array.prototype.forEach.call(document.querySelectorAll(".pf-item-preview-action"), function (button) {
-      button.addEventListener("click", function () {
-        if (String(this.getAttribute("data-file-type") || "").toLowerCase() === "document") {
-          var fileUrl = this.getAttribute("data-file-url") || "";
+      var saveBtn = target.closest(".pf-item-save");
+      if (saveBtn && container.contains(saveBtn)) {
+        event.preventDefault();
+        updateItemDescription(saveBtn.getAttribute("data-item-id"), saveBtn.getAttribute("data-category"), saveBtn.getAttribute("data-category-id"), saveBtn);
+        return;
+      }
+
+      var deleteBtn = target.closest(".pf-item-delete");
+      if (deleteBtn && container.contains(deleteBtn)) {
+        event.preventDefault();
+        deleteItem(deleteBtn.getAttribute("data-item"), deleteBtn);
+        return;
+      }
+
+      var previewBtn = target.closest(".pf-item-preview-action");
+      if (previewBtn && container.contains(previewBtn)) {
+        event.preventDefault();
+        if (String(previewBtn.getAttribute("data-file-type") || "").toLowerCase() === "document") {
+          var fileUrl = previewBtn.getAttribute("data-file-url") || "";
           if (fileUrl) window.open(fileUrl, "_blank", "noopener");
           return;
         }
         if (typeof SpotlightViewer === "undefined" || !_allViewerItems.length) return;
-        var sectionId = this.getAttribute("data-section-id");
-        var localIndex = parseInt(this.getAttribute("data-local-index"), 10) || 0;
+        var sectionId = previewBtn.getAttribute("data-section-id");
+        var localIndex = parseInt(previewBtn.getAttribute("data-local-index"), 10) || 0;
         var globalIndex = _viewerIndex(sectionId, localIndex);
         SpotlightViewer.open(_allViewerItems, globalIndex, {
           source: "portfolio",
           label: "معرض",
           eventName: "nw:portfolio-engagement-update",
           modeContext: "provider",
-        });      });
+        });
+        return;
+      }
+    });
+
+    container.addEventListener("change", function (event) {
+      var target = event.target;
+      if (!target) return;
+
+      // New uploads (multi-file) coming from the section's upload button.
+      if (target.matches && target.matches(".pf-upload-btn input[type=file]")) {
+        var files = Array.prototype.slice.call(target.files || []);
+        var section = findSection(target.getAttribute("data-section"));
+        target.value = "";
+        if (!section || !files.length) return;
+        uploadFiles(section, files, target);
+        return;
+      }
+
+      // Replace a single existing file.
+      if (target.matches && target.matches(".pf-item-replace-input")) {
+        var file = target.files && target.files[0];
+        target.value = "";
+        if (!file) return;
+        replaceItemFile(target.getAttribute("data-item-id"), target.getAttribute("data-category"), target.getAttribute("data-category-id"), file, target);
+        return;
+      }
+    });
+
+    container.addEventListener("input", function (event) {
+      var input = event.target;
+      if (!input || !input.classList || !input.classList.contains("pf-item-desc")) return;
+      var card = input.closest ? input.closest('.pf-item') : null;
+      var statusEl = card ? card.querySelector('[data-status]') : null;
+      if (!statusEl) return;
+      var dirty = String(input.value || '') !== (input.dataset.initial || '');
+      statusEl.textContent = dirty ? "تغييرات غير محفوظة" : "";
+      statusEl.className = "pf-item-desc-status" + (dirty ? " is-dirty" : "");
     });
   }
 
@@ -945,10 +1038,10 @@ var ProviderPortfolioPage = (function () {
         if (titleChanged) {
           for (var i = 0; i < editingSection.items.length; i++) {
             var item = editingSection.items[i];
-            var nextCaption = formatCaption(title, trim(item.description));
+            var nextCaption = formatItemCaption(title, trim(item.description), item.category_id);
             var itemResponse = await rawApi.request("/api/providers/me/portfolio/" + item.id + "/", {
               method: "PATCH",
-              body: { caption: nextCaption },
+              body: { caption: nextCaption, category_id: item.category_id || null },
               timeout: 15000,
             });
             if (!itemResponse.ok) {
@@ -1025,7 +1118,7 @@ var ProviderPortfolioPage = (function () {
     }
   }
 
-  async function updateItemDescription(itemId, categoryTitle, button) {
+  async function updateItemDescription(itemId, categoryTitle, categoryId, button) {
     var id = toInt(itemId);
     var card = button && button.closest ? button.closest('.pf-item') : null;
     var input = card ? card.querySelector('.pf-item-desc') : null;
@@ -1034,9 +1127,11 @@ var ProviderPortfolioPage = (function () {
     showStatus('جار حفظ وصف الملف...', 'info', true);
     try {
       var rawApi = getApi();
+      var payload = { caption: formatItemCaption(categoryTitle, trim(input.value), categoryId) };
+      if (toInt(categoryId)) payload.category_id = toInt(categoryId);
       var response = await rawApi.request('/api/providers/me/portfolio/' + id + '/', {
         method: 'PATCH',
-        body: { caption: formatCaption(categoryTitle, trim(input.value)) },
+        body: payload,
         timeout: 15000,
       });
       if (!response.ok) {
@@ -1051,7 +1146,7 @@ var ProviderPortfolioPage = (function () {
     }
   }
 
-  async function replaceItemFile(itemId, categoryTitle, file, input) {
+  async function replaceItemFile(itemId, categoryTitle, categoryId, file, input) {
     var id = toInt(itemId);
     var card = input && input.closest ? input.closest('.pf-item') : null;
     var descInput = card ? card.querySelector('.pf-item-desc') : null;
@@ -1067,7 +1162,8 @@ var ProviderPortfolioPage = (function () {
       var formData = new FormData();
       formData.append('file', file);
       formData.append('file_type', fileType);
-      formData.append('caption', formatCaption(categoryTitle, trim(descInput && descInput.value)));
+      formData.append('caption', formatItemCaption(categoryTitle, trim(descInput && descInput.value), categoryId));
+      if (toInt(categoryId)) formData.append('category_id', String(toInt(categoryId)));
       var response = await rawApi.request('/api/providers/me/portfolio/' + id + '/', {
         method: 'PATCH',
         body: formData,
@@ -1111,7 +1207,8 @@ var ProviderPortfolioPage = (function () {
         var formData = new FormData();
         formData.append("file", file);
         formData.append("file_type", inferFileType(file));
-        formData.append("caption", formatCaption(section.title, ""));
+        formData.append("caption", formatItemCaption(section.title, "", section.category_id));
+        if (toInt(section.category_id)) formData.append("category_id", String(toInt(section.category_id)));
         var response = await rawApi.request("/api/providers/me/portfolio/", {
           method: "POST",
           body: formData,

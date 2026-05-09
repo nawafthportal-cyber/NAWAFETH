@@ -685,6 +685,13 @@ const ProviderOrderDetailPage = (() => {
       video.preload = 'metadata';
       return video;
     }
+    if (type === 'audio' && href) {
+      const audio = document.createElement('audio');
+      audio.src = href;
+      audio.controls = true;
+      audio.preload = 'none';
+      return audio;
+    }
 
     const box = document.createElement('div');
     box.className = 'pod-attachment-placeholder';

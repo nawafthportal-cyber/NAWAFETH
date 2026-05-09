@@ -8,6 +8,21 @@ from apps.providers.models import Category, ProviderProfile, ProviderVisibilityB
 from apps.subscriptions.models import Subscription, SubscriptionPlan, SubscriptionStatus
 
 from .models import Thread, ThreadUserState
+from .views import _infer_attachment_type
+
+
+class MessageAttachmentTypeTests(TestCase):
+    def test_voice_webm_with_video_mime_guess_is_audio(self):
+        class Upload:
+            name = "voice-recording.webm"
+
+        self.assertEqual(_infer_attachment_type(Upload()), "audio")
+
+    def test_regular_webm_video_remains_video(self):
+        class Upload:
+            name = "portfolio-demo.webm"
+
+        self.assertEqual(_infer_attachment_type(Upload()), "video")
 
 
 class DirectChatQuotaConsumptionTests(TestCase):

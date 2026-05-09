@@ -974,6 +974,7 @@ const ProviderDetailPage = (() => {
 
       target.likes_count = _safeInt(detail.likes_count);
       target.saves_count = _safeInt(detail.saves_count);
+      target.comments_count = _safeInt(detail.comments_count);
       target.is_liked = _asBool(detail.is_liked);
       target.is_saved = _asBool(detail.is_saved);
 
@@ -2510,7 +2511,8 @@ const ProviderDetailPage = (() => {
       if (!media) return;
 
       const rawCaption = String(item.caption || item.title || '').trim();
-      const sectionTitle = _extractPortfolioSectionTitle(rawCaption);
+      const categoryName = String(item.category_name || '').trim();
+      const sectionTitle = categoryName || _extractPortfolioSectionTitle(rawCaption);
       const description = _extractPortfolioItemDescription(rawCaption, sectionTitle);
 
       if (!grouped.has(sectionTitle)) grouped.set(sectionTitle, []);
@@ -2530,6 +2532,8 @@ const ProviderDetailPage = (() => {
           _providerData?.profile_image,
           _providerData?.profileImage
         ),
+        category_id: _safeInt(item.category_id),
+        category_name: categoryName,
         type: fileType.startsWith('video') ? 'video' : 'image',
         media: media,
         file_type: fileType.startsWith('video') ? 'video' : 'image',
@@ -3838,6 +3842,36 @@ const ProviderDetailPage = (() => {
   }
 
   function _resolvePortfolioSections(grouped) {
+    const selectedSubcategories = (_providerData && Array.isArray(_providerData.selected_subcategories))
+      ? _providerData.selected_subcategories
+      : [];
+    const mainCategories = (_providerData && Array.isArray(_providerData.main_categories))
+      ? _providerData.main_categories
+      : [];
+    const categoryTitles = [];
+    selectedSubcategories.forEach(row => {
+      const title = String(row && row.category_name || '').trim();
+      if (title && !categoryTitles.includes(title)) categoryTitles.push(title);
+    });
+    mainCategories.forEach(title => {
+      const clean = String(title || '').trim();
+      if (clean && !categoryTitles.includes(clean)) categoryTitles.push(clean);
+    });
+
+    if (categoryTitles.length) {
+      const categorySections = categoryTitles.map(title => ({
+        sectionTitle: title,
+        sectionDesc: '',
+        items: grouped.get(title) || [],
+      }));
+      grouped.forEach((items, title) => {
+        if (!categoryTitles.includes(title)) {
+          categorySections.push({ sectionTitle: title, sectionDesc: '', items });
+        }
+      });
+      return categorySections;
+    }
+
     const rawSections = (_providerData && (_providerData.content_sections || _providerData.contentSections)) || [];
     const definedSections = Array.isArray(rawSections)
       ? rawSections.filter(section => section && typeof section === 'object')

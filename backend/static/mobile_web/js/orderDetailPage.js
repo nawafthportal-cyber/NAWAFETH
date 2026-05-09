@@ -1268,12 +1268,18 @@ const OrderDetailPage = (() => {
     let icon = '📎';
     if (type === 'image') icon = '🖼️';
     else if (type === 'video') icon = '🎬';
-    else if (type === 'audio') icon = '🎧';
+    else if (type === 'audio') icon = 'AUD';
     else if (type === 'document') icon = '📄';
     const label = (attachment && (attachment.name || attachment.title)) || (_copy('attachmentFile') + ' #' + String(attachment && attachment.id || ''));
     if (!href) {
       const span = UI.el('span', { className: 'order-attachment-chip is-disabled', textContent: icon + ' ' + label, title: _copy('attachmentUnavailable') });
       return span;
+    }
+    if (type === 'audio') {
+      const wrap = UI.el('span', { className: 'order-attachment-chip order-attachment-audio' });
+      wrap.appendChild(UI.el('span', { textContent: icon + ' ' + label }));
+      wrap.appendChild(UI.el('audio', { controls: 'controls', preload: 'none', src: href }));
+      return wrap;
     }
     const link = UI.el('a', { className: 'order-attachment-chip', href, textContent: icon + ' ' + label });
     link.target = '_blank';
@@ -1510,7 +1516,17 @@ const OrderDetailPage = (() => {
     const rawPath = String(item?.file_url || item?.file || item?.url || '').trim();
     const pathBits = rawPath.split('?')[0].split('/');
     const name = pathBits[pathBits.length - 1] || _copy('attachmentFile');
-    const type = String(item?.file_type || '').toUpperCase() || 'FILE';
+    const rawType = String(item?.file_type || '').toLowerCase();
+    if (rawType === 'audio' && href) {
+      const wrap = UI.el('div', { className: 'order-line-link order-line-audio', title: _copy('openAttachment') });
+      const nameWrap = UI.el('span', { className: 'order-file-name' });
+      nameWrap.appendChild(UI.el('span', { className: 'order-file-icon', textContent: _attachmentIcon(rawType) }));
+      nameWrap.appendChild(UI.el('span', { textContent: name }));
+      wrap.appendChild(nameWrap);
+      wrap.appendChild(UI.el('audio', { controls: 'controls', preload: 'none', src: href }));
+      return wrap;
+    }
+    const type = rawType.toUpperCase() || 'FILE';
     const attrs = {
       className: 'order-line-link',
       title: href ? _copy('openAttachment') : _copy('attachmentUnavailable'),
