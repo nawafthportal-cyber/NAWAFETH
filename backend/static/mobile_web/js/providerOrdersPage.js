@@ -17,17 +17,17 @@ const ProviderOrdersPage = (() => {
       resultsAria: 'نتائج الطلبات',
       backAria: 'العودة للوحة المزود',
       heroPanelKicker: 'مركز التشغيل',
-      heroPanelTitle: 'لوحة أكثر هدوءًا ووضوحًا',
-      heroPanelBody: 'نظرة مركزة تساعدك على التقاط الطلبات المهمة سريعًا بدون تشتيت أو ازدحام بصري.',
-      heroPanelItem1: 'انتقال سريع بين الطلبات المسندة والتنافسية والعاجلة.',
-      heroPanelItem2: 'ملخص واضح للحالة والمدينة والقيمة وموعد التسليم.',
-      heroPanelItem3: 'واجهة أكثر اتزانًا على الجوال والديسكتوب.',
-      heroKicker: 'مركز تشغيل طلباتك',
+      heroPanelTitle: 'ملخص اليوم',
+      heroPanelBody: 'الأرقام الأهم أمامك، والطلبات مرتبة حسب الأولوية والحالة.',
+      heroPanelItem1: 'طلبات مسندة وتنافسية وعاجلة.',
+      heroPanelItem2: 'حالة، مدينة، قيمة، وموعد في كل بطاقة.',
+      heroPanelItem3: 'عرض مريح للجوال والديسكتوب.',
+      heroKicker: 'طلبات المزود',
       heroTitle: 'إدارة الطلبات',
-      heroSubtitle: 'واجهة واحدة لمتابعة الطلبات المسندة لك، واغتنام الفرص التنافسية، والتعامل السريع مع الطلبات العاجلة بتوزيع أكثر هدوءًا ووضوحًا على الجوال والديسكتوب.',
-      heroPill1: 'متابعة لحظية',
-      heroPill2: 'بحث وفرز سريع',
-      heroPill3: 'عرض احترافي متعدد الحالات',
+      heroSubtitle: 'تابع المسند لك، راجع فرص التسعير، وتعامل مع الطلبات العاجلة من شاشة واحدة مختصرة.',
+      heroPill1: 'نشط',
+      heroPill2: 'فرص',
+      heroPill3: 'عاجل',
       kpiAssignedLabel: 'المسندة',
       kpiAssignedNote: 'طلبات نشطة داخل سير العمل',
       kpiCompetitiveLabel: 'التنافسية',
@@ -67,8 +67,8 @@ const ProviderOrdersPage = (() => {
       legend2: 'طلب قيد التنفيذ أو المتابعة',
       legend3: 'طلب مكتمل وتم إغلاقه',
       legend4: 'طلب ملغي أو منتهي',
-      sideNoteTitle: 'إيقاع تشغيل أنظف',
-      sideNoteBody: 'استخدم التبويبات العلوية للتبديل بين نوع الطلبات، ثم ضيّق النتائج بالحالة والبحث من هنا بسرعة.',
+      sideNoteTitle: 'ملخص الفلترة',
+      sideNoteBody: 'التبويب الحالي يحدد نوع الطلبات، والفلتر يضيق النتائج حسب الحالة.',
       loading: 'جاري تحميل الطلبات...',
       resultsChipAssigned: 'عرض تشغيلي للطلبات المسندة',
       resultsChipCompetitive: 'فرص جاهزة للتسعير والمراجعة',
@@ -144,17 +144,17 @@ const ProviderOrdersPage = (() => {
       resultsAria: 'Orders results',
       backAria: 'Back to provider dashboard',
       heroPanelKicker: 'Operations center',
-      heroPanelTitle: 'A calmer, clearer board',
-      heroPanelBody: 'A focused view that helps you spot important orders quickly without clutter or visual noise.',
-      heroPanelItem1: 'Quick movement between assigned, competitive, and urgent requests.',
-      heroPanelItem2: 'A clear summary of status, city, value, and delivery timing.',
-      heroPanelItem3: 'A more balanced interface on mobile and desktop.',
-      heroKicker: 'Your orders operations hub',
+      heroPanelTitle: 'Today summary',
+      heroPanelBody: 'The key numbers are upfront, with requests organized by priority and status.',
+      heroPanelItem1: 'Assigned, competitive, and urgent requests.',
+      heroPanelItem2: 'Status, city, value, and timing in every card.',
+      heroPanelItem3: 'Comfortable on mobile and desktop.',
+      heroKicker: 'Provider orders',
       heroTitle: 'Orders management',
-      heroSubtitle: 'One interface to follow your assigned requests, capture competitive opportunities, and respond quickly to urgent orders with a cleaner layout across mobile and desktop.',
-      heroPill1: 'Live follow-up',
-      heroPill2: 'Fast search and sort',
-      heroPill3: 'Professional multi-state view',
+      heroSubtitle: 'Track assigned work, review pricing opportunities, and handle urgent requests from one compact screen.',
+      heroPill1: 'Active',
+      heroPill2: 'Opportunities',
+      heroPill3: 'Urgent',
       kpiAssignedLabel: 'Assigned',
       kpiAssignedNote: 'Active requests in the workflow',
       kpiCompetitiveLabel: 'Competitive',
@@ -194,8 +194,8 @@ const ProviderOrdersPage = (() => {
       legend2: 'A request in execution or follow-up',
       legend3: 'A request completed and closed',
       legend4: 'A cancelled or ended request',
-      sideNoteTitle: 'A cleaner operating rhythm',
-      sideNoteBody: 'Use the top tabs to switch request types, then narrow results by status and search from here quickly.',
+      sideNoteTitle: 'Filter summary',
+      sideNoteBody: 'The current tab sets the request type, and the filter narrows results by status.',
       loading: 'Loading orders...',
       resultsChipAssigned: 'Operational view for assigned requests',
       resultsChipCompetitive: 'Ready-to-price opportunities for review',
@@ -1144,7 +1144,7 @@ const ProviderOrdersPage = (() => {
     if (!btn) return;
 
     btn.disabled = state.isFetching;
-    btn.textContent = state.isFetching ? _copy('refreshing') : _copy('refresh');
+    setButtonLabel(btn, state.isFetching ? _copy('refreshing') : _copy('refresh'));
     btn.setAttribute('aria-busy', state.isFetching ? 'true' : 'false');
   }
 
@@ -1416,6 +1416,19 @@ const ProviderOrdersPage = (() => {
     if (el) el.textContent = value;
   }
 
+  function setButtonLabel(buttonOrId, value) {
+    const el = typeof buttonOrId === 'string' ? byId(buttonOrId) : buttonOrId;
+    if (!el) return;
+
+    const label = el.querySelector('.po-btn-label');
+    if (label) {
+      label.textContent = value;
+      return;
+    }
+
+    el.textContent = value;
+  }
+
   function _currentLang() {
     if (window.NawafethI18n && typeof window.NawafethI18n.getLanguage === 'function') {
       return window.NawafethI18n.getLanguage() === 'en' ? 'en' : 'ar';
@@ -1496,8 +1509,8 @@ const ProviderOrdersPage = (() => {
     setText('po-sort-option-city', _copy('sortCity'));
     setText('po-sort-option-amount', _copy('sortAmount'));
     setText('po-sort-option-deadline', _copy('sortDeadline'));
-    setText('po-refresh-btn', state.isFetching ? _copy('refreshing') : _copy('refresh'));
-    setText('po-clear-search-btn', _copy('clearSearch'));
+    setButtonLabel('po-refresh-btn', state.isFetching ? _copy('refreshing') : _copy('refresh'));
+    setButtonLabel('po-clear-search-btn', _copy('clearSearch'));
     setText('po-controls-kicker', _copy('controlsKicker'));
     setText('po-controls-title', _copy('controlsTitle'));
     setText('po-search-label', _copy('searchLabel'));
