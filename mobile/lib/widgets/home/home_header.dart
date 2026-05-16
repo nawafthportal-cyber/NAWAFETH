@@ -111,7 +111,7 @@ class _BrandLogo extends StatelessWidget {
             fontSize: 18,
             fontWeight: FontWeight.w800,
             color: isDark ? Colors.white : AppColors.primary,
-            letterSpacing: -0.5,
+            letterSpacing: 0,
           ),
         ),
       ],
@@ -138,9 +138,7 @@ class _HeaderIconButton extends StatelessWidget {
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: isDark
-              ? AppColors.cardDark
-              : AppColors.primarySurface,
+          color: isDark ? AppColors.cardDark : AppColors.primarySurface,
           borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         child: Icon(
@@ -177,9 +175,7 @@ class _NotificationButton extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.cardDark
-                  : AppColors.primarySurface,
+              color: isDark ? AppColors.cardDark : AppColors.primarySurface,
               borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Icon(

@@ -70,22 +70,22 @@ class AppTextStyles {
   AppTextStyles._();
 
   // Display
-  static const double display1 = 22.0; // Hero titles
-  static const double display2 = 19.0; // Page titles
+  static const double display1 = 28.0; // Hero titles
+  static const double display2 = 24.0; // Page titles
 
   // Headings
-  static const double h1 = 17.0;
-  static const double h2 = 15.0;
-  static const double h3 = 13.5;
+  static const double h1 = 21.0;
+  static const double h2 = 18.0;
+  static const double h3 = 16.0;
 
   // Body
-  static const double bodyLg  = 13.0;
-  static const double bodyMd  = 12.0;
-  static const double bodySm  = 11.0;
+  static const double bodyLg  = 16.0;
+  static const double bodyMd  = 14.0;
+  static const double bodySm  = 13.0;
 
   // Caption / Label
-  static const double caption = 10.5;
-  static const double micro   = 9.5;
+  static const double caption = 12.0;
+  static const double micro   = 11.0;
 
   // Font weights
   static const FontWeight bold     = FontWeight.w700;
@@ -114,7 +114,7 @@ class AppSpacing {
   AppSpacing._();
 
   static const double xs  = 4.0;
-  static const double sm  = 6.0;
+  static const double sm  = 8.0;
   static const double md  = 8.0;
   static const double lg  = 12.0;
   static const double xl  = 16.0;
@@ -122,10 +122,10 @@ class AppSpacing {
   static const double x3  = 24.0;
 
   // Insets
-  static const EdgeInsets cardPadding      = EdgeInsets.all(12);
-  static const EdgeInsets cardPaddingSnug  = EdgeInsets.all(10);
-  static const EdgeInsets screenPadding    = EdgeInsets.symmetric(horizontal: 14);
-  static const EdgeInsets listItemPadding  = EdgeInsets.symmetric(horizontal: 14, vertical: 10);
+  static const EdgeInsets cardPadding      = EdgeInsets.all(16);
+  static const EdgeInsets cardPaddingSnug  = EdgeInsets.all(12);
+  static const EdgeInsets screenPadding    = EdgeInsets.symmetric(horizontal: 20);
+  static const EdgeInsets listItemPadding  = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
 }
 
 // ─────────────────────────────────────────────
@@ -134,11 +134,11 @@ class AppSpacing {
 class AppRadius {
   AppRadius._();
 
-  static const double xs   = 6.0;
-  static const double sm   = 10.0;
-  static const double md   = 14.0;
-  static const double lg   = 18.0;
-  static const double xl   = 22.0;
+  static const double xs   = 8.0;
+  static const double sm   = 12.0;
+  static const double md   = 16.0;
+  static const double lg   = 20.0;
+  static const double xl   = 24.0;
   static const double xxl  = 28.0;
   static const double pill = 999.0;
 
@@ -230,12 +230,19 @@ class AppTheme {
       brightness: isDark ? Brightness.dark : Brightness.light,
       fontFamily: 'Cairo',
       useMaterial3: true,
+      visualDensity: VisualDensity.standard,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
       scaffoldBackgroundColor: bg,
 
       colorScheme: ColorScheme.fromSeed(
         seedColor: seedColor,
         brightness: isDark ? Brightness.dark : Brightness.light,
         surface: surface,
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: AppColors.primary,
+        selectionColor: AppColors.primary.withValues(alpha: 0.24),
+        selectionHandleColor: AppColors.primary,
       ),
 
       // App Bar
@@ -287,26 +294,28 @@ class AppTheme {
       // Text
       textTheme: TextTheme(
         // Display
-        displayLarge: TextStyle(fontSize: AppTextStyles.display1, fontWeight: AppTextStyles.bold, color: textPrimary),
-        displayMedium: TextStyle(fontSize: AppTextStyles.display2, fontWeight: AppTextStyles.bold, color: textPrimary),
+        displayLarge: TextStyle(fontSize: AppTextStyles.display1, fontWeight: AppTextStyles.bold, height: 1.15, color: textPrimary),
+        displayMedium: TextStyle(fontSize: AppTextStyles.display2, fontWeight: AppTextStyles.bold, height: 1.2, color: textPrimary),
         // Headline
-        headlineLarge: TextStyle(fontSize: AppTextStyles.h1, fontWeight: AppTextStyles.semiBold, color: textPrimary),
-        headlineMedium: TextStyle(fontSize: AppTextStyles.h2, fontWeight: AppTextStyles.semiBold, color: textPrimary),
-        headlineSmall: TextStyle(fontSize: AppTextStyles.h3, fontWeight: AppTextStyles.semiBold, color: textPrimary),
+        headlineLarge: TextStyle(fontSize: AppTextStyles.h1, fontWeight: AppTextStyles.semiBold, height: 1.2, color: textPrimary),
+        headlineMedium: TextStyle(fontSize: AppTextStyles.h2, fontWeight: AppTextStyles.semiBold, height: 1.25, color: textPrimary),
+        headlineSmall: TextStyle(fontSize: AppTextStyles.h3, fontWeight: AppTextStyles.semiBold, height: 1.3, color: textPrimary),
         // Body
-        bodyLarge: TextStyle(fontSize: AppTextStyles.bodyLg, fontWeight: AppTextStyles.regular, color: textPrimary),
-        bodyMedium: TextStyle(fontSize: AppTextStyles.bodyMd, fontWeight: AppTextStyles.regular, color: textSecondary),
-        bodySmall: TextStyle(fontSize: AppTextStyles.bodySm, fontWeight: AppTextStyles.regular, color: textSecondary),
+        bodyLarge: TextStyle(fontSize: AppTextStyles.bodyLg, fontWeight: AppTextStyles.regular, height: 1.5, color: textPrimary),
+        bodyMedium: TextStyle(fontSize: AppTextStyles.bodyMd, fontWeight: AppTextStyles.regular, height: 1.5, color: textSecondary),
+        bodySmall: TextStyle(fontSize: AppTextStyles.bodySm, fontWeight: AppTextStyles.regular, height: 1.45, color: textSecondary),
         // Label
-        labelLarge: TextStyle(fontSize: AppTextStyles.bodyLg, fontWeight: AppTextStyles.medium, color: textPrimary),
-        labelMedium: TextStyle(fontSize: AppTextStyles.bodyMd, fontWeight: AppTextStyles.medium, color: textSecondary),
-        labelSmall: TextStyle(fontSize: AppTextStyles.caption, fontWeight: AppTextStyles.medium, color: textSecondary),
+        labelLarge: TextStyle(fontSize: AppTextStyles.bodyLg, fontWeight: AppTextStyles.medium, height: 1.3, color: textPrimary),
+        labelMedium: TextStyle(fontSize: AppTextStyles.bodyMd, fontWeight: AppTextStyles.medium, height: 1.3, color: textSecondary),
+        labelSmall: TextStyle(fontSize: AppTextStyles.caption, fontWeight: AppTextStyles.medium, height: 1.25, color: textSecondary),
       ),
 
       // Input
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: isDark ? AppColors.cardDark : AppColors.grey50,
+        isDense: false,
+        alignLabelWithHint: true,
         border: OutlineInputBorder(
           borderRadius: AppRadius.btnRadiusMd,
           borderSide: BorderSide(color: isDark ? AppColors.borderDark : AppColors.grey200),
@@ -319,7 +328,8 @@ class AppTheme {
           borderRadius: AppRadius.btnRadiusMd,
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        errorMaxLines: 3,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         hintStyle: TextStyle(fontSize: AppTextStyles.bodyMd, color: textSecondary),
         labelStyle: TextStyle(fontSize: AppTextStyles.bodyMd, color: textSecondary),
       ),
@@ -330,7 +340,22 @@ class AppTheme {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+          minimumSize: const Size(64, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.btnRadiusMd),
+          textStyle: const TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: AppTextStyles.bodyLg,
+            fontWeight: AppTextStyles.semiBold,
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(64, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.btnRadiusMd),
           textStyle: const TextStyle(
             fontFamily: 'Cairo',
@@ -345,7 +370,8 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
           side: const BorderSide(color: AppColors.primary, width: 1.2),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
+          minimumSize: const Size(64, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.btnRadiusMd),
           textStyle: const TextStyle(
             fontFamily: 'Cairo',
@@ -359,7 +385,8 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           textStyle: const TextStyle(
             fontFamily: 'Cairo',
             fontSize: AppTextStyles.bodyLg,
@@ -473,7 +500,8 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
         elevation: 0,
-        height: 60,
+        height: 72,
+        indicatorColor: AppColors.primarySurface,
         labelTextStyle: WidgetStateProperty.all(
           TextStyle(
             fontFamily: 'Cairo',

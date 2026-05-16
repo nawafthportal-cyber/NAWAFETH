@@ -10,6 +10,7 @@ import '../services/account_mode_sync_service.dart';
 import '../services/api_client.dart';
 import '../services/notification_service.dart';
 import '../services/unread_badge_service.dart';
+import '../widgets/bottom_nav.dart';
 import '../widgets/platform_top_bar.dart';
 import 'chat_detail_screen.dart';
 import 'client_order_details_screen.dart';
@@ -910,6 +911,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             ),
           ],
         ),
+        bottomNavigationBar: const CustomBottomNav(currentIndex: 2),
         body: Column(
           children: [
             Padding(

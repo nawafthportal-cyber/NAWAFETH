@@ -16,6 +16,7 @@ const SpotlightViewer = (() => {
   let _touchStartTs = 0;
   let _swiping = false;
   let _currentVideo = null;
+  let _viewerMuted = false;
   let _navDirection = 0;
   let _speedHoldTimer = null;
   let _speedBoostActive = false;
@@ -48,6 +49,7 @@ const SpotlightViewer = (() => {
   function open(items, startIndex, options) {
     if (!items || !items.length) return;
     _options = options || {};
+    _viewerMuted = !!_options.startMuted;
     _items = Array.isArray(items) ? items.slice() : [];
     _baseItemsCount = _items.length;
     _maxSequenceItems = Math.max(
@@ -96,6 +98,7 @@ const SpotlightViewer = (() => {
     _items = [];
     _currentIndex = 0;
     _options = {};
+    _viewerMuted = false;
     _navDirection = 0;
     _baseItemsCount = 0;
     _maxSequenceItems = 0;
@@ -352,15 +355,13 @@ const SpotlightViewer = (() => {
         video.preload = 'auto';
         video.controls = false;
         video.playsInline = true;
-        video.muted = true;
-        video.defaultMuted = true;
         video.src = _resolveUrl(item.file_url);
         if (posterUrl) video.poster = posterUrl;
-        video.setAttribute('muted', 'muted');
         video.setAttribute('playsinline', 'playsinline');
         video.setAttribute('webkit-playsinline', 'webkit-playsinline');
         video.setAttribute('disablepictureinpicture', '');
         video.playbackRate = 1;
+        _applyCurrentAudioState(video);
         video.addEventListener('error', () => {
           video.style.display = 'none';
           const errIcon = document.createElement('div');
@@ -369,8 +370,7 @@ const SpotlightViewer = (() => {
           frame.appendChild(errIcon);
         });
         video.addEventListener('loadedmetadata', () => {
-          const playAttempt = video.play();
-          if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+          _attemptPlayback(video);
         });
         _currentVideo = video;
         frame.appendChild(video);
@@ -390,16 +390,20 @@ const SpotlightViewer = (() => {
         muteBtn.className = 'sv-mute-btn';
         muteBtn.setAttribute('type', 'button');
         muteBtn.setAttribute('aria-label', 'تشغيل أو كتم الصوت');
-        muteBtn.innerHTML = _soundIcon(true);
+        muteBtn.innerHTML = _soundIcon(_viewerMuted);
         muteBtn.addEventListener('click', (event) => {
           event.stopPropagation();
-          video.muted = !video.muted;
-          muteBtn.innerHTML = _soundIcon(video.muted);
+          _viewerMuted = !_viewerMuted;
+          _applyCurrentAudioState(video);
+          muteBtn.innerHTML = _soundIcon(_viewerMuted);
+          _attemptPlayback(video);
         });
         frame.appendChild(muteBtn);
 
         video.addEventListener('play', () => playToggle.classList.add('hidden'));
         video.addEventListener('pause', () => playToggle.classList.remove('hidden'));
+
+        _attemptPlayback(video);
 
         if (_isTikTokMode()) {
           _bindTikTokVideoGestures(frame, video, playToggle);
@@ -2408,13 +2412,33 @@ const SpotlightViewer = (() => {
   function _togglePlayback(video, toggleBtn) {
     if (!video) return;
     if (video.paused) {
-      const playAttempt = video.play();
-      if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+      _attemptPlayback(video);
       if (toggleBtn) toggleBtn.classList.add('hidden');
       return;
     }
     video.pause();
     if (toggleBtn) toggleBtn.classList.remove('hidden');
+  }
+
+  function _applyCurrentAudioState(video) {
+    if (!video) return;
+    video.muted = _viewerMuted;
+    video.defaultMuted = _viewerMuted;
+    video.volume = _viewerMuted ? 0 : 1;
+    if (_viewerMuted) {
+      video.setAttribute('muted', 'muted');
+    } else {
+      video.removeAttribute('muted');
+    }
+  }
+
+  function _attemptPlayback(video) {
+    if (!video) return;
+    _applyCurrentAudioState(video);
+    const playAttempt = video.play();
+    if (playAttempt && typeof playAttempt.catch === 'function') {
+      playAttempt.catch(() => {});
+    }
   }
 
   function _bindTikTokVideoGestures(frame, video, toggleBtn) {

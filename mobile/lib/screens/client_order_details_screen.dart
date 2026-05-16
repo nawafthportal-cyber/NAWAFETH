@@ -266,15 +266,6 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
     return order.status == RequestStatusFilters.newStatus;
   }
 
-  bool _canDecideProviderInputs(ServiceRequest order) {
-    if (order.providerInputsApproved != null) return false;
-    if (order.availableActions.isNotEmpty) {
-      return order.hasAction('approve_inputs') ||
-          order.hasAction('reject_inputs');
-    }
-    return order.status == RequestStatusFilters.awaitingClientStatus;
-  }
-
   bool _canCancelOrder(ServiceRequest order) {
     if (order.availableActions.isNotEmpty) {
       return order.hasAction('cancel');
@@ -317,13 +308,6 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
   String _formatMoney(double? value) {
     if (value == null) return '-';
     return '${value.toStringAsFixed(0)} ر.س';
-  }
-
-  String _formatQuoteDeadline(String? rawValue) {
-    final value = (rawValue ?? '').trim();
-    if (value.isEmpty) return '-';
-    final parsed = DateTime.tryParse(value);
-    return parsed == null ? value : _formatDateOnly(parsed);
   }
 
   Future<void> _openChat() async {

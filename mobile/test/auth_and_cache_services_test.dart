@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:nawafeth/main.dart' as app;
+import 'package:nawafeth/screens/login_screen.dart';
 import 'package:nawafeth/services/account_mode_service.dart';
 import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/auth_api_service.dart';
@@ -159,6 +161,31 @@ void main() {
     await OnboardingService.markSeen();
 
     expect(await OnboardingService.shouldShowOnboarding(), isFalse);
+  });
+
+  test('startup route resolves onboarding then auth state', () {
+    expect(
+      app.resolveInitialRoute(showOnboarding: true, isLoggedIn: false),
+      '/onboarding',
+    );
+    expect(
+      app.resolveInitialRoute(showOnboarding: true, isLoggedIn: true),
+      '/onboarding',
+    );
+    expect(
+      app.resolveInitialRoute(showOnboarding: false, isLoggedIn: false),
+      '/login',
+    );
+    expect(
+      app.resolveInitialRoute(showOnboarding: false, isLoggedIn: true),
+      '/home',
+    );
+  });
+
+  test('login validator rejects empty and malformed phone input', () {
+    expect(validateLoginPhoneInput(''), 'أدخل رقم الجوال للمتابعة');
+    expect(validateLoginPhoneInput('0500'), 'الصيغة الصحيحة: 05XXXXXXXX');
+    expect(validateLoginPhoneInput('0555555555'), isNull);
   });
 
   test('home cache fallback returns cached categories when offline', () async {

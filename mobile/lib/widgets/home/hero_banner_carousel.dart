@@ -78,13 +78,17 @@ class _HeroBannerCarouselState extends State<HeroBannerCarousel> {
       return const HeroBannerSkeleton();
     }
 
+    final width = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = width >= 700 ? 24.0 : 12.0;
+    final radius = width >= 700 ? AppRadius.xl : AppRadius.lg;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: AspectRatio(
-        aspectRatio: 16 / 9,
+        aspectRatio: 16 / 7,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.xl),
+            borderRadius: BorderRadius.circular(radius),
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary.withAlpha(30),
@@ -96,43 +100,17 @@ class _HeroBannerCarouselState extends State<HeroBannerCarousel> {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.xl),
+            borderRadius: BorderRadius.circular(radius),
             child: Stack(
               fit: StackFit.expand,
               children: [
                 _buildBannerContent(),
-                // Bottom gradient overlay
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.black.withAlpha(148),
-                          Colors.black.withAlpha(30),
-                          Colors.transparent,
-                        ],
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        stops: const [0.0, 0.45, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-                // Page dots
                 if (widget.banners.length > 1)
                   Positioned(
-                    bottom: 12,
+                    bottom: 10,
                     left: 0,
                     right: 0,
                     child: _buildPageDots(),
-                  ),
-                // Banner title overlay
-                if (widget.banners.isNotEmpty)
-                  Positioned(
-                    bottom: widget.banners.length > 1 ? 30 : 14,
-                    left: 14,
-                    right: 14,
-                    child: _buildTitleOverlay(),
                   ),
               ],
             ),
@@ -216,29 +194,6 @@ class _HeroBannerCarouselState extends State<HeroBannerCarousel> {
           ),
         );
       }),
-    );
-  }
-
-  Widget _buildTitleOverlay() {
-    final banner = widget.banners.isEmpty
-        ? null
-        : widget.banners[_currentPage.clamp(0, widget.banners.length - 1)];
-    final title = banner?.title ?? '';
-    if (title.isEmpty) return const SizedBox.shrink();
-    return Text(
-      title,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      textDirection: TextDirection.rtl,
-      style: const TextStyle(
-        fontFamily: 'Cairo',
-        fontSize: 14,
-        fontWeight: FontWeight.w700,
-        color: Colors.white,
-        shadows: [
-          Shadow(color: Colors.black54, blurRadius: 6),
-        ],
-      ),
     );
   }
 }

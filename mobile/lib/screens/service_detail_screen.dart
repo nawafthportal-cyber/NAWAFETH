@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../constants/app_theme.dart';
 import 'chat_detail_screen.dart'; // ✅ لفتح المحادثة
 import 'notifications_screen.dart';
 import 'provider_profile_screen.dart';

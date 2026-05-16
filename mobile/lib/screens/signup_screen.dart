@@ -1265,23 +1265,6 @@ class _SignUpScreenState extends State<SignUpScreen>
     );
   }
 
-  Widget _buildSectionDivider() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 1,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0x00E8DFF4), Color(0xFFE8DFF4), Color(0x00E8DFF4)],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildSignupSectionCard({required Widget child, bool isDark = false}) {
     return Container(
       width: double.infinity,

@@ -1020,14 +1020,14 @@ const HomePage = (() => {
     };
   }
 
-  function _openSpotlightViewer(items, index) {
+  function _openSpotlightViewer(items, index, optionOverrides) {
     if (typeof SpotlightViewer === 'undefined' || !Array.isArray(items) || !items.length) return;
-    SpotlightViewer.open(items, index, _spotlightViewerOptions());
+    SpotlightViewer.open(items, index, Object.assign({}, _spotlightViewerOptions(), optionOverrides || {}));
   }
 
-  function _openPortfolioViewer(items, index) {
+  function _openPortfolioViewer(items, index, optionOverrides) {
     if (typeof SpotlightViewer === 'undefined' || !Array.isArray(items) || !items.length) return;
-    SpotlightViewer.open(items, index, _portfolioViewerOptions());
+    SpotlightViewer.open(items, index, Object.assign({}, _portfolioViewerOptions(), optionOverrides || {}));
   }
 
   function _sharedSpotlightId() {
@@ -1058,14 +1058,14 @@ const HomePage = (() => {
 
     const existingIndex = _reelsData.findIndex((item) => Number(item && item.id) === spotlightId);
     if (existingIndex >= 0) {
-      _openSpotlightViewer(_reelsData, existingIndex);
+      _openSpotlightViewer(_reelsData, existingIndex, { startMuted: true });
       return;
     }
 
     try {
       const res = await ApiClient.get('/api/providers/spotlights/' + encodeURIComponent(String(spotlightId)) + '/public/');
       if (!res || !res.ok || !res.data) return;
-      _openSpotlightViewer([res.data], 0);
+      _openSpotlightViewer([res.data], 0, { startMuted: true });
     } catch (_) {
       // no-op
     }
@@ -1079,14 +1079,14 @@ const HomePage = (() => {
 
     const existingIndex = _portfolioShowcaseData.findIndex((item) => Number(item && item.id) === portfolioId);
     if (existingIndex >= 0) {
-      _openPortfolioViewer(_portfolioShowcaseData, existingIndex);
+      _openPortfolioViewer(_portfolioShowcaseData, existingIndex, { startMuted: true });
       return;
     }
 
     try {
       const res = await ApiClient.get('/api/providers/portfolio/' + encodeURIComponent(String(portfolioId)) + '/public/');
       if (!res || !res.ok || !res.data) return;
-      _openPortfolioViewer([res.data], 0);
+      _openPortfolioViewer([res.data], 0, { startMuted: true });
     } catch (_) {
       // no-op
     }

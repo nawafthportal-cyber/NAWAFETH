@@ -3,28 +3,34 @@ import 'package:shared_preferences/shared_preferences.dart';
 class OnboardingService {
   static const String _seenKey = 'has_seen_onboarding_v2';
 
-  /// Returns today's date stamp (e.g. "2026-04-21").
-  /// Matches the same daily-reset logic used in onboardingOverlay.js (web).
-  static String _todayStamp() {
-    final now = DateTime.now();
-    final m = now.month.toString().padLeft(2, '0');
-    final d = now.day.toString().padLeft(2, '0');
-    return '${now.year}-$m-$d';
-  }
-
-  /// Returns true only on the first open of each calendar day.
+  /// Returns true the first time the app is opened each local day.
   static Future<bool> shouldShowOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
-    // Migrate: old versions stored a bool — remove it if present.
-    if (prefs.containsKey(_seenKey) && prefs.get(_seenKey) is bool) {
-      await prefs.remove(_seenKey);
+    final today = _todayStamp();
+    final storedValue = prefs.get(_seenKey);
+
+    if (storedValue is String) {
+      return storedValue != today;
     }
-    return prefs.getString(_seenKey) != _todayStamp();
+
+    if (storedValue is bool && storedValue) {
+      await prefs.setString(_seenKey, today);
+      return false;
+    }
+
+    return true;
   }
 
-  /// Marks onboarding as seen for today.
+  /// Marks onboarding as seen for the current local day.
   static Future<void> markSeen() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_seenKey, _todayStamp());
+  }
+
+  static String _todayStamp() {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
   }
 }

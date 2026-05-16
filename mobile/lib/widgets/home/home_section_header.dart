@@ -24,55 +24,81 @@ class HomeSectionHeader extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 22, 16, 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (leadingIcon != null) ...[
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppColors.primarySurface,
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-              ),
-              child: Icon(
-                leadingIcon,
-                size: 15,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Text(
-            title,
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: AppTextStyles.h1,
-              fontWeight: AppTextStyles.bold,
-              color: isDark
-                  ? AppTextStyles.textPrimaryDark
-                  : AppTextStyles.textPrimary,
-              height: 1.3,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySurface,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (leadingIcon != null) ...[
+                        Icon(leadingIcon, size: 13, color: AppColors.primary),
+                        const SizedBox(width: 5),
+                      ],
+                      const Text(
+                        'نوافذ',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                          fontWeight: AppTextStyles.bold,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: AppTextStyles.h1,
+                    fontWeight: AppTextStyles.bold,
+                    color: isDark
+                        ? AppTextStyles.textPrimaryDark
+                        : AppTextStyles.textPrimary,
+                    height: 1.3,
+                  ),
+                ),
+              ],
             ),
           ),
-          const Spacer(),
           if (actionLabel != null && onAction != null)
-            GestureDetector(
-              onTap: onAction,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.primarySurface,
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                ),
-                child: Text(
-                  actionLabel!,
-                  style: const TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: AppTextStyles.bodySm,
-                    fontWeight: AppTextStyles.semiBold,
-                    color: AppColors.primary,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: GestureDetector(
+                onTap: onAction,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySurface,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Text(
+                    actionLabel!,
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: AppTextStyles.bodySm,
+                      fontWeight: AppTextStyles.semiBold,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
               ),

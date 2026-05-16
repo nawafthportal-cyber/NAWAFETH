@@ -6,7 +6,7 @@ import 'home_section_header.dart';
 import 'loading_skeletons.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Premium Category Chips Section (horizontal scroll)
+//  Category cards section matching the mobile web home rhythm.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class CategoryChipsSection extends StatelessWidget {
@@ -31,7 +31,6 @@ class CategoryChipsSection extends StatelessWidget {
       children: [
         HomeSectionHeader(
           title: 'التصنيفات',
-          leadingIcon: Icons.category_outlined,
           actionLabel: onSeeAll != null ? 'عرض الكل' : null,
           onAction: onSeeAll,
         ),
@@ -93,9 +92,9 @@ class _CategoryChipsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 46,
+      height: 116,
       child: ListView.builder(
-        padding: const EdgeInsetsDirectional.only(start: 14, end: 14),
+        padding: const EdgeInsetsDirectional.only(start: 12, end: 12),
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         itemCount: categories.length,
@@ -127,15 +126,16 @@ class _CategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsetsDirectional.only(end: 8),
+      padding: const EdgeInsetsDirectional.only(end: 10),
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          width: 126,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: isDark ? AppColors.cardDark : Colors.white,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
             border: Border.all(
               color: isDark
                   ? AppColors.borderDark
@@ -144,17 +144,30 @@ class _CategoryChip extends StatelessWidget {
             ),
             boxShadow: AppShadows.card,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon, size: 14, color: AppColors.primary),
-              const SizedBox(width: 6),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primarySurface,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(icon, size: 22, color: AppColors.primary),
+              ),
+              const SizedBox(height: 10),
               Text(
                 category.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'Cairo',
                   fontSize: AppTextStyles.bodySm,
-                  fontWeight: AppTextStyles.semiBold,
+                  height: 1.25,
+                  fontWeight: AppTextStyles.bold,
                   color: isDark
                       ? AppTextStyles.textPrimaryDark
                       : AppTextStyles.textPrimary,

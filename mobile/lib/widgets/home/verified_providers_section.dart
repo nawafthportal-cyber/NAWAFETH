@@ -33,7 +33,7 @@ class VerifiedProvidersSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         HomeSectionHeader(
-          title: 'مقدمو الخدمة الموثّقون',
+          title: 'أبرز المختصين',
           leadingIcon: Icons.verified_rounded,
           actionLabel: onSeeAll != null ? 'عرض الكل' : null,
           onAction: onSeeAll,
@@ -47,9 +47,9 @@ class VerifiedProvidersSection extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 178,
+            height: 190,
             child: ListView.builder(
-              padding: const EdgeInsetsDirectional.only(start: 14, end: 14),
+              padding: const EdgeInsetsDirectional.only(start: 12, end: 12),
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               itemCount: specialists.length,
@@ -83,21 +83,20 @@ class _ProviderCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 130,
+        width: 148,
         margin: const EdgeInsetsDirectional.only(end: 10),
         decoration: BoxDecoration(
           color: isDark ? AppColors.cardDark : Colors.white,
           borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
-            color: isDark
-                ? AppColors.borderDark
-                : AppColors.primary.withAlpha(20),
+            color:
+                isDark ? AppColors.borderDark : AppColors.primary.withAlpha(20),
             width: 1,
           ),
           boxShadow: AppShadows.card,
         ),
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -106,7 +105,7 @@ class _ProviderCard extends StatelessWidget {
               Stack(
                 alignment: Alignment.bottomLeft,
                 children: [
-                  _Avatar(url: profileUrl, size: 54),
+                  _Avatar(url: profileUrl, size: 62),
                   if (specialist.isVerified)
                     Positioned(
                       bottom: 0,
@@ -128,7 +127,7 @@ class _ProviderCard extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Cairo',
                   fontSize: AppTextStyles.bodySm,
-                  fontWeight: AppTextStyles.semiBold,
+                  fontWeight: AppTextStyles.bold,
                   color: isDark
                       ? AppTextStyles.textPrimaryDark
                       : AppTextStyles.textPrimary,
@@ -165,7 +164,7 @@ class _ProviderCard extends StatelessWidget {
                     ),
                   ],
                 ),
-              const SizedBox(height: 6),
+              const Spacer(),
               // View button
               _ViewButton(onTap: onTap),
             ],

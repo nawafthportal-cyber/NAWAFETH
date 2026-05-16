@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../constants/app_theme.dart';
+import '../utils/responsive.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import 'provider_profile_screen.dart';
@@ -258,10 +260,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
   }
 
   String _normalizeSearch(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), ' ');
+    return value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   bool _matchesQuery(String query, List<String?> values) {
@@ -363,10 +362,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
       body: Column(
         children: [
           _buildHeaderSummary(isDark, purple),
-          _buildTabsOverviewCard(isDark, purple),
-          // -- Custom Tab Bar --
+          _buildTabsOverviewCard(),
           _buildTabBar(isDark, purple),
-          // -- Tab Content --
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -390,126 +387,140 @@ class _InteractiveScreenState extends State<InteractiveScreen>
   Widget _buildHeaderSummary(bool isDark, Color purple) {
     final hasFollowersTab = _isProviderMode;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
         decoration: BoxDecoration(
-          gradient: isDark
-              ? null
-              : LinearGradient(
-                  colors: [
-                    Colors.white,
-                    purple.withValues(alpha: 0.05),
-                  ],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : null,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : purple.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(28),
+          gradient: const LinearGradient(
+            colors: [
+              Color(0xFF0E0224),
+              Color(0xFF2A1169),
+              Color(0xFF0B3331),
+            ],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
           ),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x302A1169),
+              blurRadius: 30,
+              offset: Offset(0, 18),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: purple.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF59E0B),
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                  child: Icon(Icons.hub_rounded, color: purple, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: purple.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          'لوحة تفاعلك',
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w900,
-                            color: isDark ? Colors.white : purple,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'شبكتك التفاعلية',
-                        style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'تابع من ترتبط بهم، راجع من يتابعك، وارجع إلى العناصر المحفوظة بسرعة.',
-                        style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 11,
-                          height: 1.6,
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? Colors.white54 : Colors.black45,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 8),
+                  const Text(
+                    'لوحة تفاعلك',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFFEF3C7),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _summaryChip(
-                  value: _following.length,
-                  label: 'من أتابع',
-                  isDark: isDark,
-                  accent: purple,
-                ),
-                if (hasFollowersTab)
-                  _summaryChip(
-                    value: _followers.length,
-                    label: 'متابعيني',
-                    isDark: isDark,
-                    accent: purple,
+            const SizedBox(height: 14),
+            const Text(
+              'شبكتك التفاعلية',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 28,
+                height: 1.16,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'تابع من ترتبط بهم، راجع من يتابعك، وارجع إلى العناصر المحفوظة بسرعة.',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 13,
+                height: 1.7,
+                fontWeight: FontWeight.w700,
+                color: Color(0xD9FFFFFF),
+              ),
+            ),
+            const SizedBox(height: 20),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 420;
+                final items = <Widget>[
+                  Expanded(
+                    child: _summaryChip(
+                      value: _following.length,
+                      label: 'من أتابع',
+                      isDark: true,
+                      accent: purple,
+                    ),
                   ),
-                _summaryChip(
-                  value: _favorites.length,
-                  label: 'مفضلتي',
-                  isDark: isDark,
-                  accent: purple,
-                  warm: true,
-                ),
-              ],
+                  if (hasFollowersTab)
+                    Expanded(
+                      child: _summaryChip(
+                        value: _followers.length,
+                        label: 'متابعيني',
+                        isDark: true,
+                        accent: const Color(0xFF14958A),
+                      ),
+                    ),
+                  Expanded(
+                    child: _summaryChip(
+                      value: _favorites.length,
+                      label: 'مفضلتي',
+                      isDark: true,
+                      accent: const Color(0xFFF59E0B),
+                      warm: true,
+                    ),
+                  ),
+                ];
+                if (narrow && items.length == 3) {
+                  return Column(
+                    children: [
+                      Row(children: [
+                        items[0],
+                        const SizedBox(width: 8),
+                        items[1]
+                      ]),
+                      const SizedBox(height: 8),
+                      Row(children: [items[2]]),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    for (var i = 0; i < items.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      items[i],
+                    ],
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -524,20 +535,13 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     required Color accent,
     bool warm = false,
   }) {
-    final primaryColor = warm ? const Color(0xFFB45309) : accent;
     return Container(
-      constraints: const BoxConstraints(minWidth: 98),
+      constraints: const BoxConstraints(minHeight: 66),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.05)
-            : primaryColor.withValues(alpha: 0.08),
+        color: Colors.white.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.05)
-              : primaryColor.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,7 +553,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
               fontFamily: 'Cairo',
               fontSize: 18,
               fontWeight: FontWeight.w900,
-              color: isDark ? Colors.white : primaryColor,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 2),
@@ -559,7 +563,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
               fontFamily: 'Cairo',
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
-              color: isDark ? Colors.white70 : const Color(0xFF475467),
+              color: Colors.white.withValues(alpha: 0.72),
             ),
           ),
         ],
@@ -567,101 +571,87 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     );
   }
 
-  Widget _buildTabsOverviewCard(bool isDark, Color purple) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : purple.withValues(alpha: 0.10),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: purple.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                'إدارة التفاعل',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w900,
-                  color: isDark ? Colors.white : purple,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'بدّل بين الأقسام للوصول السريع إلى الأشخاص والوسائط التي تهمك.',
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 11,
-                height: 1.7,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white60 : Colors.black54,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Widget _buildTabsOverviewCard() {
+    return const SizedBox.shrink();
   }
 
   Widget _shell(bool isDark, Color purple, {required Widget body}) {
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
+          isDark ? const Color(0xFF121212) : const Color(0xFFEDF0F7),
       drawer: const CustomDrawer(),
-      bottomNavigationBar: const CustomBottomNav(currentIndex: 2),
-      body: SafeArea(child: body),
+      bottomNavigationBar: const CustomBottomNav(currentIndex: -1),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: ResponsiveLayout.contentMaxWidth(context),
+            ),
+            child: body,
+          ),
+        ),
+      ),
     );
   }
 
   // -- TAB BAR --
   Widget _buildTabBar(bool isDark, Color purple) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      padding: const EdgeInsets.all(3),
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.06)
-            : Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(14),
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0x120F172A),
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
       ),
       child: TabBar(
         controller: _tabController,
-        indicator: BoxDecoration(
-          color: isDark ? Colors.deepPurple.shade700 : Colors.white,
-          borderRadius: BorderRadius.circular(11),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1))
-                ],
+        indicator: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0E0224), Color(0xFF673AB7), Color(0xFF062924)],
+            begin: Alignment.centerRight,
+            end: Alignment.centerLeft,
+          ),
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x4D673AB7),
+              blurRadius: 18,
+              offset: Offset(0, 6),
+            ),
+          ],
         ),
+        indicatorPadding:
+            const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
         indicatorSize: TabBarIndicatorSize.tab,
         dividerColor: Colors.transparent,
-        labelColor: isDark ? Colors.white : purple,
-        unselectedLabelColor:
-            isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+        labelColor: Colors.white,
+        unselectedLabelColor: isDark ? Colors.white70 : const Color(0xFF475569),
         labelStyle: const TextStyle(
-            fontFamily: 'Cairo', fontSize: 12, fontWeight: FontWeight.w700),
+          fontFamily: 'Cairo',
+          fontSize: 12.5,
+          fontWeight: FontWeight.w900,
+        ),
         unselectedLabelStyle: const TextStyle(
-            fontFamily: 'Cairo', fontSize: 11.5, fontWeight: FontWeight.w500),
+          fontFamily: 'Cairo',
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
         tabs: _isProviderMode
             ? [
                 _tabItem(
@@ -699,29 +689,42 @@ class _InteractiveScreenState extends State<InteractiveScreen>
   Widget _tabItem(IconData icon, String label, int count) {
     final badgeLabel = count > 999 ? '999+' : '$count';
     return Tab(
-      height: 36,
+      height: 48,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15),
-          const SizedBox(width: 4),
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 14),
+          ),
+          const SizedBox(width: 5),
           Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
           if (count > 0) ...[
-            const SizedBox(width: 4),
+            const SizedBox(width: 5),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+              constraints: const BoxConstraints(minWidth: 20),
+              height: 18,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(999),
+                color: Colors.deepPurple.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                border: Border.all(
+                  color: Colors.deepPurple.withValues(alpha: 0.18),
+                ),
               ),
               child: Text(
                 badgeLabel,
                 style: const TextStyle(
                   fontFamily: 'Cairo',
-                  fontSize: 9.5,
+                  fontSize: 10,
                   fontWeight: FontWeight.w900,
-                  color: Colors.deepPurple,
                 ),
               ),
             ),
@@ -886,9 +889,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                             fontFamily: 'Cairo',
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? Colors.white38
-                                : Colors.grey.shade500,
+                            color:
+                                isDark ? Colors.white38 : Colors.grey.shade500,
                           ),
                           prefixIcon: Icon(
                             Icons.search_rounded,
@@ -1114,9 +1116,10 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     final username = provider.username?.trim().isNotEmpty == true
         ? '@${provider.username!.trim()}'
         : '';
-    final providerTypeLabel = (provider.providerTypeLabel ?? '').trim().isNotEmpty
-        ? provider.providerTypeLabel!.trim()
-        : 'مزود خدمة';
+    final providerTypeLabel =
+        (provider.providerTypeLabel ?? '').trim().isNotEmpty
+            ? provider.providerTypeLabel!.trim()
+            : 'مزود خدمة';
     final cityText = provider.locationDisplay.trim().isNotEmpty
         ? provider.locationDisplay.trim()
         : 'المدينة غير محددة';
@@ -1126,12 +1129,10 @@ class _InteractiveScreenState extends State<InteractiveScreen>
       if (categoryText.isNotEmpty) categoryText,
       if (subcategoryText.isNotEmpty) subcategoryText else cityText,
     ];
-    final subtitleText = subtitleParts.isNotEmpty
-        ? subtitleParts.join(' • ')
-        : cityText;
-    final ratingText = provider.ratingAvg > 0
-        ? provider.ratingAvg.toStringAsFixed(1)
-        : '0.0';
+    final subtitleText =
+        subtitleParts.isNotEmpty ? subtitleParts.join(' • ') : cityText;
+    final ratingText =
+        provider.ratingAvg > 0 ? provider.ratingAvg.toStringAsFixed(1) : '0.0';
 
     return GestureDetector(
       onTap: () => _navigateToProvider(provider),
@@ -1200,8 +1201,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                               top: -8,
                               left: -6,
                               child: Container(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 88),
+                                constraints: const BoxConstraints(maxWidth: 88),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 6,
                                   vertical: 2,
@@ -1260,9 +1260,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                                 fontFamily: 'Cairo',
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
-                                color: isDark
-                                    ? Colors.white
-                                    : Colors.black87,
+                                color: isDark ? Colors.white : Colors.black87,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1291,9 +1289,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
                                 height: 1.5,
-                                color: isDark
-                                    ? Colors.white60
-                                    : Colors.black54,
+                                color: isDark ? Colors.white60 : Colors.black54,
                               ),
                             ),
                           ],
@@ -1387,7 +1383,9 @@ class _InteractiveScreenState extends State<InteractiveScreen>
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withValues(alpha: 0.05)
-            : (soft ? color.withValues(alpha: 0.05) : color.withValues(alpha: 0.08)),
+            : (soft
+                ? color.withValues(alpha: 0.05)
+                : color.withValues(alpha: 0.08)),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: isDark
@@ -1581,9 +1579,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                             fontSize: 10,
                             fontFamily: 'Cairo',
                             fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? Colors.white70
-                                : accentColor,
+                            color: isDark ? Colors.white70 : accentColor,
                           ),
                         ),
                       ],
@@ -1699,12 +1695,12 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     }
 
     final filtered = _filteredFavorites;
-  final spotlightItems = filtered
-    .where((item) => item.source == MediaItemSource.spotlight)
-    .toList(growable: false);
-  final otherItems = filtered
-    .where((item) => item.source != MediaItemSource.spotlight)
-    .toList(growable: false);
+    final spotlightItems = filtered
+        .where((item) => item.source == MediaItemSource.spotlight)
+        .toList(growable: false);
+    final otherItems = filtered
+        .where((item) => item.source != MediaItemSource.spotlight)
+        .toList(growable: false);
 
     return Column(
       children: [
@@ -1744,7 +1740,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                             child: _favoritesSectionHeader(
                               title: 'الريلز المحفوظة',
-                              subtitle: 'وصول سريع إلى الأضواء التي احتفظت بها.',
+                              subtitle:
+                                  'وصول سريع إلى الأضواء التي احتفظت بها.',
                               isDark: isDark,
                               accent: purple,
                             ),
@@ -1754,11 +1751,13 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                           child: SizedBox(
                             height: 132,
                             child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                               scrollDirection: Axis.horizontal,
                               physics: const BouncingScrollPhysics(),
                               itemCount: spotlightItems.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 10),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 10),
                               itemBuilder: (context, index) {
                                 final item = spotlightItems[index];
                                 final originalIndex = _favorites.indexOf(item);
@@ -1786,7 +1785,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                               title: spotlightItems.isNotEmpty
                                   ? 'الوسائط المحفوظة'
                                   : 'مفضلتي',
-                              subtitle: 'الصور ومقاطع الفيديو المحفوظة للرجوع إليها لاحقًا.',
+                              subtitle:
+                                  'الصور ومقاطع الفيديو المحفوظة للرجوع إليها لاحقًا.',
                               isDark: isDark,
                               accent: purple,
                             ),
@@ -1799,20 +1799,26 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                               final crossAxisCount =
                                   constraints.crossAxisExtent < 360 ? 1 : 2;
                               return SliverGrid(
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                gridDelegate:
+                                    SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: crossAxisCount,
                                   mainAxisSpacing: 10,
                                   crossAxisSpacing: 10,
                                   childAspectRatio:
-                                      constraints.crossAxisExtent < 360 ? 1.25 : 0.85,
+                                      constraints.crossAxisExtent < 360
+                                          ? 1.25
+                                          : 0.85,
                                 ),
                                 delegate: SliverChildBuilderDelegate(
                                   (context, index) {
                                     final item = otherItems[index];
-                                    final originalIndex = _favorites.indexOf(item);
+                                    final originalIndex =
+                                        _favorites.indexOf(item);
                                     return _favoriteCard(
                                       item,
-                                      originalIndex >= 0 ? originalIndex : index,
+                                      originalIndex >= 0
+                                          ? originalIndex
+                                          : index,
                                       isDark,
                                       purple,
                                     );

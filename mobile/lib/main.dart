@@ -17,6 +17,7 @@ import 'screens/my_chats_screen.dart';
 import 'screens/interactive_screen.dart';
 import 'screens/my_profile_screen.dart';
 import 'screens/add_service_screen.dart';
+import 'screens/notifications_screen.dart';
 
 // 🟢 الشاشات الجديدة
 import 'screens/login_screen.dart';
@@ -66,6 +67,16 @@ Future<void> main() async {
 }
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
+String resolveInitialRoute({
+  required bool showOnboarding,
+  required bool isLoggedIn,
+}) {
+  if (showOnboarding) {
+    return '/onboarding';
+  }
+  return isLoggedIn ? '/home' : '/login';
+}
 
 class NawafethApp extends StatefulWidget {
   final bool showOnboarding;
@@ -143,12 +154,16 @@ class _NawafethAppState extends State<NawafethApp> {
         ],
 
         // ✅ المسارات
-        initialRoute: widget.showOnboarding ? '/onboarding' : '/home',
+        initialRoute: resolveInitialRoute(
+          showOnboarding: widget.showOnboarding,
+          isLoggedIn: widget.isLoggedIn,
+        ),
         routes: {
           '/onboarding': (context) => const OnboardingScreen(),
           '/home': (context) => const HomeScreen(),
           '/chats': (context) => const MyChatsScreen(),
           '/orders': (context) => const OrdersHubScreen(),
+          '/notifications': (context) => const NotificationsScreen(),
           '/interactive': (context) => const InteractiveScreen(),
           '/profile': (context) => const MyProfileScreen(),
           '/add_service': (context) => const AddServiceScreen(),

@@ -76,16 +76,19 @@ class HeroBannerSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = width >= 700 ? 24.0 : 12.0;
+    final radius = width >= 700 ? AppRadius.xl : AppRadius.lg;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: AspectRatio(
-        aspectRatio: 16 / 9,
+        aspectRatio: 16 / 7,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppRadius.xl),
+          borderRadius: BorderRadius.circular(radius),
           child: _Shimmer(
             width: double.infinity,
             height: double.infinity,
-            radius: AppRadius.xl,
+            radius: radius,
           ),
         ),
       ),
@@ -114,7 +117,7 @@ class _CategoryChipSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: 8),
-      child: _Shimmer(width: 80, height: 34, radius: AppRadius.pill),
+      child: _Shimmer(width: 118, height: 104, radius: AppRadius.lg),
     );
   }
 }
@@ -126,7 +129,7 @@ class CategoryStripSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 44,
+      height: 112,
       child: ListView(
         padding: const EdgeInsetsDirectional.only(start: 14, end: 14),
         scrollDirection: Axis.horizontal,
@@ -148,7 +151,7 @@ class _ProviderCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      width: 130,
+      width: 148,
       margin: const EdgeInsetsDirectional.only(start: 10),
       decoration: BoxDecoration(
         color: isDark ? AppColors.cardDark : AppColors.cardLight,
@@ -159,7 +162,7 @@ class _ProviderCardSkeleton extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _Shimmer(width: 52, height: 52, radius: 26),
+          _Shimmer(width: 62, height: 62, radius: 31),
           const SizedBox(height: 8),
           _Shimmer(width: 80, height: 10, radius: 6),
           const SizedBox(height: 6),
@@ -179,7 +182,7 @@ class VerifiedProvidersSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 170,
+      height: 190,
       child: ListView(
         padding: const EdgeInsetsDirectional.only(start: 14, end: 14),
         scrollDirection: Axis.horizontal,

@@ -26,23 +26,27 @@ import '../widgets/spotlight_viewer.dart';
 import '../services/content_service.dart';
 import '../services/unread_badge_service.dart';
 import '../services/auth_service.dart';
+import '../services/profile_service.dart';
 
 // ── Premium home screen widgets ──────────────────────────────
 import '../widgets/home/home_header.dart';
 import '../widgets/home/hero_banner_carousel.dart';
-import '../widgets/home/search_cta_card.dart';
 import '../widgets/home/category_chips_section.dart';
 import '../widgets/home/verified_providers_section.dart';
 import '../widgets/home/home_content_section.dart';
+import '../widgets/home/home_overview_section.dart';
 
 import 'search_provider_screen.dart';
 import 'provider_profile_screen.dart';
 import 'notifications_screen.dart';
 import 'my_chats_screen.dart';
+import 'login_screen.dart';
 import 'signup_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final HomeScreenDebugState? debugState;
+
+  const HomeScreen({super.key, this.debugState});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -63,6 +67,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isSpotlightsLoading = true;
   bool _isFeaturedLoading = true;
   bool _isPortfolioShowcaseLoading = true;
+  bool _isProfileLoading = true;
+  bool _isLoggedIn = false;
   int _notificationUnread = 0;
   int _chatUnread = 0;
   bool _promoPopupShown = false;
@@ -73,6 +79,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _syncMessage;
   _HomeSyncTone _syncTone = _HomeSyncTone.info;
   int _activeReelIndex = 0;
+  String _accountDisplayName = 'زائر';
+  String _accountSubtitle = 'سجّل دخولك لتتبع الطلبات والتنبيهات من مكان واحد.';
+  String? _accountAvatarUrl;
 
   // -- Banner carousel --
   final PageController _bannerPageController = PageController();
@@ -160,7 +169,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.debugState != null) {
+      _applyDebugState(widget.debugState!);
+      return;
+    }
     _redirectIfCompletionPending();
+    _loadAccountSnapshot();
     final seeded = _seedFromCachedData();
     _loadHomeContent();
     _loadData(showLoader: !seeded);
@@ -172,6 +186,30 @@ class _HomeScreenState extends State<HomeScreen> {
     _handleBadgeChange();
     _reelsScroll.addListener(_handleReelsScroll);
     UnreadBadgeService.refresh(force: true);
+  }
+
+  void _applyDebugState(HomeScreenDebugState state) {
+    _categories = List<CategoryModel>.from(state.categories);
+    _providers = List<ProviderPublicModel>.from(state.providers);
+    _featuredSpecialists =
+        List<FeaturedSpecialistModel>.from(state.featuredSpecialists);
+    _banners = List<BannerModel>.from(state.banners);
+    _spotlights = List<MediaItemModel>.from(state.spotlights);
+    _portfolioShowcase = List<MediaItemModel>.from(state.portfolioShowcase);
+    _content = state.content;
+    _isCategoriesLoading = state.isCategoriesLoading;
+    _isBannersLoading = state.isBannersLoading;
+    _isSpotlightsLoading = state.isSpotlightsLoading;
+    _isFeaturedLoading = state.isFeaturedLoading;
+    _isPortfolioShowcaseLoading = state.isPortfolioShowcaseLoading;
+    _isProfileLoading = state.isProfileLoading;
+    _isLoggedIn = state.isLoggedIn;
+    _notificationUnread = state.notificationUnread;
+    _chatUnread = state.chatUnread;
+    _syncMessage = state.syncMessage;
+    _accountDisplayName = state.accountDisplayName;
+    _accountSubtitle = state.accountSubtitle;
+    _accountAvatarUrl = state.accountAvatarUrl;
   }
 
   Future<void> _redirectIfCompletionPending() async {
@@ -186,6 +224,161 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(builder: (_) => const SignUpScreen()),
       );
     });
+  }
+
+  bool _looksLikePhone(String value) {
+    final normalized = value.replaceAll(RegExp(r'[\s\-\+\(\)@]'), '');
+    return RegExp(r'^0\d{8,12}$').hasMatch(normalized) ||
+        RegExp(r'^9665\d{8}$').hasMatch(normalized) ||
+        RegExp(r'^5\d{8}$').hasMatch(normalized);
+  }
+
+  String _safeAccountName(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty || _looksLikePhone(text)) {
+      return '';
+    }
+    return text;
+  }
+
+  Future<void> _loadAccountSnapshot() async {
+    final isLoggedIn = await AuthService.isLoggedIn();
+    if (!mounted) return;
+
+    if (!isLoggedIn) {
+      setState(() {
+        _isLoggedIn = false;
+        _isProfileLoading = false;
+        _accountDisplayName = 'زائر';
+        _accountSubtitle =
+            'سجّل دخولك للوصول السريع إلى الطلبات، الإشعارات، وحسابك.';
+        _accountAvatarUrl = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoggedIn = true;
+      _isProfileLoading = true;
+    });
+
+    try {
+      final result = await ProfileService.fetchMyProfile();
+      if (!mounted) return;
+
+      final profile = result.data;
+      if (!result.isSuccess || profile == null) {
+        setState(() {
+          _isProfileLoading = false;
+          _accountDisplayName = 'حسابك';
+          _accountSubtitle =
+              'تابع آخر التحديثات وأكمل المهام المهمة من الصفحة الرئيسية.';
+          _accountAvatarUrl = null;
+        });
+        return;
+      }
+
+      final candidates = <String>[
+        _safeAccountName(profile.providerDisplayName),
+        _safeAccountName(profile.displayName),
+        _safeAccountName(profile.username),
+      ];
+
+      final resolvedName = candidates.firstWhere(
+        (candidate) => candidate.isNotEmpty,
+        orElse: () => 'حسابك',
+      );
+
+      setState(() {
+        _isProfileLoading = false;
+        _accountDisplayName = resolvedName;
+        _accountSubtitle = profile.isProvider
+            ? 'لوحة مختصرة لإدارة حسابك وتنبيهات العملاء بسرعة.'
+            : 'لوحة مختصرة لمتابعة طلباتك وتنبيهاتك اليومية.';
+        _accountAvatarUrl = ApiClient.buildMediaUrl(profile.profileImage);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isProfileLoading = false;
+        _accountDisplayName = 'حسابك';
+        _accountSubtitle =
+            'تابع آخر التحديثات وأكمل المهام المهمة من الصفحة الرئيسية.';
+        _accountAvatarUrl = null;
+      });
+    }
+  }
+
+  List<HomeOverviewStat> get _overviewStats {
+    return [
+      HomeOverviewStat(
+        label: 'الطلبات',
+        value: _isLoggedIn ? 'جاهزة' : '--',
+        icon: Icons.receipt_long_rounded,
+        color: AppColors.primary,
+      ),
+      HomeOverviewStat(
+        label: 'الإشعارات',
+        value: '$_notificationUnread',
+        icon: Icons.notifications_active_outlined,
+        color: AppColors.warning,
+      ),
+      HomeOverviewStat(
+        label: 'التصنيفات',
+        value: _isCategoriesLoading ? '...' : '${_categories.length}',
+        icon: Icons.grid_view_rounded,
+        color: AppColors.info,
+      ),
+      HomeOverviewStat(
+        label: 'المختصون',
+        value: _isFeaturedLoading
+            ? '...'
+            : '${_visibleFeaturedSpecialists.length}',
+        icon: Icons.verified_user_outlined,
+        color: AppColors.success,
+      ),
+    ];
+  }
+
+  List<String> get _latestActivityItems {
+    final items = <String>[];
+    if ((_syncMessage ?? '').trim().isNotEmpty) {
+      items.add(_syncMessage!.trim());
+    }
+    if (!_isCategoriesLoading && _categories.isNotEmpty) {
+      items.add(
+          'تم تحديث ${_categories.length} تصنيفًا لسهولة الوصول إلى الخدمات.');
+    }
+    if (!_isFeaturedLoading && _visibleFeaturedSpecialists.isNotEmpty) {
+      items.add(
+          'يوجد ${_visibleFeaturedSpecialists.length} مختصين مميزين في الواجهة الآن.');
+    }
+    if (!_isSpotlightsLoading && _spotlights.isNotEmpty) {
+      items.add('آخر اللمحات والمحتوى المضاف حديثًا جاهز للعرض.');
+    }
+    return items;
+  }
+
+  Future<void> _openProtectedScreen({
+    required Widget destination,
+    bool requireAuth = true,
+  }) async {
+    if (requireAuth && !_isLoggedIn) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(redirectTo: destination),
+        ),
+      );
+      await _loadAccountSnapshot();
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => destination),
+    );
+    await _loadAccountSnapshot();
   }
 
   bool _seedFromCachedData() {
@@ -1207,6 +1400,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           await Future.wait([
+            _loadAccountSnapshot(),
             _loadData(forceRefresh: true, showLoader: false),
             _loadHomeContent(forceRefresh: true),
           ]);
@@ -1254,22 +1448,20 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // ── 3. Search CTA Card ────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: SearchCtaCard(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SearchProviderScreen()),
-                ),
-              ),
-            ),
-
             // ── Sync notice (only when there's a message) ─────────────────
             if ((_syncMessage ?? '').trim().isNotEmpty)
               SliverToBoxAdapter(child: _buildSyncNotice(isDark)),
 
-            // ── 4. Categories Chips ───────────────────────────────────────
+            // ── 3. Spotlight Reels ───────────────────────────────────────
+            SliverToBoxAdapter(child: _buildReels(isDark)),
+
+            // ── 4. Promo message card ────────────────────────────────────
+            if (_promoMessagePlacement != null)
+              SliverToBoxAdapter(
+                child: _buildPromoMessageCard(isDark, AppColors.primary),
+              ),
+
+            // ── 5. Categories ────────────────────────────────────────────
             SliverToBoxAdapter(
               child: CategoryChipsSection(
                 categories: _categories,
@@ -1290,7 +1482,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // ── 5. Verified Providers ─────────────────────────────────────
+            // ── 6. Verified Providers ─────────────────────────────────────
             SliverToBoxAdapter(
               child: VerifiedProvidersSection(
                 specialists: _visibleFeaturedSpecialists,
@@ -1322,18 +1514,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // ── 6. Spotlight Reels (original, kept intact) ───────────────
-            SliverToBoxAdapter(child: _buildReels(isDark)),
-
-            // ── Promo message card ────────────────────────────────────────
-            if (_promoMessagePlacement != null)
-              SliverToBoxAdapter(
-                child: _buildPromoMessageCard(isDark, AppColors.primary),
-              ),
-
             // ── 7. Portfolio / Content Showcase ──────────────────────────
-            if (_portfolioShowcase.isNotEmpty ||
-                _isPortfolioShowcaseLoading)
+            if (_portfolioShowcase.isNotEmpty || _isPortfolioShowcaseLoading)
               SliverToBoxAdapter(
                 child: HomeContentSection(
                   items: _portfolioShowcase,
@@ -3965,6 +4147,60 @@ class HomeScreenContent {
       fallbackBanner: resolveFallbackBanner('home_banners_fallback'),
     );
   }
+}
+
+@immutable
+class HomeScreenDebugState {
+  final HomeScreenContent content;
+  final List<CategoryModel> categories;
+  final List<ProviderPublicModel> providers;
+  final List<FeaturedSpecialistModel> featuredSpecialists;
+  final List<BannerModel> banners;
+  final List<MediaItemModel> spotlights;
+  final List<MediaItemModel> portfolioShowcase;
+  final bool isCategoriesLoading;
+  final bool isBannersLoading;
+  final bool isSpotlightsLoading;
+  final bool isFeaturedLoading;
+  final bool isPortfolioShowcaseLoading;
+  final bool isProfileLoading;
+  final bool isLoggedIn;
+  final int notificationUnread;
+  final int chatUnread;
+  final bool showOverviewOnly;
+  final String? syncMessage;
+  final String accountDisplayName;
+  final String accountSubtitle;
+  final String? accountAvatarUrl;
+
+  const HomeScreenDebugState({
+    this.content = const HomeScreenContent(
+      categoriesTitle: '...',
+      providersTitle: 'أبرز المختصين',
+      bannersTitle: '...',
+      fallbackBanner: null,
+    ),
+    this.categories = const <CategoryModel>[],
+    this.providers = const <ProviderPublicModel>[],
+    this.featuredSpecialists = const <FeaturedSpecialistModel>[],
+    this.banners = const <BannerModel>[],
+    this.spotlights = const <MediaItemModel>[],
+    this.portfolioShowcase = const <MediaItemModel>[],
+    this.isCategoriesLoading = false,
+    this.isBannersLoading = false,
+    this.isSpotlightsLoading = false,
+    this.isFeaturedLoading = false,
+    this.isPortfolioShowcaseLoading = false,
+    this.isProfileLoading = false,
+    this.isLoggedIn = true,
+    this.notificationUnread = 0,
+    this.chatUnread = 0,
+    this.showOverviewOnly = false,
+    this.syncMessage,
+    this.accountDisplayName = 'مستخدم',
+    this.accountSubtitle = 'لوحة مختصرة لمتابعة حسابك من تطبيق الجوال.',
+    this.accountAvatarUrl,
+  });
 }
 
 enum _HomeSyncTone { info, warning, error }

@@ -37,7 +37,7 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
         Navigator.pushReplacementNamed(context, '/orders');
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, '/interactive');
+        Navigator.pushReplacementNamed(context, '/notifications');
         break;
       case 3:
         Navigator.pushReplacementNamed(context, '/profile');
@@ -87,41 +87,49 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       // ✅ الرئيسية (أقصى اليمين)
-                      IconWithLabel(
-                        icon: Icons.home,
-                        label: "الرئيسية",
-                        selected: widget.currentIndex == 0,
-                        onTap: () => _navigate(context, 0),
+                      Expanded(
+                        child: IconWithLabel(
+                          icon: Icons.home,
+                          label: "الرئيسية",
+                          selected: widget.currentIndex == 0,
+                          onTap: () => _navigate(context, 0),
+                        ),
                       ),
 
                       // ✅ طلباتي
                       if (!_isProviderMode)
-                        IconWithLabel(
-                          icon: Icons.list_alt,
-                          label: "طلباتي",
-                          selected: widget.currentIndex == 1,
-                          onTap: () => _navigate(context, 1),
+                        Expanded(
+                          child: IconWithLabel(
+                            icon: Icons.list_alt,
+                            label: "الطلبات",
+                            selected: widget.currentIndex == 1,
+                            onTap: () => _navigate(context, 1),
+                          ),
                         )
                       else
-                        const SizedBox(width: 52),
+                        const Expanded(child: SizedBox.shrink()),
 
                       // ✅ زر الخدمة في المنتصف
-                      const SizedBox(width: 40),
+                      const SizedBox(width: 36),
 
                       // ✅ تفاعلي
-                      IconWithLabel(
-                        icon: Icons.group,
-                        label: "تفاعلي",
-                        selected: widget.currentIndex == 2,
-                        onTap: () => _navigate(context, 2),
+                      Expanded(
+                        child: IconWithLabel(
+                          icon: Icons.notifications_outlined,
+                          label: "الإشعارات",
+                          selected: widget.currentIndex == 2,
+                          onTap: () => _navigate(context, 2),
+                        ),
                       ),
 
                       // ✅ نافذتي (أقصى اليسار)
-                      IconWithLabel(
-                        icon: Icons.person,
-                        label: "نافذتي",
-                        selected: widget.currentIndex == 3,
-                        onTap: () => _navigate(context, 3),
+                      Expanded(
+                        child: IconWithLabel(
+                          icon: Icons.person,
+                          label: "الحساب",
+                          selected: widget.currentIndex == 3,
+                          onTap: () => _navigate(context, 3),
+                        ),
                       ),
                     ],
                   ),
@@ -224,30 +232,33 @@ class IconWithLabel extends StatelessWidget {
     return InkResponse(
       onTap: onTap,
       radius: 24,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-        decoration: BoxDecoration(
-          color: selected ? activeColor.withAlpha(18) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: contentColor, size: 20),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: AppTextStyles.micro,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: contentColor,
+      child: Center(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+          decoration: BoxDecoration(
+            color: selected ? activeColor.withAlpha(18) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: contentColor, size: 20),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: AppTextStyles.micro,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: contentColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

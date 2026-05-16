@@ -9,10 +9,19 @@ import '../services/app_logger.dart';
 import '../services/auth_api_service.dart';
 import '../services/auth_service.dart';
 import '../services/content_service.dart';
-import '../widgets/custom_drawer.dart';
-import '../widgets/platform_top_bar.dart';
+import '../utils/responsive.dart';
 import 'signup_screen.dart';
 import 'twofa_screen.dart';
+
+String? validateLoginPhoneInput(String raw) {
+  if (raw.trim().isEmpty) {
+    return 'أدخل رقم الجوال للمتابعة';
+  }
+  if (AuthService.normalizePhoneLocal05(raw) == null) {
+    return 'الصيغة الصحيحة: 05XXXXXXXX';
+  }
+  return null;
+}
 
 class LoginScreen extends StatefulWidget {
   final Widget? redirectTo;
@@ -132,10 +141,8 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   /// ✅ التحقق من صحة رقم الجوال
-  bool get _isPhoneValid {
-    final normalized = _normalizePhone05(_phoneController.text);
-    return RegExp(r'^05\d{8}$').hasMatch(normalized);
-  }
+  bool get _isPhoneValid =>
+      validateLoginPhoneInput(_phoneController.text) == null;
 
   String get _normalizedPhone => _normalizePhone05(_phoneController.text);
 
@@ -147,8 +154,12 @@ class _LoginScreenState extends State<LoginScreen>
       return 'يمكنك إعادة المحاولة بعد ${_formatWaitShort(_sendCooldownSeconds)}';
     }
     final value = _phoneController.text.trim();
-    if (value.isNotEmpty && !_isPhoneValid) {
-      return 'رقم الجوال غير صحيح';
+    final validationMessage = validateLoginPhoneInput(value);
+    if (value.isNotEmpty && validationMessage != null) {
+      return validationMessage;
+    }
+    if (value.isNotEmpty && validationMessage == null) {
+      return 'سيتم إرسال رمز تحقق إلى هذا الرقم';
     }
     return '';
   }
@@ -381,20 +392,14 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final viewInsets = MediaQuery.of(context).viewInsets.bottom;
     return Scaffold(
-      drawer: const CustomDrawer(),
-      backgroundColor: const Color(0xFFF7F3FC),
-      appBar: PlatformTopBar(
-        pageLabel: _content.title,
-        showBackButton: Navigator.of(context).canPop(),
-        showNotificationAction: false,
-        showChatAction: false,
-      ),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 360;
-          final horizontalPadding = compact ? 12.0 : 16.0;
+          final compact = ResponsiveLayout.isCompactWidth(context);
+          final horizontalPadding = ResponsiveLayout.horizontalPadding(context);
           return GestureDetector(
             onTap: () => FocusScope.of(context).unfocus(),
             child: Stack(
@@ -403,53 +408,43 @@ class _LoginScreenState extends State<LoginScreen>
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Color(0xFFF7F3FC),
-                        Color(0xFFFBF8FF),
-                        Color(0xFFF6F9FF),
+                        Color(0xFFF8F5FC),
+                        Color(0xFFFFFFFF),
+                        Color(0xFFF5F1FB),
                       ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
                   ),
                 ),
-                Positioned(
-                  top: -86,
-                  right: -54,
-                  child: Container(
-                    width: 210,
-                    height: 210,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.deepPurple.withValues(alpha: 0.11),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: -120,
-                  left: -66,
-                  child: Container(
-                    width: 250,
-                    height: 250,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.accentOrange.withValues(alpha: 0.12),
-                    ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.topCenter,
+                Center(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(
                       horizontalPadding,
-                      compact ? 10 : 16,
+                      compact ? 16 : 28,
                       horizontalPadding,
-                      18 + viewInsets,
+                      compact ? 18 + viewInsets : 28 + viewInsets,
                     ),
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 430),
-                      child: _buildEntrance(
-                        0,
-                        _buildFormCard(compact: compact),
+                      constraints: BoxConstraints(
+                        maxWidth: ResponsiveLayout.contentMaxWidth(context),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (Navigator.of(context).canPop())
+                            Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: IconButton.filledTonal(
+                                onPressed: () =>
+                                    Navigator.of(context).maybePop(),
+                                icon: const Icon(Icons.arrow_back_rounded),
+                              ),
+                            ),
+                          _buildBrandHeader(compact: compact),
+                          SizedBox(height: compact ? 16 : 22),
+                          _buildEntrance(0, _buildFormCard(compact: compact)),
+                        ],
                       ),
                     ),
                   ),
@@ -463,9 +458,10 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildFormCard({required bool compact}) {
-    final headlineSize = compact ? 23.0 : 26.0;
-    final sectionRadius = compact ? 24.0 : 28.0;
-    final fieldRadius = compact ? 16.0 : 18.0;
+    final theme = Theme.of(context);
+    final headlineSize = compact ? 26.0 : 30.0;
+    final sectionRadius = compact ? 24.0 : 30.0;
+    final fieldRadius = compact ? 18.0 : 22.0;
     final hasHint = _phoneSupportText.trim().isNotEmpty;
     return Container(
       width: double.infinity,
@@ -502,61 +498,27 @@ class _LoginScreenState extends State<LoginScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF2EAFF),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: AppColors.deepPurple.withValues(alpha: 0.16),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.verified_user_rounded,
-                  size: 13,
-                  color: AppColors.deepPurple.withValues(alpha: 0.88),
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  'بوابة نوافذ',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.deepPurple.withValues(alpha: 0.9),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: compact ? 12 : 14),
           Text(
             _content.title,
             style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: headlineSize,
-              height: 1.3,
+              height: 1.2,
               fontWeight: FontWeight.w900,
               color: const Color(0xFF1F1738),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
             _content.description,
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: compact ? 12 : 12.5,
-              fontWeight: FontWeight.w700,
-              height: 1.7,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
               color: const Color(0xFF6F6987),
             ),
           ),
           SizedBox(height: compact ? 12 : 14),
           _buildInfoStrip(
-            icon: Icons.shield_outlined,
+            icon: Icons.sms_outlined,
             text: _content.phoneHint,
           ),
           SizedBox(height: compact ? 14 : 16),
@@ -570,7 +532,11 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
           const SizedBox(height: 7),
-          _buildPhoneField(fieldRadius: fieldRadius, compact: compact),
+          Semantics(
+            textField: true,
+            label: 'حقل رقم الجوال',
+            child: _buildPhoneField(fieldRadius: fieldRadius, compact: compact),
+          ),
           if (hasHint) ...[
             const SizedBox(height: 7),
             _buildHintLine(
@@ -591,6 +557,7 @@ class _LoginScreenState extends State<LoginScreen>
                 disabledBackgroundColor:
                     AppColors.deepPurple.withValues(alpha: 0.42),
                 elevation: 0.5,
+                minimumSize: Size.fromHeight(compact ? 52 : 56),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(fieldRadius),
                 ),
@@ -609,7 +576,7 @@ class _LoginScreenState extends State<LoginScreen>
                           ? 'أعد المحاولة بعد ${_formatWaitShort(_sendCooldownSeconds)}'
                           : _content.submitLabel,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 15,
                         fontFamily: 'Cairo',
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
@@ -626,65 +593,52 @@ class _LoginScreenState extends State<LoginScreen>
           SizedBox(height: compact ? 13 : 15),
           _buildDivider(),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: compact ? 48 : 50,
-            child: OutlinedButton(
-              onPressed:
-                  (_isLoading || _isGuestLoading) ? null : _continueAsGuest,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.deepPurple,
-                backgroundColor: Colors.white,
-                side: BorderSide(
-                  color: AppColors.deepPurple.withValues(alpha: 0.36),
-                  width: 1.3,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(fieldRadius),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.deepPurple.withValues(alpha: 0.34),
-                        width: 1,
-                      ),
-                    ),
-                    child: _isGuestLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(6),
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(
-                            Icons.person_rounded,
-                            size: 16,
-                            color: AppColors.deepPurple,
-                          ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _isGuestLoading ? 'جارٍ التنفيذ...' : _content.guestLabel,
-                    style: const TextStyle(
-                      fontFamily: 'Cairo',
-                      fontWeight: FontWeight.w900,
-                      fontSize: 12.5,
-                      color: AppColors.deepPurple,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildSecondaryActions(fieldRadius: fieldRadius, compact: compact),
         ],
       ),
+    );
+  }
+
+  Widget _buildBrandHeader({required bool compact}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: compact ? 64 : 76,
+          height: compact ? 64 : 76,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.primaryLight, AppColors.primary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: AppShadows.elevated,
+          ),
+          child: const Icon(
+            Icons.window_rounded,
+            size: 36,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.primarySurface,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+          ),
+          child: const Text(
+            'تسجيل دخول سريع وآمن',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -717,18 +671,19 @@ class _LoginScreenState extends State<LoginScreen>
       scrollPadding: const EdgeInsets.only(bottom: 120),
       style: const TextStyle(
         fontFamily: 'Cairo',
-        fontSize: 13.5,
+        fontSize: 15,
         fontWeight: FontWeight.w800,
         color: Color(0xFF201830),
       ),
       decoration: InputDecoration(
+        labelText: 'رقم الجوال',
         hintText: '05XXXXXXXX',
         hintTextDirection: TextDirection.ltr,
         filled: true,
         fillColor: const Color(0xFFFDFBFF),
         hintStyle: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 12.5,
+          fontSize: 13,
           fontWeight: FontWeight.w700,
           color: Color(0xFF9A93AF),
         ),
@@ -789,7 +744,7 @@ class _LoginScreenState extends State<LoginScreen>
               text,
               style: const TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 11.5,
+                fontSize: 13,
                 height: 1.6,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF645B7D),
@@ -830,11 +785,96 @@ class _LoginScreenState extends State<LoginScreen>
         label: const Text(
           'الدخول بمعرف الوجه',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontFamily: 'Cairo',
             fontWeight: FontWeight.w900,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSecondaryActions({
+    required double fieldRadius,
+    required bool compact,
+  }) {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: compact ? 50 : 52,
+          child: OutlinedButton(
+            onPressed:
+                (_isLoading || _isGuestLoading) ? null : _continueAsGuest,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.deepPurple,
+              backgroundColor: Colors.white,
+              side: BorderSide(
+                color: AppColors.deepPurple.withValues(alpha: 0.36),
+                width: 1.3,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(fieldRadius),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_isGuestLoading)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  const Icon(Icons.person_outline_rounded, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  _isGuestLoading ? 'جارٍ التنفيذ...' : _content.guestLabel,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    color: AppColors.deepPurple,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            const Text(
+              'ليس لديك حساب؟',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF786F8B),
+              ),
+            ),
+            TextButton(
+              onPressed: (_isLoading || _isGuestLoading || _isFaceIdLoading)
+                  ? null
+                  : _openCreateAccount,
+              child: const Text('إنشاء حساب'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _openCreateAccount() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SignUpScreen(redirectTo: widget.redirectTo),
       ),
     );
   }
@@ -950,10 +990,10 @@ class AuthEntryContent {
 
   factory AuthEntryContent.loginDefault() {
     return const AuthEntryContent(
-      title: 'تسجيل الدخول',
-      description: 'أدخل رقم الجوال وسنرسل لك رمز تحقق لإكمال الدخول بأمان.',
-      phoneHint: 'الصيغة المعتمدة: 05XXXXXXXX',
-      submitLabel: 'إرسال رمز التحقق',
+      title: 'مرحبًا بعودتك',
+      description: 'سجّل دخولك للمتابعة إلى حسابك عبر رقم الجوال ورمز التحقق.',
+      phoneHint: 'أدخل رقم الجوال المسجل وسنرسل لك رمز تحقق للمتابعة.',
+      submitLabel: 'تسجيل الدخول',
       guestLabel: 'المتابعة كضيف',
     );
   }
@@ -967,13 +1007,16 @@ class AuthEntryContent {
     }
 
     return AuthEntryContent(
-      title: resolve('login_title', 'تسجيل الدخول'),
+      title: resolve('login_title', 'مرحبًا بعودتك'),
       description: resolve(
         'login_description',
-        'أدخل رقم الجوال وسنرسل لك رمز تحقق لإكمال الدخول بأمان.',
+        'سجّل دخولك للمتابعة إلى حسابك عبر رقم الجوال ورمز التحقق.',
       ),
-      phoneHint: resolve('login_phone_hint', 'الصيغة المعتمدة: 05XXXXXXXX'),
-      submitLabel: resolve('login_submit_label', 'إرسال رمز التحقق'),
+      phoneHint: resolve(
+        'login_phone_hint',
+        'أدخل رقم الجوال المسجل وسنرسل لك رمز تحقق للمتابعة.',
+      ),
+      submitLabel: resolve('login_submit_label', 'تسجيل الدخول'),
       guestLabel: resolve('login_guest_label', 'المتابعة كضيف'),
     );
   }
